@@ -1,0 +1,548 @@
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
+import { addLog, updateProgression } from '../simulation/progression';
+import { ACHIEVEMENTS } from '../data/progression';
+import { hasContinuousEnergyInput } from '../simulation/building-production';
+import { BUILDINGS } from '../data/buildings';
+import type { BuildingId } from '../types/buildings';
+import type { TechnologyId } from '../types/technologies';
+import { sampleEventInterval } from '../simulation/events';
+import { requestPurchaseModule, buyBuildingsInBatch, removeQueuedPurchase, describeQueuedPurchases } from '../simulation/purchases';
+
+import { changeWorkerAssignment, changeFactoryAssignment, changeGovernment, createContainers, changeContainerAssignment, craftManually } from '../simulation/commands';
+import type { RegionalMissionId } from '../simulation/space-missions';
+import { clampResourcesToCaps } from '../simulation/storage';
+import type { ResourceId, ResourceAmounts } from '../types/economy';
+import { RESOURCES } from '../data/resources';
+import { uiPreview } from './preview-cache';
+import { estimateQueueTimes } from './queue-estimates';
+import { changeCraftAssignment } from '../simulation/crafting';
+import { trimFactoryAssignments } from '../simulation/factory';
+import { fillNuclearProject, launchNuclearPrestige, launchEscapePrestige } from '../simulation/prestige';
+import { calculateEscapePrestigeReward, calculateCasimirReward } from '../simulation/government';
+import { investInProject } from '../simulation/projects';
+import { enqueueProject } from '../simulation/project-queue';
+import { buildingQueueCapacity, buildingQueueUsage, researchQueueCapacity } from '../simulation/queue-settings';
+import type { CrisprUpgradeId, GovernmentId, GameState } from '../types/state';
+import { launchChallenges } from '../simulation/challenges';
+import type { ChallengeGeneId } from '../types/state';
+import { purchaseCrisprUpgrade } from '../simulation/crispr';
+import { storageSnapshot, storageCap, moonSnapshot } from './format';
+import CivilizationPanel from './components/CivilizationPanel.vue';
+import ResourcePanel from './components/ResourcePanel.vue';
+import CraftingPanel from './components/CraftingPanel.vue';
+import BuildingsPanel from './components/BuildingsPanel.vue';
+import TechPanel from './components/TechPanel.vue';
+import CatsPanel from './components/CatsPanel.vue';
+import InternalPanel from './components/InternalPanel.vue';
+import ArpaPanel from './components/ArpaPanel.vue';
+import SettingsPanel from './components/SettingsPanel.vue';
+import StatsPanel from './components/StatsPanel.vue';
+import StoryPanel from './components/StoryPanel.vue';
+import StageThreePanel from './components/StageThreePanel.vue';
+import { runStageThreeExperiment, type StageThreeExperimentId } from '../simulation/stage-three';
+import { markStoryRead } from '../simulation/story';
+import type { StoryChapterId } from '../types/state';
+import { CONFIG } from '../data/config';
+import AchievementsPanel from './components/AchievementsPanel.vue';
+import ResourceManagementPanel from './components/ResourceManagementPanel.vue';
+import TipsPanel from './components/TipsPanel.vue';
+import FactoryModal from './components/FactoryModal.vue';
+import SpaceshipModal from './components/SpaceshipModal.vue';
+import { investInShipComponent, type ShipComponentId } from '../simulation/spaceship';
+import TooltipPanel from './components/TooltipPanel.vue';
+import type { GameStore } from '../app/store';
+
+const props = defineProps<{ store: GameStore }>();
+
+const TABS: { id: string; label: string }[] = [
+  { id: 'buildings', label: '世界' },
+  { id: 'internal', label: '内部管理' },
+  { id: 'cats', label: '猫猫' },
+  { id: 'tech', label: '科技' },
+  { id: 'arpa', label: 'A.R.P.A' },
+  { id: 'resourceManagement', label: '资源管理' },
+  { id: 'tips', label: 'Tips' },
+  { id: 'statistics', label: '统计' },
+  { id: 'story', label: '剧情' },
+  { id: 'settings', label: '设置' },
+];
+
+const activeTab = ref('buildings');
+const statisticsView = ref('info');
+const unreadStories = computed(() => { props.store.revision(); const archive = props.store.state().story; return archive.unlocked.filter(id => !archive.read.includes(id)).length; });
+function performStageThreeExperiment(id: StageThreeExperimentId): void {
+  props.store.mutate(state => runStageThreeExperiment(state, id));
+  afterAction();
+}
+function readStory(id: StoryChapterId): void {
+  props.store.mutate(state => markStoryRead(state, id));
+  props.store.runtime.save();
+}
+const worldView = ref('home');
+const techView = ref('available');
+const logFilter = ref('all');
+const logFilters = [{ id: 'all', name: '全部' }, { id: 'progress', name: '发展' }, { id: 'event', name: '事件' }, { id: 'achievement', name: '成就' }, { id: 'system', name: '系统' }];
+const visibleLogs = computed(() => { props.store.revision(); return state.value.logs.filter(log => logFilter.value === 'all' || log.type === logFilter.value); });
+const saveStatus = computed(() => { props.store.revision(); return props.store.runtime.saveBlocked ? '存档读取失败，已保护原存档' : props.store.runtime.saveFailed ? '本地保存失败，请导出备份' : '本地存档 · 自动保存已启用'; });
+
+function afterAction(): void {
+  props.store.mutate(s => { for (const id of updateProgression(s)) addLog(s, `🏅 成就达成：${ACHIEVEMENTS[id].name}`, 'achievement'); });
+  props.store.runtime.save();
+  props.store.refresh();
+}
+
+// The runtime owns the simulation; Vue only mirrors it through this counter.
+const state = computed(() => {
+  props.store.revision();
+  return props.store.state();
+});
+
+const gameDate = computed(() => {
+  props.store.revision();
+  const days = Math.floor(state.value.time / CONFIG.secondsPerDay);
+  return `${Math.floor(days / CONFIG.daysPerYear)}年${(days % CONFIG.daysPerYear) + 1}日`;
+});
+
+const guide = computed(() => {
+  props.store.revision();
+  if (state.value.tech.includes('spaceflight')) return '已掌握太空航行，前往世界的太空页探索。';
+  if (state.value.arpaBuildings.rocketPlatform > 0) return '火箭发射台已建成，继续推进 ARPA 工程。';
+  return '从猫爪开始，一点一滴长成文明。';
+});
+
+function buy(id: BuildingId, count: number, forceQueue = false): void {
+  props.store.mutate(s => {
+    const moonAvailable = () => moonSnapshot(s).available;
+    if (forceQueue) for (let i = 0; i < count; i++) requestPurchaseModule(s, 'build', id, moonAvailable, true);
+    else if (count === 1) requestPurchaseModule(s, 'build', id, moonAvailable);
+    else buyBuildingsInBatch(s, id, count, moonAvailable);
+  });
+  afterAction();
+}
+
+function toggle(id: BuildingId, delta: number): void {
+  props.store.mutate(s => {
+    if (!hasContinuousEnergyInput(id, s) || !Number.isSafeInteger(delta)) return;
+    const n = Math.floor((s.buildings[id] || 0) / (BUILDINGS[id].segmentedRequired ?? 1));
+    const stopped = s.stoppedBuildings[id] || 0;
+    s.stoppedBuildings[id] = Math.max(0, Math.min(n, stopped - delta));
+    trimFactoryAssignments(s);
+    clampResourcesToCaps(s, storageSnapshot(s));
+  });
+  afterAction();
+}
+
+function assignWorker(id: BuildingId, delta: number): void {
+  props.store.mutate(s => { changeWorkerAssignment(s, id, delta); });
+  afterAction();
+}
+
+function gather(id: 'food' | 'wood' | 'stone'): void {
+  props.store.mutate(s => {
+    const was = s.resources[id];
+    s.resources[id] = Math.min(storageCap(id, s), was + 2);
+    s.clicks++;
+  });
+}
+
+function research(id: TechnologyId, forceQueue = false): void {
+  props.store.mutate(s => { requestPurchaseModule(s, 'tech', id, () => moonSnapshot(s).available, forceQueue); });
+  afterAction();
+}
+
+function mission(id: RegionalMissionId, forceQueue = false): void {
+  props.store.mutate(s => { requestPurchaseModule(s, 'mission', id, () => moonSnapshot(s).available, forceQueue); });
+  afterAction();
+}
+
+function assignCraft(id: string, delta: number): void {
+  props.store.mutate(s => { changeCraftAssignment(s, id, delta); });
+  afterAction();
+}
+
+function reform(id: GovernmentId): void {
+  props.store.mutate(s => { changeGovernment(s, id); });
+  afterAction();
+}
+
+function saveNow(done?: (success: boolean) => void): void {
+  const success = props.store.runtime.save();
+  props.store.refresh();
+  done?.(success);
+}
+
+function startChallenges(genes: ChallengeGeneId[]): void {
+  const result = launchChallenges(props.store.state(), genes, sampleEventInterval(Math.random), Date.now());
+  if (!result) return;
+  props.store.runtime.replaceState(result.next);
+  props.store.mutate(s => addLog(s, '挑战已启动，所选挑战基因在本周目生效。可通过设置中的软重置退出。', 'system'));
+  worldView.value = 'home'; techView.value = 'available';
+  props.store.refresh();
+}
+
+function resetRun(kind: 'soft' | 'hard', done?: (success: boolean) => void): void {
+  const success = props.store.runtime.reset(kind);
+  if (success) { worldView.value = 'home'; techView.value = 'available'; factoryOpen.value = false; shipModal.value = false; escapeConfirm.value = false; }
+  props.store.refresh();
+  done?.(success && !props.store.runtime.saveFailed);
+}
+
+function replaceState(next: GameState, done?: (loaded: boolean, saved?: boolean) => void): void {
+  try {
+    const saved = props.store.runtime.replaceState(next);
+    if (!props.store.state().tech.includes('spaceflight')) worldView.value = 'home';
+    props.store.refresh();
+    done?.(true, saved);
+  } catch {
+    done?.(false);
+  }
+}
+
+function manufacture(count: number): void {
+  props.store.mutate(s => { createContainers(s, count); });
+  afterAction();
+}
+
+function assignContainer(id: ResourceId, delta: number): void {
+  props.store.mutate(s => {
+    changeContainerAssignment(s, id, delta);
+    clampResourcesToCaps(s, storageSnapshot(s));
+  });
+  afterAction();
+}
+
+function investProject(id: string, percent: number): void {
+  props.store.mutate(s => { investInProject(id, s, percent, Math.random); });
+  afterAction();
+}
+
+function investShip(id: ShipComponentId, percent: number | 'max'): void {
+  props.store.mutate(s => { investInShipComponent(id, percent, s); });
+  afterAction();
+}
+
+function queueShip(id: ShipComponentId): void {
+  props.store.mutate(s => { requestPurchaseModule(s, 'ship', id, () => moonSnapshot(s).available, true); });
+  afterAction();
+}
+
+function purchaseCrispr(id: CrisprUpgradeId): void {
+  props.store.mutate(s => {
+    if (purchaseCrisprUpgrade(s, id)) clampResourcesToCaps(s, storageSnapshot(s));
+  });
+  afterAction();
+}
+
+function queueProject(id: string, count: number): void {
+  props.store.mutate(s => { enqueueProject(s, id, count); });
+  afterAction();
+}
+
+function setTax(rate: number): void {
+  props.store.mutate(s => { s.taxRate = Math.max(0, Math.min(30, Math.round(rate))); });
+}
+
+function fillNuclear(percent: number): void {
+  props.store.mutate(s => { fillNuclearProject(s, percent); });
+  afterAction();
+}
+
+const escapeConfirm = ref(false);
+const escapeDialog = ref<HTMLDialogElement | null>(null);
+const escapeReward = computed(() => { props.store.revision(); return calculateEscapePrestigeReward(state.value); });
+const casimirReward = computed(() => calculateCasimirReward(escapeReward.value));
+watch(escapeConfirm, async open => { if (open) { await nextTick(); escapeDialog.value?.showModal(); } });
+function launchShip(): void {
+  shipModal.value = false;
+  escapeConfirm.value = true;
+}
+function confirmEscape(): void {
+  const result = launchEscapePrestige(props.store.state(), sampleEventInterval(Math.random), Date.now());
+  if (!result) return;
+  props.store.runtime.replaceState(result.next);
+  props.store.mutate(s => addLog(s, `🚀 ESS-喵星号已离开太阳系，获得 ${result.reward} 粒子与 ${result.casimirReward} 卡西米尔晶体。新的文明开始了。`, 'system'));
+  escapeConfirm.value = false;
+  shipModal.value = false;
+  factoryOpen.value = false;
+  worldView.value = 'home';
+  activeTab.value = 'buildings';
+  techView.value = 'available';
+  afterAction();
+}
+
+const nuclearConfirm = ref(false);
+function launchNuclear(): void {
+  nuclearConfirm.value = true;
+}
+function confirmNuclear(): void {
+  const result = launchNuclearPrestige(props.store.state(), sampleEventInterval(Math.random), Date.now());
+  if (!result) return;
+  props.store.runtime.replaceState(result.next);
+  props.store.mutate(s => addLog(s, `☢️ 核弹已发射，获得 ${result.reward} 粒子。新的文明开始了。`, 'system'));
+  nuclearConfirm.value = false;
+  worldView.value = 'home';
+  activeTab.value = 'buildings';
+  afterAction();
+}
+
+const queuedItems = computed(() => { props.store.revision(); return describeQueuedPurchases(state.value); });
+const queueTimes = computed(() => {
+  props.store.revision();
+  if (!state.value.queue.length) return new Map<number, string>();
+  const caps = Object.fromEntries((Object.keys(RESOURCES) as ResourceId[]).map(id => [id, storageCap(id, state.value, props.store.revision())])) as ResourceAmounts;
+  return estimateQueueTimes(state.value, uiPreview.production(state.value, props.store.revision()).rates, caps);
+});
+const researchQueueItems = computed(() => queuedItems.value.filter(item => item.kind === 'tech'));
+const buildingQueueItems = computed(() => queuedItems.value.filter(item => item.kind === 'build' || item.kind === 'arpa' || item.kind === 'mission' || item.kind === 'ship'));
+function cancelQueue(uid: number): void {
+  props.store.mutate(s => { removeQueuedPurchase(s, uid); });
+  afterAction();
+}
+const factoryOpen = ref(false);
+const factoryDialog = ref<HTMLDialogElement | null>(null);
+const shipModal = ref(false);
+const shipDialog = ref<HTMLDialogElement | null>(null);
+watch(shipModal, async open => { if (open) { await nextTick(); shipDialog.value?.showModal(); } });
+
+function dismissShipBackdrop(event: MouseEvent): void {
+  const dialog = shipDialog.value;
+  if (!dialog || event.target !== dialog) return;
+  const bounds = dialog.getBoundingClientRect();
+  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) shipModal.value = false;
+}
+const nuclearDialog = ref<HTMLDialogElement | null>(null);
+watch(factoryOpen, async open => { if (open) { await nextTick(); factoryDialog.value?.showModal(); } });
+watch(nuclearConfirm, async open => { if (open) { await nextTick(); nuclearDialog.value?.showModal(); } });
+
+function dismissFactoryBackdrop(event: MouseEvent): void {
+  const dialog = factoryDialog.value;
+  if (!dialog || event.target !== dialog) return;
+  const bounds = dialog.getBoundingClientRect();
+  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) factoryOpen.value = false;
+}
+
+function assignLine(id: string, delta: number): void {
+  props.store.mutate(s => { changeFactoryAssignment(s, id, delta); });
+  afterAction();
+}
+
+let timer: number | undefined;
+
+onMounted(() => {
+  props.store.refresh();
+  timer = window.setInterval(() => {
+    props.store.runtime.tick(0.2);
+    props.store.refresh();
+  }, 200);
+});
+
+onUnmounted(() => {
+  if (timer !== undefined) window.clearInterval(timer);
+});
+</script>
+
+<template>
+  <div class="app" :class="{ 'touch-optimized': state.settings.touchOptimization }">
+    <header class="topbar">
+      <div class="brand">🐱 <b>Eden_Kittens</b><span>从登陆的第一只猫猫，到登陆月球</span></div>
+      <span class="game-date">{{ gameDate }}</span>
+      <div class="spacer"></div>
+      <span class="small subtle" role="status">{{ saveStatus }}</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.4.10</span>
+    </header>
+
+    <div class="layout">
+      <aside class="col-left">
+        <CivilizationPanel :state="state" :revision="store.revision()" />
+        <ResourcePanel :state="state" :revision="store.revision()" />
+        <CraftingPanel :state="state" :revision="store.revision()" @craft="(id, count) => { store.mutate(s => craftManually(s, id, count)); afterAction(); }" />
+        <section id="prestigeResources" class="panel">
+          <div class="panel-head"><h2>威望资源</h2><span>跨周目保留</span></div>
+          <div class="res-list">
+            <div class="res-row">
+              <span class="res-name">粒子</span>
+              <span class="res-amount" tabindex="0" data-building-tip="particles" data-tip-kind="prestige" aria-label="查看粒子效果"><b>{{ state.prestige.particles }}</b></span>
+            </div>
+            <div class="res-row">
+              <span class="res-name">卡西米尔晶体</span>
+              <span class="res-amount" tabindex="0" data-building-tip="casimir" data-tip-kind="prestige" aria-label="查看卡西米尔晶体效果"><b>{{ state.prestige.casimir }}</b></span>
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <main class="col-mid">
+        <nav class="tabs" aria-label="游戏面板">
+          <button
+            v-for="tab in TABS"
+            :key="tab.id"
+            :data-tab="tab.id"
+            :class="{ active: activeTab === tab.id }"
+            :hidden="tab.id === 'arpa' && !state.tech.includes('arpa') && !state.tech.includes('genetics') && !state.tech.includes('crispr16') && !state.crispr.includes('challengeGene')"
+            @click="activeTab = tab.id"
+          >{{ tab.label }}<span v-if="tab.id === 'story' && unreadStories" data-story-unread-count :aria-label="`${unreadStories}篇未读剧情`"> · {{ unreadStories }}</span></button>
+        </nav>
+        <section class="panel">
+          <div class="content-body">
+            <div v-if="activeTab === 'buildings'">
+              <div class="world-buildings">
+            <BuildingsPanel
+              :state="state"
+              :revision="store.revision()"
+              :world-view="worldView"
+              @buy="buy"
+              @toggle="toggle"
+              @gather="gather"
+              @factory-settings="factoryOpen = true"
+              @ship-settings="shipModal = true"
+              @world-view="worldView = $event"
+              @mission="mission"
+            >
+              <StageThreePanel v-if="worldView === 'hyperspace' && state.stageThree.coreActivated && !state.tech.includes('dimensionBeaconDeployment')" :state="state" :revision="store.revision()" @experiment="performStageThreeExperiment" />
+            </BuildingsPanel>
+              </div>
+            </div>
+            <TechPanel
+              v-else-if="activeTab === 'tech'"
+              :state="state"
+              :revision="store.revision()"
+              :tech-view="techView"
+              @research="research"
+              @tech-view="techView = $event"
+            />
+            <CatsPanel
+              v-else-if="activeTab === 'cats'"
+              :state="state"
+              :revision="store.revision()"
+              @assign="assignWorker"
+              @craft="assignCraft"
+            />
+            <InternalPanel
+              v-else-if="activeTab === 'internal'"
+              :state="state"
+              :revision="store.revision()"
+              @reform="reform"
+              @tax="setTax"
+              @fill="fillNuclear"
+              @nuclear="launchNuclear"
+            />
+            <ArpaPanel
+              v-else-if="activeTab === 'arpa'"
+              :state="state"
+              :revision="store.revision()"
+              @invest="investProject"
+              @queue="queueProject"
+              @crispr-purchase="purchaseCrispr"
+               @challenge-launch="startChallenges"
+            />
+            <StoryPanel v-else-if="activeTab === 'story'" :state="state" :revision="store.revision()" @read="readStory" />
+            <div v-else-if="activeTab === 'statistics'">
+              <nav class="tabs" aria-label="统计分类">
+                <button :class="{ active: statisticsView === 'info' }" @click="statisticsView = 'info'">统计信息</button>
+                <button :class="{ active: statisticsView === 'achievements' }" @click="statisticsView = 'achievements'">成就</button>
+              </nav>
+              <StatsPanel
+                v-if="statisticsView === 'info'"
+                :state="state"
+                :revision="store.revision()"
+              />
+              <AchievementsPanel
+                v-else
+                :state="state"
+                :revision="store.revision()"
+              />
+            </div>
+            <SettingsPanel
+              v-else-if="activeTab === 'settings'"
+              :state="state"
+              :revision="store.revision()"
+              @save="saveNow"
+              @reset="resetRun"
+              @replace="replaceState"
+            />
+            <ResourceManagementPanel
+              v-else-if="activeTab === 'resourceManagement'"
+              :state="state"
+              :revision="store.revision()"
+              @manufacture="manufacture"
+              @assign="assignContainer"
+            />
+            <TipsPanel
+              v-else-if="activeTab === 'tips'"
+              :state="state"
+              :revision="store.revision()"
+            />
+            <p v-else class="empty">{{ TABS.find(t => t.id === activeTab)?.label }} 面板将在此处显示。</p>
+          </div>
+        </section>
+      </main>
+
+      <aside class="col-right">
+        <section class="panel">
+          <div class="panel-head"><h2>队列</h2><span>{{ state.queue.length ? `${state.queue.length} 项` : '空闲' }}</span></div>
+          <div class="queue-body">
+            <section class="queue-section">
+              <div class="q-title">研究队列 <span>{{ researchQueueItems.length }}/{{ researchQueueCapacity(state) }}</span></div>
+              <div v-if="!researchQueueItems.length" class="empty">暂无研究项目</div>
+              <div class="q-grid">
+                <div v-for="(item, i) in researchQueueItems" :key="item.uid" :data-queue-uid="item.uid" class="q-row" tabindex="0" :data-building-tip="item.id" :data-tip-kind="item.kind === 'build' ? 'building' : item.kind === 'tech' ? 'tech' : item.kind === 'mission' ? 'mission' : item.kind === 'ship' ? 'ship' : 'arpa'">
+                  <div class="q-top"><span>{{ i + 1 }}. {{ item.name }}<template v-if="item.kind === 'build' && item.segments"> · 剩余 {{ item.segments }} 段</template></span><button class="tiny" :data-cancel-queue="item.uid" @click="cancelQueue(item.uid)">取消</button></div>
+                  <div class="q-time" :data-queue-time="item.uid" title="按当前净产量估算；资源竞争、后续产量变化和手动操作可能改变完成时间。">{{ queueTimes.get(item.uid) }}</div>
+                </div>
+              </div>
+            </section>
+            <section class="queue-section">
+              <div class="q-title">建筑队列（含 ARPA 项目、探索任务、飞船部件） <span>{{ buildingQueueUsage(state.queue) }}/{{ buildingQueueCapacity(state) }}</span></div>
+              <div v-if="!buildingQueueItems.length" class="empty">暂无建筑项目</div>
+              <div class="q-grid">
+                <div v-for="(item, i) in buildingQueueItems" :key="item.uid" :data-queue-uid="item.uid" class="q-row" tabindex="0" :data-building-tip="item.id" :data-tip-kind="item.kind === 'build' ? 'building' : item.kind === 'tech' ? 'tech' : item.kind === 'mission' ? 'mission' : item.kind === 'ship' ? 'ship' : 'arpa'">
+                  <div class="q-top"><span>{{ i + 1 }}. {{ item.name }}<template v-if="item.kind === 'build' && item.segments"> · 剩余 {{ item.segments }} 段</template></span><button class="tiny" :data-cancel-queue="item.uid" @click="cancelQueue(item.uid)">取消</button></div>
+                  <div class="q-time" :data-queue-time="item.uid" title="按当前净产量估算；资源竞争、后续产量变化和手动操作可能改变完成时间。">{{ queueTimes.get(item.uid) }}</div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><h2>日志记录</h2><div class="log-tools"><button id="clearLogs" @click="store.mutate(s => { s.logs = []; })">清空</button></div></div>
+          <nav class="log-filters" aria-label="日志筛选"><button v-for="filter in logFilters" :key="filter.id" :class="{ active: logFilter === filter.id }" :data-log-filter="filter.id" @click="logFilter = filter.id">{{ filter.name }}</button></nav>
+          <div class="logs">
+            <div v-for="(log, i) in visibleLogs" :key="i" class="log-line" :class="`t-${log.type}`">
+              <time>{{ Math.floor(log.time / 60).toString().padStart(2, '0') }}:{{ Math.floor(log.time % 60).toString().padStart(2, '0') }}</time>
+              {{ log.text }}
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <footer><span>{{ guide }}</span></footer>
+    <TooltipPanel :state="state" :revision="store.revision()" />
+
+    <dialog v-if="escapeConfirm" ref="escapeDialog" id="escapeConfirm" aria-labelledby="escapeConfirmTitle" @cancel="escapeConfirm = false">
+      <h2 id="escapeConfirmTitle">确认发射ESS-喵星号</h2>
+      <p>离开太阳系将结束本周目，保留威望资源、CRISPR修饰、成就与重置记录，重新开始文明。</p>
+      <p>预计获得：<strong>{{ escapeReward }} 粒子</strong> · <strong>{{ casimirReward }} 卡西米尔晶体</strong></p>
+      <div class="actions"><button @click="escapeConfirm = false">取消</button><button id="confirmEscapeLaunch" class="danger" @click="confirmEscape">确认发射</button></div>
+    </dialog>
+    <dialog v-if="nuclearConfirm" ref="nuclearDialog" id="nuclearConfirm" @cancel="nuclearConfirm = false">
+      <h2>确认发射核弹</h2><p>发射会结束本周目，保留粒子、成就与重置记录。</p>
+      <div class="actions"><button @click="nuclearConfirm = false">取消</button><button id="confirmNuclearLaunch" class="danger" @click="confirmNuclear">确认发射</button></div>
+    </dialog>
+    <dialog v-if="shipModal" ref="shipDialog" id="spaceshipModal" class="factory-modal spaceship-modal" aria-labelledby="spaceshipTitle" @cancel="shipModal = false" @click="dismissShipBackdrop">
+      <div class="panel-head"><h2 id="spaceshipTitle">ESS-喵星号</h2><button aria-label="关闭飞船建造设置" @click="shipModal = false">关闭</button></div>
+      <SpaceshipModal :state="state" :revision="store.revision()" @invest="investShip" @queue="queueShip" @launch="launchShip" />
+    </dialog>
+    <dialog v-if="factoryOpen" ref="factoryDialog" id="factoryModal" class="factory-modal" @cancel="factoryOpen = false" @click="dismissFactoryBackdrop">
+      <h2>工厂</h2>
+      <FactoryModal
+        :state="state"
+        :revision="store.revision()"
+        @assign="assignLine"
+      />
+    </dialog>
+  </div>
+</template>
+
+

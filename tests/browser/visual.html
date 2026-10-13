@@ -1,0 +1,13 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Isolated screenshot setup</title></head><body><script type="module">
+import { CONFIG } from '/src/data/config.ts';
+import { createRuntime } from '/src/app/runtime.ts';
+import { advancedFixture } from './fixtures.js';
+const scenario = new URLSearchParams(location.search).get('scenario');
+localStorage.removeItem(CONFIG.saveKey);
+if (scenario === 'advanced') {
+  const runtime = createRuntime();
+  runtime.replaceState(advancedFixture());
+  if (runtime.saveFailed) throw Error('Screenshot fixture could not be saved');
+}
+location.replace('/');
+</script></body></html>

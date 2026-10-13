@@ -1,0 +1,7 @@
+export const CONFIG = {
+  secondsPerDay: 5, daysPerYear: 400,
+  particleProductionSoftCap: 400, particleProductionDecayStrength: .2,
+  version: 29, saveKey: 'meow-civilization-v12', costScale: 1.17,
+  foodPerCat: 1, growthFastMin: 5, growthFastMax: 10, growthMin: 10, growthMax: 20,
+  simulateLimit: 28800, eventMin: 60, eventMax: 600, workerBonus: .3, workersPerBuilding: 5,
+};

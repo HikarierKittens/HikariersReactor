@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Transpiled bridge scripts for the VM regression suites, rebuilt by `npm run pretest`.
+assets/generated/
+*.log

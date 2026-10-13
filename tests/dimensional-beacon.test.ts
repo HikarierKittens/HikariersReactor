@@ -1,0 +1,64 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { CONFIG } from '../src/data/config';
+import { TECHNOLOGIES } from '../src/data/technologies';
+import { BUILDINGS } from '../src/data/buildings';
+import { createInitialState } from '../src/state/create-state';
+import { validateCurrentSave } from '../src/state/validate-save';
+import { calculateSupportPreview } from '../src/simulation/support-preview';
+import { calculateProduction } from '../src/simulation/production';
+import { calculateStorageDetails } from '../src/simulation/storage';
+import { calculateResourceBreakdown } from '../src/simulation/resource-breakdown';
+import { isBuildingUnlocked, isTechnologyUnlocked } from '../src/simulation/unlocks';
+import { requestPurchaseModule } from '../src/simulation/purchases';
+import { isContainerAssignable } from '../src/simulation/containers';
+import type { ResourceId } from '../src/types/economy';
+const fresh=()=>createInitialState(CONFIG.version,60,0);
+const clone=<T>(x:T):T=>JSON.parse(JSON.stringify(x));
+const near=(a:number,b:number)=>assert.ok(Math.abs(a-b)<1e-7,`${a} != ${b}`);
+const setup=()=>{const s=fresh();s.tech.push('anomalyTopology','dimensionBeaconDeployment');s.stageThree.remoteLinked=true;return s;};
+const snap=(s:ReturnType<typeof fresh>,dt=1)=>{const p=calculateSupportPreview(s,dt);return {...p,moonBaseUnits:p.moon.baseUnits};};
+const ordinary:ResourceId[]=['wood','cement','stone','iron','coal','copper','aluminum','titanium','metal','oil','uranium','alloy','polymer','iridium'];
+test('beacon research gates on completed remote link and unlocks the new building chain',()=>{
+ const s=fresh();s.tech.push('anomalyTopology');s.resources.knowledge=700000;
+ assert.equal(isTechnologyUnlocked('dimensionBeaconDeployment',s),false);s.stageThree.remoteLinked=true;
+ assert.equal(isTechnologyUnlocked('dimensionBeaconDeployment',s),true);
+ assert.deepEqual(TECHNOLOGIES.dimensionBeaconDeployment.cost,{knowledge:700000});
+ assert.equal(TECHNOLOGIES.dimensionBeaconDeployment.tier,17);
+ const before=clone(s);s.resources.knowledge=699999;assert.notEqual(requestPurchaseModule(s,'tech','dimensionBeaconDeployment',0).status,'buy-now');s.queue=[];s.resources.knowledge=before.resources.knowledge;
+ assert.equal(requestPurchaseModule(s,'tech','dimensionBeaconDeployment',0).status,'buy-now');assert.equal(s.resources.knowledge,0);
+ assert.equal(isBuildingUnlocked('hyperspaceSpaceport',s),true);assert.equal(isBuildingUnlocked('iceMiningShip',s),true);assert.equal(isBuildingUnlocked('asteroidBase',s),false);
+ s.buildings.iceMiningShip=1;assert.equal(isBuildingUnlocked('asteroidBase',s),true);
+ assert.equal(requestPurchaseModule(s,'tech','dimensionBeaconDeployment',0).status,'rejected');
+ assert.equal(s.logs.filter(entry=>entry.text==='投放维度探测信标后，虚空之中传来了另一个信号').length,1);
+});
+test('funded ports add stability before freight, and ice/base reserve whole support and maintenance exactly once',()=>{
+ for(const dt of [.2,1]){
+  const s=setup();s.buildings.hyperspaceSpaceport=s.buildings.iceMiningShip=s.buildings.asteroidBase=s.buildings.anchorFreightStation=1;
+  Object.assign(s.resources,{energy:60*dt,helium3:1e4});const before=clone(s),p=calculateProduction(s,dt),preview=calculateSupportPreview(s,dt);
+  assert.deepEqual(s,before);assert.deepEqual(p.stageThree,preview.stageThree);assert.equal(p.stageThree.capacity,4);assert.equal(p.stageThree.freight,1);assert.equal(p.stageThree.available,2);
+  assert.equal(p.inputUnits.hyperspaceSpaceport,1);assert.equal(p.inputUnits.iceMiningShip,1);assert.equal(p.inputUnits.asteroidBase,1);
+  near(p.rates.energy,-60);near(p.rates.water,1.25);near(calculateResourceBreakdown('energy',s,p).net,p.rates.energy);near(calculateResourceBreakdown('water',s,p).net,1.25);
+  near(calculateStorageDetails('water',s,snap(s,dt)).total,8100);
+  s.resources.energy=50*dt;s.resources.helium3=1e4;const low=calculateProduction(s,dt);assert.equal(low.inputUnits.iceMiningShip,1);assert.equal(low.inputUnits.asteroidBase,0);near(low.rates.energy,-50);
+  s.stoppedBuildings.hyperspaceSpaceport=1;const off=calculateProduction(s,dt);assert.equal(off.stageThree.capacity,0);assert.equal(off.inputUnits.iceMiningShip||0,0);assert.equal(off.inputUnits.asteroidBase||0,0);near(off.rates.water,0);near(calculateStorageDetails('water',s,snap(s,dt)).total,0);
+ }
+});
+test('asteroid bases multiply freight capacity additively without boosting unrelated storage',()=>{
+ const s=setup();s.buildings.hyperspaceSpaceport=2;s.buildings.iceMiningShip=1;s.buildings.asteroidBase=2;s.buildings.anchorFreightStation=1;s.resources.energy=1000;s.resources.helium3=1e4;
+ const off=clone(s);off.stoppedBuildings.asteroidBase=2;
+ for(const id of ordinary)near(calculateStorageDetails(id,s,snap(s)).total-calculateStorageDetails(id,off,snap(off)).total,3200);
+ for(const id of ['food','cash','knowledge','e710','energy','helium3'] as ResourceId[])near(calculateStorageDetails(id,s,snap(s)).total,calculateStorageDetails(id,off,snap(off)).total);
+ assert.equal(isContainerAssignable('water',s),false);
+ s.buildings.iceMiningShip=3;const p=calculateProduction(s);assert.equal(p.inputUnits.iceMiningShip,3);assert.equal(p.inputUnits.asteroidBase,1);near(p.rates.water,4.5);
+});
+test('new defaults migrate absent records without mutation while malformed present records reject',()=>{
+ const s=fresh(),raw=clone(s) as unknown as Record<string,unknown>;const ids=['hyperspaceSpaceport','iceMiningShip','asteroidBase'];
+ for(const field of ['buildings','workers','stoppedBuildings'])for(const id of ids)delete (raw[field] as Record<string,unknown>)[id];
+ delete (raw.resources as Record<string,unknown>).water;delete (raw.containerAssignments as Record<string,unknown>).water;
+ const before=clone(raw),ctx={now:0,eventInterval:60,housingCapacity:()=>1000,clampResources:()=>{}};const restored=validateCurrentSave(raw,ctx);assert.deepEqual(raw,before);assert.equal(restored.resources.water,0);
+ for(const id of ids)assert.equal((restored.buildings as Record<string,number>)[id],0);
+ for(const field of ['buildings','workers','stoppedBuildings'])for(const id of ids)for(const value of [null,.5]){const bad=clone(raw);(bad[field] as Record<string,unknown>)[id]=value;assert.throws(()=>validateCurrentSave(bad,ctx));}
+ const bad=clone(raw);(bad.resources as Record<string,unknown>).water=null;assert.throws(()=>validateCurrentSave(bad,ctx));
+ assert.equal(BUILDINGS.hyperspaceSpaceport.input?.energy,30);
+});
