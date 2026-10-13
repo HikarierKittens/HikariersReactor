@@ -8,7 +8,7 @@ export type TechnologyId =
   | 'dimensionBeaconDeployment' | 'anomalyTopology'
   | 'hyperspaceMiningSurvey' | 'gasCloudAccretion' | 'highTechFarmPlatform'
   | 'fusionPower' | 'largeMiningShips'
-  | 'dimensionPioneer' | 'highTechFactory' | 'higherDimensionalStorage' | 'e710ResearchStation'
+  | 'dimensionPioneer' | 'highTechFactory' | 'higherDimensionalStorage' | 'e710ResearchStation' | 'ripperOverclock'
   | 'globalObservationCalibration' | 'anomalyMapping' | 'anomalyResponse' | 'fieldConstraintTheory' | 'dualEndCoupling' | 'finiteAperture'
   | 'advancedMetalRefining'
   | 'spaceControlTower'

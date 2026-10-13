@@ -14,6 +14,7 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
   dimensionPioneer: { name: '破维先锋', era: 4, tier: 19, knowledgeCost: 1000000, cost: { knowledge: 1000000 }, pre: ['hyperspaceMiningSurvey', 'gasCloudAccretion'], desc: '撕开超空间与正常空间之间最薄处的一角。解锁分段建筑：空间撕裂者' },
   e710ResearchStation: { name: '710研究站', era: 4, tier: 19, knowledgeCost: 850000, cost: { knowledge: 850000 }, pre: ['hyperspaceMiningSurvey', 'gasCloudAccretion'], desc: '解锁建筑：710研究站' },
   highTechFactory: { name: '高科技工厂', era: 4, tier: 18, knowledgeCost: 800000, cost: { knowledge: 800000 }, pre: ['highTechFarmPlatform'], desc: '解锁建筑：高科技工厂' },
+  ripperOverclock: { name: '撕裂者超频', era: 4, tier: 19, knowledgeCost: 1000000, cost: { knowledge: 1000000 }, pre: ['dimensionPioneer'], desc: '空间撕裂者的电力产出提高至200/s。' },
   higherDimensionalStorage: { name: '高维存储', era: 4, tier: 19, knowledgeCost: 1000000, cost: { knowledge: 1000000 }, pre: ['dimensionPioneer'], buildingRequired: 'spaceRipper', desc: '需要建成完整的空间撕裂者。锚点货运站资源容量×2；民用航线站资金与猫粮容量×2；小行星基地水与氘容量×2；超空间太空港水容量+16k、氘容量×2。' },
   anomalyTopology: { name: '异常拓扑测绘', era: 4, tier: 17, knowledgeCost: 600000, cost: { knowledge: 600000, e710: 400, nanotubes: 25000 }, pre: ['finiteAperture'], desc: '完成首次物质转移后开放。确认连接依赖两端空间环境，寻找相似异常区域；解锁ARPA进度工程「远端锚点验证」。' },
   globalObservationCalibration: { name: '全域观测校准', era: 4, tier: 16, knowledgeCost: 420000, cost: { knowledge: 420000 }, pre: ['artificialIntelligenceII'], desc: 'AI超级核心首次实际运行后开放。统一太阳系观测标准，解锁ARPA深空干涉阵列。' },

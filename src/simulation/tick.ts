@@ -4,7 +4,7 @@ import { updateStoryProgress } from './story';
 import { CONFIG } from '../data/config';
 import { advanceSoldierTraining } from './military';
 import { calculateProduction } from './production';
-import { advancePopulationGrowth, advanceStarvation } from './population';
+import { advancePopulationGrowth, advanceStarvation, enforcePopulationCapacity } from './population';
 import { recordGameDays } from './statistics';
 import type { GameState } from '../types/state';
 
@@ -33,7 +33,9 @@ export function advanceGameTick(state: GameState, dt: number, hooks: TickHooks):
   recordGameDays(state, dt / CONFIG.secondsPerDay);
   advanceStarvation(state, dt, result.rates.food, foodBefore);
   state.effects = state.effects.map(effect => ({ ...effect, left: effect.left - dt })).filter(effect => effect.left > 0);
-  advancePopulationGrowth(state, dt, result.rates.food, hooks.capacity());
+  const capacity = hooks.capacity();
+  enforcePopulationCapacity(state, capacity);
+  advancePopulationGrowth(state, dt, result.rates.food, capacity);
   state.eventIn -= dt;
   if (state.eventIn <= 0) hooks.event();
   hooks.projects(dt);

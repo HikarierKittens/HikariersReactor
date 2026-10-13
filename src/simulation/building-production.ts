@@ -2,6 +2,7 @@ import { BUILDINGS } from '../data/buildings';
 import { CONFIG } from '../data/config';
 import { applySpaceFuelDiscount } from './space-fuel';
 import { calculateGeneOutputFactor } from './genes';
+import { SPACE_RIPPER_OVERCLOCK_ENERGY } from './building-effects';
 import type { BuildingId } from '../types/buildings';
 import type { ResourceRecipe } from '../types/economy';
 import type { GameState } from '../types/state';
@@ -74,6 +75,7 @@ function calculateRawBuildingOutput(id: BuildingId, state: GameState, inputs: Pr
   if (id === 'talosMoonMiningStation') return { ...output, neutron: (output.neutron || 0) * (1 + .05 * (state.buildings.miningDrone || 0)) };
   if (id === 'helium3Mine' && state.tech.includes('helium3ExtractionOptimization')) return { ...output, helium3: .25 };
   if (id === 'fissionGenerator' && state.tech.includes('breederReactor')) return { energy: 20 };
+  if (id === 'spaceRipper' && state.tech.includes('ripperOverclock')) return { energy: SPACE_RIPPER_OVERCLOCK_ENERGY };
   if (id === 'quarry' && state.buildings.metalRefinery > 0) return { ...output, aluminum: 1 };
   if (id === 'coalMine' && state.tech.includes('nuclearEnergy')) return { ...output, uranium: (output.coal || 0) * .05 };
   return output;

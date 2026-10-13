@@ -484,7 +484,28 @@ try {
   await showTip('[data-building-tip="e710ResearchStation"][data-tip-kind="building"]');
   log($('#gameTooltip')?.textContent.includes('猫猫科学家上限+1. 知识容量+50k， 电力-25/s，氘-1/s')&&$('#gameTooltip')?.textContent.includes('猫猫科学家上限'),'710研究站详情显示原文效果与科学家上限');await escapeTip();
   await showTip('[data-building-tip="spaceRipper"][data-tip-kind="building"]');
-  log($('#gameTooltip')?.textContent.includes('这个巨大的装置撕开了空间的边界，电力+100/s， 知识上限+20%')&&$('#gameTooltip')?.textContent.includes('每段固定价格')&&!$('#gameTooltip')?.textContent.includes('完整核心'),'空间撕裂者详情显示原文效果与固定分段价格且无完整核心字样');await escapeTip();
+  {
+    const tip=$('#gameTooltip'),desc=tip?.querySelector('.tip-desc')?.textContent||'',rows=[...(tip?.querySelectorAll('.resource-factor')||[])].map(row=>row.textContent.replace(/\s+/g,''));
+    log(desc.includes('这个巨大的装置撕开了空间的边界')&&!desc.includes('电力')&&tip.textContent.includes('每段固定价格')&&!tip.textContent.includes('完整核心'),'空间撕裂者描述只保留介绍文字，未完成时显示固定分段价格');
+    log(rows.includes('分段进度0/100')&&rows.includes('电力+100/s')&&rows.some(row=>row.startsWith('知识容量+20%')),'空间撕裂者效果列在建筑效果中');
+  }
+  await escapeTip();
+  const beforeRipperDone=JSON.parse(JSON.stringify(S()));
+  store.mutate(state=>{state.buildings.spaceRipper=100;});await flush();
+  await showTip('[data-building-tip="spaceRipper"][data-tip-kind="building"]');
+  {
+    const tip=$('#gameTooltip'),rows=[...(tip?.querySelectorAll('.resource-factor')||[])].map(row=>row.textContent.replace(/\s+/g,''));
+    log(rows.includes('分段进度100/100')&&!tip.textContent.includes('每段固定价格')&&!tip.querySelector('.tip-cost'),'建成后分段进度显示100/100且不再显示建造价格');
+  }
+  await escapeTip();
+  store.mutate(state=>{state.tech.push('ripperOverclock');});await flush();
+  await showTip('[data-building-tip="spaceRipper"][data-tip-kind="building"]');
+  {
+    const tip=$('#gameTooltip'),rows=[...(tip?.querySelectorAll('.resource-factor')||[])].map(row=>row.textContent.replace(/\s+/g,''));
+    log(rows.includes('电力+200/s')&&tip.querySelector('.tip-desc')?.textContent.includes('空间的连接点似乎不稳定...'),'撕裂者超频后电力+200/s且描述新增一行');
+  }
+  await escapeTip();
+  store.mutate(state=>{Object.assign(state,beforeRipperDone);});await flush();
   store.mutate(state=>{Object.assign(state,beforeDeuteriumEra);});await flush();
   click($('[data-world-view="space"]')); await flush();
   log(!$('[data-buy="constraintArray"]') && !$('[data-buy="shortRangeRelay"]') && !$('[data-buy="civilianRouteStation"]') && !$('[data-stage-three]'), '切回太空不残留超空间设施和实验面板');

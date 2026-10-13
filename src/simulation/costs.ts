@@ -44,12 +44,18 @@ export function calculateDynamicCreep(id: BuildingId, resource: ResourceId, stat
   return terms;
 }
 
-/** Actual creep = base (registry scale) + Σ dynamic terms, floored at 1 to keep prices rising. */
+/** Lowest actual creep any ordinary building may reach after all dynamic reductions. */
+export const MIN_BUILDING_SCALE = 1.005;
+
+/** Actual creep = base (registry scale) + Σ dynamic terms, floored at MIN_BUILDING_SCALE.
+ * Exempt: segmented projects (fixed creep 1) and explicitly specified registry scales that
+ * are already below the floor (e.g. the once-only 星际船坞 at 1), which keep their own value. */
 export function calculateBuildingScale(id: BuildingId, resource: ResourceId, state: Pick<GameState, 'government'> & Partial<Pick<GameState, 'crispr' | 'tech' | 'buildings'>>): number {
   const scale = BUILDINGS[id].costScales?.[resource];
   if (scale === undefined) throw new Error(`Missing cost scale: ${id}/${resource}`);
   const dynamic = calculateDynamicCreep(id, resource, state).reduce((sum, term) => sum + term.value, 0);
-  return Math.max(1, Number((scale + dynamic).toFixed(12)));
+  const floor = BUILDINGS[id].segmentedRequired || scale < MIN_BUILDING_SCALE ? Math.min(1, scale) : MIN_BUILDING_SCALE;
+  return Math.max(floor, Number((scale + dynamic).toFixed(12)));
 }
 
 /** True when a once-only building (max count or segmented completion) is fully built.

@@ -78,7 +78,7 @@ test('civilian unlock cost creep and direct queued support-shortage defaults sha
 });
 
 test('legacy saves default missing civilian records but reject explicit malformed records immutably',()=>{
- const s=fresh();s.tech=Object.keys(TECHNOLOGIES).filter(id=>!['spaceControlTower','globalObservationCalibration','anomalyMapping','anomalyResponse','fieldConstraintTheory','dualEndCoupling','finiteAperture','anomalyTopology','dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation'].includes(id)) as TechnologyId[];
+ const s=fresh();s.tech=Object.keys(TECHNOLOGIES).filter(id=>!['spaceControlTower','globalObservationCalibration','anomalyMapping','anomalyResponse','fieldConstraintTheory','dualEndCoupling','finiteAperture','anomalyTopology','dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock'].includes(id)) as TechnologyId[];
  s.prestige.nuclearResets=1;s.asrielMissionCompleted=s.kerberosMissionCompleted=s.solarMissionCompleted=s.talosMissionCompleted=s.talosMoonMissionCompleted=s.asteroidBeltMissionCompleted=s.misenMissionCompleted=true;
  s.arpaBuildings.rocketPlatform=s.arpaBuildings.monument=s.arpaBuildings.geneSequencing=1;s.arpaBuildings.arpaResearchInstitute=2;
  const raw:any=clone(s);for(const field of ['buildings','workers','stoppedBuildings'])delete raw[field].civilianRouteStation;const before=clone(raw);

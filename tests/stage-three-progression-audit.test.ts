@@ -13,7 +13,7 @@ const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 const context = { now: 0, eventInterval: 60, housingCapacity: () => 1000, clampResources: () => {} };
 function complete() {
   const s = fresh();
-  s.tech = Object.keys(TECHNOLOGIES).filter(id => !['spaceControlTower','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation'].includes(id)) as TechnologyId[];
+  s.tech = Object.keys(TECHNOLOGIES).filter(id => !['spaceControlTower','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock'].includes(id)) as TechnologyId[];
   s.prestige.nuclearResets = 1;
   s.asrielMissionCompleted = s.kerberosMissionCompleted = s.solarMissionCompleted = s.talosMissionCompleted = s.talosMoonMissionCompleted = s.asteroidBeltMissionCompleted = s.misenMissionCompleted = true;
   s.arpaBuildings.rocketPlatform = s.arpaBuildings.monument = s.arpaBuildings.geneSequencing = s.arpaBuildings.deepSpaceInterferometer = s.arpaBuildings.deepSpaceLab = s.arpaBuildings.remoteAnchor = 1;

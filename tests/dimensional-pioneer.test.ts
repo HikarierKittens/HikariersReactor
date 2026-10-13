@@ -98,7 +98,8 @@ test('space ripper is a 100-segment project whose fixed price never creeps', () 
   const def = BUILDINGS.spaceRipper;
   assert.equal(def.segmentedRequired, 100);
   assert.deepEqual(def.cost, { cash: 2500000, alloy: 50000, polymer: 50000, iridium: 5000, neutron: 2500, nanotubes: 100000, e710: 50, mithril: 10000 });
-  assert.equal(def.desc, '[AMD友情赞助] 这个巨大的装置撕开了空间的边界，电力+100/s， 知识上限+20%');
+  // Flavor only: the +100 energy and +20% knowledge effects are listed as tooltip effect rows.
+  assert.equal(def.desc, '[AMD友情赞助] 这个巨大的装置撕开了空间的边界。');
   // Even with every CRISPR material gene and many owned segments the price is fixed.
   s.crispr = ['materialEfficiency', 'innovativeMaterials', 'structuralReinforcement', 'physicsLaws', 'halfLife3'];
   for (const count of [0, 1, 57, 99]) assert.deepEqual(calculateBuildingCost('spaceRipper', count, s), def.cost, `segment ${count}`);
@@ -136,6 +137,27 @@ test('only a completed ripper adds +100 energy/s and +20% knowledge capacity', (
     near(details.total, baseKnowledge * 1.2, 'knowledge +20%');
     near(details.rows.find(row => row.name === '空间撕裂者')?.value ?? 0, baseKnowledge * .2, 'ripper row');
     near(calculateStorageTotals(s, snap).knowledge, details.total, 'totals match details');
+  }
+});
+
+test('撕裂者超频 is a T19 1M-knowledge tech after 破维先锋 that doubles ripper energy to 200/s', () => {
+  const tech = TECHNOLOGIES.ripperOverclock;
+  assert.equal(tech.tier, 19);
+  assert.deepEqual(tech.cost, { knowledge: 1000000 });
+  assert.deepEqual(tech.pre, ['dimensionPioneer']);
+  for (const dt of [.2, 1]) {
+    const s = eraState();
+    s.tech.push('dimensionPioneer');
+    s.buildings.aiSupercore = 100;
+    s.buildings.spaceRipper = 100;
+    const normal = calculateProduction(s, dt).rates.energy;
+    s.tech.push('ripperOverclock');
+    const overclocked = calculateProduction(s, dt);
+    near(overclocked.rates.energy - normal, 100, 'overclock adds another 100 energy/s');
+    near(calculateResourceBreakdown('energy', s, overclocked).net, overclocked.rates.energy, 'energy breakdown');
+    // Unfinished rippers still produce nothing, overclocked or not.
+    s.buildings.spaceRipper = 99;
+    near(calculateProduction(s, dt).rates.energy, normal - 100, 'incomplete ripper');
   }
 });
 

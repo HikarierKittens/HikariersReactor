@@ -137,7 +137,7 @@ test('complete third stage saves round trip immutably and reject incoherent flag
 });
 
 test('complete third stage chain uses real research project funding construction and experiments without reading or RNG',()=>{
-  const s=fresh(); const newTech=['globalObservationCalibration','anomalyMapping','anomalyResponse','fieldConstraintTheory','dualEndCoupling','finiteAperture','anomalyTopology','dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation'];
+  const s=fresh(); const newTech=['globalObservationCalibration','anomalyMapping','anomalyResponse','fieldConstraintTheory','dualEndCoupling','finiteAperture','anomalyTopology','dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock'];
   s.tech=Object.keys(TECHNOLOGIES).filter(id=>id!=='spaceControlTower'&&!newTech.includes(id)) as TechnologyId[];
   s.prestige.nuclearResets=1;s.asrielMissionCompleted=s.kerberosMissionCompleted=s.solarMissionCompleted=s.talosMissionCompleted=s.talosMoonMissionCompleted=s.asteroidBeltMissionCompleted=s.misenMissionCompleted=true;
   s.arpaBuildings.rocketPlatform=s.arpaBuildings.monument=s.arpaBuildings.geneSequencing=1;s.arpaBuildings.arpaResearchInstitute=2;

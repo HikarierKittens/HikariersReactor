@@ -3,11 +3,12 @@ import { test } from 'node:test';
 import { CONFIG } from '../src/data/config';
 import { createInitialState } from '../src/state/create-state';
 import { advanceGameTick, simulateElapsed, type TickHooks } from '../src/simulation/tick';
-import { advanceStarvation } from '../src/simulation/population';
+import { advanceStarvation, enforcePopulationCapacity } from '../src/simulation/population';
 import { advanceSoldierTraining } from '../src/simulation/military';
 
 const hooks: TickHooks = {
-  happiness: () => 100, capacity: () => 0, event: () => {},
+  // Ample housing isolates starvation from the over-capacity rule (food stays at 0, so no growth).
+  happiness: () => 100, capacity: () => 1000, event: () => {},
   projects: () => {}, purchases: () => {}, unlocks: () => {},
 };
 function fixture(population = 5) {
@@ -122,4 +123,32 @@ test('one configured game year records the same number of game days', () => {
   const state = fixture(0);
   simulateElapsed(CONFIG.daysPerYear * CONFIG.secondsPerDay, dt => advanceGameTick(state, dt, hooks));
   assert.ok(Math.abs(state.statistics.run.days - CONFIG.daysPerYear) < 1e-8);
+});
+
+test('cats above housing capacity leave at once, trimming jobs but not soldiers', () => {
+  const state = fixture(8);
+  state.resources.food = 1e6;
+  state.workers.foundry = 6;
+  state.craftWorkers.brick = 2;
+  state.soldiers = 4;
+  advanceGameTick(state, .1, { ...hooks, capacity: () => 5 });
+  assert.equal(state.population, 5);
+  assert.equal(state.soldiers, 4);
+  // Craft workers are a subset of foundry workers.
+  assert.equal(state.workers.foundry, 5);
+  assert.ok(state.craftWorkers.brick <= state.workers.foundry);
+  assert.equal(state.logs[0]!.text, '猫口超出住房上限，3只猫猫离开了文明。');
+  // At the cap nothing more is lost and no further log is written.
+  advanceGameTick(state, .1, { ...hooks, capacity: () => 5 });
+  assert.equal(state.population, 5);
+  assert.equal(state.logs.filter(entry => entry.text.includes('离开了文明')).length, 1);
+});
+
+test('fractional capacity floors and zero capacity empties population', () => {
+  const state = fixture(4);
+  assert.equal(enforcePopulationCapacity(state, 2.9), 2);
+  assert.equal(state.population, 2);
+  assert.equal(enforcePopulationCapacity(state, 0), 2);
+  assert.equal(state.population, 0);
+  assert.equal(enforcePopulationCapacity(state, 0), 0);
 });

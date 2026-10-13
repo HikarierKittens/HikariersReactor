@@ -14,11 +14,11 @@ import { SHIP_COMPONENTS, calculateShipComponentRemainingCost, calculateShipComp
 import { CONFIG } from '../../data/config';
 import { floorWithPrecision, formatEffectNumber } from '../../shared/format';
 import { calculateFoodPerCat } from '../../simulation/population';
-import { calculateBuildingCost } from '../../simulation/costs';
+import { calculateBuildingCost, isBuildingFullyBuilt } from '../../simulation/costs';
 import { calculateTechCost } from '../../simulation/government';
 import { SPACE_MISSIONS, REGIONAL_MISSIONS, calculateRegionalMissionCost, isRegionalMissionCompleted, type RegionalMissionId } from '../../simulation/space-missions';
 import { calculateBuildingInput, calculateBuildingOutput, calculateToolMultiplier, calculateBuildingName } from '../../simulation/building-production';
-import { getBuildingEffectRows, calculateFreightCapacityMultiplier } from '../../simulation/building-effects';
+import { getBuildingEffectRows, calculateFreightCapacityMultiplier, SPACE_RIPPER_OVERCLOCK_DESC } from '../../simulation/building-effects';
 import { calculateStorageBonuses } from '../../simulation/storage-bonuses';
 import { calculateStorageDetails } from '../../simulation/storage';
 import { calculateHousingDetails } from '../../simulation/housing';
@@ -132,24 +132,30 @@ const content = computed<TipContent | null>(() => {
     const queued = state.queue.find(item => item.uid === queueUid && item.kind === 'build' && item.id === id);
     const queuedSegments = queued?.kind === 'build' ? queued.segments : undefined;
     const cost = calculateBuildingCost(id, count, state);
-    tip.costs = prices(queuedSegments ? Object.fromEntries(Object.entries(cost).map(([resource, value]) => [resource, value * queuedSegments])) : cost);
+    // A completed segmented project can no longer be built, so it quotes no price.
+    const segmentedComplete = !!building.segmentedRequired && isBuildingFullyBuilt(id, state);
+    tip.costs = segmentedComplete ? [] : prices(queuedSegments ? Object.fromEntries(Object.entries(cost).map(([resource, value]) => [resource, value * queuedSegments])) : cost);
     if (queuedSegments) {
       add('队列剩余分段', `${queuedSegments} 段`);
       tip.footnote = '按分段逐个扣款建造；以下为剩余分段的总需求，无需一次备齐。';
       for (const row of tip.costs) row.blocked = calculateStorageDetails(row.id as ResourceId, state, snapshot).total + 1e-8 < (cost[row.id as ResourceId] || 0);
     }
     if (building.segmentedRequired) {
-      add('分段进度', `${count % building.segmentedRequired}/${building.segmentedRequired}`);
+      // Clamp instead of modulo: a finished project shows 100/100, not 0/100.
+      add('分段进度', `${Math.min(count, building.segmentedRequired)}/${building.segmentedRequired}`);
     }
-    // 空间撕裂者: its description already states the effects; keep only the segment progress rows.
-    if (id === 'spaceRipper') tip.footnote = '';
+    // 空间撕裂者: flavor text on top, effects in the rows below.
+    if (id === 'spaceRipper') {
+      tip.footnote = '';
+      if (state.tech.includes('ripperOverclock')) tip.description = `${tip.description}\n${SPACE_RIPPER_OVERCLOCK_DESC}`;
+    }
     for (const [job, slots] of Object.entries(building.jobSlots || {}) as [BuildingId, number][]) add(`${BUILDINGS[job].workerName}上限`, `+${number(slots)}`);
     if (id === 'swarmFactory') {
       const reduction = .1 + (state.tech.includes('quantumSwarm') ? Math.floor(calculateQuantumLevel(state) / 5) * .01 : 0);
       add('蜂群卫星价格', `-${percent(reduction * 100)}%`);
     }
     // Building effects only: worker production belongs in the worker/resource details.
-    if (!building.workerOutput && !building.asrielSource && id !== 'spaceRipper') {
+    if (!building.workerOutput && !building.asrielSource) {
       for (const [resource, amount] of orderedCostEntries(calculateBuildingOutput(id, state))) {
         const label = id === 'smelter' && state.tech.includes('electrochemicalSmelting') ? `供电后${RESOURCES[resource as ResourceId].name}产量` : RESOURCES[resource as ResourceId].name;
         add(label, `+${number(amount)}/s`);
@@ -506,7 +512,7 @@ onUnmounted(() => {
   <Teleport :to="anchor?.closest('dialog') || 'body'">
     <div v-if="content" ref="panel" id="gameTooltip" class="building-tooltip" :class="{ 'resource-detail': selected?.kind === 'resource' }" role="tooltip" :style="position">
       <h3>{{ content.title }}</h3>
-      <p v-if="content.description" class="tip-desc" :style="selected?.kind === 'building' && selected.id === 'aiSupercore' ? { whiteSpace: 'pre-line' } : undefined">{{ content.description }}</p>
+      <p v-if="content.description" class="tip-desc" :style="selected?.kind === 'building' && ['aiSupercore', 'spaceRipper'].includes(selected.id) ? { whiteSpace: 'pre-line' } : undefined">{{ content.description }}</p>
       <template v-if="content.costs.length">
         <p class="tip-label">{{ selected?.kind === 'arpa' || selected?.kind === 'ship' || anchor?.dataset.queueUid ? '剩余资源需求' : selected?.kind === 'building' && BUILDINGS[selected.id as BuildingId]?.segmentedRequired ? '每段固定价格' : '当前价格' }}</p>
         <div v-for="cost in content.costs" :key="cost.id" class="tip-cost" :class="{ 'is-cap-blocked': cost.blocked, 'is-missing': !cost.blocked && cost.missing }">{{ cost.name }} {{ selected?.kind === 'building' && ['swarmSatellite', 'swarmFactory'].includes(selected.id) && cost.amount < 1 ? '0' : number(cost.amount) }}</div>

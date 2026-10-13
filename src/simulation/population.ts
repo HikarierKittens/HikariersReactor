@@ -49,6 +49,18 @@ export function calculateGrowthMultiplier(state: Pick<GameState, 'tech' | 'build
   return (state.tech.includes('scientificBreeding') ? 1.25 : 1) * (state.crispr?.includes('coreReplication') ? 1.15 : 1)
     * (state.buildings.communityCenter ? 1.1 : 1);
 }
+/** Cats above the current housing capacity leave immediately; the independent army is untouched. */
+export function enforcePopulationCapacity(state: GameState, capacity: number): number {
+  const limit = Math.max(0, Math.floor(capacity + 1e-9));
+  const lost = Math.max(0, state.population - limit);
+  if (!lost) return 0;
+  state.population -= lost;
+  state.growth = 0;
+  state.growthTarget = 0;
+  reconcilePopulationAssignments(state);
+  addLog(state, `猫口超出住房上限，${lost}只猫猫离开了文明。`, 'event');
+  return lost;
+}
 /** Preserve one arrival per simulation step, even when the supplied step is large. */
 export function advancePopulationGrowth(state: GameState, dt: number, foodRate: number, capacity: number, random: () => number = Math.random): void {
   if (foodRate >= -1e-8 && state.resources.food > 0 && state.population < capacity) {

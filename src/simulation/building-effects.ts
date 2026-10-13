@@ -35,6 +35,8 @@ export function getBuildingEffectRows(id: BuildingId, state: Pick<GameState, 'te
     case 'iceMiningShip':
     case 'asteroidBase':
       return [{ label: '占用喷发小行星群支持', value: '1' }];
+    case 'spaceRipper':
+      return [{ label: '知识容量', value: `+${percent(SPACE_RIPPER_KNOWLEDGE_BONUS)}`, note: '建成完整撕裂者后生效。' }];
     default:
       return [];
   }
@@ -53,6 +55,10 @@ export function calculateAsteroidFreightMultiplier(asteroidBases: number): numbe
 
 /** Knowledge cap bonus per complete 空间撕裂者 core (scales the final knowledge subtotal). */
 export const SPACE_RIPPER_KNOWLEDGE_BONUS = .2;
+/** 撕裂者超频 raises each complete 空间撕裂者 from 100 to this many energy/s. */
+export const SPACE_RIPPER_OVERCLOCK_ENERGY = 200;
+/** Extra description line shown after 撕裂者超频 is researched. */
+export const SPACE_RIPPER_OVERCLOCK_DESC = '空间的连接点似乎不稳定...';
 /** 高维存储 doubles hyperspace storage: +100% on the building's base contribution. */
 export const HIGHER_DIMENSIONAL_STORAGE_BONUS = 1;
 /** 高维存储 adds this flat water storage to every funded hyperspace spaceport. */

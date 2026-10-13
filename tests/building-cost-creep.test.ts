@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { BUILDINGS, BUILDING_COST_SCALES } from '../src/data/buildings';
 import { CONFIG } from '../src/data/config';
 import { createInitialState } from '../src/state/create-state';
-import { calculateBuildingCost, calculateBuildingScale, isBuildingFullyBuilt } from '../src/simulation/costs';
+import { MIN_BUILDING_SCALE, calculateBuildingCost, calculateBuildingScale, isBuildingFullyBuilt } from '../src/simulation/costs';
 import type { BuildingId } from '../src/types/buildings';
 import type { ResourceId } from '../src/types/economy';
 
@@ -88,6 +88,33 @@ test('AI segmented construction keeps fixed costs at every count even with disco
   state.tech.push('neutronConstructionMaterials');
   for (const count of [0, 1, 100]) {
     assert.deepEqual(calculateBuildingCost('aiSupercore', count, state), BUILDINGS.aiSupercore.cost);
+  }
+});
+
+test('ordinary creep never drops below 1.005; segmented and specified scales are exempt', () => {
+  assert.equal(MIN_BUILDING_SCALE, 1.005);
+  const state = fresh();
+  state.crispr = ['materialEfficiency', 'innovativeMaterials', 'structuralReinforcement', 'physicsLaws', 'halfLife3'];
+  state.tech.push('steelBuildingMaterials', 'neutronConstructionMaterials');
+  // Temporarily lower 猫窝's registry scale so the -0.07 dynamics would push it under the floor.
+  const original = BUILDINGS.nest.costScales!.wood!;
+  try {
+    BUILDINGS.nest.costScales!.wood = 1.06;
+    assert.equal(calculateBuildingScale('nest', 'wood', state), MIN_BUILDING_SCALE);
+    assert.equal(calculateBuildingCost('nest', 10, state).wood, Math.ceil(BUILDINGS.nest.cost.wood! * 1.005 ** 10));
+    BUILDINGS.nest.costScales!.wood = 1.1;
+    close(calculateBuildingScale('nest', 'wood', state), 1.03);
+  } finally {
+    BUILDINGS.nest.costScales!.wood = original;
+  }
+  // Exemptions keep their own creep of exactly 1.
+  assert.equal(calculateBuildingScale('aiSupercore', 'cash', state), 1);
+  assert.equal(calculateBuildingScale('spaceRipper', 'cash', state), 1);
+  assert.equal(calculateBuildingScale('interstellarDock', 'cash', state), 1);
+  // Every ordinary registry scale sits at or above the floor.
+  for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
+    if (BUILDINGS[id].segmentedRequired || id === 'interstellarDock') continue;
+    for (const raw of Object.values(BUILDINGS[id].costScales ?? {})) assert.ok(raw >= MIN_BUILDING_SCALE, id);
   }
 });
 
