@@ -2,7 +2,7 @@ import { settleStageThreeSupport } from './stage-three-support';
 import { settleMetalRefining, withPoweredMetalRefining } from './refining';
 import { calculateE710ContainerUnits } from './e710-storage';
 import { BUILDINGS } from '../data/buildings';
-import { HYPERSPACE_SOURCE_IDS, HYPERSPACE_CONSUMER_IDS, calculateHyperspaceOutputFactor } from './hyperspace-output';
+import { HYPERSPACE_SOURCE_IDS, HYPERSPACE_CONSUMER_IDS, calculateHyperspaceOutputFactor, calculateHyperspaceLocalMultiplier } from './hyperspace-output';
 import { reserveWaystationPower, calculateSpaceFuelMultiplier } from './space-fuel';
 import { calculateBuildingInput, calculateBuildingOutput } from './building-production';
 import { allocateMoonSupport } from './moon';
@@ -31,7 +31,6 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
   inputs.iceMiningShip = stageThree.iceShips;
   inputs.asteroidBase = outputs.asteroidBase = stageThree.asteroidBases;
   outputs.iceMiningShip = stageThree.iceShips * calculateHyperspaceOutputFactor('water', state, happiness, stageThree.ports);
-  pool.water += (calculateBuildingOutput('iceMiningShip', state).water || 0) * outputs.iceMiningShip * calculateParticleMultiplier('water', state) * dt;
   inputs.constraintArray = outputs.constraintArray = stageThree.arrays;
   inputs.shortRangeRelay = outputs.shortRangeRelay = stageThree.relays;
   inputs.anchorFreightStation = outputs.anchorFreightStation = stageThree.freight;
@@ -45,6 +44,8 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
   }
   asriel.used = asriel.capacity - asriel.available;
   asriel.support = asriel.capacity;
+  // Ice-ship water is a 遥远星际 resource, so it also receives the star-ring bonus.
+  pool.water += (calculateBuildingOutput('iceMiningShip', state).water || 0) * outputs.iceMiningShip * calculateParticleMultiplier('water', state) * calculateSpaceMultiplier('iceMiningShip', state, asriel) * dt;
   const metalRefineryUnits = settleMetalRefining(state, pool, dt);
   inputs.metalRefinery = outputs.metalRefinery = metalRefineryUnits;
   return withPoweredMetalRefining(state, metalRefineryUnits, state => {
@@ -52,6 +53,7 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
   inputs.asrielResidence = asriel.allocations.asrielResidence;
   inputs.planetaryFoundry = outputs.planetaryFoundry = asriel.allocations.planetaryFoundry;
   inputs.alienMaterialLab = outputs.alienMaterialLab = asriel.allocations.alienMaterialLab;
+  inputs.vrCenter = outputs.vrCenter = asriel.allocations.vrCenter;
   for (const id of ['asrielMine', 'ecologicalDome'] as const) {
     const units = asriel.allocations[id] * residents;
     inputs[id] = asriel.allocations[id]; outputs[id] = units;
@@ -73,7 +75,7 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
   pool.helium3 = Math.max(0, pool.helium3 - .5 * fuelMultiplier * e710ContainerUnits * dt);
   // Hyperspace facilities (710富集区 & stable zone) run on energy + helium/deuterium
   // inputs without asteroid support; outputs use ordinary multipliers like ice ships.
-  // Funded hyperspace ports boost ordinary resources produced inside hyperspace +25%.
+  // 天元六alpha星区 producers share this loop; 精金加工站 boosts the adamantite miners.
   for (const id of HYPERSPACE_SOURCE_IDS) {
     const running = Math.max(0, (state.buildings[id] || 0) - (state.stoppedBuildings[id] || 0));
     if (!running) continue;
@@ -89,7 +91,7 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
     // Multi-resource buildings expose funded units, not a sum of resource-local speeds.
     outputs[id] = actual;
     for (const [resource, amount] of Object.entries(out) as [ResourceId, number][]) {
-      const speed = actual * calculateHyperspaceOutputFactor(resource, state, happiness, stageThree.ports);
+      const speed = actual * calculateHyperspaceOutputFactor(resource, state, happiness, stageThree.ports) * calculateHyperspaceLocalMultiplier(id, state);
       pool[resource] = (pool[resource] || 0)
         + amount * speed * calculateParticleMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt;
     }

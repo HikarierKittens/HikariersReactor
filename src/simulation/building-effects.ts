@@ -12,7 +12,11 @@ export const SPACEPORT_ASTEROID_SUPPORT = 2;
 export const ASTEROID_UNIT_SUPPORT_COST = 1;
 export const ASTEROID_BASE_FREIGHT_BONUS = .05;
 
-export interface EffectSnapshot { repeaters?: number | undefined; asteroidBases?: number | undefined }
+export interface EffectSnapshot { repeaters?: number | undefined; asteroidBases?: number | undefined; blackHoleStations?: number | undefined }
+/** Knowledge cap bonus per complete 空间撕裂者: 20% plus 1% per funded 黑洞星际站 (shared with storage totals). */
+export function calculateRipperKnowledgeBonusValue(blackHoleStations: number): number {
+  return SPACE_RIPPER_KNOWLEDGE_BONUS + BLACK_HOLE_STATION_RIPPER_BONUS * blackHoleStations;
+}
 
 function percent(value: number): string { return `${Number((value * 100).toFixed(4))}%`; }
 
@@ -35,8 +39,11 @@ export function getBuildingEffectRows(id: BuildingId, state: Pick<GameState, 'te
     case 'iceMiningShip':
     case 'asteroidBase':
       return [{ label: '占用喷发小行星群支持', value: '1' }];
-    case 'spaceRipper':
-      return [{ label: '知识容量', value: `+${percent(SPACE_RIPPER_KNOWLEDGE_BONUS)}`, note: '建成完整撕裂者后生效。' }];
+    case 'spaceRipper': {
+      const stations = snapshot.blackHoleStations || 0;
+      return [{ label: '知识容量', value: `+${percent(calculateRipperKnowledgeBonusValue(stations))}`,
+        note: stations ? `建成完整撕裂者后生效；含${stations}座供能黑洞星际站+${percent(BLACK_HOLE_STATION_RIPPER_BONUS * stations)}。` : '建成完整撕裂者后生效。' }];
+    }
     default:
       return [];
   }
@@ -55,6 +62,8 @@ export function calculateAsteroidFreightMultiplier(asteroidBases: number): numbe
 
 /** Knowledge cap bonus per complete 空间撕裂者 core (scales the final knowledge subtotal). */
 export const SPACE_RIPPER_KNOWLEDGE_BONUS = .2;
+/** Each funded 黑洞星际站 adds this to every complete 空间撕裂者's knowledge cap bonus. */
+export const BLACK_HOLE_STATION_RIPPER_BONUS = .01;
 /** 撕裂者超频 raises each complete 空间撕裂者 from 100 to this many energy/s. */
 export const SPACE_RIPPER_OVERCLOCK_ENERGY = 200;
 /** Extra description line shown after 撕裂者超频 is researched. */

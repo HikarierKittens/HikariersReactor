@@ -18,7 +18,7 @@ export function isTechnologyUnlocked(id: string, state: GameState): boolean {
   if (id === 'anomalyTopology' && !state.stageThree.transferCompleted) return false;
   if (id === 'finiteAperture' && !state.stageThree.signalCompleted) return false;
   // 高维存储 requires a COMPLETED 空间撕裂者 (all 100 segments), not merely one segment.
-  if (id === 'higherDimensionalStorage' && !isBuildingFullyBuilt('spaceRipper', state)) return false;
+  if ((id === 'higherDimensionalStorage' || id === 'overclocking13') && !isBuildingFullyBuilt('spaceRipper', state)) return false;
   const technology = TECHNOLOGIES[id as TechnologyId];
   return (state.prestige.nuclearResets + (state.prestige.escapeResets || 0) >= (technology.prestigeResetsRequired || 0))
     && (!technology.kerberosMissionRequired || state.kerberosMissionCompleted)
@@ -40,9 +40,11 @@ export function meetsResourceUnlock(resource: string, state: GameState): boolean
   const id = resource as ResourceId;
   if (id === 'fur') return !!state.furUnlocked || (state.buildings.factory > 0 && state.tech.includes('syntheticFur'))
     || (Object.keys(BUILDINGS) as BuildingId[]).some(key => (BUILDINGS[key].soldierCap ?? 0) > 0 && state.buildings[key] > 0);
-  if (Object.hasOwn(CRAFT_RECIPES, id)) return (state.buildings.foundry > 0 || state.buildings.planetaryFoundry > 0)
+  if (Object.hasOwn(CRAFT_RECIPES, id)) return (state.buildings.foundry > 0 || state.buildings.planetaryFoundry > 0 || (state.buildings.stellarForge || 0) > 0)
+    && (id !== 'aerogel' || state.tech.includes('aerogel'))
     && Object.keys(CRAFT_RECIPES[id as CraftId].input).every(key => isResourceUnlocked(key, state));
   if (id === 'water') return state.buildings.iceMiningShip > 0;
+  if (id === 'adamantite') return (state.buildings.adamantiteMiningShip || 0) > 0;
   if (id === 'deuterium') return state.buildings.gasCloudMiningShip > 0;
   if (id === 'neutron') return state.buildings.talosMoonMiningStation > 0;
   const alternateProducers: Partial<Record<ResourceId, BuildingId>> = {
@@ -68,7 +70,7 @@ export function isBuildingUnlocked(id: string, state: GameState): boolean {
   if (id === 'talosMoonMiningStation' && !state.talosMoonMissionCompleted) return false;
   if (['iridiumMiningShip', 'ironMiningShip'].includes(id) && !state.asteroidBeltMissionCompleted) return false;
   if (!state.tech.includes(building.tech)) return false;
-  const needsPort = ['asrielResidence', 'asrielMine', 'ecologicalDome', 'hangar', 'spaceFactory', 'starRingStation', 'spaceWaystation', 'planetaryFoundry', 'spaceGarrison'].includes(id);
+  const needsPort = ['asrielResidence', 'asrielMine', 'ecologicalDome', 'hangar', 'spaceFactory', 'starRingStation', 'spaceWaystation', 'planetaryFoundry', 'spaceGarrison', 'vrCenter'].includes(id);
   if ((id === 'asrielSpaceport' || needsPort) && !state.asrielMissionCompleted) return false;
   if (needsPort && !state.buildings.asrielSpaceport) return false;
   return !building.buildingRequired || state.buildings[building.buildingRequired] > 0;

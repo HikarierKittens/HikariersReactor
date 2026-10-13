@@ -9,7 +9,7 @@ import { fmt, storageCap, resourceUnlocked } from '../format';
 import { DNA_BASE_IDS } from '../../data/genes';
 import { isGeneModificationUnlocked } from '../../simulation/genes';
 
-const RESOURCE_ORDER: ResourceId[] = ['cash', 'food', 'wood', 'stone', 'fur', 'copper', 'iron', 'aluminum', 'cement', 'coal', 'oil', 'metal', 'titanium', 'uranium', 'alloy', 'polymer', 'iridium', 'helium3', 'deuterium', 'neutron', 'e710', 'water', 'nanotubes'];
+const RESOURCE_ORDER: ResourceId[] = ['cash', 'food', 'wood', 'stone', 'fur', 'copper', 'iron', 'aluminum', 'cement', 'coal', 'oil', 'metal', 'titanium', 'uranium', 'alloy', 'polymer', 'iridium', 'helium3', 'deuterium', 'neutron', 'e710', 'water', 'nanotubes', 'graphene', 'nanoAlloy', 'adamantite'];
 const resourceRank = (id: ResourceId) => RESOURCE_ORDER.includes(id) ? RESOURCE_ORDER.indexOf(id) : RESOURCE_ORDER.length;
 
 const props = defineProps<{ state: GameState; revision: number }>();

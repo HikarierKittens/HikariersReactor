@@ -26,12 +26,12 @@ test('refinery creep does not spill into battery stations and both scale registr
   }
 });
 
-test('cement workshop carries .025 extra creep in its registry scale for construction resources', () => {
+test('cement workshop carries .045 extra creep (.025 + balance .02) in its registry scale for construction resources', () => {
   const state = fresh();
   for (const resource of ['wood', 'stone', 'cash'] as const) {
-    assert.equal(BUILDINGS.cementWorkshop.costScales![resource], 1.195);
-    assert.equal(calculateBuildingScale('cementWorkshop', resource, state), 1.195);
-    assert.equal(calculateBuildingCost('cementWorkshop', 5, state)[resource], Math.ceil(BUILDINGS.cementWorkshop.cost[resource]! * 1.195 ** 5));
+    assert.equal(BUILDINGS.cementWorkshop.costScales![resource], 1.215);
+    assert.equal(calculateBuildingScale('cementWorkshop', resource, state), 1.215);
+    assert.equal(calculateBuildingCost('cementWorkshop', 5, state)[resource], Math.ceil(BUILDINGS.cementWorkshop.cost[resource]! * 1.215 ** 5));
   }
   assert.deepEqual(calculateBuildingCost('cementWorkshop', 0, state), { wood: 100, stone: 80, cash: 35 });
 });
@@ -123,9 +123,9 @@ test('cost creep precedes additive CRISPR, industrialism and neutron material di
   state.crispr = ['materialEfficiency', 'innovativeMaterials', 'structuralReinforcement', 'physicsLaws', 'halfLife3'];
   state.government = 'industrialism';
   state.tech.push('neutronConstructionMaterials');
-  // Factory base 1.17, dynamics: CRISPR -.05 + industrialism -.005 => 1.115.
-  close(calculateBuildingScale('factory', 'cash', state), 1.115);
-  assert.equal(calculateBuildingCost('factory', 5, state).cash, Math.ceil(BUILDINGS.factory.cost.cash! * 1.115 ** 5));
+  // Factory base 1.19, dynamics: CRISPR -.05 + industrialism -.005 => 1.135.
+  close(calculateBuildingScale('factory', 'cash', state), 1.135);
+  assert.equal(calculateBuildingCost('factory', 5, state).cash, Math.ceil(BUILDINGS.factory.cost.cash! * 1.135 ** 5));
   // Nest base 1.17, dynamics: CRISPR -.05 + neutron material -.01 => 1.11.
   for (const id of ['nest', 'nestMKII'] as const) {
     for (const [resource, raw] of Object.entries(BUILDINGS[id].costScales!)) {
@@ -136,3 +136,17 @@ test('cost creep precedes additive CRISPR, industrialism and neutron material di
   }
 });
 
+test('balance pass: 17 ground buildings carry +0.02 base creep in both registries', () => {
+  const raised: Partial<Record<BuildingId, number>> = {
+    school: 1.19, library: 1.19, lab: 1.19, observatory: 1.19, biologyLab: 1.19, trainingCamp: 1.19,
+    cementWorkshop: 1.215, smelter: 1.19, foundry: 1.19, refinery: 1.19, factory: 1.19, generator: 1.19,
+    theater: 1.19, broadcast: 1.19, bank: 1.27, oilGenerator: 1.19, fissionGenerator: 1.19,
+  };
+  for (const [id, scale] of Object.entries(raised) as [BuildingId, number][]) {
+    for (const [resource, raw] of Object.entries(BUILDINGS[id].costScales!)) {
+      // 实验室 knowledge kept its own lower creep (1.15 → 1.17).
+      close(raw, id === 'lab' && resource === 'knowledge' ? 1.17 : scale);
+      assert.equal(BUILDING_COST_SCALES[id]![resource as ResourceId], raw, `${id}/${resource}`);
+    }
+  }
+});

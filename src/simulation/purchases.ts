@@ -125,6 +125,7 @@ export function constructBuildingState(state: GameState, id: BuildingId, moonAva
   }
 }
 export const SPACE_RIPPER_COMPLETED_LOG = '当前游戏主线部分已完成喵，请等待未来更新喵';
+export const OVERCLOCKING13_LOG = '空间撕裂者在虚空中撕开了空间，形成了一个黑洞！';
 
 export interface ResearchSideEffects {
   poweredShutdown: BuildingId[];
@@ -137,6 +138,7 @@ export interface ResearchSideEffects {
  */
 export function applyResearchSideEffects(state: GameState, id: TechnologyId, previousTech: TechnologyId[]): ResearchSideEffects {
   if (id === 'dimensionBeaconDeployment' && !previousTech.includes(id)) addLog(state, '投放维度探测信标后，虚空之中传来了另一个信号');
+  if (id === 'overclocking13' && !previousTech.includes(id)) addLog(state, OVERCLOCKING13_LOG, 'event');
   const before = { ...state, tech: previousTech };
   const poweredShutdown: BuildingId[] = [];
   for (const buildingId of Object.keys(BUILDINGS) as BuildingId[]) {

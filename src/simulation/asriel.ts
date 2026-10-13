@@ -4,7 +4,7 @@ import type { AsrielSupportedBuilding, AsrielSupport, ResourceAmounts } from '..
 import type { GameState } from '../types/state';
 
 type SupportState = Pick<GameState, 'buildings' | 'stoppedBuildings'>;
-const priority: readonly AsrielSupportedBuilding[] = ['asrielResidence', 'asrielMine', 'ecologicalDome', 'planetaryFoundry', 'alienMaterialLab'];
+const priority: readonly AsrielSupportedBuilding[] = ['asrielResidence', 'asrielMine', 'ecologicalDome', 'planetaryFoundry', 'alienMaterialLab', 'vrCenter'];
 
 /** Caller supplies the available pool after power generation and lunar maintenance. */
 export function allocateAsrielSupport(state: GameState, resources: ResourceAmounts, dt: number, waystations = 0, fuelMultiplier = calculateSpaceFuelMultiplier(state)): AsrielSupport {
@@ -17,7 +17,7 @@ export function allocateAsrielSupport(state: GameState, resources: ResourceAmoun
   const towers = Math.min(running('asrielControlTower'), Math.floor((towerEnergy + 1e-8) / (2 * dt)));
   const capacity = ports * 4 + towers;
   let available = capacity;
-  const allocations: Record<AsrielSupportedBuilding, number> = { asrielResidence: 0, asrielMine: 0, ecologicalDome: 0, planetaryFoundry: 0, alienMaterialLab: 0 };
+  const allocations: Record<AsrielSupportedBuilding, number> = { asrielResidence: 0, asrielMine: 0, ecologicalDome: 0, planetaryFoundry: 0, alienMaterialLab: 0, vrCenter: 0 };
   for (const id of priority) {
     allocations[id] = Math.min(running(id), available);
     available -= allocations[id];
@@ -30,7 +30,9 @@ export function countAsrielResidents(state: Pick<GameState, 'population' | 'work
 }
 
 export function isSpaceResourceSource(id: string): boolean {
-  return ['iridiumMine', 'helium3Mine', 'asrielMine', 'ecologicalDome', 'atmosphericCollector', 'talosMoonMiningStation', 'iridiumMiningShip', 'ironMiningShip', 'e710MiningShip', 'oilExtractor'].includes(id);
+  // 遥远星际 (hyperspace and alpha-region) ordinary producers also count as space resources.
+  return ['iridiumMine', 'helium3Mine', 'asrielMine', 'ecologicalDome', 'atmosphericCollector', 'talosMoonMiningStation', 'iridiumMiningShip', 'ironMiningShip', 'e710MiningShip', 'oilExtractor',
+    'iceMiningShip', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'metalMiningShip', 'fuelMiningShip', 'adamantiteMiningShip', 'grapheneFactory'].includes(id);
 }
 
 export function calculateSpaceMultiplier(id: string, state: Pick<GameState, 'population' | 'workers' | 'buildings' | 'tech'>, support: AsrielSupport): number {

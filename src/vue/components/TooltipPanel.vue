@@ -15,7 +15,7 @@ import { CONFIG } from '../../data/config';
 import { floorWithPrecision, formatEffectNumber } from '../../shared/format';
 import { calculateFoodPerCat } from '../../simulation/population';
 import { calculateBuildingCost, isBuildingFullyBuilt } from '../../simulation/costs';
-import { calculateTechCost } from '../../simulation/government';
+import { calculateTechCost, calculateTrainingBoost } from '../../simulation/government';
 import { SPACE_MISSIONS, REGIONAL_MISSIONS, calculateRegionalMissionCost, isRegionalMissionCompleted, type RegionalMissionId } from '../../simulation/space-missions';
 import { calculateBuildingInput, calculateBuildingOutput, calculateToolMultiplier, calculateBuildingName } from '../../simulation/building-production';
 import { getBuildingEffectRows, calculateFreightCapacityMultiplier, SPACE_RIPPER_OVERCLOCK_DESC } from '../../simulation/building-effects';
@@ -125,7 +125,7 @@ const content = computed<TipContent | null>(() => {
     const id = target.id as BuildingId, building = BUILDINGS[id];
     const count = state.buildings[id] || 0;
     tip.title = calculateBuildingName(id, state);
-    if (['alienMaterialLab', 'aiSupercore', 'swarmFactory', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'signalRepeater', 'hydrogenPowerPlant', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation'].includes(id)) tip.description = building.desc || '';
+    if (['alienMaterialLab', 'aiSupercore', 'swarmFactory', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'signalRepeater', 'hydrogenPowerPlant', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'vrCenter', 'stellarForge', 'blackHoleStation', 'penroseSphere'].includes(id)) tip.description = building.desc || '';
     if (id === 'iceMiningShip' && state.tech.includes('icebreakingPlan')) tip.description = (building.desc || '').replace('水产量+1/s', '水产量+1.25/s');
     if (id === 'aiSupercore') tip.description = `分段进度： ${Math.min(count, building.segmentedRequired!)} /${building.segmentedRequired}\n量子水平 +25%\n氦-3 - 25/s`;
     const queueUid = Number(anchor.value?.dataset.queueUid);
@@ -155,10 +155,10 @@ const content = computed<TipContent | null>(() => {
       add('蜂群卫星价格', `-${percent(reduction * 100)}%`);
     }
     // Building effects only: worker production belongs in the worker/resource details.
-    if (!building.workerOutput && !building.asrielSource) {
+    // 冶炼厂 only grants 冶炼厂工位; the slot recipe lives in the ⚙ smelter modal.
+    if (!building.workerOutput && !building.asrielSource && id !== 'smelter') {
       for (const [resource, amount] of orderedCostEntries(calculateBuildingOutput(id, state))) {
-        const label = id === 'smelter' && state.tech.includes('electrochemicalSmelting') ? `供电后${RESOURCES[resource as ResourceId].name}产量` : RESOURCES[resource as ResourceId].name;
-        add(label, `+${number(amount)}/s`);
+        add(RESOURCES[resource as ResourceId].name, `+${number(amount)}/s`);
       }
     }
     if ((building.workerOutput || building.artistSlots || building.craftSlots) && !building.unlimited) {
@@ -176,11 +176,10 @@ const content = computed<TipContent | null>(() => {
     if (id === 'foundry' && state.tech.includes('castingToolUpgrade')) add('锻造物产量', '+3%');
     if (id === 'asrielControlTower') add('火星支持', '+1');
     if (id === 'anchorFreightStation' || id === 'civilianRouteStation') add('占用稳定度', '2');
-    for (const row of getBuildingEffectRows(id, state, { repeaters: snapshot.stageThree?.repeaters ?? 0, asteroidBases: snapshot.stageThree?.asteroidBases ?? 0 })) {
+    for (const row of getBuildingEffectRows(id, state, { repeaters: snapshot.stageThree?.repeaters ?? 0, asteroidBases: snapshot.stageThree?.asteroidBases ?? 0, blackHoleStations: snapshot.blackHoleStationUnits ?? 0 })) {
       add(row.label, row.value, false, row.note);
     }
     if (id === 'asteroidBase') add('锚点货运站容量', '+5%', false, '仅运行时生效，按运行基地数量累加。');
-    if (id === 'hyperspaceSpaceport') add('超空间普通资源产量', '+25%', false, '完整支付维护后生效；仅作用于超空间来源，按运行太空港数量加算。');
     if (id === 'shortRangeRelay') { add('运行时：Asriel支持', '+2'); add('占用稳定度', '2'); }
     if (id === 'metalRefinery') {
       const advanced = state.tech.includes('advancedMetalRefining');
@@ -211,8 +210,13 @@ const content = computed<TipContent | null>(() => {
     if (id === 'ecologicalDome') add('每座Asriel居住站猫口容量', '+0.05', false, '获得Asriel支持时生效。');
     if (building.cap) add('猫口容量', `+${number(building.cap + (id === 'asrielResidence' ? .05 * snapshot.asriel.allocations.ecologicalDome : 0))}`);
     if (building.soldierCap) add('士兵容量', `+${number(building.soldierCap)}`);
-    if (building.trainingBoost) add('训练效果', `+${percent(building.trainingBoost)}%`);
+    if (building.trainingBoost) add('训练效果', `+${percent(calculateTrainingBoost(state))}%`);
     if (building.lines) add('生产线容量', `+${number(building.lines)}`);
+    if (id === 'smelter') add('冶炼厂工位', '+1', false, '冶炼厂本身不产出也不消耗资源；资源由钢冶炼工位产出和消耗，可在⚙中查看配方并分配。');
+    if (id === 'stellarForge') { add('冶炼厂工位', '+2'); add('工匠上限', '+2'); add('锻造物产量', '+10%'); }
+    if (id === 'adamantiteProcessor') add('精金采矿船产量', '+10%');
+    if (id === 'vrCenter') add('幸福度', '+2.5%', false, '获得Asriel支持时生效，仍受幸福度上限限制。');
+    if (id === 'blackHoleStation') add('空间撕裂者知识容量效果', '+1%', false, '完整支付电力维护后生效。');
     if (building.containerCap) add('集装箱容量', `+${number(building.containerCap)}`);
     if (building.moraleCap) add('幸福度上限', `+${percent(building.moraleCap)}%`);
     if (building.morale) add('幸福度', `+${percent(building.morale)}%`);
@@ -227,7 +231,7 @@ const content = computed<TipContent | null>(() => {
       add('每Asriel行星居民使太空资源产量', `+${percent(coefficient)}%`);
     }
     if (id === 'spaceWaystation') {
-      add('太空区域石油消耗量', '-5%');
+      add('太空区域石油消耗量', '-5%', false, '不作用于超空间/遥远星际的建筑与探索任务。');
       add('太空区域氦-3消耗量', '-5%');
     }
     if (id === 'communityCenter') {
@@ -251,7 +255,7 @@ const content = computed<TipContent | null>(() => {
     if (building.asrielSupport && id !== 'asrielSpaceport') add('Asriel支持', `-${number(building.asrielSupport)}`, true);
     if (building.moonSupport) add('月球支持', `-${number(building.moonSupport)}`, true);
     if (id === 'swarmSatellite') add('戴森群支持', '-1', true);
-    if (!building.workerOutput) for (const [resource, amount] of orderedCostEntries(calculateBuildingInput(id, state))) {
+    if (!building.workerOutput && id !== 'smelter') for (const [resource, amount] of orderedCostEntries(calculateBuildingInput(id, state))) {
       add(RESOURCES[resource as ResourceId].name, `-${number(amount)}/s`, true);
     }
     if (miningPowered || gatheringPowered || mixerPowered) add('电力', `-${mixerPowered ? 2 : 1}/s`, true);
@@ -376,6 +380,7 @@ const content = computed<TipContent | null>(() => {
       add('供能设施士气', `+${percent(morale.broadcast + morale.station)}%`);
     }
     if (morale.beacon !== 0) add('广播信标', `+${percent(morale.beacon)}%`);
+    if (morale.vr) add('VR中心', `+${percent(morale.vr)}%`);
     tip.footnote = '幸福度下限40%；上限由剧场、广播塔、猫咖、观光空间站和纪念碑增加。士兵压力按军营提供的名额计算，不按当前士兵人数。';
   } else if (target.kind === 'housing') {
     const housing = calculateHousingDetails(state, snapshot.asriel, snapshot.stageThree);

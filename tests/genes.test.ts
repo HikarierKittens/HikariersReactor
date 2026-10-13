@@ -118,7 +118,7 @@ test('gene bonuses reach real settlement and the resource tooltip rows', () => {
   // Genes are part of the base output: the source row grows, no separate gene row is listed.
   const plain = geneState(); plain.buildings.smelter = s.buildings.smelter;
   Object.assign(plain.resources, { iron: 1e5, coal: 1e5, energy: 1e5 });
-  const baseRow = (state: GameState) => calculateResourceFactorRows('metal', state, calculateProduction(state)).rows.find(row => !row.child && row.name === '冶炼厂');
+  const baseRow = (state: GameState) => calculateResourceFactorRows('metal', state, calculateProduction(state)).rows.find(row => !row.child && row.name === '钢冶炼工位');
   const rows = calculateResourceFactorRows('metal', s, result).rows;
   assert.ok(!rows.some(row => Object.values(GENE_DEFINITIONS).some(gene => row.name === gene.name)), JSON.stringify(rows));
   assert.ok(baseRow(s) && baseRow(plain) && baseRow(s)!.value !== baseRow(plain)!.value, 'base row reflects the gene');

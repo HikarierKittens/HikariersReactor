@@ -7,6 +7,8 @@ export type BuildingId =
   | 'comprehensiveMiningFacility' | 'gasCloudMiningShip' | 'highTechFarmPlatform'
   | 'fusionPowerPlant' | 'metalMiningShip' | 'fuelMiningShip'
   | 'spaceRipper' | 'highTechFactory' | 'e710ResearchStation'
+  | 'adamantiteMiningShip' | 'adamantiteProcessor' | 'grapheneFactory' | 'vrCenter'
+  | 'stellarForge' | 'blackHoleStation' | 'penroseSphere'
   | 'constraintArray' | 'shortRangeRelay' | 'anchorFreightStation' | 'civilianRouteStation'
   | 'asrielControlTower'
   | 'alienMaterialLab' | 'aiSupercore' | 'swarmFactory'
@@ -41,7 +43,9 @@ export interface BuildingDefinition {
   slots?: number;
   workerName?: string;
   buildingRequired?: BuildingId;
-  spaceMissionRequired?: 'misen';
+  spaceMissionRequired?: 'misen' | 'neutronStar' | 'blackHole';
+  /** Segmented building whose every built segment works (instead of only complete units). */
+  segmentEffects?: boolean;
   boostResource?: ResourceId;
   alwaysRunning?: boolean;
   toggleable?: boolean;

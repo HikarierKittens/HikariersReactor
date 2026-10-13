@@ -100,6 +100,7 @@ function oracleSupportPreview(state: GameState, dt = 1) {
     e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, aiSupercoreUnits,
     ironMiningShips: space.inputs.ironMiningShip || 0,
     researchStationUnits: space.inputs.e710ResearchStation || 0,
+    blackHoleStationUnits: space.inputs.blackHoleStation || 0,
   };
 }
 

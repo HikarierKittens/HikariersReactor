@@ -9,7 +9,7 @@ import type { TechnologyId } from '../types/technologies';
 import { sampleEventInterval } from '../simulation/events';
 import { requestPurchaseModule, buyBuildingsInBatch, removeQueuedPurchase, describeQueuedPurchases } from '../simulation/purchases';
 
-import { changeWorkerAssignment, changeFactoryAssignment, changeGovernment, createContainers, changeContainerAssignment, craftManually } from '../simulation/commands';
+import { changeWorkerAssignment, changeFactoryAssignment, changeSmelterAssignment, changeGovernment, createContainers, changeContainerAssignment, craftManually } from '../simulation/commands';
 import type { RegionalMissionId } from '../simulation/space-missions';
 import { clampResourcesToCaps } from '../simulation/storage';
 import type { ResourceId, ResourceAmounts } from '../types/economy';
@@ -50,6 +50,7 @@ import AchievementsPanel from './components/AchievementsPanel.vue';
 import ResourceManagementPanel from './components/ResourceManagementPanel.vue';
 import TipsPanel from './components/TipsPanel.vue';
 import FactoryModal from './components/FactoryModal.vue';
+import SmelterModal from './components/SmelterModal.vue';
 import SpaceshipModal from './components/SpaceshipModal.vue';
 import { investInShipComponent, type ShipComponentId } from '../simulation/spaceship';
 import TooltipPanel from './components/TooltipPanel.vue';
@@ -190,7 +191,7 @@ function startChallenges(genes: ChallengeGeneId[]): void {
 
 function resetRun(kind: 'soft' | 'hard', done?: (success: boolean) => void): void {
   const success = props.store.runtime.reset(kind);
-  if (success) { worldView.value = 'home'; techView.value = 'available'; factoryOpen.value = false; shipModal.value = false; escapeConfirm.value = false; }
+  if (success) { worldView.value = 'home'; techView.value = 'available'; factoryOpen.value = false; smelterOpen.value = false; shipModal.value = false; escapeConfirm.value = false; }
   props.store.refresh();
   done?.(success && !props.store.runtime.saveFailed);
 }
@@ -278,6 +279,7 @@ function confirmEscape(): void {
   escapeConfirm.value = false;
   shipModal.value = false;
   factoryOpen.value = false;
+  smelterOpen.value = false;
   worldView.value = 'home';
   activeTab.value = 'buildings';
   techView.value = 'available';
@@ -340,6 +342,20 @@ function assignLine(id: string, delta: number): void {
   afterAction();
 }
 
+const smelterOpen = ref(false);
+const smelterDialog = ref<HTMLDialogElement | null>(null);
+watch(smelterOpen, async open => { if (open) { await nextTick(); smelterDialog.value?.showModal(); } });
+function dismissSmelterBackdrop(event: MouseEvent): void {
+  const dialog = smelterDialog.value;
+  if (!dialog || event.target !== dialog) return;
+  const bounds = dialog.getBoundingClientRect();
+  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) smelterOpen.value = false;
+}
+function assignSmelter(delta: number): void {
+  props.store.mutate(s => { changeSmelterAssignment(s, delta); });
+  afterAction();
+}
+
 let timer: number | undefined;
 
 onMounted(() => {
@@ -362,7 +378,8 @@ onUnmounted(() => {
       <span class="game-date">{{ gameDate }}</span>
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.4.10</span>
+      <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.5.2</span>
     </header>
 
     <div class="layout">
@@ -408,6 +425,7 @@ onUnmounted(() => {
               @toggle="toggle"
               @gather="gather"
               @factory-settings="factoryOpen = true"
+              @smelter-settings="smelterOpen = true"
               @ship-settings="shipModal = true"
               @world-view="worldView = $event"
               @mission="mission"
@@ -559,6 +577,14 @@ onUnmounted(() => {
         :state="state"
         :revision="store.revision()"
         @assign="assignLine"
+      />
+    </dialog>
+    <dialog v-if="smelterOpen" ref="smelterDialog" id="smelterModal" class="factory-modal" @cancel="smelterOpen = false" @click="dismissSmelterBackdrop">
+      <h2>冶炼厂</h2>
+      <SmelterModal
+        :state="state"
+        :revision="store.revision()"
+        @assign="assignSmelter"
       />
     </dialog>
   </div>

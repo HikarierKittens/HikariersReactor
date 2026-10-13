@@ -29,6 +29,10 @@ export function calculateParticleMultiplier(id: ResourceId, state: Pick<GameStat
 export function calculateFoundryMultiplier(state: Pick<GameState, 'tech' | 'buildings'>): number {
   return state.tech.includes('castingToolUpgrade') ? 1 + (state.buildings.foundry || 0) * .03 : 1;
 }
+/** 恒星熔炉: +10% crafted output per forge (passive, no upkeep). */
+export function calculateStellarForgeCraftMultiplier(state: Pick<GameState, 'buildings'>): number {
+  return 1 + .1 * (state.buildings.stellarForge || 0);
+}
 export function calculateCraftingMultiplier(id: ResourceId, state: GameState, support?: AsrielSupport): number {
   let planetary = 1;
   if (state.resources && state.workers && state.population !== undefined && state.stoppedBuildings && state.buildings.planetaryFoundry) {
@@ -37,7 +41,7 @@ export function calculateCraftingMultiplier(id: ResourceId, state: GameState, su
   }
   const accelerator = isChallengeGeneActive(state, 'particleImbalance') && RESOURCES[id]?.crafted
     ? 1 + .0125 * (state.buildings.particleAccelerator || 0) : 1;
-  return calculateParticleMultiplier(id, state) * calculateFoundryMultiplier(state) * planetary * accelerator;
+  return calculateParticleMultiplier(id, state) * calculateFoundryMultiplier(state) * planetary * accelerator * calculateStellarForgeCraftMultiplier(state);
 }
 export function countCraftWorkers(state: Pick<GameState, 'craftWorkers'>): number {
   return Object.values(state.craftWorkers).reduce((sum, count) => sum + count, 0);
@@ -72,7 +76,7 @@ export function settleAutomaticCrafting(state: GameState, pool: ResourceAmounts,
   const inputs: Partial<Record<`craft:${CraftId}`, number>> = {};
   const outputs: Partial<Record<`craft:${CraftId}`, number>> = {};
   const allocation = support || calculateSupportPreview(state).asriel;
-  let availableWorkers = Math.min(state.workers.foundry, (state.buildings.foundry || 0) + (allocation.allocations.planetaryFoundry || 0));
+  let availableWorkers = Math.min(state.workers.foundry, (state.buildings.foundry || 0) + (allocation.allocations.planetaryFoundry || 0) + 2 * (state.buildings.stellarForge || 0));
   for (const id of Object.keys(CRAFT_RECIPES) as CraftId[]) {
     const recipe = CRAFT_RECIPES[id], count = Math.min(state.craftWorkers[id] || 0, availableWorkers);
     availableWorkers -= count;

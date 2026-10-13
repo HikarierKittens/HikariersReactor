@@ -45,3 +45,17 @@ export function trimFactoryAssignments(state: GameState): number {
 export function countAssignedLines(state: Pick<GameState, 'lines'>): number {
   return Object.values(state.lines || {}).reduce((sum, count) => sum + count, 0);
 }
+
+/** Owned 冶炼厂工位 (冶炼厂 +1, 恒星熔炉 +2), ignoring stopped smelters; bounds the idle setting. */
+export function calculateSmelterSlotCapacity(state: Pick<GameState, 'buildings'>): number {
+  return (state.buildings.smelter || 0) + 2 * (state.buildings.stellarForge || 0);
+}
+/** 冶炼厂工位 assigned to 钢冶炼: every non-idle slot, so new slots auto-run steel. */
+export function countSteelSmelterSlots(state: Pick<GameState, 'buildings'> & Partial<Pick<GameState, 'smelterIdle'>>): number {
+  return Math.max(0, calculateSmelterSlotCapacity(state) - Math.min(state.smelterIdle || 0, calculateSmelterSlotCapacity(state)));
+}
+/** Steel slots that actually run: stopped smelters remove their own slot first. */
+export function calculateRunningSmelterSlots(state: Pick<GameState, 'buildings'> & Partial<Pick<GameState, 'stoppedBuildings' | 'smelterIdle'>>): number {
+  const running = Math.max(0, (state.buildings.smelter || 0) - (state.stoppedBuildings?.smelter || 0)) + 2 * (state.buildings.stellarForge || 0);
+  return Math.max(0, running - Math.min(state.smelterIdle || 0, calculateSmelterSlotCapacity(state)));
+}

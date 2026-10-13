@@ -6,7 +6,8 @@ import type { GameState } from '../types/state';
 
 export function countRunningBuildings(id: BuildingId, state: Pick<GameState, 'buildings' | 'stoppedBuildings'>): number {
   // Segmented projects only count complete units (every segmentedRequired segments).
-  const required = BUILDINGS[id].segmentedRequired;
+  // segmentEffects projects (彭罗斯球体) work per built segment instead.
+  const required = BUILDINGS[id].segmentEffects ? undefined : BUILDINGS[id].segmentedRequired;
   const count = required ? Math.floor((state.buildings[id] || 0) / required) : state.buildings[id] || 0;
   return BUILDINGS[id].alwaysRunning ? count : Math.max(0, count - (state.stoppedBuildings?.[id] || 0));
 }

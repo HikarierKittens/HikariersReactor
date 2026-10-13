@@ -20,7 +20,8 @@ export function calculateWorkerCapacity(id: BuildingId, state: Pick<GameState, '
   if (id === 'catCafe') return 0;
   if (id === 'foundry' || id === 'planetaryFoundry') {
     const planetary = state.buildings.planetaryFoundry || 0;
-    return id === 'planetaryFoundry' ? planetary : (state.buildings.foundry || 0) * (BUILDINGS.foundry.slots || 2) + planetary;
+    // 恒星熔炉 adds two artisan positions each to the shared 工匠 job.
+    return id === 'planetaryFoundry' ? planetary : (state.buildings.foundry || 0) * (BUILDINGS.foundry.slots || 2) + planetary + 2 * (state.buildings.stellarForge || 0);
   }
   return building.unlimited ? Infinity : state.buildings[id] * (building.slots ?? building.artistSlots ?? CONFIG.workersPerBuilding) + calculateGrantedJobSlots(id, state);
 }
@@ -68,6 +69,11 @@ function calculateRawBuildingOutput(id: BuildingId, state: GameState, inputs: Pr
   if (id === 'touristCenter') return { cash: calculateTouristBase(state, inputs) };
   const building = BUILDINGS[id], output = building.workerOutput || building.output || {};
   if (id === 'smelter') return { ...output, metal: ((state.tech.includes('electrochemicalSmelting') ? 1 : output.metal || 0) + (state.tech.includes('quantumTunnelingThermalProcessing') ? .1 : 0)) * (state.tech.includes('oxygenConverter') ? 1.2 : 1) * (state.tech.includes('geothermalFurnace') ? 1.5 : 1) };
+  if (state.tech.includes('plasmaMining')) {
+    if (id === 'iridiumMiningShip') return { iridium: .15 };
+    if (id === 'ironMiningShip') return { iron: 4 };
+    if (id === 'e710MiningShip') return { e710: .012 };
+  }
   if (state.tech.includes('asteroidMiningOptimization')) {
     if (id === 'iridiumMiningShip') return { iridium: .1 };
     if (id === 'ironMiningShip') return { iron: 3 };

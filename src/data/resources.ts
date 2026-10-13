@@ -41,6 +41,10 @@ export const RESOURCES: Record<ResourceId, ResourceDefinition> = {
   e710: { name: 'E-710', icon: '💠', tech: 'exoticElementResearch', cap: 0, special: false },
   neutron: { name: '中子', icon: '⚛️', unlockBy: 'talosMoonMiningStation', cap: 0, special: false },
   nanotubes: { name: '纳米管', icon: '🧵', tech: 'carbonNanotubes', cap: 0 },
+  graphene: { name: '石墨烯', icon: '⬡', tech: 'grapheneProcessing', cap: 0 },
+  nanoAlloy: { name: '纳米合金', icon: '🔷', tech: 'nanoAlloy', cap: 0 },
+  adamantite: { name: '精金', icon: '🟨', unlockBy: 'adamantiteMiningShip', cap: 0 },
+  aerogel: { name: '气凝胶', icon: '☁️', crafted: true, tech: 'aerogel', unlockBy: 'foundry', cap: Infinity },
   wroughtIron: { name: '锻铁', icon: '🔩', special: true, crafted: true, unlockBy: 'foundry', cap: Infinity },
   metalPlate: { name: '金属板', icon: '🔳', special: true, crafted: true, unlockBy: 'foundry', cap: Infinity },
 };
@@ -51,6 +55,7 @@ export const CRAFT_RECIPES: Record<CraftId, { input: ResourceRecipe; rate: numbe
   wroughtIron: { input: { iron: 10 }, rate: .1 },
   metalPlate: { input: { aluminum: 10 }, rate: .1 },
   mithril: { input: { iridium: 10 }, rate: .1 },
+  aerogel: { input: { graphene: 10, nanoAlloy: 5 }, rate: .1 },
 };
 
 export interface FactoryOption {
@@ -66,4 +71,5 @@ export const FACTORY_OPTIONS: FactoryOption[] = [
   { id: 'polymer', name: '聚合物生产线', icon: '🧪', input: { oil: 1 }, output: { polymer: .5 } },
   { id: 'fur', name: '毛皮生产线', icon: '🧶', tech: 'syntheticFur', input: { cash: 25, polymer: 2 }, output: { fur: 5 } },
   { id: 'nanotubes', name: '纳米管生产线', icon: '🧵', tech: 'carbonNanotubes', input: { neutron: .05, coal: 1 }, output: { nanotubes: 10 } },
+  { id: 'nanoAlloy', name: '纳米合金生产线', icon: '🔷', tech: 'nanoAlloy', input: { graphene: 5, adamantite: 2 }, output: { nanoAlloy: 1 } },
 ];

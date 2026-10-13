@@ -53,7 +53,7 @@ test('tower support allocates in the existing residence/mine/dome/foundry/lab pr
   state.buildings.planetaryFoundry = 2;
   state.buildings.alienMaterialLab = 2;
   const support = allocateAsrielSupport(state, state.resources, 1);
-  assert.deepEqual(support.allocations, { asrielResidence: 1, asrielMine: 2, ecologicalDome: 2, planetaryFoundry: 2, alienMaterialLab: 0 });
+  assert.deepEqual(support.allocations, { asrielResidence: 1, asrielMine: 2, ecologicalDome: 2, planetaryFoundry: 2, alienMaterialLab: 0, vrCenter: 0 });
   assert.equal(support.capacity, 7);
 });
 

@@ -28,6 +28,7 @@ export function previewMorale(state: GameState, dt = 1) {
   return calculateMorale(state, dt, {
     waystationUnits: support.waystations,
     navigationBeaconUnits: support.moon.beaconUnits || 0,
+    vrCenterUnits: support.asriel.allocations.vrCenter || 0,
     generatorSpeed: (Object.keys(BUILDINGS) as BuildingId[]).filter(isPowerProducer).reduce((sum, id) => sum + countRunningBuildings(id, state), 0),
     generatorEnergy: plants.energy, coalRatio: coalSpeed ? (plants.outputs.generator || 0) / coalSpeed : 1,
     moonBaseUnits: allocateMoonSupport(state, moonPool, dt).baseUnits,
@@ -60,7 +61,7 @@ export function calculateProduction(state: GameState, dt = 1) {
   const e710WarehouseUnits = ledger.e710WarehouseUnits;
   const biologyUnits = ledger.biologyUnits, dataUnits = ledger.dataCenterUnits;
   return withPoweredMetalRefining(state, space.metalRefineryUnits, state => {
-    const quantum = calculateQuantumSnapshot(state, { stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits }, aiSupercoreUnits);
+    const quantum = calculateQuantumSnapshot(state, { stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, blackHoleStationUnits: ledger.blackHoleStationUnits }, aiSupercoreUnits);
     const factory = settleFactoryLines(state, pool, dt, morale.happiness, asriel, calculateSpaceFuelMultiplier(state, inputUnits.spaceWaystation || 0), quantum.level);
     Object.assign(inputUnits, factory.inputs); Object.assign(outputs, factory.outputs);
     const automation = settleAutomationPower(state, pool, dt);
@@ -73,7 +74,7 @@ export function calculateProduction(state: GameState, dt = 1) {
     const crafting = settleAutomaticCrafting(state, pool, dt, asriel);
     Object.assign(inputUnits, crafting.inputs); Object.assign(outputs, crafting.outputs);
     Object.assign(outputs, settlePopulationIncome(state, pool, morale.happiness, dt));
-    const final = finalizeProduction(state, pool, before, dt, { stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits });
+    const final = finalizeProduction(state, pool, before, dt, { stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, blackHoleStationUnits: ledger.blackHoleStationUnits });
     return { ...final, outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree };
   });
 }

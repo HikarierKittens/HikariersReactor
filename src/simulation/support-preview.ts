@@ -23,6 +23,8 @@ export interface SupportPreview {
   ironMiningShips: number;
   /** Whole funded 710研究站 units (knowledge storage). */
   researchStationUnits: number;
+  /** Whole funded 黑洞星际站 units (raise the 空间撕裂者 knowledge-cap effect). */
+  blackHoleStationUnits: number;
 }
 
 /**
@@ -71,6 +73,7 @@ export function buildSettlementLedger(state: GameState, dt = 1, quantumLevel?: n
     e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, aiSupercoreUnits,
     ironMiningShips: space.inputs.ironMiningShip || 0,
     researchStationUnits: space.inputs.e710ResearchStation || 0,
+    blackHoleStationUnits: space.inputs.blackHoleStation || 0,
     space,
     plants,
   };

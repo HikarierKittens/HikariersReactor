@@ -9,7 +9,7 @@ import { CRAFT_RECIPES } from '../data/resources';
 import { isResourceUnlocked } from './unlocks';
 import type { GameState, GovernmentId } from '../types/state';
 import type { CraftId, ResourceId, FactoryLineId } from '../types/economy';
-import { calculateFactoryCapacity, countAssignedLines } from './factory';
+import { calculateFactoryCapacity, countAssignedLines, calculateSmelterSlotCapacity } from './factory';
 import { isFactoryLineUnlocked } from './factory-settlement';
 
 import { calculateContainerRecipe, calculateContainerCapacity, countAssignedContainers, isContainerAssignable } from './containers';
@@ -39,6 +39,15 @@ export function changeFactoryAssignment(state: GameState, id: string, delta: num
   const line = id as FactoryLineId;
   const amount = delta > 0 ? Math.min(delta, calculateFactoryCapacity(state) - countAssignedLines(state)) : -Math.min(-delta, state.lines[line]);
   if (amount) state.lines[line] += amount;
+  return amount;
+}
+/** Move 冶炼厂工位 between 钢冶炼 (delta > 0) and idle (delta < 0). */
+export function changeSmelterAssignment(state: GameState, delta: number): number {
+  if (!Number.isSafeInteger(delta) || !delta) return 0;
+  const capacity = calculateSmelterSlotCapacity(state);
+  const idle = Math.min(state.smelterIdle || 0, capacity);
+  const amount = delta > 0 ? Math.min(delta, idle) : -Math.min(-delta, capacity - idle);
+  state.smelterIdle = idle - amount;
   return amount;
 }
 export function completeAsrielMission(state: GameState): boolean {

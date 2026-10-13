@@ -1,5 +1,5 @@
 import { BUILDINGS } from '../data/buildings';
-import { calculateFactoryCapacity, countAssignedLines } from '../simulation/factory';
+import { calculateFactoryCapacity, countAssignedLines, calculateSmelterSlotCapacity } from '../simulation/factory';
 import { isFactoryLineUnlocked } from '../simulation/factory-settlement';
 import { RESOURCES, CRAFT_RECIPES, FACTORY_OPTIONS } from '../data/resources';
 import { calculateWorkerCapacity } from '../simulation/building-production';
@@ -25,6 +25,12 @@ export function validateFactoryAssignments(raw: unknown, state: GameState): void
     if (!Number.isInteger(count) || (count > 0 && !isFactoryLineUnlocked(option.id, state))) throw Error('生产线分配无效。');
   }
   if (countAssignedLines(state) > calculateFactoryCapacity(state)) throw Error('生产线分配超过工厂数量。');
+}
+/** Older saves lack smelterIdle: every 冶炼厂工位 defaults to 钢冶炼. */
+export function validateSmelterAssignments(raw: unknown, state: GameState): void {
+  const idle = validateSaveNumber(raw === undefined ? 0 : raw, 0, calculateSmelterSlotCapacity(state), '冶炼厂工位');
+  if (!Number.isInteger(idle)) throw Error('冶炼厂工位无效。');
+  state.smelterIdle = idle;
 }
 
 export function validateEconomyRecords(raw: Record<string, unknown>, state: GameState): void {
@@ -57,7 +63,8 @@ export function validateEconomyRecords(raw: Record<string, unknown>, state: Game
   state.workers.foundry = artisans;
   state.workers.planetaryFoundry = 0;
   for (const id of Object.keys(CRAFT_RECIPES) as CraftId[]) {
-    state.craftWorkers[id] = validateSaveNumber(savedField(raw.craftWorkers, id), 0, state.workers.foundry, '工匠分配');
+    const saved = savedField(raw.craftWorkers, id);
+    state.craftWorkers[id] = validateSaveNumber(id === 'aerogel' && saved === undefined ? 0 : saved, 0, state.workers.foundry, '工匠分配');
     if (!Number.isInteger(state.craftWorkers[id])) throw Error('工匠分配无效。');
   }
   if (Object.values(state.craftWorkers).reduce((sum, count) => sum + count, 0) > state.workers.foundry) throw Error('工匠分配超额。');

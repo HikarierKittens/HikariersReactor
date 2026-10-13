@@ -12,11 +12,11 @@ export const OPTIONAL_BUILDING_KEYS: readonly BuildingId[] = ['signalRepeater', 
   'swarmControlStation', 'swarmSatellite', 'atmosphericCollector', 'galacticFuelDepot',
   'talosMoonMiningStation', 'iridiumMiningShip', 'ironMiningShip', 'interstellarDock',
   'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip',
-  'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'catHut'];
+  'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'catHut', 'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'vrCenter', 'stellarForge', 'blackHoleStation', 'penroseSphere'];
 
-export const NEW_BUILDING_STOPPED: readonly BuildingId[] = ['signalRepeater', 'hydrogenPowerPlant', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'constraintArray', 'shortRangeRelay', 'anchorFreightStation', 'civilianRouteStation', 'asrielControlTower', 'alienMaterialLab', 'aiSupercore', 'swarmFactory', 'e710Container', 'e710MiningShip', 'e710Warehouse', 'e710Reactor', 'miningDrone', 'oilExtractor', 'swarmControlStation', 'swarmSatellite', 'atmosphericCollector', 'galacticFuelDepot', 'talosMoonMiningStation', 'iridiumMiningShip', 'ironMiningShip', 'interstellarDock', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'catHut'];
+export const NEW_BUILDING_STOPPED: readonly BuildingId[] = ['signalRepeater', 'hydrogenPowerPlant', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'constraintArray', 'shortRangeRelay', 'anchorFreightStation', 'civilianRouteStation', 'asrielControlTower', 'alienMaterialLab', 'aiSupercore', 'swarmFactory', 'e710Container', 'e710MiningShip', 'e710Warehouse', 'e710Reactor', 'miningDrone', 'oilExtractor', 'swarmControlStation', 'swarmSatellite', 'atmosphericCollector', 'galacticFuelDepot', 'talosMoonMiningStation', 'iridiumMiningShip', 'ironMiningShip', 'interstellarDock', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'catHut', 'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'vrCenter', 'stellarForge', 'blackHoleStation', 'penroseSphere'];
 
-export const DEFAULT_ZERO_RESOURCES: readonly ResourceId[] = ['water', 'neutron', 'e710', 'nanotubes', 'deuterium'];
+export const DEFAULT_ZERO_RESOURCES: readonly ResourceId[] = ['water', 'neutron', 'e710', 'nanotubes', 'deuterium', 'graphene', 'nanoAlloy', 'adamantite', 'aerogel'];
 
 /** Missing-key defaults use these registries; unknown ids must never silently pass. */
 export function isOptionalBuildingKey(id: BuildingId): boolean {

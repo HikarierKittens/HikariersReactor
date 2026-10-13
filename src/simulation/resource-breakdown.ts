@@ -1,18 +1,19 @@
-import { HYPERSPACE_SOURCE_IDS, isHyperspaceSource, calculateHyperspaceOutputFactor } from './hyperspace-output';
+import { HYPERSPACE_SOURCE_IDS, calculateHyperspaceOutputFactor, calculateHyperspaceLocalMultiplier } from './hyperspace-output';
 import { calculateRefiningMultiplier, withPoweredMetalRefining } from './refining';
 import { BUILDINGS } from '../data/buildings';
 import { calculateQuantumManufacturingMultiplier } from './quantum';
 import { RESOURCES, CRAFT_RECIPES, FACTORY_OPTIONS } from '../data/resources';
 import { calculateBuildingName, calculateBuildingInput, calculateBuildingOutput, calculateToolMultiplier, calculateGrantedJobSlots } from './building-production';
-import { calculateFactoryRecipe } from './factory';
+import { calculateFactoryRecipe, calculateSmelterSlotCapacity, calculateRunningSmelterSlots } from './factory';
 import { calculateProductionMultiplier, calculateAluminumMultiplier, calculateKnowledgeMultiplier, calculateFactoryOutputMultiplier } from './multipliers';
 import { calculateSpaceMultiplier, isSpaceResourceSource } from './asriel';
 import { calculateParticleMultiplier } from './crafting';
 import { calculateChallengeAcceleratorMultiplier } from './multipliers';
 import { calculateFoodPerCat } from './population';
 import { isPowerProducer } from './power';
+import { countRunningBuildings } from './housing';
 import { calculateGovernmentMultiplier, calculateTaxBase, calculateBankerMultiplier, calculateFurMultiplier } from './government';
-import { calculateFoundryMultiplier } from './crafting';
+import { calculateFoundryMultiplier, calculateStellarForgeCraftMultiplier } from './crafting';
 import { CONFIG } from '../data/config';
 import { formatNumber } from '../shared/format';
 import type { BuildingId } from '../types/buildings';
@@ -50,17 +51,17 @@ export function calculateResourceBreakdown(
 
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
     const b = BUILDINGS[id];
-    const n = state.buildings[id];
+    const n = id === 'smelter' ? calculateSmelterSlotCapacity(state) : state.buildings[id];
     if (!n && !b.unlimited) continue;
     const speed = (HYPERSPACE_SOURCE_IDS.includes(id)
-      ? (result.inputUnits[id] || 0) * calculateHyperspaceOutputFactor(resource, state, result.morale.happiness, result.stageThree.ports)
+      ? (result.inputUnits[id] || 0) * calculateHyperspaceOutputFactor(resource, state, result.morale.happiness, result.stageThree.ports) * calculateHyperspaceLocalMultiplier(id, state)
       : result.outputs[id] || 0)
       * (isSpaceResourceSource(id) ? calculateSpaceMultiplier(id, state, result.asriel) : 1)
      
       * (['asrielMine', 'ecologicalDome'].includes(id)
         ? calculateProductionMultiplier(resource, result.morale.happiness, state) : 1);
     const workers = state.workers[id];
-    const notes = b.workerOutput ? [`${b.workerName}岗位 ${workers} 个`] : [`已建 ${n} 座`];
+    const notes = b.workerOutput ? [`${b.workerName}岗位 ${workers} 个`] : id === 'smelter' ? [`钢冶炼工位 ${calculateRunningSmelterSlots(state)} 个`] : [`已建 ${n} 座`];
     if (b.boostResource && n) notes.push(`${calculateBuildingName(id, state)} ×${(1 + n * ((id === 'lumber' || id === 'quarry') ? .02 : .05)).toFixed(2)}`);
     if (b.morale) notes.push(`固定耗电，供能率 ${(result.morale.ratio * 100).toFixed(2)}%`);
     else if (!isPowerProducer(id) && Math.abs(result.morale.happiness - 100) > 1e-9) {
@@ -76,7 +77,8 @@ export function calculateResourceBreakdown(
         ? (calculateBuildingOutput(id, state)[resource] || 0) * calculateToolMultiplier(id, state)
         : output;
       entries.push({
-        id, kind: 'income', name: `${id === 'catCafe' && resource === 'cash' ? calculateBuildingName(id, state) : b.workerName || calculateBuildingName(id, state)}产出`,
+        // 冶炼厂 itself produces nothing; steel comes from the 冶炼厂工位 it grants.
+        id, kind: 'income', name: `${id === 'smelter' ? '钢冶炼工位' : id === 'catCafe' && resource === 'cash' ? calculateBuildingName(id, state) : b.workerName || calculateBuildingName(id, state)}产出`,
         value: base * speed
           * (resource === 'aluminum' && !HYPERSPACE_SOURCE_IDS.includes(id) ? calculateAluminumMultiplier(state) : 1)
           * calculateParticleMultiplier(resource, state),
@@ -86,7 +88,7 @@ export function calculateResourceBreakdown(
     const input = calculateBuildingInput(id, state)[resource];
     if (input) {
       entries.push({
-        id, kind: 'expense', name: `${b.workerOutput ? b.workerName : calculateBuildingName(id, state)}消耗`,
+        id, kind: 'expense', name: `${id === 'smelter' ? '钢冶炼工位' : b.workerOutput ? b.workerName : calculateBuildingName(id, state)}消耗`,
         value: -input * (result.inputUnits[id] || 0),
         note: '固定基础消耗 × 实际工作数量（不乘产量加成）',
       });
@@ -246,11 +248,14 @@ export function calculateResourceFactorRows(
     const id = e.id as BuildingId;
     const b = BUILDINGS[id];
     if (!b) continue;
-    const n = state.buildings[id], workers = state.workers[id];
-    const running = Math.max(0, n - (state.stoppedBuildings?.[id] || 0));
+    // 冶炼厂 rows count steel-assigned 冶炼厂工位 rather than buildings.
+    const n = id === 'smelter' ? calculateSmelterSlotCapacity(state) : state.buildings[id], workers = state.workers[id];
+    const running = id === 'smelter' ? calculateRunningSmelterSlots(state) : Math.max(0, n - (state.stoppedBuildings?.[id] || 0));
     if (isPowerProducer(id)) {
       add(calculateBuildingName(id, state), signedRate(e.value));
-      if (running && (result.inputUnits[id] || 0) < running - 1e-9) pct('原料供应', (result.inputUnits[id] || 0) / running, true);
+      // Same running count as settlePowerPlants: segmented plants (空间撕裂者) count complete units, not segments.
+      const plants = countRunningBuildings(id, state);
+      if (plants && (result.inputUnits[id] || 0) < plants - 1e-9) pct('原料供应', (result.inputUnits[id] || 0) / plants, true);
       continue;
     }
     const globalFactor = (resource === 'energy' ? 1 : calculateProductionMultiplier(resource, happiness, state))
@@ -264,15 +269,14 @@ export function calculateResourceFactorRows(
       / (id === 'iridiumMine' && resource === 'iridium' ? 1 + .05 * (result.inputUnits.geothermalPlant || 0) : 1)
       / (id === 'talosMoonMiningStation' && resource === 'neutron' ? 1 + .05 * (state.buildings.miningDrone || 0) : 1)
       / calculateSpaceMultiplier(id, state, result.asriel)
-      / (isHyperspaceSource(id) && !RESOURCES[resource].special && !RESOURCES[resource].crafted ? 1 + .25 * result.stageThree.ports : 1)
-;
-    add(id === 'catCafe' && resource === 'cash' ? calculateBuildingName(id, state) : b.workerName || calculateBuildingName(id, state), signedRate(sourceValue));
+      / calculateHyperspaceLocalMultiplier(id, state);
+    add(id === 'smelter' ? '钢冶炼工位' : id === 'catCafe' && resource === 'cash' ? calculateBuildingName(id, state) : b.workerName || calculateBuildingName(id, state), signedRate(sourceValue));
 
     // 基因修饰 bonuses are already part of the base value (calculateBuildingOutput); no separate row.
     let local = 1;
-    if (isHyperspaceSource(id) && !RESOURCES[resource].special && !RESOURCES[resource].crafted) {
-      const factor = 1 + .25 * result.stageThree.ports;
-      pct('超空间太空港', factor, true); local *= factor;
+    if (id === 'adamantiteMiningShip') {
+      const factor = calculateHyperspaceLocalMultiplier(id, state);
+      pct('精金加工站', factor, true); local *= factor;
     }
     if (id === 'iridiumMine' && resource === 'iridium') {
       const factor = 1 + .05 * (result.inputUnits.geothermalPlant || 0);
@@ -326,6 +330,7 @@ export function calculateResourceFactorRows(
   pct('粒子加速器', calculateChallengeAcceleratorMultiplier(resource, state));
   if (RESOURCES[resource].crafted) {
     pct('锻造工具升级', calculateFoundryMultiplier(state));
+    pct('恒星熔炉', calculateStellarForgeCraftMultiplier(state));
     pct('行星铸造厂', 1 + .03 * (result.asriel.allocations.planetaryFoundry || 0) * Math.min(state.population, state.workers.asrielResidence || 0, result.asriel.allocations.asrielResidence * 2));
   }
   if (['aluminum', 'metal', 'iridium'].includes(resource)) pct('金属精炼厂', calculateRefiningMultiplier(resource, state));

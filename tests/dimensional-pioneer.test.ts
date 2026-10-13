@@ -271,9 +271,9 @@ test('higher-dimensional storage doubles hyperspace storage and adds spaceport w
     base: calculateStorageBonuses('asteroidBase', s, null, null),
     civilian: calculateStorageBonuses('civilianRouteStation', s, null, null),
   };
-  assert.deepEqual(before.port, { deuterium: 8000 });
+  assert.deepEqual(before.port, { helium3: 16000, deuterium: 8000 });
   s.tech.push('higherDimensionalStorage');
-  assert.deepEqual(calculateStorageBonuses('hyperspaceSpaceport', s, null, null), { water: 16000, deuterium: 16000 });
+  assert.deepEqual(calculateStorageBonuses('hyperspaceSpaceport', s, null, null), { helium3: 32000, water: 16000, deuterium: 16000 });
   assert.deepEqual(calculateStorageBonuses('asteroidBase', s, null, null), { water: 16000, deuterium: 4000 });
   assert.deepEqual(calculateStorageBonuses('civilianRouteStation', s, null, null), { cash: 64000, food: 64000 });
   // Funded freight stations: 32000 × (1 + 5% per running base + 100%).

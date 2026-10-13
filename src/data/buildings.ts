@@ -4,7 +4,7 @@ import type { ResourceRecipe } from '../types/economy';
 export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   signalRepeater: { name: '信号中继', icon: '⌁', tech: 'accessPointBeacon', slots: 0, toggleable: true, input: { energy: 10 }, desc: '为接入点附近提供通信保障，每座运行中的信号中继使每座运行场约束阵列的稳定度增加0.5，电力-10/s。', cost: { cash: 1200000, alloy: 20000, copper: 30000, nanotubes: 15000, e710: 80 }, costScales: { cash: 1.21, alloy: 1.21, copper: 1.21, nanotubes: 1.21, e710: 1.21 } },
   hydrogenPowerPlant: { name: '氢气发电站', icon: '⚡', tech: 'hydrogenRecovery', slots: 0, toggleable: true, powerPlant: true, input: { water: 2 }, output: { energy: 35 }, desc: '利用本地资源发电，还能补给基地用电，水-2/s，电力+35/s，喷发小行星群支持+1。只在完整支付水消耗时运行，不占用小行星群支持。', cost: { cash: 1800000, alloy: 35000, iridium: 8000, nanotubes: 20000, e710: 120 }, costScales: { cash: 1.21, alloy: 1.21, iridium: 1.21, nanotubes: 1.21, e710: 1.21 } },
-  hyperspaceSpaceport: { name: '超空间太空港', icon: '⌖', tech: 'dimensionBeaconDeployment', slots: 0, toggleable: true, input: { energy: 30, helium3: 5 }, desc: '在异常空间里建立第一个永久性定居点，空间异常·接入点区域稳定度+4，喷发小行星群区域支持+2，在超空间中生产的普通资源产量+25%，电力-30/s、氦-3-5/s。完整支付维护时生效。', cost: { cash: 2000000, alloy: 40000, iridium: 10000, nanotubes: 30000, e710: 200 }, costScales: { cash: 1.21, alloy: 1.21, iridium: 1.21, nanotubes: 1.21, e710: 1.21 } },
+  hyperspaceSpaceport: { name: '超空间太空港', icon: '⌖', tech: 'dimensionBeaconDeployment', slots: 0, toggleable: true, input: { energy: 30, helium3: 5 }, desc: '在异常空间里建立第一个永久性定居点，空间异常·接入点区域稳定度+4，喷发小行星群区域支持+2，氦-3容量+16k，电力-30/s、氦-3-5/s。完整支付维护时生效。', cost: { cash: 2000000, alloy: 40000, iridium: 10000, nanotubes: 30000, e710: 200 }, costScales: { cash: 1.21, alloy: 1.21, iridium: 1.21, nanotubes: 1.21, e710: 1.21 } },
   iceMiningShip: { name: '采冰船', icon: '❄', tech: 'dimensionBeaconDeployment', slots: 0, toggleable: true, input: { energy: 5, helium3: 5 }, output: { water: 1 }, desc: '采集冰喷发物获取水，水产量+1/s，水容量+100，电力-5/s、氦-3-5/s，喷发小行星群支持-1。获得供电和支持时生效。', cost: { cash: 800000, alloy: 15000, iridium: 3000, nanotubes: 8000, e710: 50 }, costScales: { cash: 1.19, alloy: 1.19, iridium: 1.19, nanotubes: 1.19, e710: 1.19 } },
   asteroidBase: { name: '小行星基地', icon: '◉', tech: 'dimensionBeaconDeployment', buildingRequired: 'iceMiningShip', slots: 0, toggleable: true, input: { energy: 10 }, desc: '在异常小行星群建立小型基地，水容量+8k、氘容量+2k（解锁氘后），锚点货运站的资源容量+5%，电力-10/s，喷发小行星群支持-1。获得供电和支持时生效，容量加成按运行基地数量累加。', cost: { cash: 1500000, alloy: 30000, iridium: 8000, nanotubes: 20000, e710: 100 }, costScales: { cash: 1.21, alloy: 1.21, iridium: 1.21, nanotubes: 1.21, e710: 1.21 } },
   comprehensiveMiningFacility: { name: '综合采矿设施', icon: '⛏️', tech: 'hyperspaceMiningSurvey', slots: 0, toggleable: true, desc: '采掘小天体获取矿物，E-710 +0.05/s，中子+0.25/s，铀+0.1/s，电力-20/s，氦-3-10/s。', input: { energy: 20, helium3: 10 }, output: { e710: .05, neutron: .25, uranium: .1 }, cost: { cash: 3000000, alloy: 50000, iridium: 12000, nanotubes: 40000, e710: 300 }, costScales: { cash: 1.23, alloy: 1.23, iridium: 1.23, nanotubes: 1.23, e710: 1.23 } },
@@ -16,6 +16,13 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   spaceRipper: { name: '空间撕裂者', icon: '🌀', tech: 'dimensionPioneer', segmentedRequired: 100, slots: 0, powerPlant: true, alwaysRunning: true, output: { energy: 100 }, cost: { cash: 2500000, alloy: 50000, polymer: 50000, iridium: 5000, neutron: 2500, nanotubes: 100000, e710: 50, mithril: 10000 }, costScales: { cash: 1, alloy: 1, polymer: 1, iridium: 1, neutron: 1, nanotubes: 1, e710: 1, mithril: 1 }, desc: '[AMD友情赞助] 这个巨大的装置撕开了空间的边界。' },
   highTechFactory: { name: '高科技工厂', icon: '🏭', tech: 'highTechFactory', slots: 0, toggleable: true, lines: 2, jobSlots: { cementWorkshop: 2 }, input: { energy: 10, deuterium: .5 }, desc: '工厂生产线+2，水泥工人上限+2, 电力-10/s，氘-0.5/s', cost: { cash: 3000000, alloy: 60000, iridium: 15000, nanotubes: 40000, e710: 250 }, costScales: { cash: 1.25, alloy: 1.25, iridium: 1.25, nanotubes: 1.25, e710: 1.25 } },
   e710ResearchStation: { name: '710研究站', icon: '🔭', tech: 'e710ResearchStation', slots: 0, toggleable: true, jobSlots: { lab: 1 }, input: { energy: 25, deuterium: 1 }, desc: '猫猫科学家上限+1. 知识容量+50k， 电力-25/s，氘-1/s', cost: { cash: 2800000, alloy: 50000, iridium: 12000, nanotubes: 40000, e710: 300 }, costScales: { cash: 1.25, alloy: 1.25, iridium: 1.25, nanotubes: 1.25, e710: 1.25 } },
+  adamantiteMiningShip: { name: '精金采矿船', icon: '🚀', tech: 'superMetal', slots: 0, toggleable: true, input: { energy: 5, helium3: 5, deuterium: 1 }, output: { adamantite: .1 }, desc: '在黑洞附近的残余星区采集精金，精金+0.1/s，电力-5/s，氦-3 -5/s，氘-1/s。', cost: { cash: 3500000, alloy: 60000, iridium: 15000, nanotubes: 50000, e710: 300 }, costScales: { cash: 1.27, alloy: 1.27, iridium: 1.27, nanotubes: 1.27, e710: 1.27 } },
+  adamantiteProcessor: { name: '精金加工站', icon: '⚙️', tech: 'superMetal', slots: 0, desc: '精金采矿船的产量+10%。', cost: { cash: 3000000, alloy: 50000, iridium: 12000, nanotubes: 40000, adamantite: 100 }, costScales: { cash: 1.26, alloy: 1.26, iridium: 1.26, nanotubes: 1.26, adamantite: 1.26 } },
+  grapheneFactory: { name: '石墨烯厂', icon: '🏭', tech: 'grapheneProcessing', slots: 0, toggleable: true, input: { oil: 15, energy: 5 }, output: { graphene: 2 }, desc: '石墨烯+2/s，石油-15/s，电力-5/s。', cost: { cash: 3000000, alloy: 50000, polymer: 60000, nanotubes: 40000, adamantite: 250 }, costScales: { cash: 1.25, alloy: 1.25, polymer: 1.25, nanotubes: 1.25, adamantite: 1.25 } },
+  stellarForge: { name: '恒星熔炉', icon: '🔥', tech: 'stellarForge', spaceMissionRequired: 'neutronStar', slots: 0, desc: '借助中子星的极端环境进行冶炼与锻造，冶炼厂工位+2，工匠上限+2，锻造物产量加成+10%。', cost: { cash: 5000000, alloy: 100000, nanoAlloy: 15000, mithril: 20000, e710: 500 }, costScales: { cash: 1.275, alloy: 1.275, nanoAlloy: 1.275, mithril: 1.275, e710: 1.275 } },
+  blackHoleStation: { name: '黑洞星际站', icon: '🕳️', tech: 'energyShield', spaceMissionRequired: 'blackHole', slots: 0, toggleable: true, input: { energy: 10 }, desc: '空间撕裂者的知识容量效果+1%，电力-10/s。', cost: { cash: 1000000, knowledge: 100000, neutron: 2500, adamantite: 500, e710: 100 }, costScales: { cash: 1.3, knowledge: 1.3, neutron: 1.3, adamantite: 1.3, e710: 1.3 } },
+  penroseSphere: { name: '彭罗斯球体', icon: '🔮', tech: 'penroseTheory', spaceMissionRequired: 'blackHole', segmentedRequired: 100, segmentEffects: true, slots: 0, powerPlant: true, alwaysRunning: true, output: { energy: 5 }, desc: '环绕黑洞的巨型能量收集结构，每建成一段电力+5/s。', cost: { cash: 2000000, neutron: 400, adamantite: 15000, graphene: 20000, nanoAlloy: 5000, mithril: 500 }, costScales: { cash: 1, neutron: 1, adamantite: 1, graphene: 1, nanoAlloy: 1, mithril: 1 } },
+  vrCenter: { name: 'VR中心', icon: '🥽', tech: 'virtualEntertainment', slots: 0, toggleable: true, support: 1, asrielSupport: 1, desc: '幸福度+2.5%，Asriel支持-1。', cost: { cash: 500000, nanoAlloy: 10000, aerogel: 2500 }, costScales: { cash: 1.275, nanoAlloy: 1.275, aerogel: 1.275 } },
   civilianRouteStation: { name: '民用航线站', icon: '⌂', tech: 'anomalyTopology', slots: 0, toggleable: true, cap: 5, desc: '完成远端连接验证后可建。每座运行占用2稳定度，人口容量+5，资金与猫粮基础储量各+32000；电力-15/s、食物-50/s。缺少维护资源时安全停机。', input: { energy: 15, food: 50 }, cost: { cash: 1200000, alloy: 20000, iridium: 6000, nanotubes: 20000, e710: 100 }, costScales: { cash: 1.21, alloy: 1.21, iridium: 1.21, nanotubes: 1.21, e710: 1.21 } },
   anchorFreightStation: { name: '锚点货运站', icon: '▣', tech: 'anomalyTopology', slots: 0, toggleable: true, desc: '完成远端连接验证后可建。每座运行占用2稳定度、电力-15/s，为木头至铱范围内的有限普通资源增加32000基础储量，不再增加采矿产出。', input: { energy: 15 }, cost: { cash: 1500000, alloy: 30000, iridium: 8000, nanotubes: 25000, e710: 150 }, costScales: { cash: 1.2, alloy: 1.2, iridium: 1.2, nanotubes: 1.2, e710: 1.2 } },
   constraintArray: { name: '场约束阵列', icon: '◈', tech: 'fieldConstraintTheory', slots: 0, toggleable: true, desc: '稳定度+2；电力-50/s、E-710 -0.25/s。缺少维护资源时安全停机，不损毁建筑。', input: { energy: 50, e710: .25 }, cost: { cash: 1000000, alloy: 20000, iridium: 5000, nanotubes: 15000, e710: 100 }, costScales: { cash: 1.2, alloy: 1.2, iridium: 1.2, nanotubes: 1.2, e710: 1.2 } },
@@ -335,10 +342,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "slots": 0,
     "tech": "biologicalScience",
     "costScales": {
-      "cash": 1.17,
-      "knowledge": 1.17,
-      "metal": 1.17,
-      "alloy": 1.17
+      "cash": 1.19,
+      "knowledge": 1.19,
+      "metal": 1.19,
+      "alloy": 1.19
     }
   },
   "bank": {
@@ -357,9 +364,9 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     },
     "tech": "banking",
     "costScales": {
-      "wood": 1.25,
-      "stone": 1.25,
-      "cash": 1.25
+      "wood": 1.27,
+      "stone": 1.27,
+      "cash": 1.27
     }
   },
   "barracks": {
@@ -392,10 +399,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "slots": 0,
     "tech": "recruitTraining",
     "costScales": {
-      "wood": 1.17,
-      "cement": 1.17,
-      "metalPlate": 1.17,
-      "cash": 1.17
+      "wood": 1.19,
+      "cement": 1.19,
+      "metalPlate": 1.19,
+      "cash": 1.19
     }
   },
   "metalRefinery": {
@@ -436,9 +443,9 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "workerName": "水泥工人",
     "tech": "cement",
     "costScales": {
-      "wood": 1.195,
-      "stone": 1.195,
-      "cash": 1.195
+      "wood": 1.215,
+      "stone": 1.215,
+      "cash": 1.215
     }
   },
   "fuelDepot": {
@@ -748,10 +755,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "moraleCap": 1,
     "tech": "music",
     "costScales": {
-      "food": 1.17,
-      "wood": 1.17,
-      "stone": 1.17,
-      "cash": 1.17
+      "food": 1.19,
+      "wood": 1.19,
+      "stone": 1.19,
+      "cash": 1.19
     }
   },
   "broadcast": {
@@ -771,10 +778,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "moraleCap": 1,
     "tech": "broadcasting",
     "costScales": {
-      "iron": 1.17,
-      "copper": 1.17,
-      "metal": 1.17,
-      "cash": 1.17
+      "iron": 1.19,
+      "copper": 1.19,
+      "metal": 1.19,
+      "cash": 1.19
     }
   },
   "touristStation": {
@@ -817,10 +824,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "workerName": "猫猫工匠",
     "tech": "castingWorkshop",
     "costScales": {
-      "wood": 1.17,
-      "stone": 1.17,
-      "iron": 1.17,
-      "cash": 1.17
+      "wood": 1.19,
+      "stone": 1.19,
+      "iron": 1.19,
+      "cash": 1.19
     }
   },
   "library": {
@@ -838,10 +845,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "slots": 0,
     "tech": "knowledgeContainer",
     "costScales": {
-      "plank": 1.17,
-      "brick": 1.17,
-      "fur": 1.17,
-      "cash": 1.17
+      "plank": 1.19,
+      "brick": 1.19,
+      "fur": 1.19,
+      "cash": 1.19
     }
   },
   "school": {
@@ -860,9 +867,9 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "slots": 1,
     "tech": "writing",
     "costScales": {
-      "wood": 1.17,
-      "stone": 1.17,
-      "cash": 1.17
+      "wood": 1.19,
+      "stone": 1.19,
+      "cash": 1.19
     }
   },
   "generator": {
@@ -885,10 +892,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "slots": 0,
     "tech": "electricity",
     "costScales": {
-      "cement": 1.17,
-      "iron": 1.17,
-      "metal": 1.17,
-      "cash": 1.17
+      "cement": 1.19,
+      "iron": 1.19,
+      "metal": 1.19,
+      "cash": 1.19
     }
   },
   "oilGenerator": {
@@ -912,11 +919,11 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "slots": 0,
     "tech": "oilTechnology",
     "costScales": {
-      "cement": 1.17,
-      "iron": 1.17,
-      "copper": 1.17,
-      "metal": 1.17,
-      "cash": 1.17
+      "cement": 1.19,
+      "iron": 1.19,
+      "copper": 1.19,
+      "metal": 1.19,
+      "cash": 1.19
     }
   },
   "fissionGenerator": {
@@ -941,18 +948,18 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "slots": 0,
     "tech": "nuclearEnergy",
     "costScales": {
-      "cement": 1.17,
-      "iron": 1.17,
-      "copper": 1.17,
-      "metal": 1.17,
-      "alloy": 1.17,
-      "cash": 1.17
+      "cement": 1.19,
+      "iron": 1.19,
+      "copper": 1.19,
+      "metal": 1.19,
+      "alloy": 1.19,
+      "cash": 1.19
     }
   },
   "smelter": {
     "name": "冶炼厂",
     "icon": "🏭",
-    "desc": "用炉火锻造文明的骨架",
+    "desc": "冶炼厂工位+1",
     "cost": {
       "stone": 140,
       "iron": 100,
@@ -968,9 +975,9 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "tech": "metallurgy",
     "slots": 0,
     "costScales": {
-      "stone": 1.17,
-      "iron": 1.17,
-      "cash": 1.17
+      "stone": 1.19,
+      "iron": 1.19,
+      "cash": 1.19
     }
   },
   "lab": {
@@ -991,11 +998,11 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "slots": 1,
     "tech": "science",
     "costScales": {
-      "knowledge": 1.15,
-      "copper": 1.17,
-      "cement": 1.17,
-      "metalPlate": 1.17,
-      "cash": 1.17
+      "knowledge": 1.17,
+      "copper": 1.19,
+      "cement": 1.19,
+      "metalPlate": 1.19,
+      "cash": 1.19
     }
   },
   "refinery": {
@@ -1016,9 +1023,9 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "tech": "oilTechnology",
     "slots": 0,
     "costScales": {
-      "metal": 1.17,
-      "copper": 1.17,
-      "cash": 1.17
+      "metal": 1.19,
+      "copper": 1.19,
+      "cash": 1.19
     }
   },
   "observatory": {
@@ -1039,11 +1046,11 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "knowledgeCap": 3000,
     "tech": "dataCenter",
     "costScales": {
-      "cash": 1.17,
-      "knowledge": 1.17,
-      "metal": 1.17,
-      "titanium": 1.17,
-      "alloy": 1.17
+      "cash": 1.19,
+      "knowledge": 1.19,
+      "metal": 1.19,
+      "titanium": 1.19,
+      "alloy": 1.19
     }
   },
   "factory": {
@@ -1063,10 +1070,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "slots": 0,
     "lines": 1,
     "costScales": {
-      "cement": 1.17,
-      "titanium": 1.17,
-      "metal": 1.17,
-      "cash": 1.17
+      "cement": 1.19,
+      "titanium": 1.19,
+      "metal": 1.19,
+      "cash": 1.19
     }
   },
   "moonObservatory": {
@@ -1465,15 +1472,15 @@ export const BUILDING_COST_SCALES: Partial<Record<BuildingId, ResourceRecipe>> =
     "cash": 1.25
   },
   "biologyLab": {
-    "cash": 1.17,
-    "knowledge": 1.17,
-    "metal": 1.17,
-    "alloy": 1.17
+    "cash": 1.19,
+    "knowledge": 1.19,
+    "metal": 1.19,
+    "alloy": 1.19
   },
   "bank": {
-    "wood": 1.25,
-    "stone": 1.25,
-    "cash": 1.25
+    "wood": 1.27,
+    "stone": 1.27,
+    "cash": 1.27
   },
   "barracks": {
     "wood": 1.25,
@@ -1481,10 +1488,10 @@ export const BUILDING_COST_SCALES: Partial<Record<BuildingId, ResourceRecipe>> =
     "cash": 1.25
   },
   "trainingCamp": {
-    "wood": 1.17,
-    "cement": 1.17,
-    "metalPlate": 1.17,
-    "cash": 1.17
+    "wood": 1.19,
+    "cement": 1.19,
+    "metalPlate": 1.19,
+    "cash": 1.19
   },
   "metalRefinery": {
     "stone": 1.195,
@@ -1493,9 +1500,9 @@ export const BUILDING_COST_SCALES: Partial<Record<BuildingId, ResourceRecipe>> =
     "cash": 1.195
   },
   "cementWorkshop": {
-    "wood": 1.195,
-    "stone": 1.195,
-    "cash": 1.195
+    "wood": 1.215,
+    "stone": 1.215,
+    "cash": 1.215
   },
   "fuelDepot": {
     "iron": 1.17,
@@ -1578,16 +1585,16 @@ export const BUILDING_COST_SCALES: Partial<Record<BuildingId, ResourceRecipe>> =
     "cash": 1.17
   },
   "theater": {
-    "food": 1.17,
-    "wood": 1.17,
-    "stone": 1.17,
-    "cash": 1.17
+    "food": 1.19,
+    "wood": 1.19,
+    "stone": 1.19,
+    "cash": 1.19
   },
   "broadcast": {
-    "iron": 1.17,
-    "copper": 1.17,
-    "metal": 1.17,
-    "cash": 1.17
+    "iron": 1.19,
+    "copper": 1.19,
+    "metal": 1.19,
+    "cash": 1.19
   },
   "touristStation": {
     "metal": 1.18,
@@ -1596,72 +1603,72 @@ export const BUILDING_COST_SCALES: Partial<Record<BuildingId, ResourceRecipe>> =
     "cash": 1.18
   },
   "foundry": {
-    "wood": 1.17,
-    "stone": 1.17,
-    "iron": 1.17,
-    "cash": 1.17
+    "wood": 1.19,
+    "stone": 1.19,
+    "iron": 1.19,
+    "cash": 1.19
   },
   "library": {
-    "plank": 1.17,
-    "brick": 1.17,
-    "fur": 1.17,
-    "cash": 1.17
+    "plank": 1.19,
+    "brick": 1.19,
+    "fur": 1.19,
+    "cash": 1.19
   },
   "school": {
-    "wood": 1.17,
-    "stone": 1.17,
-    "cash": 1.17
+    "wood": 1.19,
+    "stone": 1.19,
+    "cash": 1.19
   },
   "generator": {
-    "cement": 1.17,
-    "iron": 1.17,
-    "metal": 1.17,
-    "cash": 1.17
+    "cement": 1.19,
+    "iron": 1.19,
+    "metal": 1.19,
+    "cash": 1.19
   },
   "oilGenerator": {
-    "cement": 1.17,
-    "iron": 1.17,
-    "copper": 1.17,
-    "metal": 1.17,
-    "cash": 1.17
+    "cement": 1.19,
+    "iron": 1.19,
+    "copper": 1.19,
+    "metal": 1.19,
+    "cash": 1.19
   },
   "fissionGenerator": {
-    "cement": 1.17,
-    "iron": 1.17,
-    "copper": 1.17,
-    "metal": 1.17,
-    "alloy": 1.17,
-    "cash": 1.17
+    "cement": 1.19,
+    "iron": 1.19,
+    "copper": 1.19,
+    "metal": 1.19,
+    "alloy": 1.19,
+    "cash": 1.19
   },
   "smelter": {
-    "stone": 1.17,
-    "iron": 1.17,
-    "cash": 1.17
+    "stone": 1.19,
+    "iron": 1.19,
+    "cash": 1.19
   },
   "lab": {
-    "knowledge": 1.15,
-    "copper": 1.17,
-    "cement": 1.17,
-    "metalPlate": 1.17,
-    "cash": 1.17
+    "knowledge": 1.17,
+    "copper": 1.19,
+    "cement": 1.19,
+    "metalPlate": 1.19,
+    "cash": 1.19
   },
   "refinery": {
-    "metal": 1.17,
-    "copper": 1.17,
-    "cash": 1.17
+    "metal": 1.19,
+    "copper": 1.19,
+    "cash": 1.19
   },
   "observatory": {
-    "cash": 1.17,
-    "knowledge": 1.17,
-    "metal": 1.17,
-    "titanium": 1.17,
-    "alloy": 1.17
+    "cash": 1.19,
+    "knowledge": 1.19,
+    "metal": 1.19,
+    "titanium": 1.19,
+    "alloy": 1.19
   },
   "factory": {
-    "cement": 1.17,
-    "titanium": 1.17,
-    "metal": 1.17,
-    "cash": 1.17
+    "cement": 1.19,
+    "titanium": 1.19,
+    "metal": 1.19,
+    "cash": 1.19
   },
   "catCafe": {
     "cash": 1.25,

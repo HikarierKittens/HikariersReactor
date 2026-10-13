@@ -38,7 +38,7 @@ test('funded ports add stability before freight, and ice/base reserve whole supp
   Object.assign(s.resources,{energy:60*dt,helium3:1e4});const before=clone(s),p=calculateProduction(s,dt),preview=calculateSupportPreview(s,dt);
   assert.deepEqual(s,before);assert.deepEqual(p.stageThree,preview.stageThree);assert.equal(p.stageThree.capacity,4);assert.equal(p.stageThree.freight,1);assert.equal(p.stageThree.available,2);
   assert.equal(p.inputUnits.hyperspaceSpaceport,1);assert.equal(p.inputUnits.iceMiningShip,1);assert.equal(p.inputUnits.asteroidBase,1);
-  near(p.rates.energy,-60);near(p.rates.water,1.25);near(calculateResourceBreakdown('energy',s,p).net,p.rates.energy);near(calculateResourceBreakdown('water',s,p).net,1.25);
+  near(p.rates.energy,-60);near(p.rates.water,1);near(calculateResourceBreakdown('energy',s,p).net,p.rates.energy);near(calculateResourceBreakdown('water',s,p).net,1);
   near(calculateStorageDetails('water',s,snap(s,dt)).total,8100);
   s.resources.energy=50*dt;s.resources.helium3=1e4;const low=calculateProduction(s,dt);assert.equal(low.inputUnits.iceMiningShip,1);assert.equal(low.inputUnits.asteroidBase,0);near(low.rates.energy,-50);
   s.stoppedBuildings.hyperspaceSpaceport=1;const off=calculateProduction(s,dt);assert.equal(off.stageThree.capacity,0);assert.equal(off.inputUnits.iceMiningShip||0,0);assert.equal(off.inputUnits.asteroidBase||0,0);near(off.rates.water,0);near(calculateStorageDetails('water',s,snap(s,dt)).total,0);
@@ -50,7 +50,7 @@ test('asteroid bases multiply freight capacity additively without boosting unrel
  for(const id of ordinary)near(calculateStorageDetails(id,s,snap(s)).total-calculateStorageDetails(id,off,snap(off)).total,3200);
  for(const id of ['food','cash','knowledge','e710','energy','helium3'] as ResourceId[])near(calculateStorageDetails(id,s,snap(s)).total,calculateStorageDetails(id,off,snap(off)).total);
  assert.equal(isContainerAssignable('water',s),false);
- s.buildings.iceMiningShip=3;const p=calculateProduction(s);assert.equal(p.inputUnits.iceMiningShip,3);assert.equal(p.inputUnits.asteroidBase,1);near(p.rates.water,4.5);
+ s.buildings.iceMiningShip=3;const p=calculateProduction(s);assert.equal(p.inputUnits.iceMiningShip,3);assert.equal(p.inputUnits.asteroidBase,1);near(p.rates.water,3);
 });
 test('new defaults migrate absent records without mutation while malformed present records reject',()=>{
  const s=fresh(),raw=clone(s) as unknown as Record<string,unknown>;const ids=['hyperspaceSpaceport','iceMiningShip','asteroidBase'];
@@ -61,4 +61,13 @@ test('new defaults migrate absent records without mutation while malformed prese
  for(const field of ['buildings','workers','stoppedBuildings'])for(const id of ids)for(const value of [null,.5]){const bad=clone(raw);(bad[field] as Record<string,unknown>)[id]=value;assert.throws(()=>validateCurrentSave(bad,ctx));}
  const bad=clone(raw);(bad.resources as Record<string,unknown>).water=null;assert.throws(()=>validateCurrentSave(bad,ctx));
  assert.equal(BUILDINGS.hyperspaceSpaceport.input?.energy,30);
+});
+test('funded hyperspace spaceports add 16000 helium-3 storage, doubled by higher-dimensional storage',()=>{
+ const s=setup();s.buildings.hyperspaceSpaceport=1;Object.assign(s.resources,{energy:1000,helium3:1e4});
+ const off=clone(s);off.stoppedBuildings.hyperspaceSpaceport=1;
+ const row=(x:ReturnType<typeof fresh>)=>calculateStorageDetails('helium3',x,snap(x)).rows.find(r=>r.name.includes('超空间太空港'));
+ assert.equal(row(off),undefined);near(row(s)!.value,16000);
+ near(calculateStorageDetails('helium3',s,snap(s)).total-calculateStorageDetails('helium3',off,snap(off)).total,16000);
+ s.tech.push('higherDimensionalStorage');off.tech.push('higherDimensionalStorage');near(row(s)!.value,32000);
+ near(calculateStorageDetails('helium3',s,snap(s)).total-calculateStorageDetails('helium3',off,snap(off)).total,32000);
 });

@@ -39,8 +39,10 @@ export function createInitialState(version: number, eventIn: number, now: number
     workers: zeroRecord(registryKeys(BUILDINGS)),
     tech: [], population: 0, growthTarget: 0,
     lines: zeroRecord(FACTORY_OPTIONS.map(option => option.id)),
+    smelterIdle: 0,
     legacyPopulationCeiling: 0, asrielMissionCompleted: false, asrielMissionQueued: false, kerberosMissionCompleted: false,
     solarMissionCompleted: false, talosMissionCompleted: false, talosMoonMissionCompleted: false, asteroidBeltMissionCompleted: false, misenMissionCompleted: false,
+    neutronStarMissionCompleted: false, blackHoleMissionCompleted: false,
     happiness: 99.5, growth: 0, starvation: 0, achievements: [], effects: [],
     eventIn, time: 0, clicks: 0, logs: [], queue: [], settings: { ...DEFAULT_GAME_SETTINGS }, lastSaved: now,
   };

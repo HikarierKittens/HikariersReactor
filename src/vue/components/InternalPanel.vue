@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { GameState, GovernmentId } from '../../types/state';
-import { GOVERNMENTS, reformCooldown, calculateSoldierCapacity, calculateCombatPower, calculateSoldierPressure, calculateTrainingDuration, calculatePrestigeReward } from '../../simulation/government';
-import { BUILDINGS } from '../../data/buildings';
+import { GOVERNMENTS, reformCooldown, calculateSoldierCapacity, calculateCombatPower, calculateSoldierPressure, calculateTrainingDuration, calculatePrestigeReward, calculateTrainingBoost } from '../../simulation/government';
 import { NUCLEAR_PROJECT, calculateNuclearAffordablePercent } from '../../simulation/prestige';
 import { RESOURCES } from '../../data/resources';
 import { fmt, percent, storageCap, orderedCostEntries } from '../format';
@@ -130,7 +129,7 @@ function setTax(event: Event): void {
       <p>士兵工作压力：幸福度 −{{ percent(soldierPenalty) }} 个百分点（按士兵上限与体制计算）</p>
       <p>单兵战斗力：{{ fmt(soldierPower) }}；总战斗力：{{ fmt(state.soldiers * soldierPower) }}</p>
       <p>训练时间：{{ fmt(trainDuration) }}秒 / 位；进度：{{ fmt(state.trainingProgress) }}秒</p>
-      <p class="small subtle">士兵独立于猫口，不占工作岗位，按规则自动训练至上限，无需分配猫猫或手动招募。每位服役士兵基础采集0.2毛皮/s。首位士兵解锁毛皮后，本周目不再撤销解锁。每座训练营累计增加{{ percent(BUILDINGS.trainingCamp.trainingBoost || 0) }}%训练效果，每累计100%使训练速度翻倍。</p>
+      <p class="small subtle">士兵独立于猫口，不占工作岗位，按规则自动训练至上限，无需分配猫猫或手动招募。每位服役士兵基础采集0.2毛皮/s。首位士兵解锁毛皮后，本周目不再撤销解锁。每座训练营累计增加{{ percent(calculateTrainingBoost(state)) }}%训练效果，每累计100%使训练速度翻倍。</p>
     </section>
   </div>
 </template>

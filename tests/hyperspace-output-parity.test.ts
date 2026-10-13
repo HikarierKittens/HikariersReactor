@@ -19,19 +19,19 @@ function state() {
  s.buildings.hyperspaceSpaceport=1;s.buildings.gasCloudMiningShip=1;s.buildings.metalMiningShip=1;
  return s;
 }
-test('port boosts ordinary fuels and multi-output sources once with breakdown parity',()=>{
+test('hyperspace sources no longer receive a port bonus and keep breakdown parity',()=>{
  const s=state(), p=calculateProduction(s,.2);
  assert.equal(p.outputs.metalMiningShip,1);
- near(p.rates.stone,10); near(p.rates.copper,5); near(p.rates.aluminum,3.75);
- near(p.rates.deuterium,.3125-.2); near(p.rates.helium3,2.5-5);
+ near(p.rates.stone,8); near(p.rates.copper,4); near(p.rates.aluminum,3);
+ near(p.rates.deuterium,.25-.2); near(p.rates.helium3,2-5);
  for(const id of ['stone','copper','aluminum','deuterium','helium3'] as ResourceId[]) near(calculateResourceBreakdown(id,s,p).net,p.rates[id]);
  s.buildings.metalRefinery=2;
  const refined=calculateProduction(s,.2);
  near(calculateResourceBreakdown('aluminum',s,refined).net,refined.rates.aluminum);
 });
-test('ice water receives the same funded-port bonus',()=>{
+test('ice water has no port bonus but still needs port support',()=>{
  const s=state();s.buildings.gasCloudMiningShip=0;s.buildings.metalMiningShip=0;s.buildings.iceMiningShip=1;
- const p=calculateProduction(s,.2);near(p.rates.water,1.25);near(calculateResourceBreakdown('water',s,p).net,p.rates.water);
+ const p=calculateProduction(s,.2);near(p.rates.water,1);near(calculateResourceBreakdown('water',s,p).net,p.rates.water);
  s.stoppedBuildings.hyperspaceSpaceport=1;near(calculateProduction(s,.2).rates.water,0);
 });
 test('actual-happiness replay rederives fuel-chain units instead of trusting baseline ledger',()=>{

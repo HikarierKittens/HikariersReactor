@@ -55,7 +55,7 @@ export function validateUnlockRecords(raw: Record<string, unknown>, state: GameS
     if (mission && !isRegionalMissionCompleted(state, mission)) throw Error('科技需要完成太空任务。');
     if (TECHNOLOGIES[tech].kerberosMissionRequired && !state.kerberosMissionCompleted) throw Error('科技需要完成Kerberos任务。');
     // 高维存储 requires the completed 空间撕裂者, not merely one segment.
-    if (tech === 'higherDimensionalStorage' && !isBuildingFullyBuilt('spaceRipper', state)) throw Error('科技需要完成空间撕裂者。');
+    if ((tech === 'higherDimensionalStorage' || tech === 'overclocking13') && !isBuildingFullyBuilt('spaceRipper', state)) throw Error('科技需要完成空间撕裂者。');
     if (!['metallurgy', 'electricity'].includes(tech) && !(tech === 'rocketry' && state.legacyRocketry)
       && !(tech === 'knowledgeContainer' && state.tech.includes('writing'))
       && !(['banking', 'military', 'mining'].includes(tech) && state.tech.includes('tools'))

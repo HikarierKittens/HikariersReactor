@@ -1,5 +1,6 @@
 import { BUILDINGS } from '../data/buildings';
 import { countRunningBuildings } from '../simulation/housing';
+import { calculateRunningSmelterSlots } from '../simulation/factory';
 import type { BuildingId } from '../types/buildings';
 import type { GameState } from '../types/state';
 import type { ProductionResult } from '../simulation/production';
@@ -19,6 +20,8 @@ export function isBuildingUnderworking(id: BuildingId, state: GameState, result:
   const expected = BUILDINGS[id].workerOutput && !BUILDINGS[id].support && !BUILDINGS[id].moonSupport
     && !['cementWorkshop', 'mine', 'coalMine'].includes(id)
     && !(state.tech.includes('automatedMining') && (id === 'lumber' || id === 'quarry'))
-    ? Math.min(state.workers[id] || 0, enabled * (BUILDINGS[id].slots || 5)) : enabled;
+    ? Math.min(state.workers[id] || 0, enabled * (BUILDINGS[id].slots || 5))
+    // 冶炼厂 settles per steel-assigned slot; idle slots are a choice, not a shortage.
+    : id === 'smelter' ? calculateRunningSmelterSlots(state) : enabled;
   return actual + 1e-8 < expected;
 }

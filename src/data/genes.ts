@@ -21,5 +21,5 @@ export const GENE_DEFINITIONS: Record<GeneId, GeneDefinition> = {
   titanPower: { name: '泰坦之力', dna: 'A', perLevel: .05, desc: '每一级，士兵战斗力+5%' },
   advancedScience: { name: '高级科学', dna: 'A', perLevel: .01, desc: '每一级，教授与科学家的基础知识产量+1%' },
   catCohesion: { name: '猫猫凝聚', dna: 'T', perLevel: .01, desc: '每一级，猫口数量带来的幸福度压力按比例-1%，士兵上限带来的幸福度压力按比例-0.5%' },
-  kinoFire: { name: '奇诺之火', dna: 'T', perLevel: .01, desc: '每一级，冶炼厂基础产量+1%' },
+  kinoFire: { name: '奇诺之火', dna: 'T', perLevel: .01, desc: '每一级，钢冶炼工位基础产量+1%' },
 };

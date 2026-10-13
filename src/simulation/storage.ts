@@ -7,7 +7,7 @@ import { calculateCrisprStorageBonus } from './crispr';
 import { isContainerAssignable, calculateContainerUnitCapacity } from './containers';
 import { formatNumber } from '../shared/format';
 import { countRunningBuildings } from './housing';
-import { calculateFreightCapacityMultiplier, SPACE_RIPPER_KNOWLEDGE_BONUS } from './building-effects';
+import { calculateFreightCapacityMultiplier, calculateRipperKnowledgeBonusValue } from './building-effects';
 import type { BuildingId } from '../types/buildings';
 import type { ResourceId, AsrielSupport } from '../types/economy';
 import type { MoonSupport } from './moon';
@@ -18,6 +18,7 @@ export interface StorageSnapshot {
   e710ContainerUnits?: number;
   e710WarehouseUnits?: number;
   researchStationUnits?: number;
+  blackHoleStationUnits?: number;
   biologyUnits: number;
   dataCenterUnits: number;
   moonBaseUnits: number;
@@ -132,6 +133,12 @@ function accumulateStorageRows(
   if (totals && detailResource && !totals[detailResource]) totals[detailResource] ||= 0;
 }
 
+/** Per completed 空间撕裂者: 20% plus 1% per funded 黑洞星际站. */
+export function calculateRipperKnowledgeBonus(state: GameState, snapshot: Pick<StorageSnapshot, 'blackHoleStationUnits'>): number {
+  const stations = state.buildings.blackHoleStation ? snapshot.blackHoleStationUnits ?? calculateSupportPreview(state).blackHoleStationUnits : 0;
+  return calculateRipperKnowledgeBonusValue(stations);
+}
+
 export function calculateStorageDetails(resource: ResourceId, state: GameState, snapshot: StorageSnapshot): StorageDetails {
   if (RESOURCES[resource].crafted) return { rows: [], total: Infinity };
   const rows: StorageDetails['rows'] = [{ name: '基础储量', value: RESOURCES[resource].cap }];
@@ -142,8 +149,9 @@ export function calculateStorageDetails(resource: ResourceId, state: GameState, 
     const ripperCores = countRunningBuildings('spaceRipper', state);
     if (ripperCores) {
       const subtotal = totals[resource] || 0;
-      totals[resource] = subtotal * (1 + SPACE_RIPPER_KNOWLEDGE_BONUS * ripperCores);
-      rows.push({ name: '空间撕裂者', value: subtotal * SPACE_RIPPER_KNOWLEDGE_BONUS * ripperCores });
+      const bonus = calculateRipperKnowledgeBonus(state, snapshot) * ripperCores;
+      totals[resource] = subtotal * (1 + bonus);
+      rows.push({ name: '空间撕裂者', value: subtotal * bonus });
     }
   }
   return { rows, total: totals[resource]! };
@@ -184,7 +192,7 @@ export function calculateStorageTotals(state: GameState, snapshot: StorageSnapsh
   // Each completed 空间撕裂者 raises the knowledge cap by 20% (passive, ignores funding).
   // Same post-CRISPR subtotal as the detail row, so both paths agree exactly.
   const ripperCores = countRunningBuildings('spaceRipper', state);
-  if (ripperCores) totals.knowledge = (totals.knowledge || 0) * (1 + SPACE_RIPPER_KNOWLEDGE_BONUS * ripperCores);
+  if (ripperCores) totals.knowledge = (totals.knowledge || 0) * (1 + calculateRipperKnowledgeBonus(state, snapshot) * ripperCores);
   return totals as Record<ResourceId, number>;
 }
 /** Drop only what a lowered cap can no longer hold, reporting whether anything was lost. */

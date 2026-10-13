@@ -31,11 +31,11 @@ test('dynamic terms stack additively: CRISPR + government + tech each listed onc
   assert.equal(nestTerms.length, 2);
   assert.equal(sum(nestTerms), -.06);
   assert.equal(calculateBuildingScale('nest', 'wood', state), 1.11);
-  // Factory: CRISPR -.05 + industrialism -.005 on base 1.17 => 1.115.
+  // Factory: CRISPR -.05 + industrialism -.005 on base 1.19 => 1.135.
   const factoryTerms = calculateDynamicCreep('factory', 'cash', state);
   assert.equal(factoryTerms.length, 2);
   assert.equal(sum(factoryTerms), -.055);
-  assert.equal(calculateBuildingScale('factory', 'cash', state), 1.115);
+  assert.equal(calculateBuildingScale('factory', 'cash', state), 1.135);
   // Warehouse: only CRISPR -.05 on base 1.25 => 1.20.
   assert.deepEqual(calculateDynamicCreep('warehouse', 'wood', state).map(t => t.value), [-.05]);
   assert.equal(calculateBuildingScale('warehouse', 'wood', state), 1.2);
@@ -62,8 +62,8 @@ test('different resources of one building may use different base creeps', () => 
 
 test('prices compound from base + dynamic and the first purchase stays at raw cost', () => {
   const state = fresh();
-  // Theater base 1.17 (registry), no dynamics.
-  assert.equal(calculateBuildingCost('theater', 4, state).wood, Math.ceil(60 * 1.17 ** 4));
+  // Theater base 1.19 (registry), no dynamics.
+  assert.equal(calculateBuildingCost('theater', 4, state).wood, Math.ceil(60 * 1.19 ** 4));
   // Warehouse fixed 1.25.
   assert.equal(calculateBuildingCost('warehouse', 4, state).wood, Math.ceil(80 * 1.25 ** 4));
   // Granary base 1.25.

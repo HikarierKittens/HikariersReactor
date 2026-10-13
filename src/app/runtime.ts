@@ -51,8 +51,8 @@ export function createRuntime(): Runtime {
   }
 
   function storageSnapshot(candidate: GameState) {
-    const { moon, asriel, biologyUnits, dataCenterUnits, researchStationUnits, stageThree } = calculateSupportPreview(candidate);
-    return { biologyUnits, dataCenterUnits, moonBaseUnits: moon.baseUnits, moon, asriel, researchStationUnits, stageThree };
+    const { moon, asriel, biologyUnits, dataCenterUnits, researchStationUnits, blackHoleStationUnits, stageThree } = calculateSupportPreview(candidate);
+    return { biologyUnits, dataCenterUnits, moonBaseUnits: moon.baseUnits, moon, asriel, researchStationUnits, blackHoleStationUnits, stageThree };
   }
 
   function validate(value: unknown): GameState {

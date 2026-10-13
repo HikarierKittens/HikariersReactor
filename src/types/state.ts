@@ -98,6 +98,8 @@ export interface GameState {
   population: number;
   growthTarget: number;
   lines: Record<FactoryLineId, number>;
+  /** Idle 冶炼厂工位; every other slot (smelters + 2 × 恒星熔炉) auto-runs steel. */
+  smelterIdle: number;
   legacyPopulationCeiling: number;
   asrielMissionCompleted: boolean;
   asrielMissionQueued: boolean;
@@ -107,6 +109,8 @@ export interface GameState {
   talosMoonMissionCompleted: boolean;
   asteroidBeltMissionCompleted: boolean;
   misenMissionCompleted: boolean;
+  neutronStarMissionCompleted: boolean;
+  blackHoleMissionCompleted: boolean;
   shipResourceProgress: Partial<Record<ShipComponentId, ShipResourceProgress>>;
   shipComponents: Record<ShipComponentId, boolean>;
   happiness: number;

@@ -33,7 +33,9 @@ export function calculateGovernmentMultiplier(resource: string, state: Pick<Game
 export function calculateFurMultiplier(state: Pick<GameState, 'tech'>): number { return state.tech.includes('ironEquipment') ? 1.2 : 1; }
 export function calculateBankerMultiplier(state: Pick<GameState, 'workers'>): number { return 1 + (state.workers.bank || 0) * .05; }
 export function calculateTaxBase(state: Pick<GameState, 'population' | 'taxRate'>): number { return state.population * state.taxRate / 20; }
-export function calculateTrainingDuration(state: Pick<GameState, 'buildings' | 'government'>): number { return 30 / 2 ** ((state.buildings.trainingCamp || 0) * (BUILDINGS.trainingCamp.trainingBoost ?? 0) / 100) / (state.government === 'militaryRule' ? 1.3 : 1); }
+/** Per-camp training effect in percent: 5%, or 8% after 虚拟训练. */
+export function calculateTrainingBoost(state: Partial<Pick<GameState, 'tech'>>): number { return state.tech?.includes('virtualTraining') ? 8 : BUILDINGS.trainingCamp.trainingBoost ?? 0; }
+export function calculateTrainingDuration(state: Pick<GameState, 'buildings' | 'government'> & Partial<Pick<GameState, 'tech'>>): number { return 30 / 2 ** ((state.buildings.trainingCamp || 0) * calculateTrainingBoost(state) / 100) / (state.government === 'militaryRule' ? 1.3 : 1); }
 export function calculatePrestigeReward(state: Pick<GameState, 'population' | 'soldiers'>): number { const raw = state.population / 4 + state.soldiers / 2 + 10; return Math.floor(raw <= 150 ? raw : 150 + (raw - 150) / 4); }
 /** Escape rewards use the population remaining aboard at launch, including soldiers. */
 export function calculateEscapePrestigeReward(state: Pick<GameState, 'population' | 'soldiers'>): number {

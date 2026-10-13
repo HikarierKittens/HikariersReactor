@@ -9,6 +9,8 @@ export type TechnologyId =
   | 'hyperspaceMiningSurvey' | 'gasCloudAccretion' | 'highTechFarmPlatform'
   | 'fusionPower' | 'largeMiningShips'
   | 'dimensionPioneer' | 'highTechFactory' | 'higherDimensionalStorage' | 'e710ResearchStation' | 'ripperOverclock'
+  | 'overclocking13' | 'superMetal' | 'grapheneProcessing' | 'nanoAlloy' | 'virtualReality' | 'virtualTraining'
+  | 'virtualEntertainment' | 'aerogel' | 'plasmaResearch' | 'plasmaMining' | 'energyShield' | 'stellarForge' | 'penroseTheory'
   | 'globalObservationCalibration' | 'anomalyMapping' | 'anomalyResponse' | 'fieldConstraintTheory' | 'dualEndCoupling' | 'finiteAperture'
   | 'advancedMetalRefining'
   | 'spaceControlTower'
@@ -137,5 +139,5 @@ export interface TechnologyDefinition {
   resourceRequired?: ResourceId;
   prestigeResetsRequired?: number;
   kerberosMissionRequired?: boolean;
-  spaceMissionRequired?: 'solar' | 'talos' | 'talosMoon' | 'asteroidBelt' | 'misen';
+  spaceMissionRequired?: 'solar' | 'talos' | 'talosMoon' | 'asteroidBelt' | 'misen' | 'neutronStar' | 'blackHole';
 }

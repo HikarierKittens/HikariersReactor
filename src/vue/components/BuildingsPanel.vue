@@ -28,6 +28,7 @@ const emit = defineEmits<{
   toggle: [id: BuildingId, delta: number];
   gather: [id: 'food' | 'wood' | 'stone'];
   factorySettings: [id: BuildingId];
+  smelterSettings: [];
   shipSettings: [];
   worldView: [view: string];
   mission: [id: RegionalMissionId, forceQueue: boolean];
@@ -35,7 +36,7 @@ const emit = defineEmits<{
 
 const SPACE = ['touristStation', 'solarSatellite', 'researchSatellite', 'orbitalFuelDepot', 'navigationBeacon'] satisfies BuildingId[];
 const MOON = ['moonBase', 'iridiumMine', 'helium3Mine', 'moonObservatory'] satisfies BuildingId[];
-const ASRIEL = ['asrielSpaceport', 'asrielControlTower', 'asrielResidence', 'asrielMine', 'ecologicalDome', 'hangar', 'spaceFactory', 'starRingStation', 'planetaryFoundry', 'spaceGarrison', 'alienMaterialLab'] satisfies BuildingId[];
+const ASRIEL = ['asrielSpaceport', 'asrielControlTower', 'asrielResidence', 'asrielMine', 'ecologicalDome', 'hangar', 'spaceFactory', 'starRingStation', 'planetaryFoundry', 'spaceGarrison', 'alienMaterialLab', 'vrCenter'] satisfies BuildingId[];
 
 const NEW_SPACE_GROUPS: { id: SpaceMissionId; name: string; list: BuildingId[] }[] = [
   { id: 'solar', name: '太阳', list: ['swarmControlStation', 'swarmSatellite', 'swarmFactory'] },
@@ -44,7 +45,7 @@ const NEW_SPACE_GROUPS: { id: SpaceMissionId; name: string; list: BuildingId[] }
   { id: 'asteroidBelt', name: '小行星带', list: ['iridiumMiningShip', 'ironMiningShip', 'e710MiningShip', 'e710Container'] },
   { id: 'misen', name: '米神星', list: ['e710Warehouse', 'e710Reactor', 'interstellarDock'] },
 ];
-const SPACE_IDS = new Set<BuildingId>([...SPACE, ...MOON, ...ASRIEL, 'constraintArray', 'signalRepeater', 'shortRangeRelay', 'anchorFreightStation', 'civilianRouteStation', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'hydrogenPowerPlant', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'geothermalPlant', ...NEW_SPACE_GROUPS.flatMap(group => group.list)]);
+const SPACE_IDS = new Set<BuildingId>([...SPACE, ...MOON, ...ASRIEL, 'constraintArray', 'signalRepeater', 'shortRangeRelay', 'anchorFreightStation', 'civilianRouteStation', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'hydrogenPowerPlant', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'geothermalPlant', 'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'stellarForge', 'blackHoleStation', 'penroseSphere', ...NEW_SPACE_GROUPS.flatMap(group => group.list)]);
 function missionId(id: string): RegionalMissionId | undefined {
   return Object.hasOwn(REGIONAL_MISSIONS, id) ? id as RegionalMissionId : undefined;
 }
@@ -71,7 +72,13 @@ const sections = computed(() => {
       { id: 'eruptingAsteroids', name: '喷发小行星群', list: (['iceMiningShip', 'asteroidBase', 'hydrogenPowerPlant'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) },
       { id: 'dimensionalBoundary', name: '维度边界', list: (['spaceRipper'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) },
     );
-    return regions.filter(section => section.list.length || section.id === 'dimensionalBoundary');
+    // 超频-13 opens the black-hole regions below 维度边界; 能量护盾 opens the two mission regions.
+    if (props.state.tech.includes('overclocking13')) regions.push({ id: 'alphaSector', name: '天元六alpha星区', list: (['adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) });
+    if (props.state.tech.includes('energyShield')) regions.push(
+      { id: 'neutronStar', name: '卡尔维拉', list: (['stellarForge'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) },
+      { id: 'blackHole', name: 'DSR-8086', list: (['blackHoleStation', 'penroseSphere'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) },
+    );
+    return regions.filter(section => section.list.length || ['dimensionalBoundary', 'alphaSector', 'neutronStar', 'blackHole'].includes(section.id));
   }
   if (props.worldView === 'space') {
     return [
@@ -95,6 +102,9 @@ const REGION_DESCRIPTIONS: Record<string, string> = {
   hyperspaceStable: '距离接入点估算16AU，这里是异常空间里时空波动最小的区域之一',
   eruptingAsteroids: '在距离接入点约230AU的地方发现了热能波动，这里有一群奇怪的小行星正在"喷发火山"',
   dimensionalBoundary: '与接入点无法测算，看起来这是超空间与另一处正常空间的交界点',
+  alphaSector: '黑洞附近的可怜星系，大部分星区被破坏了，只剩下一些残余',
+  neutronStar: '中子星卡维尔拉，编号NTR-1145, 它居然位于黑洞的吸积盘附近并且屹立不倒，真神奇',
+  blackHole: '一颗人造黑洞，空间撕裂所致，也许我们不该滥用维度技术的',
   eden: '一颗蓝色的大质量类地行星，但是它的重力低于预期，原因不明',
   moon: '荒芜的岩石星球，上面发现了稀有金属和氦同位素，月球背面很适合建造天文站',
   asriel: '富含金属矿的红色行星，适合建立地面与轨道定居点',
@@ -169,7 +179,7 @@ function costRows(id: BuildingId) {
 function outputText(id: BuildingId): string {
   const b = BUILDINGS[id];
   const entries = Object.entries(b.output || {}) as [string, number][];
-  if (!entries.length) return '';
+  if (!entries.length || id === 'smelter') return '';
   return entries.map(([r, v]) =>
     `${RESOURCES[r as keyof typeof RESOURCES].icon} ${fmt(v * runningCount(id))}/s`).join(' ');
 }
@@ -186,7 +196,7 @@ function canGather(id: string): boolean {
   <nav class="tabs" aria-label="世界区域">
     <button data-world-view="home" :class="{ active: worldView === 'home' }" @click="emit('worldView', 'home')">地面</button>
     <button v-if="state.tech.includes('spaceflight')" data-world-view="space" :class="{ active: worldView === 'space' }" @click="emit('worldView', 'space')">太空</button>
-    <button v-if="hyperspaceUnlocked" data-world-view="hyperspace" :class="{ active: worldView === 'hyperspace' }" @click="emit('worldView', 'hyperspace')">超空间</button>
+    <button v-if="hyperspaceUnlocked" data-world-view="hyperspace" :class="{ active: worldView === 'hyperspace' }" @click="emit('worldView', 'hyperspace')">{{ state.tech.includes('overclocking13') ? '遥远星际' : '超空间' }}</button>
   </nav>
   <template v-if="worldView === 'home'">
     <section class="building-group">
@@ -260,6 +270,14 @@ function canGather(id: string): boolean {
           :aria-label="`${calculateBuildingName(id, state)}生产线设置`"
           title="生产线设置"
           @click="emit('factorySettings', id)"
+        >⚙</button>
+        <button
+          v-if="(id === 'smelter' || id === 'stellarForge') && buildingCount(id) > 0"
+          class="building-gear"
+          data-smelter-settings
+          aria-label="冶炼厂工位设置"
+          title="冶炼厂工位设置"
+          @click="emit('smelterSettings')"
         >⚙</button>
 
         <button

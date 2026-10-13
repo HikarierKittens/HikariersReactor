@@ -4,6 +4,7 @@ import { calculateBuildingInput, calculateBuildingOutput, calculateToolMultiplie
 import { calculateProductionMultiplier, calculateKnowledgeMultiplier, calculateAluminumMultiplier } from './multipliers';
 import { calculateParticleMultiplier } from './crafting';
 import { isPowerProducer } from './power';
+import { calculateSmelterSlotCapacity, calculateRunningSmelterSlots } from './factory';
 import type { GameState } from '../types/state';
 import type { BuildingId } from '../types/buildings';
 import type { ResourceId, ResourceAmounts, ResourceRecipe } from '../types/economy';
@@ -11,11 +12,12 @@ import type { ResourceId, ResourceAmounts, ResourceRecipe } from '../types/econo
 export function settleGroundProduction(state: GameState, pool: ResourceAmounts, dt: number, happiness: number, inputUnits: Record<string, number>, outputs: Record<string, number>, boosts: { mixerUnits: number; miningUnits: number; coalMiningUnits: number; lumberUnits: number; quarryUnits: number; dataUnits: number }): void {
   const entries = (recipe: ResourceRecipe) => Object.entries(recipe) as [ResourceId, number][];
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
-    const b = BUILDINGS[id], n = state.buildings[id];
-    const running = Math.max(0, n - (state.stoppedBuildings?.[id] || 0));
+    // 冶炼厂 settles per steel-assigned 冶炼厂工位 (including 恒星熔炉 slots); each slot is one legacy smelter.
+    const b = BUILDINGS[id], n = id === 'smelter' ? calculateSmelterSlotCapacity(state) : state.buildings[id];
+    const running = id === 'smelter' ? calculateRunningSmelterSlots(state) : Math.max(0, n - (state.stoppedBuildings?.[id] || 0));
     const units = b.workerOutput ? Math.min(state.workers[id] || 0, b.unlimited ? Infinity : (['cementWorkshop', 'mine', 'coalMine'].includes(id) ? n : running) * (b.slots ?? b.artistSlots ?? CONFIG.workersPerBuilding) + calculateGrantedJobSlots(id, state)) : running;
     const out = calculateBuildingOutput(id, state, inputUnits);
-    if (id === 'metalRefinery' || id === 'aiSupercore' || id === 'e710Container' || id === 'e710Warehouse' || b.spaceSource || ['signalRepeater', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'constraintArray', 'shortRangeRelay', 'anchorFreightStation', 'civilianRouteStation', 'navigationBeacon', 'moonBase', 'iridiumMine', 'helium3Mine', 'moonObservatory', 'asrielSpaceport', 'asrielControlTower', 'asrielResidence', 'asrielMine', 'ecologicalDome', 'hangar', 'spaceFactory', 'starRingStation', 'spaceWaystation', 'planetaryFoundry', 'factory', 'biologyLab', 'observatory', 'broadcast', 'touristStation'].includes(id) || (!n && !b.unlimited) || (!Object.keys(out).length && !b.input) || isPowerProducer(id)) continue;
+    if (id === 'metalRefinery' || id === 'aiSupercore' || id === 'e710Container' || id === 'e710Warehouse' || b.spaceSource || ['signalRepeater', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'stellarForge', 'blackHoleStation', 'penroseSphere', 'vrCenter', 'constraintArray', 'shortRangeRelay', 'anchorFreightStation', 'civilianRouteStation', 'navigationBeacon', 'moonBase', 'iridiumMine', 'helium3Mine', 'moonObservatory', 'asrielSpaceport', 'asrielControlTower', 'asrielResidence', 'asrielMine', 'ecologicalDome', 'hangar', 'spaceFactory', 'starRingStation', 'spaceWaystation', 'planetaryFoundry', 'factory', 'biologyLab', 'observatory', 'broadcast', 'touristStation'].includes(id) || (!n && !b.unlimited) || (!Object.keys(out).length && !b.input) || isPowerProducer(id)) continue;
     const inputs = entries(calculateBuildingInput(id, state));
     if (!Object.keys(out).length) {
       let ratio = 1;

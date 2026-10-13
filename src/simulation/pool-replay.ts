@@ -1,5 +1,5 @@
 import { BUILDINGS } from '../data/buildings';
-import { HYPERSPACE_SOURCE_IDS, HYPERSPACE_CONSUMER_IDS, calculateHyperspaceOutputFactor } from './hyperspace-output';
+import { HYPERSPACE_SOURCE_IDS, HYPERSPACE_CONSUMER_IDS, calculateHyperspaceOutputFactor, calculateHyperspaceLocalMultiplier } from './hyperspace-output';
 import { settleSpaceProduction } from './space-settlement';
 import { settleE710WarehousePower, settleResearchAndCulture } from './power-consumers';
 import { calculatePoweredWaystations, calculateSpaceFuelMultiplier } from './space-fuel';
@@ -74,6 +74,7 @@ export function replaySettledPool(
     // Publish the actual allocation for production/storage consumers of this ledger.
     ledger.space = space;
     ledger.researchStationUnits = space.inputs.e710ResearchStation || 0;
+    ledger.blackHoleStationUnits = space.inputs.blackHoleStation || 0;
     const warehouses = settleE710WarehousePower(state, pool, dt);
     ledger.e710WarehouseUnits = warehouses;
     inputUnits.e710Warehouse = outputs.e710Warehouse = warehouses;
@@ -188,7 +189,7 @@ function replaySpaceDebits(
       charge(pool, resource, amount * actual * dt);
     }
     for (const [resource, amount] of Object.entries(BUILDINGS[id].output || {}) as [ResourceId, number][]) {
-      const speed = actual * calculateHyperspaceOutputFactor(resource, state, happiness, stageThree.ports);
+      const speed = actual * calculateHyperspaceOutputFactor(resource, state, happiness, stageThree.ports) * calculateHyperspaceLocalMultiplier(id, state);
       outputs[id] = actual;
       credit(pool, resource, amount * speed * calculateParticleMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt);
     }
@@ -215,7 +216,7 @@ function replaySpaceDebits(
 
   // Outputs at the actual happiness, credited exactly like the historical chain.
   outputs.iceMiningShip = stageThree.iceShips * calculateHyperspaceOutputFactor('water', state, happiness, stageThree.ports);
-  credit(pool, 'water', (calculateBuildingOutput('iceMiningShip', state).water || 0) * outputs.iceMiningShip * calculateParticleMultiplier('water', state) * dt);
+  credit(pool, 'water', (calculateBuildingOutput('iceMiningShip', state).water || 0) * outputs.iceMiningShip * calculateParticleMultiplier('water', state) * calculateSpaceMultiplier('iceMiningShip', state, asriel) * dt);
   outputs.asrielSpaceport = asriel.ports;
   outputs.asrielControlTower = asriel.towers;
   outputs.signalRepeater = stageThree.repeaters;
@@ -233,6 +234,7 @@ function replaySpaceDebits(
   inputUnits.asrielResidence = asriel.allocations.asrielResidence;
   outputs.planetaryFoundry = asriel.allocations.planetaryFoundry;
   outputs.alienMaterialLab = asriel.allocations.alienMaterialLab;
+  outputs.vrCenter = asriel.allocations.vrCenter;
   for (const id of ['asrielMine', 'ecologicalDome'] as const) {
     const units = asriel.allocations[id] * countAsrielResidents(state, asriel);
     inputUnits[id] = asriel.allocations[id];

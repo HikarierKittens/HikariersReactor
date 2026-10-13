@@ -3,7 +3,7 @@ import { validateStoryArchive } from './validate-story';
 import { CONFIG } from '../data/config';
 import { trimFactoryAssignments } from '../simulation/factory';
 import { createInitialState } from './create-state';
-import { validateEconomyRecords, validateFactoryAssignments } from './validate-economy';
+import { validateEconomyRecords, validateFactoryAssignments, validateSmelterAssignments } from './validate-economy';
 import { validateUnlockRecords } from './validate-unlocks';
 import { validatePopulationRecords } from './validate-population';
 import { validateCivilization } from './validate-civilization';
@@ -108,6 +108,7 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
   validateCivilization(raw, state);
   validatePrestigeUnlocks(raw, state);
   validateFactoryAssignments(raw.lines, state);
+  validateSmelterAssignments(raw.smelterIdle, state);
   validateHistory(raw, state);
   validateStatistics(raw, state);
   validateProjectRecords(raw, state);

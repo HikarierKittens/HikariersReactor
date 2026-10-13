@@ -649,7 +649,7 @@ test('economy save validation preserves defaults and rejects invalid assignments
   const state = createInitialState(29, 60, 0);
   validateEconomyRecords({ ...state }, state);
   validateFactoryAssignments(undefined, state);
-  assert.deepEqual(state.lines, { alloy: 0, polymer: 0, fur: 0, nanotubes: 0 });
+  assert.deepEqual(state.lines, { alloy: 0, polymer: 0, fur: 0, nanotubes: 0, nanoAlloy: 0 });
   assert.throws(() => validateFactoryAssignments({ alloy: .5 }, state), /生产线分配无效/);
   assert.throws(() => validateFactoryAssignments({ fur: 1 }, state), /生产线分配无效/);
   assert.throws(() => validateEconomyRecords({ ...state, resources: { ...state.resources, food: '10' } }, state), /资源数据无效/);

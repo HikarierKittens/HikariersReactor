@@ -15,12 +15,15 @@ export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: 
   const instituteMultiplier = 1 + .04 * (state.arpaBuildings?.arpaResearchInstitute || 0);
   const warehouseMultiplier = (state.tech.includes('dimensionCompression') ? instituteMultiplier : 1)
     * (state.tech.includes('iridiumAlloyWarehouse') ? 2 : 1);
-  if (id === 'anchorFreightStation') return Object.fromEntries(['wood', 'cement', 'stone', 'iron', 'coal', 'copper', 'aluminum', 'titanium', 'metal', 'oil', 'uranium', 'alloy', 'polymer', 'iridium'].map(resource => [resource, 32000]));
+  if (id === 'anchorFreightStation') return Object.fromEntries(['wood', 'cement', 'stone', 'iron', 'coal', 'copper', 'aluminum', 'titanium', 'metal', 'oil', 'uranium', 'alloy', 'polymer', 'iridium',
+    // 遥远星际 materials join once unlocked.
+    ...(['adamantite', 'graphene', 'nanoAlloy'] as const).filter(resource => isResourceUnlocked(resource, state))].map(resource => [resource, 32000]));
   // 高维存储 (higherDimensionalStorage) doubles these hyperspace storage facilities
   // (+100% on each base contribution) and gives spaceports a flat water store.
   const higherDimensional = state.tech.includes('higherDimensionalStorage');
   const dimensional = higherDimensional ? 2 : 1;
   if (id === 'hyperspaceSpaceport') return {
+    helium3: 16000 * dimensional,
     ...(higherDimensional ? { water: 16000 } : {}),
     ...(isResourceUnlocked('deuterium', state) ? { deuterium: 8000 * dimensional } : {}),
   };

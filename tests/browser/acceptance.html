@@ -282,6 +282,10 @@ try {
   click($('[data-line-option="alloy"][data-line-delta="1"]')); await flush();
   log(S().lines.alloy === 1 && $('[data-line-option="alloy"]').closest('.factory-row').querySelector('strong').textContent === '1', '工厂弹窗即时更新合金生产线分配');
   log($('#factoryModal').matches(':modal'), '工厂弹窗通过showModal进入原生模态层');
+  {
+    const box = $('#factoryModal').getBoundingClientRect(), row = $('#factoryModal .factory-row').getBoundingClientRect();
+    log(Math.abs(box.width - Math.min(504, innerWidth - 32)) < 1 && row.height >= 30 - .5, `工厂弹窗加宽至504px且行高30px [width=${box.width},row=${row.height}]`);
+  }
   $('#factoryModal').dispatchEvent(new Event('cancel', { cancelable: true })); await flush();
   log(!$('#factoryModal'), '工厂弹窗处理Escape对应的原生cancel事件后关闭');
   click($('[data-world-view="space"]')); await flush();
@@ -505,6 +509,46 @@ try {
     log(rows.includes('电力+200/s')&&tip.querySelector('.tip-desc')?.textContent.includes('空间的连接点似乎不稳定...'),'撕裂者超频后电力+200/s且描述新增一行');
   }
   await escapeTip();
+  // OverClocking-13 through the real research button: log, tab rename, alpha region under 维度边界.
+  click($('[data-tab="tech"]'));await flush();
+  store.mutate(state=>{state.resources.knowledge=1500000;});await flush();
+  click($('[data-research="overclocking13"]'));await flush();
+  log(S().tech.includes('overclocking13')&&S().logs.some(entry=>entry.text==='空间撕裂者在虚空中撕开了空间，形成了一个黑洞！'),'OverClocking-13研究后写入黑洞事件日志');
+  click($('[data-tab="buildings"]'));await flush();
+  {
+    const groups=$$('[data-building-group]').map(group=>group.dataset.buildingGroup);
+    log($('[data-world-view="hyperspace"]')?.textContent.trim()==='遥远星际'&&groups.indexOf('alphaSector')>groups.indexOf('dimensionalBoundary'),'超空间更名为遥远星际且天元六alpha星区位于维度边界下方');
+    log($('[data-region-description="alphaSector"]')?.textContent.includes('黑洞附近的可怜星系'),'天元六alpha星区显示区域描述');
+  }
+  store.mutate(state=>{state.tech.push('superMetal','grapheneProcessing','nanoAlloy','plasmaResearch','virtualReality','aerogel','energyShield');});await flush();
+  {
+    const groups=$$('[data-building-group]').map(group=>group.dataset.buildingGroup);
+    log(['adamantiteMiningShip','adamantiteProcessor','grapheneFactory'].every(id=>!!$(`[data-building-group="alphaSector"] [data-buy="${id}"]`))&&groups.indexOf('neutronStar')>groups.indexOf('alphaSector')&&groups.indexOf('blackHole')>groups.indexOf('neutronStar'),'精金与石墨烯设施位于alpha星区，卡尔维拉与DSR-8086依次出现');
+    log(!!$('[data-building-group="neutronStar"] #launchNeutronStarMission')&&!!$('[data-building-group="blackHole"] #launchBlackHoleMission')&&!$('[data-buy="stellarForge"]')&&!$('[data-buy="blackHoleStation"]'),'中子星与黑洞探索任务按钮出现，完成前不显示区域建筑');
+  }
+  store.mutate(state=>{state.blackHoleMissionCompleted=true;state.tech.push('penroseTheory');});await flush();
+  log(!$('#launchBlackHoleMission')&&!!$('[data-building-group="blackHole"] [data-buy="blackHoleStation"]')&&!!$('[data-building-group="blackHole"] [data-buy="penroseSphere"]'),'黑洞探索完成后显示黑洞星际站与彭罗斯球体');
+  store.mutate(state=>{state.buildings.spaceRipper=100;state.buildings.blackHoleStation=3;state.stoppedBuildings.blackHoleStation=0;state.resources.energy=1e6;});await flush();
+  await showTip('[data-building-tip="spaceRipper"][data-tip-kind="building"]');
+  {
+    const rows=[...($('#gameTooltip')?.querySelectorAll('.resource-factor')||[])].map(row=>row.textContent.replace(/\s+/g,''));
+    log(rows.some(row=>row.startsWith('知识容量+23%')),`3座黑洞星际站后撕裂者详情知识容量显示+23% [${rows}]`);
+  }
+  await escapeTip();
+  click($('[data-world-view="home"]'));await flush();
+  store.mutate(state=>{if(!state.tech.includes('metallurgy'))state.tech.push('metallurgy');state.buildings.smelter=3;state.stoppedBuildings.smelter=0;state.smelterIdle=0;});await flush();
+  await showTip('[data-building-tip="smelter"][data-tip-kind="building"]');
+  {
+    const tip=$('#gameTooltip'),rows=[...(tip?.querySelectorAll('.resource-factor')||[])].map(row=>row.textContent.replace(/\s+/g,''));
+    log(rows.some(row=>row.startsWith('冶炼厂工位+1'))&&!rows.some(row=>/^(钢|铁|煤|电力|钛)/.test(row)),`冶炼厂详情只显示冶炼厂工位+1，不再列出资源产出与消耗 [${rows}]`);
+  }
+  await escapeTip();
+  click($('[data-buy="smelter"]').closest('.building-control').querySelector('[data-smelter-settings]'));await flush();
+  log($('#smelterModal')?.matches(':modal')&&$('#smelterBody').textContent.includes('冶炼厂工位: 3 / 3'),'冶炼厂齿轮打开工位弹窗，默认全部分配到钢冶炼');
+  click($('[data-smelter-option="metal"][data-smelter-delta="-1"]'));await flush();
+  log(S().smelterIdle===1&&$('#smelterBody').textContent.includes('冶炼厂工位: 2 / 3'),'冶炼厂工位弹窗即时减少钢冶炼工位');
+  $('#smelterModal').dispatchEvent(new Event('cancel',{cancelable:true}));await flush();
+  log(!$('#smelterModal'),'冶炼厂工位弹窗处理cancel后关闭');
   store.mutate(state=>{Object.assign(state,beforeRipperDone);});await flush();
   store.mutate(state=>{Object.assign(state,beforeDeuteriumEra);});await flush();
   click($('[data-world-view="space"]')); await flush();
@@ -707,6 +751,22 @@ try {
   const fixture = createInitialState(CONFIG.version, 600, Date.now());
   fixture.clicks = 73;
   store.runtime.replaceState(fixture); store.refresh();
+  {
+    const link = $('[data-update-log-link]'), version = link?.nextElementSibling;
+    log(!$('[data-tab="updateLog"]') && !!link && link.textContent.trim() === '更新日志' && version?.textContent.trim().startsWith('beta')
+      && link.getAttribute('target') === '_blank' && link.getAttribute('rel')?.includes('noopener') && new URL(link.href).pathname.endsWith('/updatelog.html'),
+      '更新日志不再是标签页，而是版本号左侧的新标签页链接');
+    // Load the standalone page the link opens and confirm it renders updatelog.md.
+    const frame = document.createElement('iframe');
+    // The harness page lives under /tests/browser/; the game (index.html) sits at the root beside updatelog.html.
+    frame.src = new URL(link.getAttribute('href'), `${location.origin}/index.html`).href; frame.style.cssText = 'width:800px;height:400px;position:fixed;left:-9999px';
+    document.body.append(frame);
+    let page;
+    for (let i = 0; i < 100 && !(page = frame.contentDocument?.querySelector('[data-update-log]'))?.querySelector('li'); i++) await sleep(50);
+    log(!!page && !!page.querySelector('h3') && page.querySelectorAll('li').length > 0 && !page.textContent.includes('##') && frame.contentDocument.title.includes('更新日志'),
+      '独立更新日志页面渲染根目录 updatelog.md 的标题与列表');
+    frame.remove();
+  }
   click($('[data-tab="settings"]')); await flush();
   const exportRect = $('#exportSave').getBoundingClientRect(), importRect = $('#importSave').getBoundingClientRect();
   log($('#exportSave').nextElementSibling === $('#importSave') && exportRect.right <= importRect.left && Math.abs(exportRect.top - importRect.top) < 2, '设置导出按钮紧邻导入按钮左侧且处于同一行');

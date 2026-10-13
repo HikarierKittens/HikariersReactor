@@ -16,7 +16,7 @@ export function countAssignedContainers(state: Pick<GameState, 'containerAssignm
 }
 export function isContainerAssignable(id: string, state: GameState): boolean {
   return Object.hasOwn(RESOURCES, id) && !RESOURCES[id as ResourceId].special
-    && !['water', 'oil', 'uranium', 'cash', 'helium3', 'deuterium', 'mithril', 'neutron', 'e710', 'nanotubes'].includes(id) && isResourceUnlocked(id, state);
+    && !['water', 'oil', 'uranium', 'cash', 'helium3', 'deuterium', 'mithril', 'neutron', 'e710', 'nanotubes', 'aerogel'].includes(id) && isResourceUnlocked(id, state);
 }
 export function calculateContainerUnitCapacity(state: Pick<GameState, 'tech'>): number {
   return (state.tech.includes('steelContainers') ? 500 : 250) * (state.tech.includes('reinforcedContainers') ? 2 : 1);

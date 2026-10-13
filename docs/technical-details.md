@@ -84,8 +84,26 @@
 - 基因效果接入点：建筑基础产出类基因在`calculateBuildingOutput`中乘到单位产出（地面结算、钛副产物、收支明细同源），资源收支明细不单列基因行，加成直接计入来源的基础值；完美主义乘在`calculateFactoryRecipe.output`（不改input），生产线明细同样直接计入；泰坦之力乘`calculateCombatPower`；猫猫凝聚经`calculatePopulationPressure`与`calculateSoldierPressure`（×(1-bonus/2)）进入`calculateMorale`。
 - 空间撕裂者：`powerPlant`+`alwaysRunning`+`output.energy=100`，走普通`settlePowerPlants`路径（无燃料）；知识容量在详情与总量两条路径都于CRISPR之后乘`1+0.2×建成数`，系数在`building-effects.ts`共享。完成第100段时`constructBuildingState`写入事件日志`SPACE_RIPPER_COMPLETED_LOG`（主线完成提示），直接、批量与队列建造共用该入口，因此只触发一次。
 - 高科技工厂：`lines:2`、`jobSlots:{cementWorkshop:2}`；在`settleFactoryLines`中排在太空工厂之后按电力与氘连续比例供能，供能生产线=地面+太空+高科技×2，太空工厂秘银加成份额也按生产线计。不进入地面结算与超空间来源循环。
+- 超空间太空港付费运行时提供16000氦-3容量（不依赖氘解锁），研究高维存储后与氘一起×2。
 - 高维存储：`storage-bonuses.ts`中对民用航线站、小行星基地、太空港基础值×2，太空港追加16000水；货运站倍率由`calculateFreightCapacityMultiplier`给出`1+0.05×基地+1`（加算）。桥接新增`building-effects`模块（80个脚本）。
 - 710研究站T19（850k，前置超空间采矿探查+气体云吸积）：`jobSlots:{lab:1}`经`calculateGrantedJobSlots`计入`calculateWorkerCapacity`与地面结算／收支岗位上限（按已建座数）；属于`HYPERSPACE_CONSUMER_IDS`，在超空间来源循环之后按整座扣25电力+1氘，付费座数经`SupportPreview.researchStationUnits`进入储量快照，每座知识+50000（在CRISPR与空间撕裂者加成之前加入）。
+- 遥远星际（T20/T21）：
+  - 超空间太空港的+25%已移除，`calculateHyperspaceOutputFactor`只保留`calculateProductionMultiplier`。星环加成经`isSpaceResourceSource`覆盖采冰船（水）、五类超空间来源、精金采矿船和石墨烯厂。
+  - 设施本地倍率`calculateHyperspaceLocalMultiplier`：精金采矿船为`1+0.1×精金加工站`。结算、回放和收支明细都乘这个倍率，明细里在采矿船下列出「精金加工站」子行。
+  - 精金采矿船与石墨烯厂属于`HYPERSPACE_SOURCE_IDS`，按整座供能比例结算。黑洞星际站属于`HYPERSPACE_CONSUMER_IDS`，付费座数经`blackHoleStationUnits`进入储量快照。`calculateRipperKnowledgeBonus`=`0.2+0.01×付费站数`，作用于每座完整撕裂者。
+  - 新建筑全部在地面结算的跳过列表里。
+  - 彭罗斯球体`segmentEffects:true`：`countRunningBuildings`直接按段数计，`settlePowerPlants`每段+5电力。
+  - 区域：`spaceMissionRequired`新增`neutronStar`和`blackHole`两个任务，状态位分别为`neutronStarMissionCompleted`和`blackHoleMissionCompleted`。建筑解锁和存档校验都走通用路径。
+- 冶炼厂工位：
+  - `GameState.smelterIdle`记录空闲工位数。容量`calculateSmelterSlotCapacity`=冶炼厂+2×恒星熔炉。运行工位`calculateRunningSmelterSlots`=（运行中的冶炼厂+2×熔炉）−min(空闲, 容量)。
+  - 地面结算按运行工位套用原`calculateBuildingInput/Output('smelter')`配方，因此`inputUnits.smelter`=付费工位，钛副产物同源。
+  - 缺字段旧档按0读取，即全部工位炼钢；超过容量或非整数时拒绝。`changeSmelterAssignment`供⚙弹窗（`SmelterModal.vue`）调用。
+- 恒星熔炉：工匠可用数与`calculateWorkerCapacity('foundry')`各+2/座；`calculateStellarForgeCraftMultiplier`=`1+0.1×座数`乘入锻造倍率，收支明细列为「恒星熔炉」行。
+- VR中心：Asriel支持优先级排在末位，`allocations.vrCenter`经`vrCenterUnits`进入`calculateMorale`（每座+2.5，仍受上限）。虚拟训练：`calculateTrainingBoost`=8（原5）。
+- 新资源：
+  - `graphene`、`nanoAlloy`、`adamantite`：基础容量0，可分配集装箱。锚点货运站解锁后每种+32000。
+  - `aerogel`：锻造物，缺失的`craftWorkers.aerogel`按0读取。工厂新增`nanoAlloy`生产线。
+  - 存档结构版本仍为29，所有新键都是附加键。
 
 ### 3.5 量子计算
 - `calculateQuantumSnapshot` 在无快照时按基线迭代至多 16 轮支持预览以打破"量子↔储能↔知识容量"循环。
