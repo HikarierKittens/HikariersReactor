@@ -74,6 +74,8 @@ export type TechnologyId =
   | 'coalMining'
   | 'mining'
   | 'nestMKII'
+  | 'catHut'
+  | 'steelBuildingMaterials'
   | 'housing'
   | 'storage'
   | 'automatedStorage'

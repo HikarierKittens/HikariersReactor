@@ -18,7 +18,7 @@ export type BuildingId =
   | 'solarSatellite' | 'researchSatellite' | 'granary' | 'biologyLab' | 'bank'
   | 'barracks' | 'trainingCamp' | 'metalRefinery' | 'cementWorkshop' | 'fuelDepot'
   | 'batteryStation' | 'containerWarehouse' | 'communityCenter' | 'coalMine' | 'mine'
-  | 'nestMKII' | 'apartment' | 'warehouse' | 'storageHub' | 'nest' | 'forage'
+  | 'nestMKII' | 'apartment' | 'warehouse' | 'storageHub' | 'nest' | 'catHut' | 'forage'
   | 'lumber' | 'quarry' | 'theater' | 'broadcast' | 'touristStation' | 'foundry'
   | 'library' | 'school' | 'generator' | 'oilGenerator' | 'fissionGenerator'
   | 'smelter' | 'lab' | 'refinery' | 'observatory' | 'factory' | 'moonObservatory'

@@ -567,7 +567,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
       "cash": 80
     },
     "tech": "nestMKII",
-    "cap": 4,
+    "cap": 2,
     "costScales": {
       "stone": 1.17,
       "plank": 1.17,
@@ -643,11 +643,29 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
       "cash": 10
     },
     "tech": "survival",
-    "cap": 2,
+    "cap": 1,
     "costScales": {
       "wood": 1.17,
       "stone": 1.17,
       "cash": 1.17
+    }
+  },
+  // Same base price as 猫窝 by value only; parameters are independent.
+  "catHut": {
+    "name": "猫猫小屋",
+    "icon": "🛖",
+    "desc": "猫口容量+1",
+    "cost": {
+      "wood": 18,
+      "stone": 9,
+      "cash": 10
+    },
+    "tech": "catHut",
+    "cap": 1,
+    "costScales": {
+      "wood": 1.35,
+      "stone": 1.35,
+      "cash": 1.35
     }
   },
   "forage": {
@@ -1336,6 +1354,7 @@ export const BUILDING_CASH_COSTS: Partial<Record<BuildingId, number>> = {
   "biologyLab": 2000,
   "forage": 5,
   "nest": 10,
+  "catHut": 10,
   "lumber": 8,
   "quarry": 8,
   "school": 15,
@@ -1538,6 +1557,11 @@ export const BUILDING_COST_SCALES: Partial<Record<BuildingId, ResourceRecipe>> =
     "stone": 1.17,
     "cash": 1.17
   },
+  "catHut": {
+    "wood": 1.35,
+    "stone": 1.35,
+    "cash": 1.35
+  },
   "forage": {
     "wood": 1.17,
     "stone": 1.17,
@@ -1710,6 +1734,7 @@ export const BUILDING_GROUPS: { id: string; name: string; buildings: BuildingId[
     "name": "住宅区",
     "buildings": [
       "nest",
+      "catHut",
       "nestMKII",
       "apartment"
     ]

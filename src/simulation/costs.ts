@@ -39,6 +39,7 @@ export function calculateDynamicCreep(id: BuildingId, resource: ResourceId, stat
   const crispr = calculateCrisprCostReduction(state);
   if (crispr) terms.push({ label: 'CRISPR 材料基因', value: -crispr });
   if (id === 'factory' && state.government === 'industrialism') terms.push({ label: '工业至上体制', value: -.005 });
+  if (['nest', 'nestMKII'].includes(id) && state.tech?.includes('steelBuildingMaterials')) terms.push({ label: '钢制建材', value: -.01 });
   if (['nest', 'nestMKII'].includes(id) && state.tech?.includes('neutronConstructionMaterials')) terms.push({ label: '中子结构建材', value: -.01 });
   return terms;
 }
