@@ -5,3 +5,4 @@ dist/
 # Transpiled bridge scripts for the VM regression suites, rebuilt by `npm run pretest`.
 assets/generated/
 *.log
+*.bat
