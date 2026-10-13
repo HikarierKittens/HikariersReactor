@@ -3,9 +3,9 @@
   "version": "0.29.0",
   "private": true,
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1",
+    "preview": "vite preview --host 0.0.0.0",
     "typecheck": "vue-tsc --noEmit && tsc -p tsconfig.scripts.json --noEmit",
     "pretest": "node scripts/generate-legacy-data.cjs",
     "predev": "node scripts/generate-legacy-data.cjs",

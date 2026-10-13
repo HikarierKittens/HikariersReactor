@@ -26,7 +26,7 @@
 
 ```sh
 npm install
-npm run dev       # 开发服务器，绑定 127.0.0.1
+npm run dev       # 开发服务器，绑定 0.0.0.0（局域网可访问）
 npm run typecheck # TypeScript + Vue 模板检查
 npm test          # 模块测试 + 保留 VM 回归
 npm run test:browser
