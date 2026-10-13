@@ -235,6 +235,7 @@ export function calculateResourceFactorRows(
     if (opt) {
       const units = state.lines[opt.id] || 0, ran = result.inputUnits[opt.id] || 0;
       const recipe = calculateFactoryRecipe(opt.id, state);
+      // 完美主义 is already folded into the recipe's base output; no separate row.
       add(opt.name, signedRate((recipe.output?.[resource] || 0) * ran));
       if (units && ran < units - 1e-9) pct('供电与原料供应', ran / units, true);
       if (state.government === 'industrialism') pct('工业至上', 1.25, true);
@@ -267,6 +268,7 @@ export function calculateResourceFactorRows(
 ;
     add(id === 'catCafe' && resource === 'cash' ? calculateBuildingName(id, state) : b.workerName || calculateBuildingName(id, state), signedRate(sourceValue));
 
+    // 基因修饰 bonuses are already part of the base value (calculateBuildingOutput); no separate row.
     let local = 1;
     if (isHyperspaceSource(id) && !RESOURCES[resource].special && !RESOURCES[resource].crafted) {
       const factor = 1 + .25 * result.stageThree.ports;

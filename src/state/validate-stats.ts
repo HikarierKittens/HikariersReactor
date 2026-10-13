@@ -29,7 +29,8 @@ export function validateStatistics(raw: Record<string, unknown>, state: GameStat
   // not a reconstruction of all historical rewards (old prices may differ).
   const recoverableParticles = Math.min(Number.MAX_SAFE_INTEGER, state.prestige.particles + state.crispr.reduce((sum, id) => sum + CRISPR_UPGRADES[id].cost, 0));
   stats.lifetime.particlesEarned = counter(lifetime.particlesEarned, recoverableParticles, '粒子获取统计');
-  stats.lifetime.casimirEarned = counter(lifetime.casimirEarned, state.prestige.casimir || 0, '卡西米尔获取统计');
+  const recoverableCasimir = Math.min(Number.MAX_SAFE_INTEGER, (state.prestige.casimir || 0) + state.crispr.reduce((sum, id) => sum + (CRISPR_UPGRADES[id].casimirCost || 0), 0));
+  stats.lifetime.casimirEarned = counter(lifetime.casimirEarned, recoverableCasimir, '卡西米尔获取统计');
   state.statistics = stats;
   state.starvationElapsed = counter(raw.starvationElapsed, 0, '饥饿计时');
 }

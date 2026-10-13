@@ -8,6 +8,7 @@ import { validateUnlockRecords } from './validate-unlocks';
 import { validatePopulationRecords } from './validate-population';
 import { validateCivilization } from './validate-civilization';
 import { validateCrispr } from './validate-crispr';
+import { validateGeneModification, validatePrestigeUnlocks } from './validate-genes';
 import { validateChallenges } from './validate-challenges';
 import { validateHistory } from './validate-history';
 import { validateStatistics } from './validate-stats';
@@ -97,12 +98,15 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
   state.settings = settings;
   // Load permanent modifiers before any cost/cap-dependent validation.
   validateCrispr(raw, state);
+  // Gene levels scale base outputs and morale, so load them with the other modifiers.
+  validateGeneModification(raw, state);
   validateChallenges(raw, state);
   validateEconomyRecords(raw, state);
   loadStageThreeState(raw, state);
   validateUnlockRecords(raw, state);
   validatePopulationRecords(raw, state, context.housingCapacity(state), context.now);
   validateCivilization(raw, state);
+  validatePrestigeUnlocks(raw, state);
   validateFactoryAssignments(raw.lines, state);
   validateHistory(raw, state);
   validateStatistics(raw, state);

@@ -12,7 +12,7 @@ import { advanceGameTick } from '../src/simulation/tick';
 import { updateProgression } from '../src/simulation/progression';
 import { isTechnologyUnlocked } from '../src/simulation/unlocks';
 import { calculateStageThreeSupport } from '../src/simulation/stage-three-support';
-import { STAGE_THREE_EXPERIMENTS, runStageThreeExperiment, stageThreeExperimentAvailable, updateStageThreeProgress } from '../src/simulation/stage-three';
+import { STAGE_THREE_EXPERIMENTS, isEarlyStageThree, isHyperspaceUnlocked, runStageThreeExperiment, stageThreeExperimentAvailable, updateStageThreeProgress } from '../src/simulation/stage-three';
 import { resetRunState, launchEscapePrestige } from '../src/simulation/prestige';
 import { SHIP_COMPONENTS } from '../src/simulation/spaceship';
 import type { GameState, ShipComponentId } from '../src/types/state';
@@ -160,4 +160,16 @@ test('all new technology prerequisite chains are present in the registry',()=>{
   for(const id of ['globalObservationCalibration','anomalyMapping','anomalyResponse','fieldConstraintTheory','dualEndCoupling','finiteAperture'] as TechnologyId[]) {
     assert.ok(TECHNOLOGIES[id]);for(const pre of TECHNOLOGIES[id].pre)assert.ok(TECHNOLOGIES[pre]);
   }
+});
+
+test('超空间 view unlocks only after ARPA 深空实验平台; earlier stage three lives on ARPA-进度', () => {
+  const s = fresh();
+  assert.equal(isHyperspaceUnlocked(s), false);
+  assert.equal(isEarlyStageThree(s), false, 'inactive stage three shows nowhere');
+  s.stageThree.coreActivated = true;
+  assert.equal(isHyperspaceUnlocked(s), false);
+  assert.equal(isEarlyStageThree(s), true);
+  s.arpaBuildings.deepSpaceLab = 1;
+  assert.equal(isHyperspaceUnlocked(s), true);
+  assert.equal(isEarlyStageThree(s), false);
 });

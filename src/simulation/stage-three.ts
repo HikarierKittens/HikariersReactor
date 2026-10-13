@@ -15,6 +15,14 @@ export function updateStageThreeProgress(state: GameState, result?: { inputUnits
   if (state.stageThree.coreActivated && state.stageThree.probeCompleted && state.arpaBuildings.deepSpaceLab > 0 && state.tech.includes('anomalyResponse')) state.stageThree.responseObserved = true;
   if (result && state.stageThree.responseObserved && (result.inputUnits.constraintArray || 0) > 0) state.stageThree.fieldStabilized = true;
 }
+/** The 超空间 world view opens once ARPA 深空实验平台 is complete; earlier anomaly steps live on ARPA-进度. */
+export function isHyperspaceUnlocked(state: Pick<GameState, 'stageThree' | 'arpaBuildings'>): boolean {
+  return state.stageThree.coreActivated && (state.arpaBuildings.deepSpaceLab || 0) > 0;
+}
+/** Stage three is active but 超空间 is still locked: the experiment panel is shown on ARPA-进度. */
+export function isEarlyStageThree(state: Pick<GameState, 'stageThree' | 'arpaBuildings'>): boolean {
+  return state.stageThree.coreActivated && !isHyperspaceUnlocked(state);
+}
 export function stageThreeExperimentAvailable(state: GameState, id: StageThreeExperimentId): boolean {
   if (!Object.hasOwn(STAGE_THREE_EXPERIMENTS, id)) return false;
   const s = state.stageThree;

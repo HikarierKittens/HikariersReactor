@@ -119,7 +119,12 @@ export function constructBuildingState(state: GameState, id: BuildingId, moonAva
   if (insufficient) {
     state.stoppedBuildings[id] = (state.stoppedBuildings[id] || 0) + 1;
   }
+  // The last segment of 空间撕裂者 completes the current main storyline.
+  if (id === 'spaceRipper' && state.buildings[id] === building.segmentedRequired) {
+    addLog(state, SPACE_RIPPER_COMPLETED_LOG, 'event');
+  }
 }
+export const SPACE_RIPPER_COMPLETED_LOG = '当前游戏主线部分已完成喵，请等待未来更新喵';
 
 export interface ResearchSideEffects {
   poweredShutdown: BuildingId[];

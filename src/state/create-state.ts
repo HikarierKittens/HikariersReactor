@@ -2,6 +2,7 @@ import { BUILDINGS } from '../data/buildings';
 import { ARPA_PROJECTS } from '../data/projects';
 import { RESOURCES, CRAFT_RECIPES, FACTORY_OPTIONS } from '../data/resources';
 import { createStatistics } from '../simulation/statistics';
+import { createGeneModificationState } from '../simulation/genes';
 import { DEFAULT_GAME_SETTINGS } from '../types/state';
 import type { GameState } from '../types/state';
 
@@ -21,7 +22,8 @@ export function createInitialState(version: number, eventIn: number, now: number
     statistics: createStatistics(), starvationElapsed: 0,
     government: 'none', taxRate: 20, lastReformTime: null,
     furUnlocked: false, unlockedResources: [],
-    prestige: { particles: 0, nuclearResets: 0, softResets: 0, casimir: 0, escapeResets: 0 }, crispr: [],
+    prestige: { particles: 0, nuclearResets: 0, softResets: 0, casimir: 0, escapeResets: 0 }, prestigeUnlocked: [], crispr: [],
+    geneModification: createGeneModificationState(),
     soldiers: 0, trainingProgress: 0, nuclearProgress: 0,
     arpaResourceProgress: {},
     shipResourceProgress: {},

@@ -6,6 +6,8 @@ import { RESOURCES } from '../../data/resources';
 import { uiPreview } from '../preview-cache';
 import { signedRate } from '../../simulation/resource-breakdown';
 import { fmt, storageCap, resourceUnlocked } from '../format';
+import { DNA_BASE_IDS } from '../../data/genes';
+import { isGeneModificationUnlocked } from '../../simulation/genes';
 
 const RESOURCE_ORDER: ResourceId[] = ['cash', 'food', 'wood', 'stone', 'fur', 'copper', 'iron', 'aluminum', 'cement', 'coal', 'oil', 'metal', 'titanium', 'uranium', 'alloy', 'polymer', 'iridium', 'helium3', 'deuterium', 'neutron', 'e710', 'water', 'nanotubes'];
 const resourceRank = (id: ResourceId) => RESOURCE_ORDER.includes(id) ? RESOURCE_ORDER.indexOf(id) : RESOURCE_ORDER.length;
@@ -26,6 +28,11 @@ const groups = computed(() => {
     { id: 'resources', name: '资源', rows: rows.filter(row => !row.special).sort((a, b) => resourceRank(a.id) - resourceRank(b.id)) },
   ].filter(group => group.rows.length);
 });
+// 特殊资源II: the four DNA bases share one row once 基因修饰 is unlocked.
+const dnaRow = computed(() => {
+  props.revision;
+  return isGeneModificationUnlocked(props.state) ? DNA_BASE_IDS.map(id => ({ id, amount: props.state.geneModification.dna[id] })) : null;
+});
 </script>
 
 <template>
@@ -43,5 +50,20 @@ const groups = computed(() => {
         </div>
       </div>
     </template>
+    <template v-if="dnaRow">
+      <div class="panel-head"><h2>特殊资源II</h2><span>本周目有效</span></div>
+      <div id="specialResourcesII" class="res-list">
+        <div class="res-row dna-row" data-dna-row :aria-label="`DNA：${dnaRow.map(base => `${base.id} ${fmt(base.amount)}`).join('，')}`">
+          <span class="res-name">DNA：</span>
+          <span class="dna-amounts"><template v-for="(base, index) in dnaRow" :key="base.id">{{ index ? ' ' : '' }}<span :data-dna="base.id">{{ base.id }}-<b>{{ fmt(base.amount) }}</b></span></template></span>
+        </div>
+      </div>
+    </template>
   </section>
 </template>
+
+<style scoped>
+.dna-row { grid-template-columns: auto minmax(0, 1fr); }
+.dna-amounts { display: flex; flex-wrap: wrap; gap: 4px 14px; color: #e5cf92; font-variant-numeric: tabular-nums; }
+.dna-amounts b { font-weight: 400; }
+</style>

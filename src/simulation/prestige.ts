@@ -3,12 +3,20 @@ import { createInitialState } from '../state/create-state';
 import { CONFIG } from '../data/config';
 import { validateStatistics } from '../state/validate-stats';
 import { recordParticlesEarned, recordCasimirEarned } from './statistics';
+import { syncPrestigeUnlocks } from './prestige-unlocks';
 
 function preserveLifetime(state: GameState, next: GameState): void {
   const snapshot = { ...state };
   validateStatistics(state as unknown as Record<string, unknown>, snapshot);
   next.statistics.lifetime = { ...snapshot.statistics.lifetime };
   next.story = snapshotStoryArchive(state);
+}
+/** Prestige-resource unlocks are sticky across runs; new rewards unlock their rows too. */
+function keepPrestigeUnlocks(state: GameState, next: GameState): void {
+  // Copy first so the source state is never mutated; then add what either side holds.
+  next.prestigeUnlocked = [...(state.prestigeUnlocked ?? [])];
+  syncPrestigeUnlocks({ prestige: state.prestige, prestigeUnlocked: next.prestigeUnlocked });
+  syncPrestigeUnlocks(next);
 }
 import { canPayCost, payResourceCost } from './costs';
 import { calculatePrestigeReward, calculateEscapePrestigeReward, calculateCasimirReward } from './government';
@@ -52,6 +60,7 @@ export function launchNuclearPrestige(state: GameState, eventIn: number, now: nu
   preserveLifetime(state, next);
   recordParticlesEarned(next, reward);
   next.prestige = { ...state.prestige, particles: state.prestige.particles + reward, nuclearResets: state.prestige.nuclearResets + 1 };
+  keepPrestigeUnlocks(state, next);
   next.crispr = [...state.crispr];
   next.achievements = [...state.achievements];
   const settings = (state as { settings?: unknown }).settings;
@@ -78,6 +87,7 @@ export function launchEscapePrestige(state: GameState, eventIn: number, now: num
   recordParticlesEarned(next, reward);
   recordCasimirEarned(next, casimirReward);
   next.prestige = { ...state.prestige, particles: state.prestige.particles + reward, casimir: casimir + casimirReward, escapeResets: escapeResets + 1 };
+  keepPrestigeUnlocks(state, next);
   next.crispr = [...state.crispr];
   next.achievements = [...state.achievements];
   const settings = (state as { settings?: unknown }).settings;
@@ -96,6 +106,7 @@ export function resetRunState(state: GameState, kind: string, eventIn: number, n
     if (state.prestige.softResets >= Number.MAX_SAFE_INTEGER) return null;
     preserveLifetime(state, next);
     next.prestige = { ...state.prestige, softResets: state.prestige.softResets + 1 };
+    keepPrestigeUnlocks(state, next);
     next.crispr = [...state.crispr];
     next.achievements = [...state.achievements];
     const settings = (state as { settings?: unknown }).settings;

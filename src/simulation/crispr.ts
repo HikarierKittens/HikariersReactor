@@ -21,12 +21,20 @@ export function calculateCrisprStorageBonus(state: GameState) {
   return { particleUpgrade, particles, particleRate, particleBonus, casimir, casimirRate, casimirBonus, multiplier: 1 + particleBonus + casimirBonus };
 }
 
+/** Current holdings cover both the particle and the optional Casimir price. */
+export function canAffordCrisprUpgrade(state: Pick<GameState, 'prestige'>, id: CrisprUpgradeId): boolean {
+  const upgrade = CRISPR_UPGRADES[id], casimir = state.prestige.casimir || 0;
+  return Number.isSafeInteger(state.prestige.particles) && state.prestige.particles >= upgrade.cost
+    && Number.isSafeInteger(casimir) && casimir >= (upgrade.casimirCost || 0);
+}
+
 /** Atomic permanent upgrade purchase; current particles are spent, not lifetime particles. */
 export function purchaseCrisprUpgrade(state: GameState, id: CrisprUpgradeId): boolean {
   if (!Object.hasOwn(CRISPR_UPGRADES, id) || !state.tech.includes('crispr16') || state.crispr.includes(id)) return false;
   const upgrade = CRISPR_UPGRADES[id];
-  if (!upgrade.pre.every(pre => state.crispr.includes(pre)) || !Number.isSafeInteger(state.prestige.particles) || state.prestige.particles < upgrade.cost) return false;
+  if (!upgrade.pre.every(pre => state.crispr.includes(pre)) || !canAffordCrisprUpgrade(state, id)) return false;
   state.prestige.particles -= upgrade.cost;
+  state.prestige.casimir -= upgrade.casimirCost || 0;
   state.crispr.push(id);
   return true;
 }

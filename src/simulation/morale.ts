@@ -1,5 +1,5 @@
 import { calculateBuildingInput } from './building-production';
-import { calculateSoldierPressure } from './government';
+import { calculatePopulationPressure, calculateSoldierPressure } from './government';
 import type { GameState } from '../types/state';
 
 export interface MoralePowerSnapshot {
@@ -18,7 +18,7 @@ export function calculateArtistEffect(state: Pick<GameState, 'tech' | 'governmen
 /** Display and settlement share the same power reservations, supplied by the caller. */
 export function calculateMorale(state: GameState, dt: number, power: MoralePowerSnapshot) {
   const community = state.buildings.communityCenter ? 25 : 0;
-  const base = 100, populationPenalty = state.population * .5, soldierPenalty = calculateSoldierPressure(state);
+  const base = 100, populationPenalty = calculatePopulationPressure(state), soldierPenalty = calculateSoldierPressure(state);
   const taxPenalty = state.taxRate - 20, governmentPenalty = state.government === 'oligarchy' ? 10 : 0;
   const artistCount = (state.workers.theater || 0) + (state.workers.catCafe || 0);
   const artistEffect = calculateArtistEffect(state), artists = artistCount * artistEffect;

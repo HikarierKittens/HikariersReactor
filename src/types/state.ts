@@ -3,7 +3,13 @@ import type { RegionalMissionId } from '../simulation/space-missions';
 import type { CraftId, FactoryLineId, ResourceAmounts, ResourceId, ResourceRecipe } from './economy';
 import type { TechnologyId } from './technologies';
 
-export type CrisprUpgradeId = 'materialEfficiency' | 'innovativeMaterials' | 'structuralReinforcement' | 'physicsLaws' | 'halfLife3' | 'geneOptimization' | 'spatialReasoning' | 'dimensionCompression' | 'dimensionDistortion' | 'casimirEffect' | 'coreReplication' | 'technician' | 'masterArtisan' | 'architect' | 'challengeGene';
+export type CrisprUpgradeId = 'materialEfficiency' | 'innovativeMaterials' | 'structuralReinforcement' | 'physicsLaws' | 'halfLife3' | 'geneOptimization' | 'spatialReasoning' | 'dimensionCompression' | 'dimensionDistortion' | 'casimirEffect' | 'coreReplication' | 'technician' | 'masterArtisan' | 'architect' | 'challengeGene' | 'geneSplicing';
+export type PrestigeResourceId = 'particles' | 'casimir';
+/** 特殊资源II: DNA bases crafted from knowledge for 基因修饰. */
+export type DnaId = 'C' | 'G' | 'A' | 'T';
+export type GeneId = 'goodCat' | 'hardWorking' | 'superWorkshop' | 'perfectionism' | 'titanPower' | 'advancedScience' | 'catCohesion' | 'kinoFire';
+/** Run-scoped gene modification: DNA stock and gene levels reset with every run. */
+export interface GeneModificationState { dna: Record<DnaId, number>; levels: Record<GeneId, number> }
 export type GovernmentId = 'none' | 'democracy' | 'militaryRule' | 'oligarchy' | 'technocracy' | 'industrialism';
 export type ArpaProjectId = 'rocketPlatform' | 'monument' | 'geneSequencing' | 'stockExchange' | 'arpaResearchInstitute' | 'deepSpaceInterferometer' | 'deepSpaceLab' | 'remoteAnchor';
 export type ShipComponentId = 'hull' | 'energyCore' | 'computer' | 'ecosystem' | 'electromagneticEngine' | 'fuel';
@@ -66,7 +72,10 @@ export interface GameState {
   furUnlocked: boolean;
   unlockedResources: ResourceId[];
   prestige: { particles: number; casimir: number; nuclearResets: number; escapeResets: number; softResets: number };
+  /** Prestige resources ever held; stays unlocked when the amount later returns to 0. */
+  prestigeUnlocked: PrestigeResourceId[];
   crispr: CrisprUpgradeId[];
+  geneModification: GeneModificationState;
   soldiers: number;
   trainingProgress: number;
   nuclearProgress: number;

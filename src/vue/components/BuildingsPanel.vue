@@ -12,6 +12,7 @@ import { calculateQuantumLevel, calculateSwarmSupportCapacity } from '../../simu
 import { floorWithPrecision } from '../../shared/format';
 import { REGIONAL_MISSIONS, calculateRegionalMissionCost, isRegionalMissionAvailable, isRegionalMissionCompleted, type RegionalMissionId, type SpaceMissionId } from '../../simulation/space-missions';
 import { uiPreview } from '../preview-cache';
+import { isHyperspaceUnlocked } from '../../simulation/stage-three';
 import { isBuildingUnderworking } from '../building-status';
 import { fmt, buildingUnlocked, orderedCostEntries, moonSnapshot, clickMultiplier } from '../format';
 
@@ -58,10 +59,11 @@ function missionAffordable(id: RegionalMissionId): boolean {
   return canPayCost(props.state.resources, calculateRegionalMissionCost(props.state, id));
 }
 
+const hyperspaceUnlocked = computed(() => { props.revision; return isHyperspaceUnlocked(props.state); });
 const sections = computed(() => {
   props.revision;
   if (props.worldView === 'hyperspace') {
-    if (!props.state.stageThree.coreActivated) return [];
+    if (!hyperspaceUnlocked.value) return [];
     const regions: { id: string; name: string; list: BuildingId[] }[] = [{ id: 'anomaly', name: '空间异常·接入点', list: (['constraintArray', 'signalRepeater', 'shortRangeRelay', 'anchorFreightStation', 'civilianRouteStation'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) }];
     if (props.state.tech.includes('dimensionBeaconDeployment')) regions.push(
       { id: 'hyperspaceStable', name: '空间异常·稳定区域', list: (['hyperspaceSpaceport', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) },
@@ -184,9 +186,8 @@ function canGather(id: string): boolean {
   <nav class="tabs" aria-label="世界区域">
     <button data-world-view="home" :class="{ active: worldView === 'home' }" @click="emit('worldView', 'home')">地面</button>
     <button v-if="state.tech.includes('spaceflight')" data-world-view="space" :class="{ active: worldView === 'space' }" @click="emit('worldView', 'space')">太空</button>
-    <button data-world-view="hyperspace" :class="{ active: worldView === 'hyperspace' }" @click="emit('worldView', 'hyperspace')">超空间</button>
+    <button v-if="hyperspaceUnlocked" data-world-view="hyperspace" :class="{ active: worldView === 'hyperspace' }" @click="emit('worldView', 'hyperspace')">超空间</button>
   </nav>
-  <p v-if="worldView === 'hyperspace' && !state.stageThree.coreActivated" class="empty" data-hyperspace-locked>第三阶段尚未开启。建成完整AI超级核心，启用并提供足够氦-3使其实际运行后，超空间研究将在此开放。仅建成、暂停或预览不会激活。</p>
   <template v-if="worldView === 'home'">
     <section class="building-group">
       <h3 class="building-group-title">杂项</h3>

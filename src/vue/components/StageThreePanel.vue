@@ -14,11 +14,11 @@ const nextStep = computed(() => {
   props.revision;
   const s = props.state;
   if (!s.tech.includes('globalObservationCalibration')) return '前往科技页，研究「全域观测校准」。';
-  if (!s.arpaBuildings.deepSpaceInterferometer) return '前往ARPA → 进度，完成「深空干涉阵列」各项材料投入。';
+  if (!s.arpaBuildings.deepSpaceInterferometer) return '在本页下方完成「深空干涉阵列」各项材料投入。';
   if (!s.tech.includes('anomalyMapping')) return '前往科技页，研究「异常区域测绘」。';
   if (!s.stageThree.probeCompleted) return '准备氦-3与合金，在下方执行「异常区探测任务」。';
   if (!s.tech.includes('anomalyResponse')) return '前往科技页，研究「异常响应实验」。';
-  if (!s.arpaBuildings.deepSpaceLab) return '前往ARPA → 进度，完成「深空实验平台」各项材料投入。';
+  if (!s.arpaBuildings.deepSpaceLab) return '在本页下方完成「深空实验平台」各项材料投入；建成后开放超空间页面，异常研究随之移至超空间。';
   if (!s.tech.includes('fieldConstraintTheory')) return '前往科技页，研究「场约束理论」。';
   if (!s.stageThree.fieldStabilized) return '在下方空间异常区建造并启用场约束阵列，提供维护资源并让游戏实际运行一次；暂停时不会记录首次稳定运行。';
   if (!s.tech.includes('dualEndCoupling')) return '前往科技页，研究「双端场耦合」。';

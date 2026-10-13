@@ -74,10 +74,15 @@
 - 阵列维护50电力+0.25 E-710/s，太空港和采冰船各新增5氦-3/s；地热基准0.5氦-3/s、铱／铁采矿船2、E-710采矿船3，原有适用的燃料折扣保持。
 - 猫猫社区移除直接普通资源+25%，人口增长乘1.10；其他原有幸福度与食物需求规则保持。
 
+- 超空间视图解锁：`isHyperspaceUnlocked`=`stageThree.coreActivated && arpaBuildings.deepSpaceLab>0`，控制世界导航按钮与超空间分组；`isEarlyStageThree`（已激活但未解锁）时`StageThreePanel`经`ArpaPanel`的`progress`插槽渲染于ARPA-进度页并强制显示该页。`App.vue`的`currentWorldView`在超空间锁定时（如读入其他存档）回落到地面。纯UI门槛，存档无变化。
+
 ### 3.4c 破维先锋与高维存储
 - 科技：高科技工厂T18（800k，前置高科技农场平台）；破维先锋T19（1M，前置超空间采矿探查+气体云吸积）；高维存储T19（1M，前置破维先锋，且`isBuildingFullyBuilt('spaceRipper')`，存档校验同样要求）。
 - 分段建筑统一规则：`calculateBuildingCost`对任何`segmentedRequired`建筑直接返回注册表价格，`calculateDynamicCreep`对其返回空列表；`countRunningBuildings`按`floor(段数/segmentedRequired)`计完整单位（替代原AI核心硬编码）。
-- 空间撕裂者：`powerPlant`+`alwaysRunning`+`output.energy=100`，走普通`settlePowerPlants`路径（无燃料）；知识容量在详情与总量两条路径都于CRISPR之后乘`1+0.2×建成数`，系数在`building-effects.ts`共享。
+- 威望资源解锁：`GameState.prestigeUnlocked`（`'particles'|'casimir'`）只增不减，由`updateProgression`→`syncPrestigeUnlocks`记录当前持有>0的资源，软重置、核弹与逃离均经`keepPrestigeUnlocks`继承且不修改源状态；`isPrestigeResourceUnlocked`=记录命中或当前持有>0。缺字段旧档按持有量、CRISPR购买和核弹/逃离次数推断（`validatePrestigeUnlocks`），存档结构版本不变。
+- 基因修饰：`GameState.geneModification={dna:{C,G,A,T},levels}`为本周目状态（`createInitialState`新建，所有重置清零），缺字段旧档视为0级；校验拒绝未知键、负数、非整数与超过`MAX_GENE_LEVEL`(50)。解锁条件`isGeneModificationUnlocked`=CRISPR`geneSplicing`+本周目`arpaBuildings.geneSequencing≥1`。`craftDna`每个扣200k知识并计入`knowledgeSpent`；`upgradeGene`扣对应碱基`10×2^level`。CRISPR定义新增可选`casimirCost`，`canAffordCrisprUpgrade`统一判定，`validateStatistics`把已购升级的卡西米尔计入历史获取下限。
+- 基因效果接入点：建筑基础产出类基因在`calculateBuildingOutput`中乘到单位产出（地面结算、钛副产物、收支明细同源），资源收支明细不单列基因行，加成直接计入来源的基础值；完美主义乘在`calculateFactoryRecipe.output`（不改input），生产线明细同样直接计入；泰坦之力乘`calculateCombatPower`；猫猫凝聚经`calculatePopulationPressure`与`calculateSoldierPressure`（×(1-bonus/2)）进入`calculateMorale`。
+- 空间撕裂者：`powerPlant`+`alwaysRunning`+`output.energy=100`，走普通`settlePowerPlants`路径（无燃料）；知识容量在详情与总量两条路径都于CRISPR之后乘`1+0.2×建成数`，系数在`building-effects.ts`共享。完成第100段时`constructBuildingState`写入事件日志`SPACE_RIPPER_COMPLETED_LOG`（主线完成提示），直接、批量与队列建造共用该入口，因此只触发一次。
 - 高科技工厂：`lines:2`、`jobSlots:{cementWorkshop:2}`；在`settleFactoryLines`中排在太空工厂之后按电力与氘连续比例供能，供能生产线=地面+太空+高科技×2，太空工厂秘银加成份额也按生产线计。不进入地面结算与超空间来源循环。
 - 高维存储：`storage-bonuses.ts`中对民用航线站、小行星基地、太空港基础值×2，太空港追加16000水；货运站倍率由`calculateFreightCapacityMultiplier`给出`1+0.05×基地+1`（加算）。桥接新增`building-effects`模块（80个脚本）。
 - 710研究站T19（850k，前置超空间采矿探查+气体云吸积）：`jobSlots:{lab:1}`经`calculateGrantedJobSlots`计入`calculateWorkerCapacity`与地面结算／收支岗位上限（按已建座数）；属于`HYPERSPACE_CONSUMER_IDS`，在超空间来源循环之后按整座扣25电力+1氘，付费座数经`SupportPreview.researchStationUnits`进入储量快照，每座知识+50000（在CRISPR与空间撕裂者加成之前加入）。

@@ -27,6 +27,8 @@ import type { CrisprUpgradeId, GovernmentId, GameState } from '../types/state';
 import { launchChallenges } from '../simulation/challenges';
 import type { ChallengeGeneId } from '../types/state';
 import { purchaseCrisprUpgrade } from '../simulation/crispr';
+import { craftDna, upgradeGene } from '../simulation/genes';
+import { isPrestigeResourceUnlocked } from '../simulation/prestige-unlocks';
 import { storageSnapshot, storageCap, moonSnapshot } from './format';
 import CivilizationPanel from './components/CivilizationPanel.vue';
 import ResourcePanel from './components/ResourcePanel.vue';
@@ -40,7 +42,7 @@ import SettingsPanel from './components/SettingsPanel.vue';
 import StatsPanel from './components/StatsPanel.vue';
 import StoryPanel from './components/StoryPanel.vue';
 import StageThreePanel from './components/StageThreePanel.vue';
-import { runStageThreeExperiment, type StageThreeExperimentId } from '../simulation/stage-three';
+import { isEarlyStageThree, isHyperspaceUnlocked, runStageThreeExperiment, type StageThreeExperimentId } from '../simulation/stage-three';
 import { markStoryRead } from '../simulation/story';
 import type { StoryChapterId } from '../types/state';
 import { CONFIG } from '../data/config';
@@ -80,6 +82,11 @@ function readStory(id: StoryChapterId): void {
   props.store.runtime.save();
 }
 const worldView = ref('home');
+// A locked 超空间 (no 深空实验平台 yet, e.g. after loading another save) falls back to 地面.
+const currentWorldView = computed(() => {
+  props.store.revision();
+  return worldView.value === 'hyperspace' && !isHyperspaceUnlocked(props.store.state()) ? 'home' : worldView.value;
+});
 const techView = ref('available');
 const logFilter = ref('all');
 const logFilters = [{ id: 'all', name: '全部' }, { id: 'progress', name: '发展' }, { id: 'event', name: '事件' }, { id: 'achievement', name: '成就' }, { id: 'system', name: '系统' }];
@@ -227,6 +234,12 @@ function queueShip(id: ShipComponentId): void {
   afterAction();
 }
 
+// Unlocked once held; the progression sync keeps them visible at 0 afterwards.
+const prestigeVisible = computed(() => {
+  props.store.revision();
+  return { particles: isPrestigeResourceUnlocked(state.value, 'particles'), casimir: isPrestigeResourceUnlocked(state.value, 'casimir') };
+});
+
 function purchaseCrispr(id: CrisprUpgradeId): void {
   props.store.mutate(s => {
     if (purchaseCrisprUpgrade(s, id)) clampResourcesToCaps(s, storageSnapshot(s));
@@ -357,14 +370,14 @@ onUnmounted(() => {
         <CivilizationPanel :state="state" :revision="store.revision()" />
         <ResourcePanel :state="state" :revision="store.revision()" />
         <CraftingPanel :state="state" :revision="store.revision()" @craft="(id, count) => { store.mutate(s => craftManually(s, id, count)); afterAction(); }" />
-        <section id="prestigeResources" class="panel">
+        <section v-if="prestigeVisible.particles || prestigeVisible.casimir" id="prestigeResources" class="panel">
           <div class="panel-head"><h2>威望资源</h2><span>跨周目保留</span></div>
           <div class="res-list">
-            <div class="res-row">
+            <div v-if="prestigeVisible.particles" class="res-row" data-prestige-row="particles">
               <span class="res-name">粒子</span>
               <span class="res-amount" tabindex="0" data-building-tip="particles" data-tip-kind="prestige" aria-label="查看粒子效果"><b>{{ state.prestige.particles }}</b></span>
             </div>
-            <div class="res-row">
+            <div v-if="prestigeVisible.casimir" class="res-row" data-prestige-row="casimir">
               <span class="res-name">卡西米尔晶体</span>
               <span class="res-amount" tabindex="0" data-building-tip="casimir" data-tip-kind="prestige" aria-label="查看卡西米尔晶体效果"><b>{{ state.prestige.casimir }}</b></span>
             </div>
@@ -390,7 +403,7 @@ onUnmounted(() => {
             <BuildingsPanel
               :state="state"
               :revision="store.revision()"
-              :world-view="worldView"
+              :world-view="currentWorldView"
               @buy="buy"
               @toggle="toggle"
               @gather="gather"
@@ -399,7 +412,7 @@ onUnmounted(() => {
               @world-view="worldView = $event"
               @mission="mission"
             >
-              <StageThreePanel v-if="worldView === 'hyperspace' && state.stageThree.coreActivated && !state.tech.includes('dimensionBeaconDeployment')" :state="state" :revision="store.revision()" @experiment="performStageThreeExperiment" />
+              <StageThreePanel v-if="currentWorldView === 'hyperspace' && !state.tech.includes('dimensionBeaconDeployment')" :state="state" :revision="store.revision()" @experiment="performStageThreeExperiment" />
             </BuildingsPanel>
               </div>
             </div>
@@ -434,8 +447,14 @@ onUnmounted(() => {
               @invest="investProject"
               @queue="queueProject"
               @crispr-purchase="purchaseCrispr"
+              @dna-craft="(id, count) => { store.mutate(s => craftDna(s, id, count)); afterAction(); }"
+              @gene-upgrade="id => { store.mutate(s => upgradeGene(s, id)); afterAction(); }"
                @challenge-launch="startChallenges"
-            />
+            >
+              <template #progress>
+                <StageThreePanel v-if="isEarlyStageThree(state)" :state="state" :revision="store.revision()" @experiment="performStageThreeExperiment" />
+              </template>
+            </ArpaPanel>
             <StoryPanel v-else-if="activeTab === 'story'" :state="state" :revision="store.revision()" @read="readStory" />
             <div v-else-if="activeTab === 'statistics'">
               <nav class="tabs" aria-label="统计分类">

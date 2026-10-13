@@ -1,6 +1,7 @@
 import { BUILDINGS } from '../data/buildings';
 import { CONFIG } from '../data/config';
 import { applySpaceFuelDiscount } from './space-fuel';
+import { calculateGeneOutputFactor } from './genes';
 import type { BuildingId } from '../types/buildings';
 import type { ResourceRecipe } from '../types/economy';
 import type { GameState } from '../types/state';
@@ -52,7 +53,14 @@ export function calculateTouristBase(state: GameState, inputs: ProductionInputs 
   const cafes = inputs ? inputs.catCafe || 0 : Math.max(0, (state.buildings.catCafe || 0) - (state.stoppedBuildings?.catCafe || 0));
   return 2 * (state.buildings.theater || 0) + 5 * cafes + 4 * (state.arpaBuildings?.monument || 0);
 }
+/** Per-unit base output, including run-scoped 基因修饰 base-output genes. */
 export function calculateBuildingOutput(id: BuildingId, state: GameState, inputs: ProductionInputs | null = null): ResourceRecipe {
+  const output = calculateRawBuildingOutput(id, state, inputs);
+  const gene = calculateGeneOutputFactor(id, state);
+  if (!gene || gene.factor === 1) return output;
+  return Object.fromEntries(Object.entries(output).map(([resource, amount]) => [resource, amount * gene.factor]));
+}
+function calculateRawBuildingOutput(id: BuildingId, state: GameState, inputs: ProductionInputs | null): ResourceRecipe {
   if (id === 'iceMiningShip') return { water: state.tech.includes('icebreakingPlan') ? 1.25 : 1 };
   if (id === 'ecologicalDome') return { food: .25 };
   if (id === 'catCafe') return { cash: 5 + Math.floor(state.population / 10) * 5 };

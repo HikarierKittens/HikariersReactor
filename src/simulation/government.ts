@@ -3,6 +3,7 @@ import { BUILDINGS } from '../data/buildings';
 import type { GameState, GovernmentId } from '../types/state';
 import type { TechnologyId } from '../types/technologies';
 import type { ResourceRecipe } from '../types/economy';
+import { geneBonus } from './genes';
 
 export const GOVERNMENTS: Record<GovernmentId, { name: string; tech: TechnologyId; desc: string }> = {
   none: { name: '无政府体制', tech: 'government', desc: '没有额外效果。' },
@@ -23,8 +24,11 @@ export function calculateTechCost(id: TechnologyId, state: Pick<GameState, 'gove
   return Object.fromEntries(Object.entries(TECHNOLOGIES[id].cost).map(([r, v]) => [r, r === 'knowledge' && state.government === 'technocracy' ? Math.ceil(v * .92) : v]));
 }
 export function calculateSoldierCapacity(state: Pick<GameState, 'buildings'>): number { return ((state.buildings.barracks || 0) + (state.buildings.spaceGarrison || 0)) * 2; }
-export function calculateCombatPower(state: Pick<GameState, 'tech' | 'government'>): number { return (state.tech.includes('ironEquipment') ? 2 : 1) * (state.government === 'militaryRule' ? 1.2 : 1); }
-export function calculateSoldierPressure(state: Pick<GameState, 'buildings' | 'government'>): number { return calculateSoldierCapacity(state) * (state.government === 'militaryRule' ? 1.5 : 1); }
+export function calculateCombatPower(state: Pick<GameState, 'tech' | 'government'> & Partial<Pick<GameState, 'geneModification'>>): number { return (state.tech.includes('ironEquipment') ? 2 : 1) * (state.government === 'militaryRule' ? 1.2 : 1) * (1 + geneBonus(state, 'titanPower')); }
+/** 猫猫凝聚 scales soldier-capacity pressure by half its population rate. */
+export function calculateSoldierPressure(state: Pick<GameState, 'buildings' | 'government'> & Partial<Pick<GameState, 'geneModification'>>): number { return calculateSoldierCapacity(state) * (state.government === 'militaryRule' ? 1.5 : 1) * Math.max(0, 1 - geneBonus(state, 'catCohesion') / 2); }
+/** 猫猫凝聚 scales the 0.5-per-cat population pressure. */
+export function calculatePopulationPressure(state: Pick<GameState, 'population'> & Partial<Pick<GameState, 'geneModification'>>): number { return state.population * .5 * Math.max(0, 1 - geneBonus(state, 'catCohesion')); }
 export function calculateGovernmentMultiplier(resource: string, state: Pick<GameState, 'government'>): number { return resource === 'cash' && state.government === 'oligarchy' ? 1.25 : resource === 'knowledge' && state.government === 'technocracy' ? 1.1 : 1; }
 export function calculateFurMultiplier(state: Pick<GameState, 'tech'>): number { return state.tech.includes('ironEquipment') ? 1.2 : 1; }
 export function calculateBankerMultiplier(state: Pick<GameState, 'workers'>): number { return 1 + (state.workers.bank || 0) * .05; }

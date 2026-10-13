@@ -6,6 +6,8 @@ export interface CrisprUpgradeDefinition {
   cost: number;
   pre: CrisprUpgradeId[];
   desc: string;
+  /** Optional additional price in 卡西米尔晶体, paid together with particles. */
+  casimirCost?: number;
 }
 
 export const CRISPR_UPGRADES: Record<CrisprUpgradeId, CrisprUpgradeDefinition> = {
@@ -24,4 +26,5 @@ export const CRISPR_UPGRADES: Record<CrisprUpgradeId, CrisprUpgradeDefinition> =
   masterArtisan: { name: '工匠大师', tier: 1, cost: 100, pre: ['technician'], desc: '工匠产量+100%，原料消耗同步增加，不影响手动锻造，和技工升级独立乘算，不会叠加' },
   architect: { name: '建筑师', tier: 0, cost: 50, pre: [], desc: '建筑队列和研究队列的容量上限x2' },
   challengeGene: { name: '挑战基因', tier: 0, cost: 5, pre: [], desc: '开局解锁ARPA标签页。' },
+  geneSplicing: { name: '基因剪切', tier: 1, cost: 100, casimirCost: 25, pre: ['geneOptimization'], desc: '在ARPA-遗传学页面中解锁基因修饰栏目（需要先完成本周目的基因测序）。' },
 };

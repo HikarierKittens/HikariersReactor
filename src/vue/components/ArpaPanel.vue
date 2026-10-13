@@ -3,7 +3,10 @@ import { computed, ref } from 'vue';
 import type { ArpaProjectId, CrisprUpgradeId, GameState } from '../../types/state';
 import CrisprPanel from './CrisprPanel.vue';
 import ChallengePanel from './ChallengePanel.vue';
-import type { ChallengeGeneId } from '../../types/state';
+import GeneModificationPanel from './GeneModificationPanel.vue';
+import type { ChallengeGeneId, DnaId, GeneId } from '../../types/state';
+import { isGeneModificationUnlocked } from '../../simulation/genes';
+import { isEarlyStageThree } from '../../simulation/stage-three';
 import type { ResourceId } from '../../types/economy';
 import { ARPA_PROJECTS } from '../../data/projects';
 import { RESOURCES } from '../../data/resources';
@@ -11,15 +14,18 @@ import { calculateProjectDescription, calculateProjectCost, calculateProjectRema
 import { clickMultiplier, fmt, orderedCostEntries } from '../format';
 
 const props = defineProps<{ state: GameState; revision: number }>();
-const emit = defineEmits<{ invest: [id: ArpaProjectId, percent: number]; queue: [id: ArpaProjectId, count: number]; crisprPurchase: [id: CrisprUpgradeId]; challengeLaunch: [genes: ChallengeGeneId[]] }>();
+const emit = defineEmits<{ invest: [id: ArpaProjectId, percent: number]; queue: [id: ArpaProjectId, count: number]; crisprPurchase: [id: CrisprUpgradeId]; challengeLaunch: [genes: ChallengeGeneId[]]; dnaCraft: [id: DnaId, count: number]; geneUpgrade: [id: GeneId] }>();
 
 const activeView = ref<'buildings' | 'progress' | 'genetics' | 'crispr' | 'challenges'>('buildings');
 const geneticsUnlocked = computed(() => { props.revision; return props.state.tech.includes('genetics'); });
+const earlyStageThree = computed(() => { props.revision; return isEarlyStageThree(props.state); });
 const progressUnlocked = computed(() => {
   props.revision;
-  return (Object.keys(ARPA_PROJECTS) as ArpaProjectId[]).some(id => id !== 'geneSequencing' && !ARPA_PROJECTS[id].repeatable && isProjectUnlocked(id, props.state));
+  // Early anomaly research (before 深空实验平台) is hosted on this page.
+  return earlyStageThree.value || (Object.keys(ARPA_PROJECTS) as ArpaProjectId[]).some(id => id !== 'geneSequencing' && !ARPA_PROJECTS[id].repeatable && isProjectUnlocked(id, props.state));
 });
 const crisprUnlocked = computed(() => { props.revision; return props.state.tech.includes('crispr16'); });
+const geneModificationUnlocked = computed(() => { props.revision; return isGeneModificationUnlocked(props.state); });
 const challengesUnlocked = computed(() => { props.revision; return props.state.crispr.includes('challengeGene'); });
 const currentView = computed(() => {
   props.revision;
@@ -79,7 +85,8 @@ const projects = computed(() => {
   <ChallengePanel v-if="currentView === 'challenges'" :state="state" :revision="revision" @launch="emit('challengeLaunch', $event)" />
   <CrisprPanel v-else-if="currentView === 'crispr'" :state="state" :revision="revision" @purchase="emit('crisprPurchase', $event)" />
   <template v-else>
-  <div v-if="!projects.length" class="empty">尚无可用工程，研究 A.R.P.A 及对应的工程前置科技后开启。</div>
+  <slot v-if="currentView === 'progress'" name="progress" />
+  <div v-if="!projects.length && !(currentView === 'progress' && earlyStageThree)" class="empty">尚无可用工程，研究 A.R.P.A 及对应的工程前置科技后开启。</div>
   <div class="arpa-project-grid" :class="{ 'is-buildings': currentView === 'buildings' }">
   <article v-for="project in projects" :key="project.id" class="card arpa-project">
     <h3>{{ project.definition.icon }} {{ project.definition.name }}</h3>
@@ -103,6 +110,8 @@ const projects = computed(() => {
     <p v-else class="subtle">已达到本周目上限。</p>
   </article>
   </div>
+  <GeneModificationPanel v-if="currentView === 'genetics' && geneModificationUnlocked" :state="state" :revision="revision"
+    @craft="(id, count) => emit('dnaCraft', id, count)" @upgrade="emit('geneUpgrade', $event)" />
   </template>
 </template>
 

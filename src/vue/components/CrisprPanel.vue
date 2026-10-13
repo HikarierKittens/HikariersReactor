@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import type { CrisprUpgradeId, GameState } from '../../types/state';
 import { CRISPR_UPGRADES } from '../../data/crispr';
+import { canAffordCrisprUpgrade } from '../../simulation/crispr';
 import { fmt } from '../format';
 
 const props = defineProps<{ state: GameState; revision: number }>();
@@ -18,6 +19,13 @@ const completed = computed(() => {
   return all.filter(id => props.state.crispr.includes(id));
 });
 const particles = computed(() => { props.revision; return props.state.prestige.particles; });
+const casimir = computed(() => { props.revision; return props.state.prestige.casimir || 0; });
+const showCasimir = computed(() => casimir.value > 0 || available.value.some(id => !!CRISPR_UPGRADES[id].casimirCost));
+function affordable(id: CrisprUpgradeId): boolean { props.revision; return canAffordCrisprUpgrade(props.state, id); }
+function priceText(id: CrisprUpgradeId): string {
+  const upgrade = CRISPR_UPGRADES[id];
+  return `${fmt(upgrade.cost)} 粒子${upgrade.casimirCost ? ` + ${fmt(upgrade.casimirCost)} 卡西米尔晶体` : ''}`;
+}
 
 interface CrisprTreeNode { id: CrisprUpgradeId; x: number; y: number }
 interface CrisprTreeEdge { id: string; path: string }
@@ -80,13 +88,13 @@ const tree = computed(() => { props.revision; return layoutCrisprTree(completed.
   </nav>
   <template v-if="activeView === 'available'">
     <p class="crispr-notice">对DNA进行永久性修改，重置后依然保留</p>
-    <p class="small subtle">可用粒子：{{ fmt(particles) }}</p>
+    <p class="small subtle">可用粒子：{{ fmt(particles) }}<template v-if="showCasimir"> · 可用卡西米尔晶体：{{ fmt(casimir) }}</template></p>
     <p v-if="!available.length" class="empty">暂无可修饰项目。</p>
     <article v-for="id in available" :key="id" class="card crispr-upgrade" :data-crispr-upgrade="id">
       <div class="card-top"><div class="card-title"><h3>{{ CRISPR_UPGRADES[id].name }} <span class="count">T{{ CRISPR_UPGRADES[id].tier }}</span></h3></div></div>
-      <p class="cost" :class="{ negative: particles < CRISPR_UPGRADES[id].cost }" :data-crispr-cost="CRISPR_UPGRADES[id].cost">价格：{{ fmt(CRISPR_UPGRADES[id].cost) }} 粒子</p>
+      <p class="cost" :class="{ negative: !affordable(id) }" :data-crispr-cost="CRISPR_UPGRADES[id].cost">价格：{{ priceText(id) }}</p>
       <p class="desc">{{ CRISPR_UPGRADES[id].desc }}</p>
-      <div class="card-bottom"><button :data-crispr-purchase="id" :disabled="particles < CRISPR_UPGRADES[id].cost" :aria-label="`修饰${CRISPR_UPGRADES[id].name}，消耗${CRISPR_UPGRADES[id].cost}粒子`" @click="emit('purchase', id)">修饰</button></div>
+      <div class="card-bottom"><button :data-crispr-purchase="id" :disabled="!affordable(id)" :aria-label="`修饰${CRISPR_UPGRADES[id].name}，消耗${priceText(id)}`" @click="emit('purchase', id)">修饰</button></div>
     </article>
   </template>
   <template v-else>

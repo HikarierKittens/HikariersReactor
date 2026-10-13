@@ -1,5 +1,6 @@
 import { BUILDINGS } from '../data/buildings';
 import { FACTORY_OPTIONS } from '../data/resources';
+import { geneBonus } from './genes';
 import type { BuildingId } from '../types/buildings';
 import type { FactoryRecipe, ResourceRecipe } from '../types/economy';
 import type { GameState } from '../types/state';
@@ -11,13 +12,15 @@ function scaleRecipe(recipe: ResourceRecipe, scale: number): ResourceRecipe {
 }
 
 /** Unknown line IDs retain the previous safe empty-recipe behavior. */
-export function calculateFactoryRecipe(id: string, state: Pick<GameState, 'tech'>): FactoryRecipe {
+export function calculateFactoryRecipe(id: string, state: Pick<GameState, 'tech'> & Partial<Pick<GameState, 'geneModification'>>): FactoryRecipe {
   const option = FACTORY_OPTIONS.find(candidate => candidate.id === id);
   if (!option) return { input: {}, output: {} };
   const speed = 1 + (state.tech.includes('automatedEngineering') ? .3 : 0)
     + (state.tech.includes('intelligentFactory') ? .5 : 0);
   const chemical = state.tech.includes('chemicalDeposition') ? 1.2 : 1;
-  return { input: scaleRecipe(option.input, speed), output: scaleRecipe(option.output, speed * chemical * (id === 'alloy' && state.tech.includes('quantumTunnelingThermalProcessing') ? 1.1 : 1)) };
+  // 完美主义 raises base line output only; ingredient demand is unchanged.
+  const perfectionism = 1 + geneBonus(state, 'perfectionism');
+  return { input: scaleRecipe(option.input, speed), output: scaleRecipe(option.output, speed * chemical * perfectionism * (id === 'alloy' && state.tech.includes('quantumTunnelingThermalProcessing') ? 1.1 : 1)) };
 }
 
 export function calculateFactoryCapacity(state: Pick<GameState, 'buildings'> & Partial<Pick<GameState, 'stoppedBuildings'>>): number {
