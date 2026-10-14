@@ -12,10 +12,10 @@ import { ARPA_PROJECTS } from '../../data/projects';
 import { calculateProjectDescription, calculateProjectCost } from '../../simulation/projects';
 import { SHIP_COMPONENTS, calculateShipComponentRemainingCost, calculateShipComponentProgress, isShipComponentUnlocked, type ShipComponentId } from '../../simulation/spaceship';
 import { CONFIG } from '../../data/config';
-import { floorWithPrecision, formatEffectNumber } from '../../shared/format';
+import { floorWithPrecision, formatEffectNumber, formatResourceNumber } from '../../shared/format';
 import { calculateFoodPerCat } from '../../simulation/population';
 import { calculateBuildingCost, isBuildingFullyBuilt } from '../../simulation/costs';
-import { calculateTechCost, calculateTrainingBoost } from '../../simulation/government';
+import { calculateTechCost, calculateTrainingBoost, calculateBankerTaxRate, BANKER_TAX_BONUS, STOCK_EXCHANGE_BANKER_BONUS } from '../../simulation/government';
 import { SPACE_MISSIONS, REGIONAL_MISSIONS, calculateRegionalMissionCost, isRegionalMissionCompleted, type RegionalMissionId } from '../../simulation/space-missions';
 import { calculateBuildingInput, calculateBuildingOutput, calculateToolMultiplier, calculateBuildingName } from '../../simulation/building-production';
 import { getBuildingEffectRows, calculateFreightCapacityMultiplier, SPACE_RIPPER_OVERCLOCK_DESC } from '../../simulation/building-effects';
@@ -100,7 +100,14 @@ const content = computed<TipContent | null>(() => {
     tip.title = building.workerName || (id === 'theater' ? '猫猫艺术家' : building.name);
     tip.description = '每人基础产出与岗位消耗';
     if (building.artistSlots) add('幸福度', `+${percent(calculateArtistEffect(state))}%`);
-    else if (id === 'bank') add('税收收入', '+5%');
+    else if (id === 'bank') {
+      const exchanges = state.arpaBuildings?.stockExchange || 0;
+      add('税收收入', `+${percent(calculateBankerTaxRate(state) * 100)}%`);
+      if (exchanges) {
+        tip.rows.push({ name: '基础', value: `+${percent(BANKER_TAX_BONUS * 100)}%`, child: true });
+        tip.rows.push({ name: `证券交易所 ×${exchanges}`, value: `+${percent(STOCK_EXCHANGE_BANKER_BONUS * exchanges * 100)}%`, child: true });
+      }
+    }
     else if (id === 'foundry') {
       add('锻造物', '+0.1/s');
       add('原料消耗', '按所分配的制作配方');
@@ -331,7 +338,7 @@ const content = computed<TipContent | null>(() => {
     const storage = calculateStorageDetails(id, state, snapshot);
     tip.title = `${RESOURCES[id].name}${target.kind === 'storage' ? '储量' : '收支'}`;
     if (target.kind === 'storage') {
-      for (const row of storage.rows) add(row.name, `+${number(row.value)}`);
+      for (const row of storage.rows) add(row.name, `+${formatResourceNumber(row.value)}`);
       if (!storage.rows.length) tip.description = id === 'water' ? '水的基础容量为0，需要获得供电和支持的采冰船或小行星基地提供容量；不能分配集装箱。' : '锻造物不受储量上限限制。';
       tip.footnote = '储量使用当前供能与支持状态计算；降低上限后超出的资源会被截断。';
     } else {

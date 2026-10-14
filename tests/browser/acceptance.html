@@ -137,6 +137,9 @@ try {
   store.mutate(state => { state.resources.wood = 123; }); await flush();
   log(!$('#gameTooltip').textContent.includes('当前数量 / 上限') && !$('#gameTooltip').textContent.includes('123 /'), '储量tooltip不重复显示当前数量与上限');
   await escapeTip(); log(!$('#gameTooltip'), 'Escape关闭tooltip');
+  store.mutate(state => { state.resources.wood = 123.456789; }); await flush();
+  log($('[data-resource-id="wood"] .res-amount b').textContent === '123.45', '资源数量保留两位小数，不向上虚增库存');
+  store.mutate(state => { state.resources.wood = 123; }); await flush();
   await showTip('[data-building-tip="food"][data-tip-kind="resource"]');
   log(!/实际净收支|来源收入|来源支出|当前数量\s*\/\s*上限/.test($('#gameTooltip').textContent) && !$('#gameTooltip .resource-footnote') && $$('#gameTooltip .resource-column').length === 2, '产量tooltip只保留收入支出明细，无重复汇总和尾注');
   await escapeTip();
@@ -218,6 +221,11 @@ try {
   const craftButton = count => $(`[data-crafted-resource="plank"] [data-craft="plank"][data-craft-count="${count}"]`);
   log($('#craftedResources')?.parentElement.classList.contains('col-left') && $('#craftedResources').previousElementSibling === $('#resources').closest('.panel'), '锻造物位于左栏资源面板紧后方');
   log(!$('.content-body [data-craft]') && !!$('.content-body [data-craft-assign]'), '猫猫页移除手动制造，仅保留工匠分工');
+  store.mutate(state => { state.tech.push('banking'); state.buildings.bank = 1; state.arpaBuildings.stockExchange = 2; }); await flush();
+  await showTip('[data-building-tip="bank"][data-tip-kind="job"]');
+  log($('#gameTooltip')?.textContent.includes('税收收入+9%') && $('#gameTooltip').textContent.includes('证券交易所 ×2+4%'), '银行家详情同步显示证券交易所税收加成');
+  await escapeTip();
+  store.mutate(state => { state.tech = state.tech.filter(id => id !== 'banking'); state.buildings.bank = 0; state.arpaBuildings.stockExchange = 0; }); await flush();
   log($$('[data-resource-id]').every(row => row.querySelector('.res-name')?.textContent.trim() === RESOURCES[row.dataset.resourceId].name), '所有资源行名称严格等于资源名，不带emoji');
   log(['1', '10', '100', 'max'].every(count => craftButton(count) && !craftButton(count).disabled), '左栏锻造提供始终可用的1/10/100/max按钮');
   log(!$('[data-crafted-resource="plank"] .res-rate'), '无工匠产出时不显示锻造速率');

@@ -15,7 +15,7 @@ import { countRunningBuildings } from './housing';
 import { calculateGovernmentMultiplier, calculateTaxBase, calculateBankerMultiplier, calculateFurMultiplier } from './government';
 import { calculateFoundryMultiplier, calculateStellarForgeCraftMultiplier } from './crafting';
 import { CONFIG } from '../data/config';
-import { formatNumber } from '../shared/format';
+import { formatNumber, formatResourceNumber } from '../shared/format';
 import type { BuildingId } from '../types/buildings';
 import type { ResourceId } from '../types/economy';
 import type { GameState } from '../types/state';
@@ -185,9 +185,8 @@ export interface FactorRows { rows: FactorRow[] }
 
 /** Signed per-second rate text, matching the tooltip formatting exactly. */
 export function signedRate(n: number): string {
-  const value = Math.abs(n);
-  const text = value > 0 && value < .01 ? value.toPrecision(2) : formatNumber(value);
-  return (n < 0 ? '−' : '+') + text + '/s';
+  const text = formatResourceNumber(Math.abs(n));
+  return (n < 0 && text !== '0' ? '−' : '+') + text + '/s';
 }
 
 function percentText(n: number): string {

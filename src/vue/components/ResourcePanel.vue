@@ -6,6 +6,7 @@ import { RESOURCES } from '../../data/resources';
 import { uiPreview } from '../preview-cache';
 import { signedRate } from '../../simulation/resource-breakdown';
 import { fmt, storageCap, resourceUnlocked } from '../format';
+import { formatResourceNumber } from '../../shared/format';
 import { DNA_BASE_IDS } from '../../data/genes';
 import { isGeneModificationUnlocked } from '../../simulation/genes';
 
@@ -43,7 +44,7 @@ const dnaRow = computed(() => {
         <div v-for="row in group.rows" :key="row.id" class="res-row" :data-resource-id="row.id">
           <span class="res-name">{{ row.name }}</span>
           <span class="res-amount" tabindex="0" :data-building-tip="row.id" data-tip-kind="storage" :aria-label="`查看${row.name}储量明细`">
-            <b>{{ fmt(row.amount) }}</b><i>/ {{ fmt(row.cap) }}</i>
+            <b>{{ formatResourceNumber(row.amount) }}</b><i>/ {{ formatResourceNumber(row.cap) }}</i>
           </span>
           <span class="res-rate" :class="{ 'is-deficit': row.rate < 0 }" tabindex="0" :data-building-tip="row.id" data-tip-kind="resource" :aria-label="`查看${row.name}每秒收支明细`">{{ signedRate(row.rate) }}</span>
           <span class="res-fill" :style="{ width: `${row.fill}%` }"></span>

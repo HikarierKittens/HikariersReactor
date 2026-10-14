@@ -637,7 +637,7 @@ import { calculateFactoryRecipe } from '../src/simulation/factory';
 import { allocateMoonSupport } from '../src/simulation/moon';
 import { allocateAsrielSupport } from '../src/simulation/asriel';
 import { calculateTechnologyTier } from '../src/simulation/technology';
-import { formatNumber, formatEffectNumber } from '../src/shared/format';
+import { formatNumber, formatEffectNumber, formatResourceNumber } from '../src/shared/format';
 import { advanceSoldierTraining } from '../src/simulation/military';
 import { advancePopulationGrowth, sampleGrowthTarget } from '../src/simulation/population';
 import { finalizeProduction, settlePopulationIncome } from '../src/simulation/production-finalize';
@@ -884,6 +884,30 @@ test('building effect numbers retain up to four decimals without trailing zeros 
   assert.equal(formatEffectNumber(.0001), '0.0001');
   assert.equal(formatEffectNumber(.00000001), '0');
   assert.equal(formatEffectNumber(2.05 - 2), '0.05');
+});
+
+import { signedRate } from '../src/simulation/resource-breakdown';
+
+test('resource rate display retains two decimals without negative zero or binary tails', () => {
+  assert.equal(signedRate(500.1234567), '+500.12/s');
+  assert.equal(signedRate(-.01), '−0.01/s');
+  assert.equal(signedRate(-.00001), '+0/s');
+  assert.equal(signedRate(-1e-12), '+0/s');
+  assert.equal(signedRate(.3 - .2), '+0.1/s');
+  assert.equal(signedRate(.000123456), '+0/s');
+});
+
+test('resource display retains two decimals and suppresses binary roundoff without rounding up stock', () => {
+  assert.equal(formatResourceNumber(123.456789), '123.45');
+  assert.equal(formatResourceNumber(0.01), '0.01');
+  assert.equal(formatResourceNumber(0.009999), '0');
+  assert.equal(formatResourceNumber(.3 - .2), '0.1');
+  assert.equal(formatResourceNumber(2.05 - 2), '0.05');
+  assert.equal(formatResourceNumber(1.23 - Number.EPSILON), '1.23');
+  assert.equal(formatResourceNumber(-1.234567), '−1.23');
+  assert.equal(formatResourceNumber(-1e-12), '0');
+  assert.equal(formatResourceNumber(12345.6789), '12.34K');
+  assert.equal(formatResourceNumber(Infinity), '∞');
 });
 
 test('formatting truncates stock and handles invalid and negative values', () => {

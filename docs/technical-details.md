@@ -12,6 +12,12 @@
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
 - 包管理：npm；生成式桥接脚本见 `scripts/generate-legacy-data.cjs`。
 
+### 资源显示精度
+
+- `src/shared/format.ts` 的 `formatResourceNumber` 专供资源库存、上限与速率：显示最多2位小数（缩写单位同样适用），去除尾零和负零；使用 `floorWithPrecision` 修正二进制机器尾差而不虚增真实库存。
+- `signedRate` 与资源列表/储量明细共享该格式。普通价格、人口计数等仍用原 `formatNumber`，黑洞质量保留8位。
+- 显示精度不写回模拟或存档，资源结算保留完整精度，避免小额产出逐tick丢失。
+
 ## 2. TypeScript 严格配置
 
 `tsconfig.json` 当前启用：

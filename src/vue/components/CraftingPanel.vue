@@ -5,9 +5,10 @@ import type { CraftId } from '../../types/economy';
 import { CRAFT_RECIPES, RESOURCES } from '../../data/resources';
 import { isResourceUnlocked } from '../../simulation/unlocks';
 import { uiPreview } from '../preview-cache';
+import { formatResourceNumber } from '../../shared/format';
 import { signedRate } from '../../simulation/resource-breakdown';
 import { isChallengeGeneActive } from '../../simulation/challenges';
-import { clickMultiplier, fmt } from '../format';
+import { clickMultiplier } from '../format';
 const props = defineProps<{ state: GameState; revision: number }>();
 const emit = defineEmits<{ craft: [id: CraftId, count: number | 'max'] }>();
 const multiplier = ref(1);
@@ -43,7 +44,7 @@ const rows = computed(() => {
   <section v-if="rows.length" id="craftedResources" class="panel">
     <div class="panel-head"><h2>锻造物</h2><span>手动制造</span></div>
     <div v-for="row in rows" :key="row.id" class="craft-row" :data-crafted-resource="row.id">
-      <span class="craft-name">{{ row.name }} <b>{{ fmt(row.amount) }}</b></span>
+      <span class="craft-name">{{ row.name }} <b>{{ formatResourceNumber(row.amount) }}</b></span>
       <span class="craft-actions">
         <span v-if="row.rate > 0" class="res-rate" tabindex="0" :data-building-tip="row.id" data-tip-kind="resource" :aria-label="`查看${row.name}工匠产量明细`">{{ signedRate(row.rate) }}</span>
         <button v-for="n in [1, 10, 100]" :key="n" :data-craft="row.id" :data-craft-count="n" :disabled="manualCraftDisabled" :title="manualCraftDisabled ? '禁用手动锻造' : undefined" :aria-label="manualCraftDisabled ? `${row.name}：禁用手动锻造` : `制造${row.name} ${n * multiplier}份`" @click="craft(row.id, n * clickMultiplier($event))">+{{ n * multiplier }}</button>
