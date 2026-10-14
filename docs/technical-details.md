@@ -18,6 +18,10 @@
 - `signedRate` 与资源列表/储量明细共享该格式。普通价格、人口计数等仍用原 `formatNumber`，黑洞质量保留8位。
 - 显示精度不写回模拟或存档，资源结算保留完整精度，避免小额产出逐tick丢失。
 
+### 政府改革效果预览
+
+- `InternalPanel.vue` 的体制候选按钮使用 `data-tip-kind="government"`，`TooltipPanel.vue` 注册同类型并直接显示 `GOVERNMENTS` 中的名称与描述，支持悬停、聚焦及Escape关闭。
+
 ### 电力收支详情布局
 
 - `TooltipPanel.vue` 仅在电力的消耗明细超过15项时启用 `energy-expense-split`，消耗使用CSS双列布局（条目内部不跨列），并加宽tooltip。15项及以下、其他资源维持原布局。

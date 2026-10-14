@@ -86,7 +86,7 @@ function setTax(event: Event): void {
       <button id="openGovernmentReform" :disabled="!state.tech.includes('government') || cooldown > 0" :aria-expanded="reformOpen" @click="reformOpen = !reformOpen">改革体制</button>
       <p v-if="!state.tech.includes('government')" class="subtle">研究政府后解锁基本体制。</p>
       <div v-if="reformOpen" class="actions">
-        <button v-for="[id, g] in alternatives" :key="id" :data-government="id" :disabled="cooldown > 0" @click="reform(id)">{{ g.name }}</button>
+        <button v-for="[id, g] in alternatives" :key="id" :data-government="id" :data-building-tip="id" data-tip-kind="government" :disabled="cooldown > 0" @click="reform(id)">{{ g.name }}</button>
       </div>
     </section>
 

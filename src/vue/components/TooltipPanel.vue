@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
-import type { ArpaProjectId, CrisprUpgradeId, GameState } from '../../types/state';
+import type { ArpaProjectId, CrisprUpgradeId, GameState, GovernmentId } from '../../types/state';
 import type { BuildingId } from '../../types/buildings';
 import type { TechnologyId } from '../../types/technologies';
 import type { CraftId, ResourceId, ResourceRecipe } from '../../types/economy';
@@ -15,7 +15,7 @@ import { CONFIG } from '../../data/config';
 import { floorWithPrecision, formatEffectNumber, formatResourceNumber } from '../../shared/format';
 import { calculateFoodPerCat } from '../../simulation/population';
 import { calculateBuildingCost, isBuildingFullyBuilt } from '../../simulation/costs';
-import { calculateTechCost, calculateTrainingBoost, calculateBankerTaxRate, BANKER_TAX_BONUS, STOCK_EXCHANGE_BANKER_BONUS } from '../../simulation/government';
+import { calculateTechCost, calculateTrainingBoost, calculateBankerTaxRate, BANKER_TAX_BONUS, STOCK_EXCHANGE_BANKER_BONUS, GOVERNMENTS } from '../../simulation/government';
 import { SPACE_MISSIONS, REGIONAL_MISSIONS, calculateRegionalMissionCost, isRegionalMissionCompleted, type RegionalMissionId } from '../../simulation/space-missions';
 import { calculateBuildingInput, calculateBuildingOutput, calculateToolMultiplier, calculateBuildingName } from '../../simulation/building-production';
 import { getBuildingEffectRows, calculateFreightCapacityMultiplier, SPACE_RIPPER_OVERCLOCK_DESC } from '../../simulation/building-effects';
@@ -33,8 +33,8 @@ import { calculateEffectiveParticleCount, isChallengeGeneActive } from '../../si
 import { duration, fmt, moraleSnapshot, orderedCostEntries, percent, storageSnapshot } from '../format';
 
 const props = defineProps<{ state: GameState; revision: number }>();
-type TipKind = 'building' | 'tech' | 'storage' | 'resource' | 'morale' | 'housing' | 'prestige' | 'crispr' | 'job' | 'craftJob' | 'arpa' | 'mission' | 'ship' | 'quantum';
-const kinds: TipKind[] = ['building', 'tech', 'storage', 'resource', 'morale', 'housing', 'prestige', 'crispr', 'job', 'craftJob', 'arpa', 'mission', 'ship', 'quantum'];
+type TipKind = 'building' | 'tech' | 'storage' | 'resource' | 'morale' | 'housing' | 'prestige' | 'crispr' | 'job' | 'craftJob' | 'arpa' | 'mission' | 'ship' | 'quantum' | 'government';
+const kinds: TipKind[] = ['building', 'tech', 'storage', 'resource', 'morale', 'housing', 'prestige', 'crispr', 'job', 'craftJob', 'arpa', 'mission', 'ship', 'quantum', 'government'];
 const selector = '[data-building-tip][data-tip-kind]';
 const anchor = shallowRef<HTMLElement | null>(null);
 const panel = shallowRef<HTMLElement | null>(null);
@@ -76,7 +76,11 @@ const content = computed<TipContent | null>(() => {
     missing: state.resources[id as ResourceId] + 1e-8 < amount,
   }));
 
-  if (target.kind === 'quantum') {
+  if (target.kind === 'government' && Object.hasOwn(GOVERNMENTS, target.id)) {
+    const government = GOVERNMENTS[target.id as GovernmentId];
+    tip.title = government.name;
+    tip.description = government.desc;
+  } else if (target.kind === 'quantum') {
     const quantum = calculateQuantumSnapshot(state);
     const decimal = (value: number) => (floorWithPrecision(value * 100) / 100).toFixed(2);
     tip.title = '量子水平';

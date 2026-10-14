@@ -132,6 +132,19 @@ try {
     await flush();
   };
   const escapeTip = async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await flush(); };
+  const governmentTipSnapshot = JSON.parse(JSON.stringify(S()));
+  store.mutate(state => { state.tech.push('government', 'advancedGovernment'); state.lastReformTime = null; state.government = 'none'; }); await flush();
+  click($('[data-internal-view="government"]')); await flush();
+  click($('#openGovernmentReform')); await flush();
+  const { GOVERNMENTS } = await import('/src/simulation/government.ts');
+  for (const id of ['democracy', 'militaryRule', 'oligarchy', 'technocracy', 'industrialism']) {
+    await showTip(`[data-government="${id}"]`, id === 'technocracy');
+    log($('#gameTooltip h3')?.textContent === GOVERNMENTS[id].name && $('#gameTooltip').textContent.includes(GOVERNMENTS[id].desc), `改革${GOVERNMENTS[id].name}按钮悬停或聚焦显示体制效果`);
+    await escapeTip();
+  }
+  log(S().government === 'none', '查看体制效果不会触发改革');
+  click($('#openGovernmentReform')); await flush();
+  store.mutate(state => Object.assign(state, JSON.parse(JSON.stringify(governmentTipSnapshot)))); await flush();
   await showTip('[data-building-tip="wood"][data-tip-kind="storage"]', true);
   log(visible($('#gameTooltip')) && $('#gameTooltip').textContent.includes('基础储量'), '键盘聚焦打开资源储量来源tooltip');
   store.mutate(state => { state.resources.wood = 123; }); await flush();
