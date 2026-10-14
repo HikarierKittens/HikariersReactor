@@ -17,6 +17,7 @@ const props = defineProps<{ state: GameState; revision: number }>();
 const emit = defineEmits<{ invest: [id: ArpaProjectId, percent: number]; queue: [id: ArpaProjectId, count: number]; crisprPurchase: [id: CrisprUpgradeId]; challengeLaunch: [genes: ChallengeGeneId[]]; dnaCraft: [id: DnaId, count: number]; geneUpgrade: [id: GeneId] }>();
 
 const activeView = ref<'buildings' | 'progress' | 'genetics' | 'crispr' | 'challenges'>('buildings');
+const buildingsUnlocked = computed(() => { props.revision; return props.state.tech.includes('arpa'); });
 const geneticsUnlocked = computed(() => { props.revision; return props.state.tech.includes('genetics'); });
 const earlyStageThree = computed(() => { props.revision; return isEarlyStageThree(props.state); });
 const progressUnlocked = computed(() => {
@@ -29,14 +30,19 @@ const geneModificationUnlocked = computed(() => { props.revision; return isGeneM
 const challengesUnlocked = computed(() => { props.revision; return props.state.crispr.includes('challengeGene'); });
 const currentView = computed(() => {
   props.revision;
-  if (activeView.value === 'challenges') return challengesUnlocked.value ? 'challenges' : 'buildings';
-  if (activeView.value === 'crispr') return crisprUnlocked.value ? 'crispr' : 'buildings';
-  if (activeView.value === 'progress') return progressUnlocked.value ? 'progress' : 'buildings';
-  if (activeView.value === 'genetics') return geneticsUnlocked.value ? 'genetics' : 'buildings';
-  return 'buildings';
+  const available = {
+    buildings: buildingsUnlocked.value,
+    progress: progressUnlocked.value,
+    genetics: geneticsUnlocked.value,
+    crispr: crisprUnlocked.value,
+    challenges: challengesUnlocked.value,
+  };
+  if (available[activeView.value]) return activeView.value;
+  return (Object.keys(available) as (keyof typeof available)[]).find(id => available[id]) ?? null;
 });
 const projects = computed(() => {
   props.revision;
+  if (!currentView.value) return [];
   return (Object.keys(ARPA_PROJECTS) as ArpaProjectId[])
     .filter(id => isProjectUnlocked(id, props.state) && (currentView.value === 'genetics' ? id === 'geneSequencing' : id !== 'geneSequencing' && (currentView.value === 'progress' ? !ARPA_PROJECTS[id].repeatable : !!ARPA_PROJECTS[id].repeatable)))
     .map(id => {
@@ -76,7 +82,7 @@ const projects = computed(() => {
 
 <template>
   <nav class="tabs" aria-label="ARPA分类">
-    <button data-arpa-view="buildings" :class="{ active: currentView === 'buildings' }" @click="activeView = 'buildings'">ARPA建筑</button>
+    <button v-if="buildingsUnlocked" data-arpa-view="buildings" :class="{ active: currentView === 'buildings' }" @click="activeView = 'buildings'">ARPA建筑</button>
     <button v-if="progressUnlocked" data-arpa-view="progress" :class="{ active: currentView === 'progress' }" @click="activeView = 'progress'">进度</button>
     <button v-if="geneticsUnlocked" data-arpa-view="genetics" :class="{ active: currentView === 'genetics' }" @click="activeView = 'genetics'">遗传学</button>
     <button v-if="crisprUnlocked" data-arpa-view="crispr" :class="{ active: currentView === 'crispr' }" @click="activeView = 'crispr'">CRISPR</button>
@@ -84,7 +90,7 @@ const projects = computed(() => {
   </nav>
   <ChallengePanel v-if="currentView === 'challenges'" :state="state" :revision="revision" @launch="emit('challengeLaunch', $event)" />
   <CrisprPanel v-else-if="currentView === 'crispr'" :state="state" :revision="revision" @purchase="emit('crisprPurchase', $event)" />
-  <template v-else>
+  <template v-else-if="currentView">
   <slot v-if="currentView === 'progress'" name="progress" />
   <div v-if="!projects.length && !(currentView === 'progress' && earlyStageThree)" class="empty">尚无可用工程，研究 A.R.P.A 及对应的工程前置科技后开启。</div>
   <div class="arpa-project-grid" :class="{ 'is-buildings': currentView === 'buildings' }">

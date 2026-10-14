@@ -22,6 +22,7 @@ import { fillNuclearProject, launchNuclearPrestige, launchEscapePrestige, launch
 import { calculateEscapePrestigeReward, calculateCasimirReward, calculateTechCost } from '../simulation/government';
 import { TECHNOLOGIES } from '../data/technologies';
 import { canPayCost } from '../simulation/costs';
+import { calculateContainerCapacity } from '../simulation/containers';
 import { changeEjectionAllocation } from '../simulation/black-hole';
 import { investInProject } from '../simulation/projects';
 import { enqueueProject } from '../simulation/project-queue';
@@ -108,6 +109,12 @@ const state = computed(() => {
   props.store.revision();
   return props.store.state();
 });
+
+const resourceManagementUnlocked = computed(() => {
+  props.store.revision();
+  return calculateContainerCapacity(state.value) > 0 || state.value.containers > 0 || state.value.buildings.massEjector > 0;
+});
+watch(resourceManagementUnlocked, unlocked => { if (!unlocked && activeTab.value === 'resourceManagement') activeTab.value = 'buildings'; });
 
 const gameDate = computed(() => {
   props.store.revision();
@@ -442,7 +449,7 @@ onUnmounted(() => {
             :key="tab.id"
             :data-tab="tab.id"
             :class="{ active: activeTab === tab.id }"
-            :hidden="tab.id === 'arpa' && !state.tech.includes('arpa') && !state.tech.includes('genetics') && !state.tech.includes('crispr16') && !state.crispr.includes('challengeGene')"
+            :hidden="(tab.id === 'arpa' && !state.tech.includes('arpa') && !state.tech.includes('genetics') && !state.tech.includes('crispr16') && !state.crispr.includes('challengeGene')) || (tab.id === 'resourceManagement' && !resourceManagementUnlocked)"
             @click="activeTab = tab.id"
           >{{ tab.label }}<span v-if="tab.id === 'story' && unreadStories" data-story-unread-count :aria-label="`${unreadStories}篇未读剧情`"> · {{ unreadStories }}</span></button>
         </nav>

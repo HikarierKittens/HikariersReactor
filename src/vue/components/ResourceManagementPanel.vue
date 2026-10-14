@@ -19,7 +19,11 @@ const emit = defineEmits<{
 
 const view = ref<'containers' | 'massEjection'>('containers');
 const ejectionUnlocked = computed(() => { props.revision; return (props.state.buildings.massEjector || 0) > 0; });
-watch(ejectionUnlocked, unlocked => { if (!unlocked) view.value = 'containers'; });
+const containersUnlocked = computed(() => { props.revision; return calculateContainerCapacity(props.state) > 0 || props.state.containers > 0; });
+watch([containersUnlocked, ejectionUnlocked], ([containers, ejection]) => {
+  if (view.value === 'containers' && !containers && ejection) view.value = 'massEjection';
+  else if (view.value === 'massEjection' && !ejection) view.value = 'containers';
+}, { immediate: true });
 const ejectionCapacity = computed(() => { props.revision; return calculateEjectionCapacity(props.state); });
 const ejectionAllocated = computed(() => { props.revision; return calculateAllocatedEjection(props.state); });
 const ejected = computed(() => { props.revision; return ejectionUnlocked.value ? uiPreview.production(props.state, props.revision).ejected : {}; });
@@ -56,7 +60,7 @@ const rows = computed(() => {
 
 <template>
   <nav class="tabs" aria-label="资源管理分类">
-    <button data-resource-view="containers" :class="{ active: view === 'containers' }" :aria-pressed="view === 'containers'" @click="view = 'containers'">集装箱</button>
+    <button v-if="containersUnlocked" data-resource-view="containers" :class="{ active: view === 'containers' }" :aria-pressed="view === 'containers'" @click="view = 'containers'">集装箱</button>
     <button v-if="ejectionUnlocked" data-resource-view="massEjection" :class="{ active: view === 'massEjection' }" :aria-pressed="view === 'massEjection'" @click="view = 'massEjection'">质量喷射</button>
   </nav>
   <template v-if="view === 'massEjection' && ejectionUnlocked">
@@ -82,7 +86,7 @@ const rows = computed(() => {
     </div>
   </template>
   <p v-else-if="!capacity && !owned" class="empty">建造提供集装箱上限的建筑后解锁。初始上限为0。</p>
-  <template v-else>
+  <template v-else-if="containersUnlocked">
     <div class="settings">
       <section>
         <p id="containerSummary">已有 {{ fmt(owned) }} / {{ fmt(capacity) }} · 已分配 {{ fmt(assigned) }} · 空闲 {{ fmt(Math.max(0, owned - assigned)) }}</p>

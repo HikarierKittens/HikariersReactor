@@ -12,6 +12,10 @@
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
 - 包管理：npm；生成式桥接脚本见 `scripts/generate-legacy-data.cjs`。
 
+### 电化学熔炼
+
+- `calculateBuildingInput('smelter', state)` 不因电化学熔炼添加电力维护；该科技仅使钢基础产能由0.5/s变为1/s，保留后续冶炼倍率及原料消耗。输入详情与实际结算共享配方。
+
 ### 资源显示精度
 
 - `src/shared/format.ts` 的 `formatResourceNumber` 专供资源库存、上限与速率：显示最多2位小数（缩写单位同样适用），去除尾零和负零；使用 `floorWithPrecision` 修正二进制机器尾差而不虚增真实库存。
@@ -27,6 +31,8 @@
 - `TooltipPanel.vue` 仅在电力的消耗明细超过15项时启用 `energy-expense-split`，消耗使用CSS双列布局（条目内部不跨列），并加宽tooltip。15项及以下、其他资源维持原布局。
 
 ### 资源管理布局
+
+- 集装箱子页解锁条件为 `calculateContainerCapacity(state) > 0 || state.containers > 0`，允许制造首个集装箱。资源管理入口在集装箱或质量喷射任一可用时显示，条件消失回退世界。ARPA建筑子页检查 `tech.includes('arpa')`，未解锁时回退其他可用ARPA子页。
 
 - `ResourceManagementPanel.vue` 的集装箱和质量喷射使用局部 `.management-list` / `.management-row`，代替多行卡片。Flex布局不换行，名称、说明与加减控件居中同行；内容宽度收缩，窄屏由列表横向滚动，按钮不会被隐藏。
 - 不修改全局卡片样式，不影响其他页面。

@@ -54,6 +54,14 @@ try {
   log([...document.styleSheets].some(sheet => sheet.href?.endsWith('/assets/css/style.css') && sheet.cssRules.length > 0), '真实应用样式已加载');
   for (const id of ['food', 'wood', 'stone']) log(visible($(`[data-resource-id="${id}"]`)), `初始资源 ${id} 可见`);
   log(!$('[data-resource-id="iron"]'), '初始铁资源未解锁');
+  log(!visible($('[data-tab="resourceManagement"]')), '开局无集装箱上限或数量时隐藏资源管理');
+  store.mutate(state => { state.containers = 1; }); await flush();
+  log(visible($('[data-tab="resourceManagement"]')), '已有集装箱即使无上限仍显示资源管理');
+  store.mutate(state => { state.containers = 0; state.buildings.massEjector = 1; }); await flush();
+  click($('[data-tab="resourceManagement"]')); await flush();
+  log(!$('[data-resource-view="containers"]') && $('[data-resource-view="massEjection"]').classList.contains('active'), '仅质量喷射解锁时隐藏集装箱且默认显示喷射页');
+  store.mutate(state => { state.buildings.massEjector = 0; }); await flush();
+  log(!visible($('[data-tab="resourceManagement"]')) && $('[data-tab="buildings"]').classList.contains('active'), '资源管理失去解锁条件后回退世界');
   log($$('.res-rate').length > 0 && $$('.res-rate').every(row => row.textContent.trim() && !/NaN|undefined/.test(row.textContent)), '资源速率均非空且有效');
 
   // Change plain state while staying on the same building panel.
@@ -222,8 +230,8 @@ try {
   await escapeTip();
   click($('[data-tab="arpa"]')); await flush();
   const arpaCategorySnapshot = JSON.parse(JSON.stringify(S()));
-  store.mutate(state => { state.tech = ['arpa', 'genetics']; }); await flush();
-  log(!$('[data-arpa-view="progress"]') && !!$('[data-arpa-view="genetics"]'), '仅遗传学解锁不开放进度子页');
+  store.mutate(state => { state.tech = ['genetics']; }); await flush();
+  log(!$('[data-arpa-view="progress"]') && !$('[data-arpa-view="buildings"]') && $('[data-arpa-view="genetics"]').classList.contains('active'), '仅遗传学解锁不显示ARPA建筑并默认进入遗传学');
   click($('[data-arpa-view="genetics"]')); await flush();
   log(!!$('[data-arpa-invest="geneSequencing"]') && !$('[data-arpa-invest="rocketPlatform"]'), '基因测序仍独立位于遗传学');
   store.mutate(state => Object.assign(state, JSON.parse(JSON.stringify(arpaCategorySnapshot)))); await flush();

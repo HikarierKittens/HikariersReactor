@@ -147,7 +147,7 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
     intelligentFactory: { name: '智能化工厂', era: 4, tier: 11, knowledgeCost: 140000, desc: '基础人工智能替代了部分工作，工厂的产量与原料消耗+50%', cost: { knowledge: 140000, alloy: 2000 }, pre: ['automatedEngineering', 'artificialIntelligence'] },
     oxygenConverter: { name: '氧气转炉', era: 4, tier: 9, knowledgeCost: 76000, desc: '持续供氧使其完全燃烧，冶炼效率+20%', cost: { knowledge: 76000, coal: 1000 }, pre: ['electrochemicalSmelting'] },
     artificialIntelligence: { name: '人工智能', era: 4, tier: 9, knowledgeCost: 75000, desc: '暂无效果，似乎是一种前置技术，这条道路任重道远', cost: { knowledge: 75000 }, pre: ['dataCenter'] },
-    electrochemicalSmelting: { name: '电化学熔炼', era: 2, desc: '利用电能改进冶炼技术，大幅增加钢产量', cost: { knowledge: 1000 }, pre: ['metallurgy', 'electricity'] },
+    electrochemicalSmelting: { name: '电化学熔炼', era: 2, desc: '钢冶炼工位的钢基础产能从0.5/s提升至1/s，不增加电力消耗。', cost: { knowledge: 1000 }, pre: ['metallurgy', 'electricity'] },
     science: { name: '科学方法', era: 2, tier: 5, knowledgeCost: 6500, desc: '解锁实验室，科技时代开始了', cost: { "knowledge": 1000, "metal": 80 }, pre: ['metallurgy'] },
     agriculturalMachinery: { name: '农业机械', era: 3, desc: '农民产量 +100%，仅作用于最终资源产出，不改变基础产量与消耗。', cost: { knowledge: 2000, metal: 200, energy: 150 }, pre: ['automation', 'electricity'] },
     automation: { name: '自动化', era: 3, desc: '解锁工厂与生产线。', cost: { "knowledge": 2400, "metal": 250, "copper": 150 }, pre: ['science'] },

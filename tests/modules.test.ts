@@ -552,6 +552,25 @@ test('smelter base steel is 0.5 and electrochemical steel is 1 before oxygen bon
   assert.equal(calculateBuildingOutput('smelter', state).metal, 1.2);
 });
 
+test('electrochemical smelting raises steel output without power upkeep even at zero energy', () => {
+  for (const dt of [.2, 1]) {
+    const state = createInitialState(29, 60, 0);
+    state.tech.push('metallurgy', 'electricity'); state.buildings.smelter = 2;
+    state.resources.iron = 1000; state.resources.coal = 1000; state.resources.energy = 0;
+    const before = calculateProduction(state, dt);
+    const recipe = calculateBuildingInput('smelter', state);
+    state.tech.push('electrochemicalSmelting');
+    const after = calculateProduction(state, dt);
+    assert.deepEqual(calculateBuildingInput('smelter', state), recipe);
+    assert.equal(calculateBuildingInput('smelter', state).energy, undefined);
+    assert.ok(Math.abs(after.rates.metal - 2 * before.rates.metal) < 1e-8);
+    assert.equal(after.rates.energy, 0);
+    assert.equal(calculateResourceBreakdown('energy', state, after).net, 0);
+    assert.equal(after.rates.iron, before.rates.iron);
+    assert.equal(after.rates.coal, before.rates.coal);
+  }
+});
+
 test('gene sequencing requires genetics, costs one million, and resets each run', () => {
   const state = createInitialState(29, 60, 0);
   state.resources.knowledge = 1000000;

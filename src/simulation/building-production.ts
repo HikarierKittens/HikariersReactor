@@ -50,7 +50,7 @@ export function calculateBuildingInput(id: BuildingId, state: GameState): Resour
   if (id === 'metalRefinery') return state.tech.includes('advancedMetalRefining') ? { energy: 4 } : {};
   if (id === 'aiSupercore') return { helium3: 25, energy: 100 };
   const input = BUILDINGS[id].input || {};
-  return applySpaceFuelDiscount(id, id === 'smelter' && state.tech.includes('electrochemicalSmelting') ? { ...input, energy: 2 } : input, state);
+  return applySpaceFuelDiscount(id, input, state);
 }
 export function calculateTouristBase(state: GameState, inputs: ProductionInputs | null = null): number {
   const cafes = inputs ? inputs.catCafe || 0 : Math.max(0, (state.buildings.catCafe || 0) - (state.stoppedBuildings?.catCafe || 0));
