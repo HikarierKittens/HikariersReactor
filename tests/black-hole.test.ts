@@ -14,7 +14,7 @@ import { isTechnologyUnlocked } from '../src/simulation/unlocks';
 import { requestPurchaseModule, researchTechnologyNow, constructBuildingState } from '../src/simulation/purchases';
 import { advanceGameTick } from '../src/simulation/tick';
 import { launchBlackHolePrestige } from '../src/simulation/prestige';
-import { calculateBlackHoleParticleReward, calculateBlackHoleCasimirReward, calculateEscapePrestigeReward, calculateCasimirReward } from '../src/simulation/government';
+import { calculateBankerMultiplier, calculateBlackHoleParticleReward, calculateBlackHoleCasimirReward, calculateEscapePrestigeReward, calculateCasimirReward } from '../src/simulation/government';
 import {
   BLACK_HOLE_UNSTABLE_LOG, MASS_EJECTION_UNLOCK_LOG, EJECTION_MASSES, calculateDarkEnergyReward, calculateGravityConversionEnergy,
   changeEjectionAllocation, ejectionMass, formatBlackHoleMass, isEjectableResource,
@@ -203,4 +203,15 @@ test('暗能量加成 multiplies ordinary storage after the CRISPR bonuses', () 
   near(calculateStorageDetails('cash', s, snap(s)).total, cashBefore * 1.05);
   near(calculateStorageTotals(s, snap(s)).cash, cashBefore * 1.05);
   near(calculateStorageDetails('knowledge', s, snap(s)).total, knowledgeBefore);
+});
+
+test('证券交易所 adds +2 percentage points to each banker tax bonus', () => {
+  const s = fresh(); s.workers.bank = 3;
+  near(calculateBankerMultiplier(s), 1.15);
+  s.arpaBuildings.stockExchange = 2;
+  near(calculateBankerMultiplier(s), 1 + 3 * (.05 + .04));
+  s.population = 10; s.resources.food = 1e6;
+  const taxed = calculateProduction(s, 1).outputs.catTax!;
+  s.arpaBuildings.stockExchange = 0;
+  near(taxed / calculateProduction(s, 1).outputs.catTax!, 1.27 / 1.15);
 });

@@ -31,7 +31,13 @@ export function calculateSoldierPressure(state: Pick<GameState, 'buildings' | 'g
 export function calculatePopulationPressure(state: Pick<GameState, 'population'> & Partial<Pick<GameState, 'geneModification'>>): number { return state.population * .5 * Math.max(0, 1 - geneBonus(state, 'catCohesion')); }
 export function calculateGovernmentMultiplier(resource: string, state: Pick<GameState, 'government'>): number { return resource === 'cash' && state.government === 'oligarchy' ? 1.25 : resource === 'knowledge' && state.government === 'technocracy' ? 1.1 : 1; }
 export function calculateFurMultiplier(state: Pick<GameState, 'tech'>): number { return state.tech.includes('ironEquipment') ? 1.2 : 1; }
-export function calculateBankerMultiplier(state: Pick<GameState, 'workers'>): number { return 1 + (state.workers.bank || 0) * .05; }
+/** Per-banker tax bonus: 5% base, +2 percentage points per 证券交易所 (additive). */
+export const BANKER_TAX_BONUS = .05;
+export const STOCK_EXCHANGE_BANKER_BONUS = .02;
+export function calculateBankerTaxRate(state: Pick<GameState, 'arpaBuildings'>): number {
+  return BANKER_TAX_BONUS + STOCK_EXCHANGE_BANKER_BONUS * (state.arpaBuildings?.stockExchange || 0);
+}
+export function calculateBankerMultiplier(state: Pick<GameState, 'workers' | 'arpaBuildings'>): number { return 1 + (state.workers.bank || 0) * calculateBankerTaxRate(state); }
 export function calculateTaxBase(state: Pick<GameState, 'population' | 'taxRate'>): number { return state.population * state.taxRate / 20; }
 /** Per-camp training effect in percent: 5%, or 8% after 虚拟训练. */
 export function calculateTrainingBoost(state: Partial<Pick<GameState, 'tech'>>): number { return state.tech?.includes('virtualTraining') ? 8 : BUILDINGS.trainingCamp.trainingBoost ?? 0; }

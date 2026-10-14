@@ -68,7 +68,7 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
     misenDiscovery: { name: '米神星发现', era: 4, tier: 15, knowledgeCost: 420000, cost: { knowledge: 420000, e710: 100 }, pre: ['exoticElementResearch'], desc: '解锁米神星区域与米神星任务。' },
     stockTrading: { name: '股票交易', era: 3, tier: 8, knowledgeCost: 48000, cost: { knowledge: 48000 }, pre: ['internet', 'electronics'], desc: '每位猫猫额外提供250资金容量。' },
     savingsBonds: { name: '储蓄债券', era: 4, tier: 10, knowledgeCost: 100000, cost: { knowledge: 100000 }, pre: ['artificialIntelligence'], desc: '将股票交易提供的每位猫猫资金容量从250提升至500，不重复叠加。' },
-    stockExchange: { name: '证券交易所', era: 4, tier: 10, knowledgeCost: 120000, cost: { knowledge: 120000 }, pre: ['arpa', 'savingsBonds'], desc: '解锁可重复建造的ARPA证券交易所，每个证券交易所使资金容量+10%。' },
+    stockExchange: { name: '证券交易所', era: 4, tier: 10, knowledgeCost: 120000, cost: { knowledge: 120000 }, pre: ['arpa', 'savingsBonds'], desc: '解锁可重复建造的ARPA证券交易所，每个证券交易所使资金容量+10%，每位银行家提供的税收加成+2%。' },
     arpaResearchInstitute: { name: 'ARPA科研所', era: 4, tier: 10, knowledgeCost: 140000, cost: { knowledge: 140000 }, pre: ['arpa'], desc: '解锁可重复建造的ARPA科研所，每个ARPA科研所使实验室和学校的知识容量+4%。' },
     dimensionCompression: { name: '维度压缩', era: 4, tier: 12, knowledgeCost: 200000, cost: { knowledge: 200000 }, pre: ['arpaResearchInstitute'], arpaPre: 'arpaResearchInstitute', arpaRequiredCount: 2, desc: '需要建成2个ARPA科研所；每个科研所使仓库、高级存储枢纽和机库的资源容量+4%。' },
     quantumTunnelingThermalProcessing: { name: '量子隧穿热处理', era: 4, tier: 11, knowledgeCost: 150000, cost: { knowledge: 150000 }, pre: ['arpaResearchInstitute'], arpaPre: 'arpaResearchInstitute', arpaRequiredCount: 1, desc: '需要建成1个ARPA科研所；钢冶炼工位基础钢产能+0.1/s，工厂合金生产线基础产出+10%，原料消耗不变。' },

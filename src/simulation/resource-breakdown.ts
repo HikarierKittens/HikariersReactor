@@ -147,7 +147,7 @@ export function calculateResourceBreakdown(
     entries.push({ id: 'cementMixer', kind: 'expense', name: '水泥搅拌机消耗', value: -2 * (result.inputUnits.cementMixer ?? 0), note: '每座实际供能工匠消耗 2 电力/s' });
   }
   if (resource === 'cash') {
-    entries.push({ id: 'catTax', kind: 'income', name: '猫猫税收', value: result.outputs.catTax || 0, note: '每只猫在20%税率下基础1现金/s；银行家加成相加，幸福度、社区、政府、粒子独立相乘' });
+    entries.push({ id: 'catTax', kind: 'income', name: '猫猫税收', value: result.outputs.catTax || 0, note: '每只猫在20%税率下基础1现金/s；银行家加成相加（每位5%，每个证券交易所+2%），幸福度、社区、政府、粒子独立相乘' });
   }
   if (resource === 'fur') {
     entries.push({ id: 'soldierFur', kind: 'income', name: '服役士兵采集', value: result.outputs.soldierFur || 0, note: '每位服役士兵基础0.2毛皮/s' });

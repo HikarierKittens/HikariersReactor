@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { GameState, GovernmentId } from '../../types/state';
-import { GOVERNMENTS, reformCooldown, calculateSoldierCapacity, calculateCombatPower, calculateSoldierPressure, calculateTrainingDuration, calculatePrestigeReward, calculateTrainingBoost } from '../../simulation/government';
+import { GOVERNMENTS, reformCooldown, calculateSoldierCapacity, calculateCombatPower, calculateSoldierPressure, calculateTrainingDuration, calculatePrestigeReward, calculateTrainingBoost, calculateBankerTaxRate } from '../../simulation/government';
 import { NUCLEAR_PROJECT, calculateNuclearAffordablePercent } from '../../simulation/prestige';
 import { RESOURCES } from '../../data/resources';
 import { fmt, percent, storageCap, orderedCostEntries } from '../format';
@@ -24,6 +24,7 @@ const alternatives = computed(() => {
   return (Object.entries(GOVERNMENTS) as [GovernmentId, typeof GOVERNMENTS[GovernmentId]][])
     .filter(([id, g]) => id !== props.state.government && props.state.tech.includes(g.tech));
 });
+const bankerRate = computed(() => { props.revision; return Number((calculateBankerTaxRate(props.state) * 100).toFixed(2)); });
 const cashCap = computed(() => { props.revision; return storageCap('cash', props.state, props.revision); });
 const soldierCap = computed(() => { props.revision; return calculateSoldierCapacity(props.state); });
 const soldierPower = computed(() => { props.revision; return calculateCombatPower(props.state); });
@@ -95,7 +96,7 @@ function setTax(event: Event): void {
       <label for="taxRateInput">调整税率</label>
       <input id="taxRateInput" type="range" min="0" max="30" step="1" :value="state.taxRate" @input="setTax">
       <p>相对20%税率的幸福度影响：{{ state.taxRate > 20 ? '−' : '+' }}{{ Math.abs(20 - state.taxRate) }}个百分点。</p>
-      <p>20%税率时，每只猫基础税收1$/s。银行家每位税收+5%；资金正常应用幸福度、粒子与体制加成。</p>
+      <p>20%税率时，每只猫基础税收1$/s。银行家每位税收+{{ bankerRate }}%（基础5%，每个证券交易所+2%）；资金正常应用幸福度、粒子与体制加成。</p>
       <p>累计资金：<span id="governmentCash">{{ fmt(state.resources.cash) }} / {{ fmt(cashCap) }}</span></p>
     </section>
   </div>
