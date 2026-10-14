@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import type { DnaId, GameState, GeneId } from '../../types/state';
 import { DNA_BASE_IDS, DNA_KNOWLEDGE_COST, GENE_DEFINITIONS } from '../../data/genes';
-import { MAX_GENE_LEVEL, calculateGeneUpgradeCost, geneBonus } from '../../simulation/genes';
+import { MAX_GENE_LEVEL, calculateGeneUpgradeCost, geneBonus, geneExtraBonus } from '../../simulation/genes';
 import { clickMultiplier, fmt } from '../format';
 
 const props = defineProps<{ state: GameState; revision: number }>();
@@ -32,11 +32,16 @@ const groups = computed(() => {
       const level = props.state.geneModification.levels[id];
       const cost = calculateGeneUpgradeCost(props.state, id);
       const maxed = level >= MAX_GENE_LEVEL;
-      return { id, ...GENE_DEFINITIONS[id], level, cost, maxed, bonus: geneBonus(props.state, id), affordable: !maxed && props.state.geneModification.dna[base] >= cost };
+      const definition = GENE_DEFINITIONS[id];
+      const bonuses = [
+        `${definition.label ?? '当前加成'} +${percent(geneBonus(props.state, id))}`,
+        ...(definition.extra ? [`${definition.extra.label} +${percent(geneExtraBonus(props.state, id))}`] : []),
+      ];
+      return { id, ...definition, level, cost, maxed, bonuses, affordable: !maxed && props.state.geneModification.dna[base] >= cost };
     }),
   }));
 });
-const percent = (value: number) => `${Number((value * 100).toFixed(2))}%`;
+function percent(value: number): string { return `${Number((value * 100).toFixed(2))}%`; }
 </script>
 
 <template>
@@ -49,16 +54,18 @@ const percent = (value: number) => `${Number((value * 100).toFixed(2))}%`;
     </div>
     <div v-for="group in groups" :key="group.base" class="gene-group" :data-gene-group="group.base">
       <h4>{{ group.base }} 类基因 <span class="subtle small">持有 {{ fmt(dna[group.base]) }}</span></h4>
-      <article v-for="gene in group.genes" :key="gene.id" class="card gene-card" :data-gene="gene.id">
-        <div class="card-top"><div class="card-title"><h3>{{ gene.name }} <span class="count" :data-gene-level="gene.id">Lv.{{ gene.level }}</span></h3></div></div>
-        <p class="desc">{{ gene.desc }}</p>
-        <p class="small subtle">当前加成：{{ percent(gene.bonus) }}</p>
-        <p v-if="!gene.maxed" class="cost" :class="{ negative: !gene.affordable }" :data-gene-cost="gene.cost">升级价格：{{ fmt(gene.cost) }} {{ group.base }}</p>
-        <p v-else class="subtle">已达到最高等级。</p>
-        <div class="card-bottom">
-          <button :data-gene-upgrade="gene.id" :disabled="!gene.affordable" :aria-label="`升级${gene.name}，消耗${gene.cost}个${group.base}`" @click="emit('upgrade', gene.id)">升级</button>
-        </div>
-      </article>
+      <div class="gene-grid">
+        <article v-for="gene in group.genes" :key="gene.id" class="card gene-card" :data-gene="gene.id">
+          <h3 class="gene-title">{{ gene.name }} <span class="count" :data-gene-level="gene.id">Lv.{{ gene.level }}</span></h3>
+          <p class="gene-desc">{{ gene.desc }}</p>
+          <p v-for="bonus in gene.bonuses" :key="bonus" class="gene-bonus small subtle">{{ bonus }}</p>
+          <div class="gene-bottom">
+            <span v-if="!gene.maxed" class="cost small" :class="{ negative: !gene.affordable }" :data-gene-cost="gene.cost">{{ fmt(gene.cost) }} {{ group.base }}</span>
+            <span v-else class="small subtle">已满级</span>
+            <button :data-gene-upgrade="gene.id" :disabled="!gene.affordable" :aria-label="`升级${gene.name}，消耗${gene.cost}个${group.base}`" @click="emit('upgrade', gene.id)">升级</button>
+          </div>
+        </article>
+      </div>
     </div>
   </section>
 </template>
@@ -67,9 +74,16 @@ const percent = (value: number) => `${Number((value * 100).toFixed(2))}%`;
 .gene-modification { margin-top: 16px; }
 .gene-modification h4 { margin: 12px 0 6px; font-weight: 400; color: var(--gold); }
 .dna-craft { flex-wrap: wrap; }
-.gene-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
-.gene-group h4 { grid-column: 1 / -1; }
-.gene-card { min-width: 0; overflow-wrap: anywhere; }
-.gene-card .card-bottom { justify-content: flex-end; }
-@media (max-width: 860px) { .gene-group { grid-template-columns: minmax(0, 1fr); } }
+/* Each DNA base owns its grid, so different gene types never share a row; unused columns stay empty. */
+.gene-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.gene-card { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 6px 8px; overflow-wrap: anywhere; }
+.gene-title { margin: 0; font-size: 13px; font-weight: 400; line-height: 1.4; }
+.gene-desc { margin: 0; flex: 1; font-size: 12px; line-height: 1.4; color: var(--muted); }
+.gene-bonus { margin: 0; line-height: 1.4; }
+.gene-bottom { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px; }
+.gene-bottom .cost { margin: 0; }
+.gene-bottom button { padding: 2px 10px; }
+/* Fall back to 2 columns only when the panel itself is too narrow for 4 readable cards. */
+.gene-modification { container-type: inline-size; }
+@container (max-width: 520px) { .gene-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

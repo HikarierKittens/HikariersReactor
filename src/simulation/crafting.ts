@@ -4,6 +4,7 @@ import { isResourceUnlocked } from './unlocks';
 import { calculateSupportPreview } from './support-preview';
 import { countAsrielResidents } from './asriel';
 import { calculateEffectiveParticleCount, isChallengeGeneActive } from './challenges';
+import { geneBonus, geneExtraBonus } from './genes';
 import type { AsrielSupport } from '../types/economy';
 import type { CraftId, ResourceId, ResourceAmounts } from '../types/economy';
 import type { GameState } from '../types/state';
@@ -41,7 +42,12 @@ export function calculateCraftingMultiplier(id: ResourceId, state: GameState, su
   }
   const accelerator = isChallengeGeneActive(state, 'particleImbalance') && RESOURCES[id]?.crafted
     ? 1 + .0125 * (state.buildings.particleAccelerator || 0) : 1;
-  return calculateParticleMultiplier(id, state) * calculateFoundryMultiplier(state) * planetary * accelerator * calculateStellarForgeCraftMultiplier(state);
+  return calculateParticleMultiplier(id, state) * calculateFoundryMultiplier(state) * planetary * accelerator * calculateStellarForgeCraftMultiplier(state)
+    * calculateOverclockCraftMultiplier(state);
+}
+/** 超频锻造: +2% crafted output per level, for manual forging and artisans alike. */
+export function calculateOverclockCraftMultiplier(state: Partial<Pick<GameState, 'geneModification'>>): number {
+  return 1 + geneBonus(state, 'overclockForging');
 }
 export function countCraftWorkers(state: Pick<GameState, 'craftWorkers'>): number {
   return Object.values(state.craftWorkers).reduce((sum, count) => sum + count, 0);
@@ -65,10 +71,12 @@ export function trimAssignedCraftWorkers(state: Pick<GameState, 'workers' | 'cra
   }
 }
 /** These bonuses apply only to assigned artisans, never to manual forging. */
-export function calculateAutomaticCraftingMultipliers(state: Pick<GameState, 'crispr'>) {
+export function calculateAutomaticCraftingMultipliers(state: Pick<GameState, 'crispr'> & Partial<Pick<GameState, 'geneModification'>>) {
   return {
     input: state.crispr.includes('masterArtisan') ? 2 : 1,
-    output: (state.crispr.includes('technician') ? 2 : 1) * (state.crispr.includes('masterArtisan') ? 2 : 1),
+    // 超频锻造's artisan bonus raises output only; ingredient use is unchanged.
+    output: (state.crispr.includes('technician') ? 2 : 1) * (state.crispr.includes('masterArtisan') ? 2 : 1)
+      * (1 + geneExtraBonus(state, 'overclockForging')),
   };
 }
 export function settleAutomaticCrafting(state: GameState, pool: ResourceAmounts, dt: number, support?: AsrielSupport) {

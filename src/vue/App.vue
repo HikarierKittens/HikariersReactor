@@ -51,6 +51,7 @@ import { markStoryRead } from '../simulation/story';
 import type { StoryChapterId } from '../types/state';
 import { CONFIG } from '../data/config';
 import AchievementsPanel from './components/AchievementsPanel.vue';
+import PerksPanel from './components/PerksPanel.vue';
 import ResourceManagementPanel from './components/ResourceManagementPanel.vue';
 import TipsPanel from './components/TipsPanel.vue';
 import FactoryModal from './components/FactoryModal.vue';
@@ -415,7 +416,7 @@ onUnmounted(() => {
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.5.4</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.5.5</span>
     </header>
 
     <div class="layout">
@@ -518,9 +519,15 @@ onUnmounted(() => {
               <nav class="tabs" aria-label="统计分类">
                 <button :class="{ active: statisticsView === 'info' }" @click="statisticsView = 'info'">统计信息</button>
                 <button :class="{ active: statisticsView === 'achievements' }" @click="statisticsView = 'achievements'">成就</button>
+                <button data-statistics-view="perks" :class="{ active: statisticsView === 'perks' }" @click="statisticsView = 'perks'">特权</button>
               </nav>
               <StatsPanel
                 v-if="statisticsView === 'info'"
+                :state="state"
+                :revision="store.revision()"
+              />
+              <PerksPanel
+                v-else-if="statisticsView === 'perks'"
                 :state="state"
                 :revision="store.revision()"
               />

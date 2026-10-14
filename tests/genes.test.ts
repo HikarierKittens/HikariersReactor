@@ -14,6 +14,9 @@ import { isPrestigeResourceUnlocked } from '../src/simulation/prestige-unlocks';
 import { updateProgression } from '../src/simulation/progression';
 import { launchNuclearPrestige, resetRunState } from '../src/simulation/prestige';
 import { createMilestoneState } from './fixtures/milestones';
+import { calculateGrowthMultiplier, advancePopulationGrowth } from '../src/simulation/population';
+import { calculateAutomaticCraftingMultipliers, calculateCraftingMultiplier } from '../src/simulation/crafting';
+import { craftManually } from '../src/simulation/commands';
 import type { GameState, GeneId } from '../src/types/state';
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -177,4 +180,40 @@ test('prestige resources stay hidden until first held, then stay unlocked at 0',
   escaped.prestige.escapeResets = 1;
   assert.deepEqual(validateCurrentSave(escaped, context).prestigeUnlocked, ['particles', 'casimir']);
   assert.throws(() => validateCurrentSave({ ...clone(soft), prestigeUnlocked: ['mithril'] }, context));
+});
+
+test('成熟加速 (C) adds 1% population growth per level on top of other growth multipliers', () => {
+  const s = geneState(), base = clone(s);
+  assert.equal(GENE_DEFINITIONS.maturationAcceleration.dna, 'C');
+  s.geneModification.levels.maturationAcceleration = 7;
+  near(calculateGrowthMultiplier(s), calculateGrowthMultiplier(base) * 1.07, 'growth');
+  s.population = base.population = 30; s.growth = base.growth = 0; s.growthTarget = base.growthTarget = 1e9;
+  Object.assign(s.resources, { food: 1e6 }); Object.assign(base.resources, { food: 1e6 });
+  const grown = (state: GameState) => { advancePopulationGrowth(state, 1, 0, 1e6, () => .5); return state.growth; };
+  near(grown(s), grown(base) * 1.07, 'settled growth');
+});
+
+test('超频锻造 (G) adds 2% crafted output and 1% artisan output per level without extra ingredients', () => {
+  const s = geneState(), base = clone(s);
+  assert.equal(GENE_DEFINITIONS.overclockForging.dna, 'G');
+  s.geneModification.levels.overclockForging = 5;
+  near(calculateCraftingMultiplier('plank', s), calculateCraftingMultiplier('plank', base) * 1.1, 'craft multiplier');
+  const artisan = calculateAutomaticCraftingMultipliers(s), plain = calculateAutomaticCraftingMultipliers(base);
+  assert.equal(artisan.input, plain.input, 'ingredient use unchanged');
+  near(artisan.output, plain.output * 1.05, 'artisan output');
+  // Manual forging gets only the crafted-output bonus (+10%), not the artisan bonus.
+  for (const state of [s, base]) { state.resources.wood = 1e6; state.resources.plank = 0; craftManually(state, 'plank', 10); }
+  near(s.resources.plank, base.resources.plank * 1.1, 'manual forging');
+  near(s.resources.wood, base.resources.wood, 'manual ingredients');
+  // Settled artisans: (1 + 2%·5) · (1 + 1%·5) output with the same ingredient use, and tooltip rows.
+  for (const state of [s, base]) {
+    state.buildings.foundry = Math.max(2, state.buildings.foundry); state.workers.foundry = 2;
+    state.craftWorkers = { ...state.craftWorkers, plank: 2 }; state.resources.wood = 1e6;
+  }
+  const after = calculateProduction(s), before = calculateProduction(base);
+  near(after.outputs['craft:plank']!, before.outputs['craft:plank']! * 1.1 * 1.05, 'settled artisans');
+  near(after.inputUnits['craft:plank']!, before.inputUnits['craft:plank']!, 'settled ingredients');
+  const rows = calculateResourceFactorRows('plank', s, after).rows.map(row => row.name);
+  assert.ok(rows.includes('超频锻造') && rows.includes('超频锻造（工匠）'), JSON.stringify(rows));
+  assert.ok(!calculateResourceFactorRows('plank', base, before).rows.some(row => row.name.startsWith('超频锻造')));
 });

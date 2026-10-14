@@ -5,6 +5,8 @@ export interface AchievementDefinition {
   name: string;
   icon: string;
   desc: string;
+  /** Optional permanent special effect, listed on the 统计-特权 page once earned. */
+  perk?: string;
   test: (state: GameState) => boolean;
 }
 export const ACHIEVEMENTS: Record<AchievementId, AchievementDefinition> = {

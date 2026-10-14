@@ -12,6 +12,16 @@
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
 - 包管理：npm；生成式桥接脚本见 `scripts/generate-legacy-data.cjs`。
 
+### 基因修饰布局与新增基因
+
+- `GeneModificationPanel.vue` 每个碱基分组使用独立的4列 `.gene-grid`，不同类型不共享一行。面板宽度低于520px时通过容器查询降为2列（依据面板自身宽度，而非视口）。
+- 成熟加速（C，1%/级）乘入 `calculateGrowthMultiplier`。超频锻造（G）主加成2%/级经 `calculateOverclockCraftMultiplier` 乘入 `calculateCraftingMultiplier`（手动锻造与工匠共享）；`GeneDefinition.extra` 的1%/级只乘入工匠产出倍率，不改原料倍率。资源详情列出「超频锻造」与「超频锻造（工匠）」两行。
+
+### 统计-特权页
+
+- `src/simulation/perks.ts` 的 `listActivePerks` 只读汇总已拥有的CRISPR升级与带 `perk` 字段的已达成成就。材料与空间推理两条覆盖链只显示最高已购级，并附当前实际数值（成本递增减免、粒子/卡西米尔储量加成）；其余升级显示描述。
+- `AchievementDefinition.perk` 为可选文本，现有成就均未定义，因此成就部分暂为空；以后给成就加 `perk` 即自动出现在 `PerksPanel.vue`。
+
 ### 电化学熔炼
 
 - `calculateBuildingInput('smelter', state)` 不因电化学熔炼添加电力维护；该科技仅使钢基础产能由0.5/s变为1/s，保留后续冶炼倍率及原料消耗。输入详情与实际结算共享配方。

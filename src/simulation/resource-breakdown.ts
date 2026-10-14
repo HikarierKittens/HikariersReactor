@@ -13,7 +13,8 @@ import { calculateFoodPerCat } from './population';
 import { isPowerProducer } from './power';
 import { countRunningBuildings } from './housing';
 import { calculateGovernmentMultiplier, calculateTaxBase, calculateBankerMultiplier, calculateFurMultiplier } from './government';
-import { calculateFoundryMultiplier, calculateStellarForgeCraftMultiplier } from './crafting';
+import { calculateFoundryMultiplier, calculateStellarForgeCraftMultiplier, calculateOverclockCraftMultiplier } from './crafting';
+import { geneExtraBonus } from './genes';
 import { CONFIG } from '../data/config';
 import { formatNumber, formatResourceNumber } from '../shared/format';
 import type { BuildingId } from '../types/buildings';
@@ -232,6 +233,7 @@ export function calculateResourceFactorRows(
       if (expected && baseAmount < expected - 1e-9) pct('原料供应', baseAmount / expected, true);
       if (state.crispr.includes('technician')) pct('技工', 2, true);
       if (state.crispr.includes('masterArtisan')) pct('工匠大师', 2, true);
+      pct('超频锻造（工匠）', 1 + geneExtraBonus(state, 'overclockForging'), true);
       continue;
     }
     const opt = FACTORY_OPTIONS.find(option => option.id === e.id);
@@ -332,6 +334,7 @@ export function calculateResourceFactorRows(
   if (RESOURCES[resource].crafted) {
     pct('锻造工具升级', calculateFoundryMultiplier(state));
     pct('恒星熔炉', calculateStellarForgeCraftMultiplier(state));
+    pct('超频锻造', calculateOverclockCraftMultiplier(state));
     pct('行星铸造厂', 1 + .03 * (result.asriel.allocations.planetaryFoundry || 0) * Math.min(state.population, state.workers.asrielResidence || 0, result.asriel.allocations.asrielResidence * 2));
   }
   if (['aluminum', 'metal', 'iridium'].includes(resource)) pct('金属精炼厂', calculateRefiningMultiplier(resource, state));

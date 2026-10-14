@@ -94,6 +94,15 @@ try {
   log($('[data-buy="nest"] .building-count')?.textContent.trim() === '1', '同建筑面板更新已建数量');
 
   log($('[data-tab="statistics"]').nextElementSibling === $('[data-tab="story"]'), '剧情主标签紧邻统计右侧');
+  click($('[data-tab="statistics"]')); await flush();
+  click($('[data-statistics-view="perks"]')); await flush();
+  log(!!$('.perk-list .empty') && !$('[data-perk]'), '无CRISPR时特权页显示空状态');
+  const perkSnapshot = JSON.parse(JSON.stringify(S().crispr));
+  store.mutate(state => { state.crispr = ['materialEfficiency', 'innovativeMaterials', 'architect']; }); await flush();
+  log(!$('[data-perk="materialEfficiency"]') && !!$('[data-perk="innovativeMaterials"]') && $('[data-perk="architect"] .perk-name').textContent.includes('建筑师'), '特权页只显示覆盖链最高级并列出独立CRISPR效果');
+  log(getComputedStyle($('[data-perk="architect"]')).borderTopStyle === 'solid' && $('[data-perk="innovativeMaterials"] .perk-current')?.textContent.includes('0.02'), '特权卡片带边框并显示当前实际数值');
+  store.mutate(state => { state.crispr = perkSnapshot; }); await flush();
+  click($('[data-tab="buildings"]')); await flush();
   log(S().story.unlocked.includes('firstShelter') && !!$('[data-story-unread-count]'), '建成首座猫窝自动收录剧情并显示未读数量');
   click($('[data-tab="story"]')); await flush();
   log($$('[data-story-phase]').length === 3 && $$('[data-story-chapter]').length === 17, '文明档案保留八章并增加第三阶段九章');
@@ -774,7 +783,12 @@ try {
       log(S().crispr.includes('geneSplicing') && S().prestige.particles === 0 && S().prestige.casimir === 0, '基因剪切购买实际扣除粒子与卡西米尔晶体');
       log(!!$('[data-prestige-row="particles"]') && !!$('[data-prestige-row="casimir"]'), '威望资源花到0后仍保留解锁显示');
       click($('[data-arpa-view="genetics"]')); await flush();
-      log(!!$('#geneModification') && $$('[data-gene]').length === 8 && $$('[data-dna-craft]').length === 4, '遗传学页出现基因修饰栏目：4个制造按钮与8个基因');
+      log(!!$('#geneModification') && $$('[data-gene]').length === 10 && $$('[data-dna-craft]').length === 4, '遗传学页出现基因修饰栏目：4个制造按钮与10个基因');
+      const geneTop = id => Math.round($(`[data-gene="${id}"]`).getBoundingClientRect().top);
+      const geneGrid = $('[data-gene-group="C"] .gene-grid');
+      log(getComputedStyle(geneGrid).gridTemplateColumns.split(' ').length === 4 && geneTop('goodCat') === geneTop('maturationAcceleration') && geneTop('goodCat') !== geneTop('superWorkshop') && $('[data-gene="goodCat"]').getBoundingClientRect().width < geneGrid.getBoundingClientRect().width / 3, '基因修饰每行4列，C类3个同行留空，G类另起一行');
+      log($('[data-gene="maturationAcceleration"]')?.closest('[data-gene-group]')?.dataset.geneGroup === 'C' && $('[data-gene="overclockForging"]')?.closest('[data-gene-group]')?.dataset.geneGroup === 'G' && $$('[data-gene="overclockForging"] .gene-bonus').length === 2, '成熟加速归C类、超频锻造归G类并分别显示两项加成');
+      log($('[data-gene="goodCat"]').getBoundingClientRect().height < 140, '基因修饰卡片紧凑');
       const resourcesPanel = $('#resources')?.closest('.panel');
       log(!!$('#specialResourcesII') && $('[data-dna-row]')?.textContent.replace(/\s+/g, ' ').trim().replace('DNA： ', 'DNA：') === 'DNA：C-0 G-0 A-0 T-0' && !!resourcesPanel?.contains($('#specialResourcesII')) && !!($('#resources').compareDocumentPosition($('#specialResourcesII')) & Node.DOCUMENT_POSITION_FOLLOWING), '特殊资源II在普通资源下方以同一行显示DNA：C/G/A/T');
       store.mutate(state => { state.resources.knowledge = 2000000; });

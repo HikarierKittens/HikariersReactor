@@ -2,6 +2,7 @@ import { CONFIG } from '../data/config';
 import type { GameState } from '../types/state';
 import type { BuildingId } from '../types/buildings';
 import { trimAssignedCraftWorkers } from './crafting';
+import { geneBonus } from './genes';
 import { addLog } from './progression';
 import { recordStarvation } from './statistics';
 
@@ -45,9 +46,9 @@ export function averageGrowthTarget(state: Pick<GameState, 'population'>): numbe
 export function calculateFoodPerCat(state: Pick<GameState, 'buildings'>): number {
   return CONFIG.foodPerCat * (state.buildings.communityCenter ? .9 : 1);
 }
-export function calculateGrowthMultiplier(state: Pick<GameState, 'tech' | 'buildings'> & Partial<Pick<GameState, 'crispr'>>): number {
+export function calculateGrowthMultiplier(state: Pick<GameState, 'tech' | 'buildings'> & Partial<Pick<GameState, 'crispr' | 'geneModification'>>): number {
   return (state.tech.includes('scientificBreeding') ? 1.25 : 1) * (state.crispr?.includes('coreReplication') ? 1.15 : 1)
-    * (state.buildings.communityCenter ? 1.1 : 1);
+    * (state.buildings.communityCenter ? 1.1 : 1) * (1 + geneBonus(state, 'maturationAcceleration'));
 }
 /** Cats above the current housing capacity leave immediately; the independent army is untouched. */
 export function enforcePopulationCapacity(state: GameState, capacity: number): number {

@@ -11,6 +11,8 @@ import { calculateAutomaticCraftingMultipliers } from '../src/simulation/craftin
 import { purchaseQueueCapacity } from '../src/simulation/purchases';
 import { buildingQueueCapacity, researchQueueCapacity } from '../src/simulation/queue-settings';
 import { calculateCrisprStorageBonus, calculateCrisprCostReduction, purchaseCrisprUpgrade } from '../src/simulation/crispr';
+import { listActivePerks } from '../src/simulation/perks';
+import { ACHIEVEMENTS } from '../src/data/progression';
 import { calculateBuildingCost, calculateBuildingScale } from '../src/simulation/costs';
 import { calculateProjectCost, investInProject } from '../src/simulation/projects';
 import { launchNuclearPrestige, resetRunState } from '../src/simulation/prestige';
@@ -128,4 +130,34 @@ test('save round trips permanent upgrades and applies caps before clamping; miss
     assert.throws(() => validateAndMigrateSave({ ...fresh(), crispr }, context), /CRISPR/);
   }
   assert.throws(() => validateAndMigrateSave({ ...fresh(), tech: ['crispr16'] }, context), /CRISPR/);
+});
+
+test('perks list shows only the highest owned tier of each chain with live values', () => {
+  const state = fresh();
+  assert.deepEqual(listActivePerks(state), []);
+  state.crispr = ['materialEfficiency', 'innovativeMaterials', 'spatialReasoning', 'dimensionCompression', 'architect'];
+  state.prestige.particles = 100;
+  const perks = listActivePerks(state);
+  assert.deepEqual(perks.map(perk => perk.id), ['innovativeMaterials', 'dimensionCompression', 'architect']);
+  assert.ok(perks.every(perk => perk.source === 'crispr'));
+  assert.ok(perks[0]!.lines.at(-1)!.includes('0.02'));
+  assert.ok(perks[1]!.lines.at(-1)!.includes('+6%'));
+  assert.deepEqual(perks[2]!.lines, [CRISPR_UPGRADES.architect.desc]);
+  state.crispr.push('dimensionDistortion', 'casimirEffect'); state.prestige.casimir = 50;
+  const storage = listActivePerks(state).filter(perk => ['spatialReasoning', 'dimensionCompression', 'dimensionDistortion', 'casimirEffect'].includes(perk.id));
+  assert.deepEqual(storage.map(perk => perk.id), ['dimensionDistortion', 'casimirEffect']);
+  assert.ok(storage[1]!.lines.at(-1)!.includes('+4%'));
+});
+
+test('earned achievements contribute perks only when they define a special effect', () => {
+  const state = fresh();
+  state.achievements = ['first'];
+  assert.deepEqual(listActivePerks(state), []);
+  const definition = ACHIEVEMENTS.first as { perk?: string };
+  definition.perk = '测试特权';
+  try {
+    assert.deepEqual(listActivePerks(state), [{ id: 'first', source: 'achievement', name: ACHIEVEMENTS.first.name, lines: ['测试特权'] }]);
+    state.achievements = [];
+    assert.deepEqual(listActivePerks(state), []);
+  } finally { delete definition.perk; }
 });

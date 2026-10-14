@@ -9,7 +9,7 @@ export const MAX_GENE_LEVEL = 50;
 export function createGeneModificationState(): GeneModificationState {
   return {
     dna: { C: 0, G: 0, A: 0, T: 0 },
-    levels: { goodCat: 0, hardWorking: 0, superWorkshop: 0, perfectionism: 0, titanPower: 0, advancedScience: 0, catCohesion: 0, kinoFire: 0 },
+    levels: { goodCat: 0, hardWorking: 0, maturationAcceleration: 0, superWorkshop: 0, perfectionism: 0, overclockForging: 0, titanPower: 0, advancedScience: 0, catCohesion: 0, kinoFire: 0 },
   };
 }
 
@@ -25,6 +25,11 @@ export function geneLevel(state: Partial<Pick<GameState, 'geneModification'>>, i
 
 export function geneBonus(state: Partial<Pick<GameState, 'geneModification'>>, id: GeneId): number {
   return geneLevel(state, id) * GENE_DEFINITIONS[id].perLevel;
+}
+
+/** Secondary per-level bonus (e.g. 超频锻造's artisan bonus); 0 when the gene has none. */
+export function geneExtraBonus(state: Partial<Pick<GameState, 'geneModification'>>, id: GeneId): number {
+  return geneLevel(state, id) * (GENE_DEFINITIONS[id].extra?.perLevel || 0);
 }
 
 /** Upgrade price in the gene's own DNA base: 10·2^level. */

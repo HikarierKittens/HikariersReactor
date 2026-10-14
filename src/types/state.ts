@@ -16,7 +16,7 @@ export interface BlackHoleState {
 }
 /** 特殊资源II: DNA bases crafted from knowledge for 基因修饰. */
 export type DnaId = 'C' | 'G' | 'A' | 'T';
-export type GeneId = 'goodCat' | 'hardWorking' | 'superWorkshop' | 'perfectionism' | 'titanPower' | 'advancedScience' | 'catCohesion' | 'kinoFire';
+export type GeneId = 'goodCat' | 'hardWorking' | 'maturationAcceleration' | 'superWorkshop' | 'perfectionism' | 'overclockForging' | 'titanPower' | 'advancedScience' | 'catCohesion' | 'kinoFire';
 /** Run-scoped gene modification: DNA stock and gene levels reset with every run. */
 export interface GeneModificationState { dna: Record<DnaId, number>; levels: Record<GeneId, number> }
 export type GovernmentId = 'none' | 'democracy' | 'militaryRule' | 'oligarchy' | 'technocracy' | 'industrialism';
