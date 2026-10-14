@@ -47,3 +47,13 @@ export function calculateCasimirReward(particleReward: number): number {
   const raw = particleReward / 8;
   return Math.floor(raw <= 100 ? raw : 100 + (raw - 100) * .05);
 }
+/** 黑洞重置 particles: larger base and a later, gentler soft cap than escape. */
+export function calculateBlackHoleParticleReward(state: Pick<GameState, 'population' | 'soldiers'>): number {
+  const raw = (state.population + state.soldiers) / 2 + 250;
+  return Math.floor(raw <= 800 ? raw : 800 + (raw - 800) * .3);
+}
+/** 黑洞重置 Casimir from the final particle reward, with a higher soft cap than escape. */
+export function calculateBlackHoleCasimirReward(particleReward: number): number {
+  const raw = particleReward / 6;
+  return Math.floor(raw <= 150 ? raw : 150 + (raw - 150) * .1);
+}

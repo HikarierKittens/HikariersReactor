@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { GameState } from '../../types/state';
 import type { ResourceId } from '../../types/economy';
 import { RESOURCES } from '../../data/resources';
@@ -7,12 +7,30 @@ import { calculateContainerCapacity, countAssignedContainers, isContainerAssigna
 import { canPayCost } from '../../simulation/costs';
 import { isResourceUnlocked } from '../../simulation/unlocks';
 import { clickMultiplier, fmt, orderedCostEntries } from '../format';
+import { uiPreview } from '../preview-cache';
+import { calculateAllocatedEjection, calculateEjectedMassRate, calculateEjectionCapacity, ejectionMass, formatBlackHoleMass, isEjectableResource, isExoticResource } from '../../simulation/black-hole';
 
 const props = defineProps<{ state: GameState; revision: number }>();
 const emit = defineEmits<{
   manufacture: [count: number];
   assign: [id: ResourceId, delta: number];
+  eject: [id: ResourceId, delta: number];
 }>();
+
+const view = ref<'containers' | 'massEjection'>('containers');
+const ejectionUnlocked = computed(() => { props.revision; return (props.state.buildings.massEjector || 0) > 0; });
+watch(ejectionUnlocked, unlocked => { if (!unlocked) view.value = 'containers'; });
+const ejectionCapacity = computed(() => { props.revision; return calculateEjectionCapacity(props.state); });
+const ejectionAllocated = computed(() => { props.revision; return calculateAllocatedEjection(props.state); });
+const ejected = computed(() => { props.revision; return ejectionUnlocked.value ? uiPreview.production(props.state, props.revision).ejected : {}; });
+const massRate = computed(() => calculateEjectedMassRate(ejected.value));
+const ejectionRows = computed(() => {
+  props.revision;
+  return (Object.keys(RESOURCES) as ResourceId[])
+    .filter(id => isEjectableResource(id) && isResourceUnlocked(id, props.state))
+    .map(id => ({ id, definition: RESOURCES[id], rate: props.state.blackHole.ejection[id] || 0, actual: ejected.value[id] || 0, mass: ejectionMass(id), exotic: isExoticResource(id) }));
+});
+function mass(value: number): string { return value >= .001 || value === 0 ? formatBlackHoleMass(value) : value.toExponential(2); }
 
 const capacity = computed(() => { props.revision; return calculateContainerCapacity(props.state); });
 const owned = computed(() => { props.revision; return props.state.containers || 0; });
@@ -38,9 +56,32 @@ const rows = computed(() => {
 
 <template>
   <nav class="tabs" aria-label="资源管理分类">
-    <button class="active" aria-pressed="true">集装箱</button>
+    <button data-resource-view="containers" :class="{ active: view === 'containers' }" :aria-pressed="view === 'containers'" @click="view = 'containers'">集装箱</button>
+    <button v-if="ejectionUnlocked" data-resource-view="massEjection" :class="{ active: view === 'massEjection' }" :aria-pressed="view === 'massEjection'" @click="view = 'massEjection'">质量喷射</button>
   </nav>
-  <p v-if="!capacity && !owned" class="empty">建造提供集装箱上限的建筑后解锁。初始上限为0。</p>
+  <template v-if="view === 'massEjection' && ejectionUnlocked">
+    <div class="settings">
+      <section>
+        <p id="ejectionSummary">喷射容量 {{ fmt(ejectionAllocated) }} / {{ fmt(ejectionCapacity) }} /s · 空闲 {{ fmt(Math.max(0, ejectionCapacity - ejectionAllocated)) }} /s</p>
+        <p>黑洞质量：<strong id="blackHoleMass">{{ formatBlackHoleMass(state.blackHole.mass) }}</strong> · 奇异质量：<strong id="blackHoleExoticMass">{{ formatBlackHoleMass(state.blackHole.exoticMass) }}</strong></p>
+        <p class="small subtle">当前增长：质量 +{{ mass(massRate.mass) }}/s · 奇异质量 +{{ mass(massRate.exoticMass) }}/s</p>
+        <p class="small subtle">每单位喷射容量每秒喷射1单位资源。质量喷射器需完整供电；电力不足时按供电比例减少喷射，库存不足时只喷射现有库存。分配支持 Ctrl ×10、Shift ×25、Alt ×100。</p>
+      </section>
+    </div>
+    <div class="detail-grid">
+      <article v-for="row in ejectionRows" :key="row.id" class="card" :data-eject-row="row.id">
+        <div class="card-top"><div class="card-title"><h3>{{ row.definition.icon }} {{ row.definition.name }}</h3></div></div>
+        <p class="small subtle">每单位{{ row.exotic ? '奇异质量' : '质量' }} {{ mass(row.mass) }}</p>
+        <div class="workers">
+          <button :data-eject-resource="row.id" :data-delta="-1" :disabled="row.rate <= 0" :aria-label="`减少${row.definition.name}喷射`" @click="emit('eject', row.id, -10 * clickMultiplier($event))">−</button>
+          <strong>{{ fmt(row.rate) }}/s</strong>
+          <button :data-eject-resource="row.id" :data-delta="1" :disabled="ejectionAllocated >= ejectionCapacity" :aria-label="`增加${row.definition.name}喷射`" @click="emit('eject', row.id, 10 * clickMultiplier($event))">+</button>
+          <span class="small subtle">实际 {{ fmt(row.actual) }}/s</span>
+        </div>
+      </article>
+    </div>
+  </template>
+  <p v-else-if="!capacity && !owned" class="empty">建造提供集装箱上限的建筑后解锁。初始上限为0。</p>
   <template v-else>
     <div class="settings">
       <section>

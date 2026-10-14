@@ -6,7 +6,7 @@ import type { GameState } from '../types/state';
 /** Funded-ratio producers in 遥远星际 (hyperspace regions plus 天元六alpha星区). */
 export const HYPERSPACE_SOURCE_IDS: readonly BuildingId[] = ['comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'metalMiningShip', 'fuelMiningShip', 'adamantiteMiningShip', 'grapheneFactory'];
 /** Hyperspace buildings with maintenance but no resource output (settled after the sources). */
-export const HYPERSPACE_CONSUMER_IDS: readonly BuildingId[] = ['e710ResearchStation', 'blackHoleStation'];
+export const HYPERSPACE_CONSUMER_IDS: readonly BuildingId[] = ['e710ResearchStation', 'blackHoleStation', 'massEjector'];
 export function isHyperspaceSource(id: BuildingId): boolean {
   return id === 'iceMiningShip' || HYPERSPACE_SOURCE_IDS.includes(id);
 }

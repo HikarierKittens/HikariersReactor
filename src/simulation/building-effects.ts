@@ -39,6 +39,8 @@ export function getBuildingEffectRows(id: BuildingId, state: Pick<GameState, 'te
     case 'iceMiningShip':
     case 'asteroidBase':
       return [{ label: '占用喷发小行星群支持', value: '1' }];
+    case 'massEjector':
+      return [{ label: '喷射容量', value: '+1000/s', note: '需完整供电；在资源管理 → 质量喷射中分配。' }];
     case 'spaceRipper': {
       const stations = snapshot.blackHoleStations || 0;
       return [{ label: '知识容量', value: `+${percent(calculateRipperKnowledgeBonusValue(stations))}`,

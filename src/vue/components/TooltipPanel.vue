@@ -20,10 +20,11 @@ import { SPACE_MISSIONS, REGIONAL_MISSIONS, calculateRegionalMissionCost, isRegi
 import { calculateBuildingInput, calculateBuildingOutput, calculateToolMultiplier, calculateBuildingName } from '../../simulation/building-production';
 import { getBuildingEffectRows, calculateFreightCapacityMultiplier, SPACE_RIPPER_OVERCLOCK_DESC } from '../../simulation/building-effects';
 import { calculateStorageBonuses } from '../../simulation/storage-bonuses';
-import { calculateStorageDetails } from '../../simulation/storage';
+import { calculateStorageDetails, calculateDarkEnergyStorageBonus } from '../../simulation/storage';
 import { calculateHousingDetails } from '../../simulation/housing';
 import { calculateQuantumSnapshot, calculateQuantumLevel } from '../../simulation/quantum';
 import { uiPreview } from '../preview-cache';
+import { calculateGravityConversionEnergy, formatBlackHoleMass } from '../../simulation/black-hole';
 import { calculateResourceBreakdown, calculateResourceFactorRows, calculateResourceExpenseRows, signedRate } from '../../simulation/resource-breakdown';
 import { calculateArtistEffect } from '../../simulation/morale';
 import { calculateEffectiveParticles, calculateParticleMultiplier } from '../../simulation/crafting';
@@ -52,6 +53,7 @@ interface TipContent {
   income: DetailRow[];
   expense: DetailRow[];
   footnote: string;
+  warning?: string;
   resourceTiming: string;
 }
 function number(n: number): string { return Number.isFinite(n) ? fmt(n) : '∞'; }
@@ -125,7 +127,10 @@ const content = computed<TipContent | null>(() => {
     const id = target.id as BuildingId, building = BUILDINGS[id];
     const count = state.buildings[id] || 0;
     tip.title = calculateBuildingName(id, state);
-    if (['alienMaterialLab', 'aiSupercore', 'swarmFactory', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'signalRepeater', 'hydrogenPowerPlant', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'vrCenter', 'stellarForge', 'blackHoleStation', 'penroseSphere'].includes(id)) tip.description = building.desc || '';
+    if (['alienMaterialLab', 'aiSupercore', 'swarmFactory', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'signalRepeater', 'hydrogenPowerPlant', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'vrCenter', 'stellarForge', 'blackHoleStation', 'penroseSphere', 'massEjector'].includes(id)) tip.description = building.desc || '';
+    // 质量喷射 reveals the black hole's masses on the sphere it feeds.
+    if (id === 'penroseSphere' && (state.buildings.massEjector || 0) > 0) tip.description += `\n黑洞质量：${formatBlackHoleMass(state.blackHole.mass)}\n奇异质量：${formatBlackHoleMass(state.blackHole.exoticMass)}`;
+    if (id === 'penroseSphere' && state.tech.includes('gravityConversion')) tip.description += `\n引力转化：电力+${formatEffectNumber(calculateGravityConversionEnergy(state))}/s`;
     if (id === 'iceMiningShip' && state.tech.includes('icebreakingPlan')) tip.description = (building.desc || '').replace('水产量+1/s', '水产量+1.25/s');
     if (id === 'aiSupercore') tip.description = `分段进度： ${Math.min(count, building.segmentedRequired!)} /${building.segmentedRequired}\n量子水平 +25%\n氦-3 - 25/s`;
     const queueUid = Number(anchor.value?.dataset.queueUid);
@@ -311,6 +316,7 @@ const content = computed<TipContent | null>(() => {
     const id = target.id as TechnologyId, tech = TECHNOLOGIES[id];
     tip.title = tech.name;
     tip.description = tech.desc;
+    if (tech.warning) tip.warning = tech.warning;
     tip.costs = prices(calculateTechCost(id, state));
     add('状态', state.tech.includes(id) ? '已研究' : state.queue.some(item => item.kind === 'tech' && item.id === id) ? '已在研究队列' : '未研究');
     if (tech.prestigeResetsRequired) add('所需威望重置次数（不含软重置）', String(tech.prestigeResetsRequired));
@@ -388,6 +394,13 @@ const content = computed<TipContent | null>(() => {
     add('当前猫口 / 容量', `${number(state.population)} / ${number(floorWithPrecision(housing.reduce((sum, row) => sum + row.value, 0)))}`);
     for (const row of housing) add(row.name, `+${number(row.value)}`);
 
+  } else if (target.kind === 'prestige' && target.id === 'darkEnergy') {
+    tip.title = '暗能量';
+    tip.description = '暗能量通过奇异失控引发的黑洞重置获得，跨周目保留。每个暗能量使普通资源储量提高1%（暗能量加成）。';
+    add('当前持有', number(state.prestige.darkEnergy));
+    add('每个暗能量', '普通资源储量 +1%');
+    add('暗能量储量倍率', `×${number(1 + calculateDarkEnergyStorageBonus(state))}`);
+    tip.footnote = '暗能量加成与粒子、卡西米尔储量加成独立相乘，不影响电力、知识和锻造物。';
   } else if (target.kind === 'prestige' && target.id === 'casimir') {
     tip.title = '卡西米尔晶体';
     tip.description = '卡西米尔晶体可以推迟粒子的软上限，减轻粒子产量加成的衰减。通过发射ESS-喵星号离开太阳系获得，跨周目保留。';
@@ -517,7 +530,8 @@ onUnmounted(() => {
   <Teleport :to="anchor?.closest('dialog') || 'body'">
     <div v-if="content" ref="panel" id="gameTooltip" class="building-tooltip" :class="{ 'resource-detail': selected?.kind === 'resource' }" role="tooltip" :style="position">
       <h3>{{ content.title }}</h3>
-      <p v-if="content.description" class="tip-desc" :style="selected?.kind === 'building' && ['aiSupercore', 'spaceRipper'].includes(selected.id) ? { whiteSpace: 'pre-line' } : undefined">{{ content.description }}</p>
+      <p v-if="content.description" class="tip-desc" :style="selected?.kind === 'building' && ['aiSupercore', 'spaceRipper', 'penroseSphere'].includes(selected.id) ? { whiteSpace: 'pre-line' } : undefined">{{ content.description }}</p>
+      <p v-if="content.warning" class="tip-desc danger" data-tech-warning>{{ content.warning }}</p>
       <template v-if="content.costs.length">
         <p class="tip-label">{{ selected?.kind === 'arpa' || selected?.kind === 'ship' || anchor?.dataset.queueUid ? '剩余资源需求' : selected?.kind === 'building' && BUILDINGS[selected.id as BuildingId]?.segmentedRequired ? '每段固定价格' : '当前价格' }}</p>
         <div v-for="cost in content.costs" :key="cost.id" class="tip-cost" :class="{ 'is-cap-blocked': cost.blocked, 'is-missing': !cost.blocked && cost.missing }">{{ cost.name }} {{ selected?.kind === 'building' && ['swarmSatellite', 'swarmFactory'].includes(selected.id) && cost.amount < 1 ? '0' : number(cost.amount) }}</div>

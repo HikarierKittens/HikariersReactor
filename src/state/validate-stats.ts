@@ -31,6 +31,7 @@ export function validateStatistics(raw: Record<string, unknown>, state: GameStat
   stats.lifetime.particlesEarned = counter(lifetime.particlesEarned, recoverableParticles, '粒子获取统计');
   const recoverableCasimir = Math.min(Number.MAX_SAFE_INTEGER, (state.prestige.casimir || 0) + state.crispr.reduce((sum, id) => sum + (CRISPR_UPGRADES[id].casimirCost || 0), 0));
   stats.lifetime.casimirEarned = counter(lifetime.casimirEarned, recoverableCasimir, '卡西米尔获取统计');
+  stats.lifetime.darkEnergyEarned = counter(lifetime.darkEnergyEarned, state.prestige.darkEnergy || 0, '暗能量获取统计');
   state.statistics = stats;
   state.starvationElapsed = counter(raw.starvationElapsed, 0, '饥饿计时');
 }

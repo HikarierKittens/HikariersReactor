@@ -6,6 +6,7 @@ import { advanceSoldierTraining } from './military';
 import { calculateProduction } from './production';
 import { advancePopulationGrowth, advanceStarvation, enforcePopulationCapacity } from './population';
 import { recordGameDays } from './statistics';
+import { applyMassEjection, BLACK_HOLE_UNSTABLE_LOG } from './black-hole';
 import type { GameState } from '../types/state';
 
 /** Transitional application hooks keep UI, queue notifications and previews outside simulation. */
@@ -24,6 +25,7 @@ export function advanceGameTick(state: GameState, dt: number, hooks: TickHooks):
   const foodBefore = state.resources.food;
   const result = calculateProduction(state, dt);
   state.resources = result.pool;
+  if (applyMassEjection(state, result.ejected, dt)) addLog(state, BLACK_HOLE_UNSTABLE_LOG, 'event');
   const corePreviouslyActivated = state.stageThree.coreActivated;
   updateStageThreeProgress(state, result);
   updateStoryProgress(state);

@@ -15,8 +15,9 @@ export function validatePrestigeUnlocks(raw: Record<string, unknown>, state: Gam
   const value = raw.prestigeUnlocked;
   if (value === undefined) {
     const unlocked: PrestigeResourceId[] = [];
-    if (state.crispr.length || state.prestige.nuclearResets + state.prestige.escapeResets > 0) unlocked.push('particles');
-    if (state.prestige.escapeResets > 0) unlocked.push('casimir');
+    if (state.crispr.length || state.prestige.nuclearResets + state.prestige.escapeResets + state.prestige.blackHoleResets > 0) unlocked.push('particles');
+    if (state.prestige.escapeResets + state.prestige.blackHoleResets > 0) unlocked.push('casimir');
+    if (state.prestige.blackHoleResets > 0) unlocked.push('darkEnergy');
     state.prestigeUnlocked = unlocked;
   } else {
     if (!Array.isArray(value) || new Set(value).size !== value.length

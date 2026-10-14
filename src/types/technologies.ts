@@ -122,7 +122,11 @@ export type TechnologyId =
   | 'scientificBreeding'
   | 'communityAdmin'
   | 'scientificAdministration'
-  | 'intelligentManagementSystem';
+  | 'intelligentManagementSystem'
+  | 'massEjector'
+  | 'gravityConversion'
+  | 'stabilizeBlackHole'
+  | 'exoticRunaway';
 
 export interface TechnologyDefinition {
   name: string;
@@ -132,6 +136,12 @@ export interface TechnologyDefinition {
   cost: ResourceRecipe;
   pre: TechnologyId[];
   desc: string;
+  /** Extra warning line rendered in red below the description. */
+  warning?: string;
+  /** Special techs that can be researched again after their gate re-opens. */
+  repeatable?: boolean;
+  /** Researching immediately triggers a prestige reset; needs explicit confirmation. */
+  prestigeReset?: boolean;
   buildingQueueBonus?: number;
   researchQueueBonus?: number;
   arpaPre?: ArpaProjectId;

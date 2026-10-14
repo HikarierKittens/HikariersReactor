@@ -116,6 +116,7 @@ function accumulateStorageRows(
         if (totals) totals.cash = (totals.cash || 0) + preBonusSubtotal * crispr.casimirBonus;
         rows.push({ name: CRISPR_UPGRADES.casimirEffect.name, value: preBonusSubtotal * crispr.casimirBonus });
       }
+      pushDarkEnergyRow(state, 'cash', totals, rows);
     }
   } else if (detailResource && !RESOURCES[detailResource].special && rows) {
     // CRISPR bonuses both scale the same pre-bonus row subtotal (additive bonus rows);
@@ -129,8 +130,22 @@ function accumulateStorageRows(
       if (totals) totals[detailResource] = (totals[detailResource] || 0) + preBonusSubtotal * crispr.casimirBonus;
       rows.push({ name: CRISPR_UPGRADES.casimirEffect.name, value: preBonusSubtotal * crispr.casimirBonus });
     }
+    pushDarkEnergyRow(state, detailResource, totals, rows);
   }
   if (totals && detailResource && !totals[detailResource]) totals[detailResource] ||= 0;
+}
+
+/** Each 暗能量 raises ordinary-resource storage by 1%, multiplied after the CRISPR bonuses. */
+export const DARK_ENERGY_STORAGE_RATE = .01;
+export function calculateDarkEnergyStorageBonus(state: Pick<GameState, 'prestige'>): number {
+  return Math.max(0, state.prestige.darkEnergy || 0) * DARK_ENERGY_STORAGE_RATE;
+}
+function pushDarkEnergyRow(state: GameState, resource: ResourceId, totals: Partial<Record<ResourceId, number>> | null, rows: StorageDetails['rows']): void {
+  const bonus = calculateDarkEnergyStorageBonus(state);
+  if (!bonus) return;
+  const subtotal = rows.reduce((total, row) => total + row.value, 0);
+  if (totals) totals[resource] = (totals[resource] || 0) + subtotal * bonus;
+  rows.push({ name: '暗能量加成', value: subtotal * bonus });
 }
 
 /** Per completed 空间撕裂者: 20% plus 1% per funded 黑洞星际站. */
@@ -187,6 +202,14 @@ export function calculateStorageTotals(state: GameState, snapshot: StorageSnapsh
       if (RESOURCES[resource].crafted || RESOURCES[resource].special) continue;
       const subtotal = totals[resource] || 0;
       totals[resource] = subtotal + subtotal * (crispr.particleBonus + crispr.casimirBonus);
+    }
+  }
+  // 暗能量 multiplies the post-CRISPR subtotal independently (not added to the particle bonus).
+  const darkBonus = calculateDarkEnergyStorageBonus(state);
+  if (darkBonus) {
+    for (const resource of Object.keys(RESOURCES) as ResourceId[]) {
+      if (RESOURCES[resource].crafted || RESOURCES[resource].special) continue;
+      totals[resource] = (totals[resource] || 0) * (1 + darkBonus);
     }
   }
   // Each completed 空间撕裂者 raises the knowledge cap by 20% (passive, ignores funding).

@@ -4,7 +4,16 @@ import type { CraftId, FactoryLineId, ResourceAmounts, ResourceId, ResourceRecip
 import type { TechnologyId } from './technologies';
 
 export type CrisprUpgradeId = 'materialEfficiency' | 'innovativeMaterials' | 'structuralReinforcement' | 'physicsLaws' | 'halfLife3' | 'geneOptimization' | 'spatialReasoning' | 'dimensionCompression' | 'dimensionDistortion' | 'casimirEffect' | 'coreReplication' | 'technician' | 'masterArtisan' | 'architect' | 'challengeGene' | 'geneSplicing';
-export type PrestigeResourceId = 'particles' | 'casimir';
+export type PrestigeResourceId = 'particles' | 'casimir' | 'darkEnergy';
+/** Run-scoped black hole fed by 质量喷射器; masses keep full float precision. */
+export interface BlackHoleState {
+  mass: number;
+  exoticMass: number;
+  /** Set when exotic mass reaches the instability threshold; cleared by 稳定黑洞. */
+  unstable: boolean;
+  /** Ejection allocation in units/s per resource. */
+  ejection: Partial<Record<ResourceId, number>>;
+}
 /** 特殊资源II: DNA bases crafted from knowledge for 基因修饰. */
 export type DnaId = 'C' | 'G' | 'A' | 'T';
 export type GeneId = 'goodCat' | 'hardWorking' | 'superWorkshop' | 'perfectionism' | 'titanPower' | 'advancedScience' | 'catCohesion' | 'kinoFire';
@@ -40,7 +49,7 @@ export interface RunStatistics {
   days: number;
 }
 export interface GameStatistics {
-  lifetime: RunStatistics & { particlesEarned: number; casimirEarned: number };
+  lifetime: RunStatistics & { particlesEarned: number; casimirEarned: number; darkEnergyEarned: number };
   run: RunStatistics;
 }
 
@@ -71,7 +80,7 @@ export interface GameState {
   lastReformTime: number | null;
   furUnlocked: boolean;
   unlockedResources: ResourceId[];
-  prestige: { particles: number; casimir: number; nuclearResets: number; escapeResets: number; softResets: number };
+  prestige: { particles: number; casimir: number; darkEnergy: number; nuclearResets: number; escapeResets: number; blackHoleResets: number; softResets: number };
   /** Prestige resources ever held; stays unlocked when the amount later returns to 0. */
   prestigeUnlocked: PrestigeResourceId[];
   crispr: CrisprUpgradeId[];
@@ -111,6 +120,7 @@ export interface GameState {
   misenMissionCompleted: boolean;
   neutronStarMissionCompleted: boolean;
   blackHoleMissionCompleted: boolean;
+  blackHole: BlackHoleState;
   shipResourceProgress: Partial<Record<ShipComponentId, ShipResourceProgress>>;
   shipComponents: Record<ShipComponentId, boolean>;
   happiness: number;

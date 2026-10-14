@@ -167,6 +167,8 @@ export function calculateResourceBreakdown(
   if (resource === 'energy' && (result.inputUnits.automatedQuarry || 0) > 0) {
     entries.push({ id: 'automatedQuarry', kind: 'expense', name: '自动化采石场消耗', value: -(result.inputUnits.automatedQuarry ?? 0), note: '每座实际供能采石场消耗 1 电力/s' });
   }
+  const ejectedRate = result.ejected?.[resource] || 0;
+  if (ejectedRate > 0) entries.push({ id: 'massEjection', kind: 'expense', name: '质量喷射消耗', value: -ejectedRate, note: '按喷射分配与可用库存实际喷入黑洞的数量' });
   if (resource === 'food') {
     const perCat = calculateFoodPerCat(state);
     entries.push({ id: 'population', kind: 'expense', name: '猫口口粮', value: -state.population * perCat, note: `${state.population} 只猫 × ${perCat}/s（包含工作猫与闲置猫）` });

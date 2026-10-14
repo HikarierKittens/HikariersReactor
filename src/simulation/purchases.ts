@@ -4,6 +4,7 @@ import { countRunningBuildings } from './housing';
 import { calculateSwarmSupportCapacity } from './quantum';
 import { recordKnowledgeSpent } from './statistics';
 import { addLog } from './progression';
+import { MASS_EJECTION_UNLOCK_LOG, stabilizeBlackHole } from './black-hole';
 import { BUILDINGS } from '../data/buildings';
 import { TECHNOLOGIES } from '../data/technologies';
 import { ARPA_PROJECTS } from '../data/projects';
@@ -64,7 +65,9 @@ export function isPurchaseAllowed(state: GameState, kind: string, id: string): b
   if (kind === 'mission') return isRegionalMissionId(id) && isRegionalMissionAvailable(state, id) && !isRegionalMissionCompleted(state, id);
   if (kind === 'arpa') return isProjectUnlocked(id, state) && !isProjectAtLimit(id, state);
   if (kind === 'tech') {
+    // Prestige-reset techs (奇异失控) only run through their confirmation dialog.
     return Object.hasOwn(TECHNOLOGIES, id)
+      && !TECHNOLOGIES[id as TechnologyId].prestigeReset
       && !state.tech.includes(id as TechnologyId)
       && isTechnologyUnlocked(id, state);
   }
@@ -120,11 +123,13 @@ export function constructBuildingState(state: GameState, id: BuildingId, moonAva
     state.stoppedBuildings[id] = (state.stoppedBuildings[id] || 0) + 1;
   }
   // The last segment of 空间撕裂者 completes the current main storyline.
+  if (id === 'massEjector' && state.buildings[id] === 1) addLog(state, MASS_EJECTION_UNLOCK_LOG, 'event');
   if (id === 'spaceRipper' && state.buildings[id] === building.segmentedRequired) {
     addLog(state, SPACE_RIPPER_COMPLETED_LOG, 'event');
   }
 }
 export const SPACE_RIPPER_COMPLETED_LOG = '当前游戏主线部分已完成喵，请等待未来更新喵';
+export const STABILIZE_BLACK_HOLE_LOG = '黑洞已稳定：奇异质量按40倍转化为普通质量，并加入了100k中子的质量。';
 export const OVERCLOCKING13_LOG = '空间撕裂者在虚空中撕开了空间，形成了一个黑洞！';
 
 export interface ResearchSideEffects {
@@ -139,6 +144,12 @@ export interface ResearchSideEffects {
 export function applyResearchSideEffects(state: GameState, id: TechnologyId, previousTech: TechnologyId[]): ResearchSideEffects {
   if (id === 'dimensionBeaconDeployment' && !previousTech.includes(id)) addLog(state, '投放维度探测信标后，虚空之中传来了另一个信号');
   if (id === 'overclocking13' && !previousTech.includes(id)) addLog(state, OVERCLOCKING13_LOG, 'event');
+  // 稳定黑洞 is repeatable: apply once, then drop it so it reappears on the next instability.
+  if (id === 'stabilizeBlackHole') {
+    stabilizeBlackHole(state);
+    state.tech = state.tech.filter(tech => tech !== id);
+    addLog(state, STABILIZE_BLACK_HOLE_LOG, 'event');
+  }
   const before = { ...state, tech: previousTech };
   const poweredShutdown: BuildingId[] = [];
   for (const buildingId of Object.keys(BUILDINGS) as BuildingId[]) {

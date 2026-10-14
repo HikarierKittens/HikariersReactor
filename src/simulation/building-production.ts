@@ -1,3 +1,4 @@
+import { calculateGravityConversionEnergy } from './black-hole';
 import { BUILDINGS } from '../data/buildings';
 import { CONFIG } from '../data/config';
 import { applySpaceFuelDiscount } from './space-fuel';
@@ -82,6 +83,10 @@ function calculateRawBuildingOutput(id: BuildingId, state: GameState, inputs: Pr
   if (id === 'helium3Mine' && state.tech.includes('helium3ExtractionOptimization')) return { ...output, helium3: .25 };
   if (id === 'fissionGenerator' && state.tech.includes('breederReactor')) return { energy: 20 };
   if (id === 'spaceRipper' && state.tech.includes('ripperOverclock')) return { energy: SPACE_RIPPER_OVERCLOCK_ENERGY };
+  // 引力转化 is a whole-sphere bonus, spread over the built segments so every settlement path agrees.
+  if (id === 'penroseSphere' && state.tech.includes('gravityConversion') && (state.buildings.penroseSphere || 0) > 0 && state.blackHole) {
+    return { energy: (output.energy || 0) + calculateGravityConversionEnergy(state) / state.buildings.penroseSphere };
+  }
   if (id === 'quarry' && state.buildings.metalRefinery > 0) return { ...output, aluminum: 1 };
   if (id === 'coalMine' && state.tech.includes('nuclearEnergy')) return { ...output, uranium: (output.coal || 0) * .05 };
   return output;

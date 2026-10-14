@@ -12,6 +12,7 @@ import { validateGeneModification, validatePrestigeUnlocks } from './validate-ge
 import { validateChallenges } from './validate-challenges';
 import { validateHistory } from './validate-history';
 import { validateStatistics } from './validate-stats';
+import { validateBlackHole } from './validate-black-hole';
 import { validateProjectRecords } from './validate-projects';
 import { validateSaveSpaceship } from './validate-spaceship';
 import { validateSaveQueue } from './validate-queue';
@@ -106,6 +107,7 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
   validateUnlockRecords(raw, state);
   validatePopulationRecords(raw, state, context.housingCapacity(state), context.now);
   validateCivilization(raw, state);
+  validateBlackHole(raw, state);
   validatePrestigeUnlocks(raw, state);
   validateFactoryAssignments(raw.lines, state);
   validateSmelterAssignments(raw.smelterIdle, state);

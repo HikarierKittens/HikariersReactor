@@ -1,6 +1,6 @@
 import type { GameState, PrestigeResourceId } from '../types/state';
 
-export const PRESTIGE_RESOURCE_IDS: readonly PrestigeResourceId[] = ['particles', 'casimir'];
+export const PRESTIGE_RESOURCE_IDS: readonly PrestigeResourceId[] = ['particles', 'casimir', 'darkEnergy'];
 
 /** Displayed once ever held: the sticky record, or a currently positive amount. */
 export function isPrestigeResourceUnlocked(state: Pick<GameState, 'prestige'> & Partial<Pick<GameState, 'prestigeUnlocked'>>, id: PrestigeResourceId): boolean {

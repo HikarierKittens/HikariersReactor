@@ -5,7 +5,7 @@ import type { GameState } from '../../types/state';
 
 const props = defineProps<{ state: GameState; revision: number }>();
 const statistics = computed(() => { props.revision; return props.state.statistics; });
-const resets = computed(() => { props.revision; return props.state.prestige.softResets + props.state.prestige.nuclearResets + props.state.prestige.escapeResets; });
+const resets = computed(() => { props.revision; return props.state.prestige.softResets + props.state.prestige.nuclearResets + props.state.prestige.escapeResets + props.state.prestige.blackHoleResets; });
 function number(value: number): string { return value.toLocaleString('zh-CN', { maximumFractionDigits: 2 }); }
 function gameDays(value: number): string {
   const days = Math.floor(value);
@@ -21,6 +21,7 @@ function gameDays(value: number): string {
         <div><dt>重置总次数</dt><dd>{{ number(resets) }}</dd></div>
         <div><dt>核爆次数</dt><dd>{{ number(state.prestige.nuclearResets) }}</dd></div>
         <div><dt>逃离重置次数</dt><dd>{{ number(state.prestige.escapeResets) }}</dd></div>
+        <div><dt>黑洞重置次数</dt><dd>{{ number(state.prestige.blackHoleResets) }}</dd></div>
       </dl>
     </section>
     <section>
@@ -30,6 +31,8 @@ function gameDays(value: number): string {
         <div><dt>卡西米尔获取量累计</dt><dd>{{ number(statistics.lifetime.casimirEarned) }}</dd></div>
         <div><dt>当前卡西米尔</dt><dd>{{ number(state.prestige.casimir) }}</dd></div>
         <div><dt>卡西米尔提供的粒子软上限增量</dt><dd>+{{ number(state.prestige.casimir) }}</dd></div>
+        <div><dt>暗能量获取量累计</dt><dd>{{ number(statistics.lifetime.darkEnergyEarned) }}</dd></div>
+        <div><dt>当前暗能量</dt><dd>{{ number(state.prestige.darkEnergy) }}</dd></div>
       </dl>
     </section>
     <section>
@@ -50,7 +53,7 @@ function gameDays(value: number): string {
         <div><dt>游戏天数</dt><dd>{{ gameDays(statistics.run.days) }}</dd></div>
       </dl>
     </section>
-    <p class="small subtle">每 {{ CONFIG.secondsPerDay }} 秒为游戏 1 天，每年 {{ CONFIG.daysPerYear }} 天。软重置、核爆与逃离重置保留历史统计；硬重置清空全部统计。</p>
+    <p class="small subtle">每 {{ CONFIG.secondsPerDay }} 秒为游戏 1 天，每年 {{ CONFIG.daysPerYear }} 天。软重置、核爆、逃离与黑洞重置保留历史统计；硬重置清空全部统计。</p>
     <p class="small subtle">旧存档只能从当前游戏时间恢复天数；无法推断的历史消耗与死亡从 0 开始。旧档粒子累计按当前持有量加已购 CRISPR 的现行价格估算，不代表完整历史。</p>
   </div>
 </template>

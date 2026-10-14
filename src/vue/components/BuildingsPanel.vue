@@ -76,7 +76,7 @@ const sections = computed(() => {
     if (props.state.tech.includes('overclocking13')) regions.push({ id: 'alphaSector', name: '天元六alpha星区', list: (['adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) });
     if (props.state.tech.includes('energyShield')) regions.push(
       { id: 'neutronStar', name: '卡尔维拉', list: (['stellarForge'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) },
-      { id: 'blackHole', name: 'DSR-8086', list: (['blackHoleStation', 'penroseSphere'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) },
+      { id: 'blackHole', name: 'DSR-8086', list: (['blackHoleStation', 'penroseSphere', 'massEjector'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) },
     );
     return regions.filter(section => section.list.length || ['dimensionalBoundary', 'alphaSector', 'neutronStar', 'blackHole'].includes(section.id));
   }

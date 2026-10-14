@@ -16,6 +16,7 @@ import { isPowerProducer } from './power';
 import { countRunningBuildings } from './housing';
 import { buildSettlementLedger } from './support-preview';
 import { replaySettledPool } from './pool-replay';
+import { settleMassEjection } from './black-hole';
 import type { BuildingId } from '../types/buildings';
 import type { GameState } from '../types/state';
 
@@ -74,8 +75,10 @@ export function calculateProduction(state: GameState, dt = 1) {
     const crafting = settleAutomaticCrafting(state, pool, dt, asriel);
     Object.assign(inputUnits, crafting.inputs); Object.assign(outputs, crafting.outputs);
     Object.assign(outputs, settlePopulationIncome(state, pool, morale.happiness, dt));
+    // 质量喷射: withdraw after every producer so same-step output can be ejected.
+    const ejected = settleMassEjection(state, pool, dt, inputUnits.massEjector || 0);
     const final = finalizeProduction(state, pool, before, dt, { stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, blackHoleStationUnits: ledger.blackHoleStationUnits });
-    return { ...final, outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree };
+    return { ...final, outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected };
   });
 }
 export type ProductionResult = ReturnType<typeof calculateProduction>;

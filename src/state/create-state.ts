@@ -3,6 +3,7 @@ import { ARPA_PROJECTS } from '../data/projects';
 import { RESOURCES, CRAFT_RECIPES, FACTORY_OPTIONS } from '../data/resources';
 import { createStatistics } from '../simulation/statistics';
 import { createGeneModificationState } from '../simulation/genes';
+import { createBlackHoleState } from '../simulation/black-hole';
 import { DEFAULT_GAME_SETTINGS } from '../types/state';
 import type { GameState } from '../types/state';
 
@@ -22,7 +23,7 @@ export function createInitialState(version: number, eventIn: number, now: number
     statistics: createStatistics(), starvationElapsed: 0,
     government: 'none', taxRate: 20, lastReformTime: null,
     furUnlocked: false, unlockedResources: [],
-    prestige: { particles: 0, nuclearResets: 0, softResets: 0, casimir: 0, escapeResets: 0 }, prestigeUnlocked: [], crispr: [],
+    prestige: { particles: 0, nuclearResets: 0, softResets: 0, casimir: 0, escapeResets: 0, darkEnergy: 0, blackHoleResets: 0 }, prestigeUnlocked: [], crispr: [],
     geneModification: createGeneModificationState(),
     soldiers: 0, trainingProgress: 0, nuclearProgress: 0,
     arpaResourceProgress: {},
@@ -42,7 +43,7 @@ export function createInitialState(version: number, eventIn: number, now: number
     smelterIdle: 0,
     legacyPopulationCeiling: 0, asrielMissionCompleted: false, asrielMissionQueued: false, kerberosMissionCompleted: false,
     solarMissionCompleted: false, talosMissionCompleted: false, talosMoonMissionCompleted: false, asteroidBeltMissionCompleted: false, misenMissionCompleted: false,
-    neutronStarMissionCompleted: false, blackHoleMissionCompleted: false,
+    neutronStarMissionCompleted: false, blackHoleMissionCompleted: false, blackHole: createBlackHoleState(),
     happiness: 99.5, growth: 0, starvation: 0, achievements: [], effects: [],
     eventIn, time: 0, clicks: 0, logs: [], queue: [], settings: { ...DEFAULT_GAME_SETTINGS }, lastSaved: now,
   };

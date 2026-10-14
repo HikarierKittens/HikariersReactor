@@ -2,7 +2,9 @@ import { snapshotStoryArchive, updateStoryProgress } from './story';
 import { createInitialState } from '../state/create-state';
 import { CONFIG } from '../data/config';
 import { validateStatistics } from '../state/validate-stats';
-import { recordParticlesEarned, recordCasimirEarned } from './statistics';
+import { recordParticlesEarned, recordCasimirEarned, recordDarkEnergyEarned } from './statistics';
+import { calculateDarkEnergyReward } from './black-hole';
+import { isTechnologyUnlocked } from './unlocks';
 import { syncPrestigeUnlocks } from './prestige-unlocks';
 
 function preserveLifetime(state: GameState, next: GameState): void {
@@ -19,7 +21,7 @@ function keepPrestigeUnlocks(state: GameState, next: GameState): void {
   syncPrestigeUnlocks(next);
 }
 import { canPayCost, payResourceCost } from './costs';
-import { calculatePrestigeReward, calculateEscapePrestigeReward, calculateCasimirReward } from './government';
+import { calculatePrestigeReward, calculateEscapePrestigeReward, calculateCasimirReward, calculateBlackHoleParticleReward, calculateBlackHoleCasimirReward, calculateTechCost } from './government';
 import { hasCompleteShip } from './spaceship';
 export { calculateEscapePrestigeReward, calculateCasimirReward } from './government';
 import type { ResourceId } from '../types/economy';
@@ -94,6 +96,39 @@ export function launchEscapePrestige(state: GameState, eventIn: number, now: num
   if (settings !== undefined) (next as { settings?: unknown }).settings = JSON.parse(JSON.stringify(settings));
   updateStoryProgress(next);
   return { next, reward, casimirReward };
+}
+
+export interface BlackHolePrestigeReset extends EscapePrestigeReset { darkEnergyReward: number }
+export interface BlackHolePrestigeRewards { reward: number; casimirReward: number; darkEnergyReward: number }
+export function calculateBlackHolePrestigeRewards(state: GameState): BlackHolePrestigeRewards {
+  const reward = calculateBlackHoleParticleReward(state);
+  return { reward, casimirReward: calculateBlackHoleCasimirReward(reward), darkEnergyReward: calculateDarkEnergyReward(state) };
+}
+
+/** 奇异失控 → 黑洞重置: needs the unlocked tech and its full price; mutates nothing. */
+export function launchBlackHolePrestige(state: GameState, eventIn: number, now: number): BlackHolePrestigeReset | null {
+  if (!isTechnologyUnlocked('exoticRunaway', state) || state.tech.includes('exoticRunaway')) return null;
+  const cost = calculateTechCost('exoticRunaway', state);
+  if (!canPayCost(state.resources, cost)) return null;
+  const { reward, casimirReward, darkEnergyReward } = calculateBlackHolePrestigeRewards(state);
+  const { particles, casimir, darkEnergy, blackHoleResets } = state.prestige;
+  if (![reward, casimirReward, darkEnergyReward, particles, casimir, darkEnergy, blackHoleResets].every(value => Number.isSafeInteger(value) && value >= 0)
+    || !Number.isSafeInteger(particles + reward) || !Number.isSafeInteger(casimir + casimirReward) || !Number.isSafeInteger(darkEnergy + darkEnergyReward)
+    || blackHoleResets >= Number.MAX_SAFE_INTEGER) return null;
+  const next = createInitialState(CONFIG.version, eventIn, now);
+  preserveLifetime(state, next);
+  next.statistics.lifetime.knowledgeSpent = Math.min(Number.MAX_SAFE_INTEGER, next.statistics.lifetime.knowledgeSpent + (cost.knowledge || 0));
+  recordParticlesEarned(next, reward);
+  recordCasimirEarned(next, casimirReward);
+  recordDarkEnergyEarned(next, darkEnergyReward);
+  next.prestige = { ...state.prestige, particles: particles + reward, casimir: casimir + casimirReward, darkEnergy: darkEnergy + darkEnergyReward, blackHoleResets: blackHoleResets + 1 };
+  keepPrestigeUnlocks(state, next);
+  next.crispr = [...state.crispr];
+  next.achievements = [...state.achievements];
+  const settings = (state as { settings?: unknown }).settings;
+  if (settings !== undefined) (next as { settings?: unknown }).settings = JSON.parse(JSON.stringify(settings));
+  updateStoryProgress(next);
+  return { next, reward, casimirReward, darkEnergyReward };
 }
 
 export interface SoftReset { next: GameState }

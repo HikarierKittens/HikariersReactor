@@ -18,8 +18,11 @@ import { uiPreview } from './preview-cache';
 import { estimateQueueTimes } from './queue-estimates';
 import { changeCraftAssignment } from '../simulation/crafting';
 import { trimFactoryAssignments } from '../simulation/factory';
-import { fillNuclearProject, launchNuclearPrestige, launchEscapePrestige } from '../simulation/prestige';
-import { calculateEscapePrestigeReward, calculateCasimirReward } from '../simulation/government';
+import { fillNuclearProject, launchNuclearPrestige, launchEscapePrestige, launchBlackHolePrestige, calculateBlackHolePrestigeRewards } from '../simulation/prestige';
+import { calculateEscapePrestigeReward, calculateCasimirReward, calculateTechCost } from '../simulation/government';
+import { TECHNOLOGIES } from '../data/technologies';
+import { canPayCost } from '../simulation/costs';
+import { changeEjectionAllocation } from '../simulation/black-hole';
 import { investInProject } from '../simulation/projects';
 import { enqueueProject } from '../simulation/project-queue';
 import { buildingQueueCapacity, buildingQueueUsage, researchQueueCapacity } from '../simulation/queue-settings';
@@ -155,6 +158,8 @@ function gather(id: 'food' | 'wood' | 'stone'): void {
 }
 
 function research(id: TechnologyId, forceQueue = false): void {
+  // 奇异失控 never queues: it opens the 黑洞重置 confirmation instead.
+  if (TECHNOLOGIES[id].prestigeReset) { blackHoleConfirm.value = true; return; }
   props.store.mutate(s => { requestPurchaseModule(s, 'tech', id, () => moonSnapshot(s).available, forceQueue); });
   afterAction();
 }
@@ -238,7 +243,7 @@ function queueShip(id: ShipComponentId): void {
 // Unlocked once held; the progression sync keeps them visible at 0 afterwards.
 const prestigeVisible = computed(() => {
   props.store.revision();
-  return { particles: isPrestigeResourceUnlocked(state.value, 'particles'), casimir: isPrestigeResourceUnlocked(state.value, 'casimir') };
+  return { particles: isPrestigeResourceUnlocked(state.value, 'particles'), casimir: isPrestigeResourceUnlocked(state.value, 'casimir'), darkEnergy: isPrestigeResourceUnlocked(state.value, 'darkEnergy') };
 });
 
 function purchaseCrispr(id: CrisprUpgradeId): void {
@@ -283,6 +288,30 @@ function confirmEscape(): void {
   worldView.value = 'home';
   activeTab.value = 'buildings';
   techView.value = 'available';
+  afterAction();
+}
+
+const blackHoleConfirm = ref(false);
+const blackHoleDialog = ref<HTMLDialogElement | null>(null);
+const blackHoleRewards = computed(() => { props.store.revision(); return calculateBlackHolePrestigeRewards(state.value); });
+const canAffordRunaway = computed(() => { props.store.revision(); return canPayCost(state.value.resources, calculateTechCost('exoticRunaway', state.value)); });
+watch(blackHoleConfirm, async open => { if (open) { await nextTick(); blackHoleDialog.value?.showModal(); } });
+function confirmBlackHole(): void {
+  const result = launchBlackHolePrestige(props.store.state(), sampleEventInterval(Math.random), Date.now());
+  if (!result) return;
+  props.store.runtime.replaceState(result.next);
+  props.store.mutate(s => addLog(s, `🕳️ 奇异失控引发了黑洞爆炸，一切归于虚无。获得 ${result.reward} 粒子、${result.casimirReward} 卡西米尔晶体与 ${result.darkEnergyReward} 暗能量。新的文明开始了。`, 'system'));
+  blackHoleConfirm.value = false;
+  shipModal.value = false;
+  factoryOpen.value = false;
+  smelterOpen.value = false;
+  worldView.value = 'home';
+  activeTab.value = 'buildings';
+  techView.value = 'available';
+  afterAction();
+}
+function changeEjection(id: ResourceId, delta: number): void {
+  props.store.mutate(s => { changeEjectionAllocation(s, id, delta); });
   afterAction();
 }
 
@@ -379,7 +408,7 @@ onUnmounted(() => {
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.5.3</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.5.4</span>
     </header>
 
     <div class="layout">
@@ -387,7 +416,7 @@ onUnmounted(() => {
         <CivilizationPanel :state="state" :revision="store.revision()" />
         <ResourcePanel :state="state" :revision="store.revision()" />
         <CraftingPanel :state="state" :revision="store.revision()" @craft="(id, count) => { store.mutate(s => craftManually(s, id, count)); afterAction(); }" />
-        <section v-if="prestigeVisible.particles || prestigeVisible.casimir" id="prestigeResources" class="panel">
+        <section v-if="prestigeVisible.particles || prestigeVisible.casimir || prestigeVisible.darkEnergy" id="prestigeResources" class="panel">
           <div class="panel-head"><h2>威望资源</h2><span>跨周目保留</span></div>
           <div class="res-list">
             <div v-if="prestigeVisible.particles" class="res-row" data-prestige-row="particles">
@@ -397,6 +426,10 @@ onUnmounted(() => {
             <div v-if="prestigeVisible.casimir" class="res-row" data-prestige-row="casimir">
               <span class="res-name">卡西米尔晶体</span>
               <span class="res-amount" tabindex="0" data-building-tip="casimir" data-tip-kind="prestige" aria-label="查看卡西米尔晶体效果"><b>{{ state.prestige.casimir }}</b></span>
+            </div>
+            <div v-if="prestigeVisible.darkEnergy" class="res-row" data-prestige-row="darkEnergy">
+              <span class="res-name">暗能量</span>
+              <span class="res-amount" tabindex="0" data-building-tip="darkEnergy" data-tip-kind="prestige" aria-label="查看暗能量效果"><b>{{ state.prestige.darkEnergy }}</b></span>
             </div>
           </div>
         </section>
@@ -504,6 +537,7 @@ onUnmounted(() => {
               :revision="store.revision()"
               @manufacture="manufacture"
               @assign="assignContainer"
+              @eject="changeEjection"
             />
             <TipsPanel
               v-else-if="activeTab === 'tips'"
@@ -562,6 +596,14 @@ onUnmounted(() => {
       <p>离开太阳系将结束本周目，保留威望资源、CRISPR修饰、成就与重置记录，重新开始文明。</p>
       <p>预计获得：<strong>{{ escapeReward }} 粒子</strong> · <strong>{{ casimirReward }} 卡西米尔晶体</strong></p>
       <div class="actions"><button @click="escapeConfirm = false">取消</button><button id="confirmEscapeLaunch" class="danger" @click="confirmEscape">确认发射</button></div>
+    </dialog>
+    <dialog v-if="blackHoleConfirm" ref="blackHoleDialog" id="blackHoleConfirm" aria-labelledby="blackHoleConfirmTitle" @cancel="blackHoleConfirm = false">
+      <h2 id="blackHoleConfirmTitle">确认研究奇异失控</h2>
+      <p>向不稳定的黑洞投入奇异物质将引发黑洞重置：结束本周目，保留威望资源、CRISPR修饰、成就与重置记录，重新开始文明。</p>
+      <p class="danger">警告：这可能会导致无法预料的爆炸，毁灭一切，无限，永恒</p>
+      <p>预计获得：<strong>{{ blackHoleRewards.reward }} 粒子</strong> · <strong>{{ blackHoleRewards.casimirReward }} 卡西米尔晶体</strong> · <strong>{{ blackHoleRewards.darkEnergyReward }} 暗能量</strong></p>
+      <p v-if="!canAffordRunaway" class="small subtle">资源不足，无法支付奇异失控的研究费用。</p>
+      <div class="actions"><button @click="blackHoleConfirm = false">取消</button><button id="confirmBlackHoleReset" class="danger" :disabled="!canAffordRunaway" @click="confirmBlackHole">确认研究</button></div>
     </dialog>
     <dialog v-if="nuclearConfirm" ref="nuclearDialog" id="nuclearConfirm" @cancel="nuclearConfirm = false">
       <h2>确认发射核弹</h2><p>发射会结束本周目，保留粒子、成就与重置记录。</p>

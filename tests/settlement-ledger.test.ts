@@ -68,10 +68,12 @@ function oracleProduction(state: GameState, dt = 1): ProductionResult {
     const crafting = settleAutomaticCrafting(state, pool, dt, asriel);
     Object.assign(inputUnits, crafting.inputs); Object.assign(outputs, crafting.outputs);
     Object.assign(outputs, settlePopulationIncome(state, pool, morale.happiness, dt));
+    const ejected = settleMassEjection(state, pool, dt, inputUnits.massEjector || 0);
     const final = finalizeProduction(state, pool, before, dt, { stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits });
-    return { ...final, outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree };
+    return { ...final, outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected };
   });
 }
+import { settleMassEjection } from '../src/simulation/black-hole';
 
 /** Inline quantum snapshot import avoided to keep the oracle byte-identical to the old chain. */
 import { calculateQuantumSnapshot } from '../src/simulation/quantum';

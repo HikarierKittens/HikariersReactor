@@ -93,6 +93,15 @@
   - 精金采矿船与石墨烯厂属于`HYPERSPACE_SOURCE_IDS`，按整座供能比例结算。黑洞星际站属于`HYPERSPACE_CONSUMER_IDS`，付费座数经`blackHoleStationUnits`进入储量快照。`calculateRipperKnowledgeBonus`=`0.2+0.01×付费站数`，作用于每座完整撕裂者。
   - 新建筑全部在地面结算的跳过列表里。
   - 彭罗斯球体`segmentEffects:true`：`countRunningBuildings`直接按段数计，`settlePowerPlants`每段+5电力。
+  - 引力转化：`calculateRawBuildingOutput`把整座球体的加成`calculateGravityConversionEnergy`平摊到已建段数（每段`5+加成/段数`），结算、回放、明细都走同一路径。
+- 质量喷射（`src/simulation/black-hole.ts`）：
+  - 状态`state.blackHole={mass,exoticMass,unstable,ejection}`随周目重置。旧档缺失时取默认值，存档版本不变（29）。`validate-black-hole.ts`在建筑校验后检查分配不超过已建容量。
+  - 质量喷射器加入`HYPERSPACE_CONSUMER_IDS`，按整座付费供能。`calculateProduction`在所有产出（含人口收入）之后、封顶之前调用`settleMassEjection`，按`min(1, 1000×付费座数/总分配)`等比缩放，并且不超过库存；结果放在`result.ejected`，收支明细显示「质量喷射消耗」。
+  - `advanceGameTick`把`ejected`换算成质量（`applyMassEjection`）。奇异质量首次跨过0.025时置`unstable`并写事件日志。
+  - 解锁：`isTechnologyUnlocked`要求质量喷射器科技有完整彭罗斯球体；两项特殊科技要求`unstable`。稳定黑洞在`applyResearchSideEffects`中结算后从`state.tech`移除，因此可以再次研究。
+  - 奇异失控带`prestigeReset:true`，`isPurchaseAllowed`拒绝直接购买和入队；UI打开确认框，由`launchBlackHolePrestige`校验解锁和费用后生成新周目。
+- 黑洞重置：`prestige.blackHoleResets`、`prestige.darkEnergy`、`lifetime.darkEnergyEarned`。重置次数计入`prestigeResetsRequired`和威望资源解锁推断。暗能量储量加成在CRISPR粒子/卡西米尔步骤之后乘`1+0.01×暗能量`（详情行「暗能量加成」，总表同步）。
+- 旧版VM桥：`generate-legacy-data.cjs`注册`black-hole`与`validate-black-hole`模块。
   - 区域：`spaceMissionRequired`新增`neutronStar`和`blackHole`两个任务，状态位分别为`neutronStarMissionCompleted`和`blackHoleMissionCompleted`。建筑解锁和存档校验都走通用路径。
 - 冶炼厂工位：
   - `GameState.smelterIdle`记录空闲工位数。容量`calculateSmelterSlotCapacity`=冶炼厂+2×恒星熔炉。运行工位`calculateRunningSmelterSlots`=（运行中的冶炼厂+2×熔炉）−min(空闲, 容量)。
