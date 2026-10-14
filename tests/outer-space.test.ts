@@ -40,6 +40,9 @@ import { calculateSupportPreview } from '../src/simulation/support-preview';
 import { calculateStorageDetails } from '../src/simulation/storage';
 import { BUILDINGS } from '../src/data/buildings';
 import { TECHNOLOGIES } from '../src/data/technologies';
+import { calculateContainerUnitCapacity } from '../src/simulation/containers';
+import { calculateStorageTotals } from '../src/simulation/storage';
+import { storageSnapshot as storageSnapshotFor } from '../src/vue/format';
 import type { TechnologyId } from '../src/types/technologies';
 import { requestPurchaseModule, settlePurchaseQueue, removeQueuedPurchase, queueLength } from '../src/simulation/purchases';
 import { estimateQueueTimes } from '../src/vue/queue-estimates';
@@ -399,4 +402,25 @@ test('old saves default additive fields and explicit malformed outer fields reje
     assert.equal(validateAndMigrateSave(legacy, context).buildings[id as keyof typeof full.buildings], 0);
     legacy.buildings[id] = null; assert.throws(() => validateAndMigrateSave(legacy, context));
   }
+});
+
+test('铱合金集装箱 (T13) costs 230k knowledge + 1000 iridium, needs 月球勘探 and multiplies container capacity ×2.5', () => {
+  const s = fresh();
+  assert.equal(TECHNOLOGIES.iridiumAlloyContainers.tier, 13);
+  assert.deepEqual(TECHNOLOGIES.iridiumAlloyContainers.cost, { knowledge: 230000, iridium: 1000 });
+  assert.deepEqual(TECHNOLOGIES.iridiumAlloyContainers.pre, ['moonExploration']);
+  assert.equal(isTechnologyUnlocked('iridiumAlloyContainers', s), false);
+  s.tech.push('moonExploration');
+  assert.equal(isTechnologyUnlocked('iridiumAlloyContainers', s), true);
+  assert.equal(calculateContainerUnitCapacity(s), 250);
+  s.tech.push('iridiumAlloyContainers');
+  assert.equal(calculateContainerUnitCapacity(s), 625);
+  s.tech.push('steelContainers');
+  assert.equal(calculateContainerUnitCapacity(s), 1250);
+  s.tech.push('reinforcedContainers');
+  assert.equal(calculateContainerUnitCapacity(s), 2500);
+  // Assigned containers already in place follow the new unit capacity in storage totals.
+  s.containerAssignments = { ...s.containerAssignments, wood: 2 };
+  const before = { ...s, tech: s.tech.filter(id => id !== 'iridiumAlloyContainers') };
+  assert.equal((calculateStorageTotals(s, storageSnapshotFor(s)).wood ?? 0) - (calculateStorageTotals(before, storageSnapshotFor(before)).wood ?? 0), 2 * 1500);
 });

@@ -150,3 +150,13 @@ test('balance pass: 17 ground buildings carry +0.02 base creep in both registrie
     }
   }
 });
+
+test('balance pass: 农场 +0.03, 伐木场/采石场/采矿场/煤矿/住宅楼 +0.01 base creep in both registries', () => {
+  const raised: Partial<Record<BuildingId, number>> = { forage: 1.2, lumber: 1.18, quarry: 1.18, mine: 1.18, coalMine: 1.18, apartment: 1.18 };
+  for (const [id, scale] of Object.entries(raised) as [BuildingId, number][]) {
+    for (const [resource, raw] of Object.entries(BUILDINGS[id].costScales!)) {
+      close(raw, scale);
+      assert.equal(BUILDING_COST_SCALES[id]![resource as ResourceId], raw, `${id}/${resource}`);
+    }
+  }
+});

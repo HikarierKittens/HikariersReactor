@@ -19,7 +19,9 @@ export function isContainerAssignable(id: string, state: GameState): boolean {
     && !['water', 'oil', 'uranium', 'cash', 'helium3', 'deuterium', 'mithril', 'neutron', 'e710', 'nanotubes', 'aerogel'].includes(id) && isResourceUnlocked(id, state);
 }
 export function calculateContainerUnitCapacity(state: Pick<GameState, 'tech'>): number {
-  return (state.tech.includes('steelContainers') ? 500 : 250) * (state.tech.includes('reinforcedContainers') ? 2 : 1);
+  // 250 base; 钢集装箱 ×2, 强化集装箱 ×2, 铱合金集装箱 ×2.5 (1000 → 2500 with all three).
+  return (state.tech.includes('steelContainers') ? 500 : 250) * (state.tech.includes('reinforcedContainers') ? 2 : 1)
+    * (state.tech.includes('iridiumAlloyContainers') ? 2.5 : 1);
 }
 export function calculateContainerRecipe(state: Pick<GameState, 'tech'>): ResourceRecipe {
   return state.tech.includes('steelContainers') ? { metal: 50 } : { iron: 25 };

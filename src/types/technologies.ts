@@ -40,6 +40,7 @@ export type TechnologyId =
   | 'alienCasting'
   | 'spaceGarrison'
   | 'reinforcedContainers'
+  | 'iridiumAlloyContainers'
   | 'spaceIndustrialization'
   | 'starRingStation'
   | 'spaceTransitStation'

@@ -48,6 +48,7 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
     swarmFactoryOptimization: { name: '蜂群工厂优化', era: 4, tier: 15, knowledgeCost: 360000, cost: { knowledge: 360000 }, pre: ['swarmFactory'], desc: '每个供能的铁采矿船使蜂群工厂价格-5%。' },
     escapePlan: { name: '逃离计划', era: 4, tier: 15, knowledgeCost: 420000, cost: { knowledge: 420000 }, pre: ['exoticElementResearch', 'misenDiscovery'], arpaPre: 'geneSequencing', arpaRequiredCount: 1, desc: '如果我们无法超越光速，就必须准备一个足够庞大的生态系统带我们离开，把速度交给时间' },
     carbonNanotubes: { name: '碳纳米管', era: 4, tier: 14, knowledgeCost: 250000, cost: { knowledge: 250000, neutron: 250 }, pre: ['outerPlanetExploration'], desc: '解锁纳米管生产线，每条每秒消耗0.05中子与1煤，基础产出10纳米管。' },
+    iridiumAlloyContainers: { name: '铱合金集装箱', era: 4, tier: 13, knowledgeCost: 230000, cost: { knowledge: 230000, iridium: 1000 }, pre: ['moonExploration'], desc: '所有集装箱（含已分配）储量×2.5：钢集装箱与强化集装箱都研究后从1000提升至2500。' },
     iridiumAlloyWarehouse: { name: '铱合金仓库', era: 4, tier: 13, knowledgeCost: 220000, cost: { knowledge: 220000, alloy: 2000, iridium: 2000 }, pre: ['moonExploration'], desc: '仓库、存储枢纽、格纳库的基础容量+100%，银行和猫咖资金容量+20%。' },
     particleAccelerator: { name: '粒子加速器', era: 2, tier: 5, knowledgeCost: 5000, cost: { knowledge: 5000 }, pre: ['science'], prestigeResetsRequired: 1, desc: '威望重置至少1次后解锁粒子加速器，每座增加原始粒子产量加成的10%，按原始值加算叠加；软重置不计入次数。' },
     solarExploration: { name: '太阳勘探', era: 4, tier: 13, knowledgeCost: 220000, cost: { knowledge: 220000 }, pre: ['planetaryExploration'], kerberosMissionRequired: true, desc: '完成Kerberos任务后解锁太阳任务。' },

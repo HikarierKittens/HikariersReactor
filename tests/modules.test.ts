@@ -289,6 +289,8 @@ test('space garrison increases soldiers without support and reinforced container
   assert.equal(calculateContainerUnitCapacity(state), 500);
   state.tech.push('steelContainers');
   assert.equal(calculateContainerUnitCapacity(state), 1000);
+  state.tech.push('iridiumAlloyContainers');
+  assert.equal(calculateContainerUnitCapacity(state), 2500);
 });
 
 test('power switch warning follows actual support and power allocation', () => {

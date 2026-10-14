@@ -535,9 +535,9 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     },
     "minerBoost": true,
     "costScales": {
-      "wood": 1.17,
-      "wroughtIron": 1.17,
-      "cash": 1.17
+      "wood": 1.18,
+      "wroughtIron": 1.18,
+      "cash": 1.18
     }
   },
   "mine": {
@@ -558,9 +558,9 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     },
     "minerBoost": true,
     "costScales": {
-      "wood": 1.17,
-      "stone": 1.17,
-      "cash": 1.17
+      "wood": 1.18,
+      "stone": 1.18,
+      "cash": 1.18
     }
   },
   "nestMKII": {
@@ -599,11 +599,11 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "tech": "housing",
     "cap": 5,
     "costScales": {
-      "cement": 1.17,
-      "copper": 1.17,
-      "metal": 1.17,
-      "fur": 1.17,
-      "cash": 1.17
+      "cement": 1.18,
+      "copper": 1.18,
+      "metal": 1.18,
+      "fur": 1.18,
+      "cash": 1.18
     }
   },
   "warehouse": {
@@ -692,9 +692,9 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "tech": "survival",
     "boostResource": "food",
     "costScales": {
-      "wood": 1.17,
-      "stone": 1.17,
-      "cash": 1.17
+      "wood": 1.2,
+      "stone": 1.2,
+      "cash": 1.2
     }
   },
   "lumber": {
@@ -714,9 +714,9 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "boostResource": "wood",
     "tech": "tools",
     "costScales": {
-      "wood": 1.17,
-      "stone": 1.17,
-      "cash": 1.17
+      "wood": 1.18,
+      "stone": 1.18,
+      "cash": 1.18
     }
   },
   "quarry": {
@@ -736,9 +736,9 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "boostResource": "stone",
     "tech": "tools",
     "costScales": {
-      "stone": 1.17,
-      "wood": 1.17,
-      "cash": 1.17
+      "stone": 1.18,
+      "wood": 1.18,
+      "cash": 1.18
     }
   },
   "theater": {
@@ -1526,14 +1526,14 @@ export const BUILDING_COST_SCALES: Partial<Record<BuildingId, ResourceRecipe>> =
     "cash": 1.17
   },
   "coalMine": {
-    "wood": 1.17,
-    "wroughtIron": 1.17,
-    "cash": 1.17
+    "wood": 1.18,
+    "wroughtIron": 1.18,
+    "cash": 1.18
   },
   "mine": {
-    "wood": 1.17,
-    "stone": 1.17,
-    "cash": 1.17
+    "wood": 1.18,
+    "stone": 1.18,
+    "cash": 1.18
   },
   "nestMKII": {
     "stone": 1.17,
@@ -1542,11 +1542,11 @@ export const BUILDING_COST_SCALES: Partial<Record<BuildingId, ResourceRecipe>> =
     "cash": 1.17
   },
   "apartment": {
-    "cement": 1.17,
-    "copper": 1.17,
-    "metal": 1.17,
-    "fur": 1.17,
-    "cash": 1.17
+    "cement": 1.18,
+    "copper": 1.18,
+    "metal": 1.18,
+    "fur": 1.18,
+    "cash": 1.18
   },
   "warehouse": {
     "wood": 1.25,
@@ -1570,19 +1570,19 @@ export const BUILDING_COST_SCALES: Partial<Record<BuildingId, ResourceRecipe>> =
     "cash": 1.35
   },
   "forage": {
-    "wood": 1.17,
-    "stone": 1.17,
-    "cash": 1.17
+    "wood": 1.2,
+    "stone": 1.2,
+    "cash": 1.2
   },
   "lumber": {
-    "wood": 1.17,
-    "stone": 1.17,
-    "cash": 1.17
+    "wood": 1.18,
+    "stone": 1.18,
+    "cash": 1.18
   },
   "quarry": {
-    "stone": 1.17,
-    "wood": 1.17,
-    "cash": 1.17
+    "stone": 1.18,
+    "wood": 1.18,
+    "cash": 1.18
   },
   "theater": {
     "food": 1.19,
