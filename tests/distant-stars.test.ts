@@ -112,13 +112,42 @@ test('alpha-sector miners and graphene settle like hyperspace sources with break
     const s = alpha(); s.buildings.adamantiteMiningShip = 2; s.buildings.grapheneFactory = 1; s.buildings.adamantiteProcessor = 3;
     const before = clone(s), p = calculateProduction(s, dt); assert.deepEqual(s, before);
     near(p.rates.adamantite, .2 * 1.3); near(p.rates.graphene, 2);
-    near(p.rates.energy, -15); near(p.rates.helium3, -10); near(p.rates.deuterium, -2); near(p.rates.oil, -15);
+    near(p.rates.energy, -45); near(p.rates.helium3, -10); near(p.rates.deuterium, -2); near(p.rates.oil, -15);
     for (const id of ['adamantite', 'graphene', 'energy', 'helium3', 'deuterium', 'oil'] as ResourceId[]) near(calculateResourceBreakdown(id, s, p).net, p.rates[id], id);
     const rows = calculateResourceFactorRows('adamantite', s, p).rows;
     assert.ok(rows.some(row => row.name === '精金加工站' && row.child), 'processor row under the miner');
   }
   const short = alpha(); short.buildings.adamantiteMiningShip = 1; short.resources.deuterium = .5;
   near(calculateProduction(short, 1).rates.adamantite, .05);
+});
+
+test('stellar forge generates 25 energy/s while keeping its passive forge effects', () => {
+  const s = fresh(); s.buildings.stellarForge = 2;
+  for (const dt of [.2, 1]) {
+    const p = calculateProduction(s, dt);
+    near(p.rates.energy, 50);
+    near(calculateResourceBreakdown('energy', s, p).net, 50);
+  }
+  assert.equal(calculateSmelterSlotCapacity(s), 4);
+});
+
+test('adamantite processor bonuses require whole funded running stations', () => {
+  for (const dt of [.2, 1]) {
+    const s = alpha(); s.buildings.adamantiteMiningShip = 1; s.buildings.adamantiteProcessor = 2;
+    s.resources.energy = 25 * dt;
+    let p = calculateProduction(s, dt);
+    near(p.inputUnits.adamantiteProcessor!, 2); near(p.rates.adamantite, .12); near(p.rates.energy, -25);
+    s.stoppedBuildings.adamantiteProcessor = 1;
+    p = calculateProduction(s, dt);
+    near(p.inputUnits.adamantiteProcessor!, 1); near(p.rates.adamantite, .11); near(p.rates.energy, -15);
+    s.stoppedBuildings.adamantiteProcessor = 2;
+    p = calculateProduction(s, dt);
+    near(p.inputUnits.adamantiteProcessor!, 0); near(p.rates.adamantite, .1); near(p.rates.energy, -5);
+    s.stoppedBuildings.adamantiteProcessor = 0; s.resources.energy = 5 * dt;
+    p = calculateProduction(s, dt);
+    near(p.inputUnits.adamantiteProcessor!, 0); near(p.rates.adamantite, .1);
+    near(calculateResourceBreakdown('energy', s, p).net, p.rates.energy);
+  }
 });
 
 test('star-ring bonus applies to distant ordinary resources while the old port bonus is gone', () => {

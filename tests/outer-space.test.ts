@@ -1,10 +1,30 @@
 import assert from 'node:assert/strict';
 
+test('AI core pays both upkeep resources only when a whole core can run', () => {
+  for (const dt of [.2, 1]) {
+    const s = createInitialState(29, 60, 0); s.tech.push('artificialIntelligenceII'); s.buildings.aiSupercore = 100;
+    s.resources.helium3 = 25 * dt; s.resources.energy = 100 * dt;
+    let p = calculateProduction(s, dt);
+    assert.equal(p.inputUnits.aiSupercore, 1);
+    assert.ok(Math.abs(p.rates.energy + 100) < 1e-8);
+    assert.ok(Math.abs(p.rates.helium3 + 25) < 1e-8);
+    s.resources.energy = 99 * dt;
+    p = calculateProduction(s, dt);
+    assert.equal(p.inputUnits.aiSupercore, 0); assert.equal(p.rates.helium3, 0);
+    s.resources.energy = 100 * dt; s.resources.helium3 = 24 * dt;
+    p = calculateProduction(s, dt);
+    assert.equal(p.inputUnits.aiSupercore, 0); assert.equal(p.rates.energy, 0);
+    s.resources.helium3 = 25 * dt; s.buildings.aiSupercore = 99;
+    p = calculateProduction(s, dt);
+    assert.equal(p.inputUnits.aiSupercore, 0); assert.equal(p.rates.energy, 0);
+  }
+});
+
 test('AI power warning compares whole cores rather than construction segments', () => {
   const s = createInitialState(29, 60, 0);
   s.tech.push('artificialIntelligenceII');
   s.buildings.aiSupercore = 100;
-  s.resources.helium3 = 25;
+  s.resources.helium3 = 25; s.resources.energy = 100;
   assert.equal(isBuildingUnderworking('aiSupercore', s, calculateProduction(s)), false);
   s.resources.helium3 = 24;
   assert.equal(isBuildingUnderworking('aiSupercore', s, calculateProduction(s)), true);
@@ -108,7 +128,7 @@ test('alien labs require support for capacities and ring optimization uses suppo
 });
 test('AI core segments have immutable cost and grant quantum only when complete and fueled', () => {
   const s = fresh(); s.tech.push('artificialIntelligenceII'); s.buildings.lab = 50;
-  s.buildings.aiSupercore = 99; s.resources.helium3 = 1000;
+  s.buildings.aiSupercore = 99; s.resources.helium3 = 1000; s.resources.energy = 1000;
   const base = calculateQuantumLevel(s);
   s.crispr.push('materialEfficiency');
   assert.deepEqual(calculateBuildingCost('aiSupercore', 0, s), calculateBuildingCost('aiSupercore', 999, s));

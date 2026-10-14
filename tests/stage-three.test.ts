@@ -37,12 +37,12 @@ test('stage three defaults false and never infers actual AI activation from old 
 
 test('only committed fully fueled enabled AI ticks activate third stage, not previews or paused/starved cores',()=>{
   for(const kind of ['partial','stopped','starved','paused'] as const) {
-    const s=fresh(); s.buildings.aiSupercore=kind==='partial'?99:100; s.resources.helium3=kind==='starved'?24.9:100;
+    const s=fresh(); s.buildings.aiSupercore=kind==='partial'?99:100; s.resources.helium3=kind==='starved'?24.9:100; s.resources.energy=100;
     if(kind==='stopped')s.stoppedBuildings.aiSupercore=1;
     if(kind==='paused')s.settings.paused=true;
     tick(s); assert.equal(s.stageThree.coreActivated,false,kind);
   }
-  const s=fresh(); s.buildings.aiSupercore=100; s.resources.helium3=25;
+  const s=fresh(); s.buildings.aiSupercore=100; s.resources.helium3=25; s.resources.energy=100;
   const before=clone(s); calculateSupportPreview(s); calculateProduction(s); assert.deepEqual(s,before);
   tick(s); assert.equal(s.stageThree.coreActivated,true); close(s.resources.helium3,0);
   const stories=[...s.story.unlocked]; tick(s); assert.deepEqual(s.story.unlocked,stories);

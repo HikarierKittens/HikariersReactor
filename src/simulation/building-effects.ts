@@ -6,7 +6,7 @@ export interface BuildingEffectRow { label: string; value: string; note?: string
 
 /** Coefficients shared with the settlement so tooltip text cannot drift from gameplay. */
 export const ARRAY_STABILITY = 2;
-export const REPEATER_BONUS_PER_ARRAY = .5;
+export const REPEATER_BONUS_PER_ARRAY = .25;
 export const SPACEPORT_STABILITY = 4;
 export const SPACEPORT_ASTEROID_SUPPORT = 2;
 export const ASTEROID_UNIT_SUPPORT_COST = 1;

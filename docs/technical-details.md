@@ -18,6 +18,15 @@
 - `signedRate` 与资源列表/储量明细共享该格式。普通价格、人口计数等仍用原 `formatNumber`，黑洞质量保留8位。
 - 显示精度不写回模拟或存档，资源结算保留完整精度，避免小额产出逐tick丢失。
 
+### 电力收支详情布局
+
+- `TooltipPanel.vue` 仅在电力的消耗明细超过15项时启用 `energy-expense-split`，消耗使用CSS双列布局（条目内部不跨列），并加宽tooltip。15项及以下、其他资源维持原布局。
+
+### 资源管理布局
+
+- `ResourceManagementPanel.vue` 的集装箱和质量喷射使用局部 `.management-list` / `.management-row`，代替多行卡片。Flex布局不换行，名称、说明与加减控件居中同行；内容宽度收缩，窄屏由列表横向滚动，按钮不会被隐藏。
+- 不修改全局卡片样式，不影响其他页面。
+
 ## 2. TypeScript 严格配置
 
 `tsconfig.json` 当前启用：
@@ -48,7 +57,7 @@
 一次 `calculateProduction(state, dt)` 的顺序（顺序不可乱改，维护费用只扣一次）：
 
 1. `previewMorale`：内部先取一次 `calculateSupportPreview`，并复用其中已算出的 `biologyUnits` / `dataCenterUnits`（2026-10 优化后不再重复调用 `research-power` 辅助函数）；月球维护使用独立池。
-2. `settleQuantumCores`：AI 核心氦-3 优先扣款。
+2. `settleQuantumCores`：按完整AI核心结算维护，每座电力100/s与氦-3 25/s均需全额支付才运行；未完成分段不扣维护。
 3. `settlePowerPlants`：所有发电（含氢气发电站按整单位供水）。
 4. `settleSpaceProduction`：月球/Asriel 维护 → 超空间链（阵列 → 太空港 → 中继/货运/民用 → 采冰船 → 小行星基地）。
 5. `settleE710WarehousePower` → `settleResearchAndCulture`（生物/数据中心/广播/观光）。
@@ -56,8 +65,8 @@
 
 ### 3.3 支持与稳定度
 - 支持系统按"整单位、全额付费"分配；`StageThreeSupport` 平铺字段（`ports`、`iceShips`、`asteroidBases`、`repeaters`、`hydrogenPlants` 等）见 `src/simulation/stage-three-support.ts`。
-- 稳定度/支持系数的**共用来源**是 `src/simulation/building-effects.ts`（`ARRAY_STABILITY=2`、`REPEATER_BONUS_PER_ARRAY=.5`、`SPACEPORT_STABILITY=4`、`SPACEPORT_ASTEROID_SUPPORT=2`、`ASTEROID_BASE_FREIGHT_BONUS=.05` 等），悬停说明已由 `getBuildingEffectRows` 从这里渲染；结算层 `stage-three-support.ts` 尚未接线（待批准的可选项）。
-- 信号中继按 `运行阵列 × 运行中继 × 0.5` 增加稳定度；不放大太空港的 +4。
+- 稳定度/支持系数的**共用来源**是 `src/simulation/building-effects.ts`（`ARRAY_STABILITY=2`、`REPEATER_BONUS_PER_ARRAY=.25`、`SPACEPORT_STABILITY=4`、`SPACEPORT_ASTEROID_SUPPORT=2`、`ASTEROID_BASE_FREIGHT_BONUS=.05` 等），悬停说明由 `getBuildingEffectRows` 渲染；`stage-three-support.ts` 的阵列和信号中继结算复用同一组系数，避免效果与说明不一致。
+- 信号中继按 `运行阵列 × 运行中继 × 0.25` 增加稳定度；不放大太空港的 +4。
 - 氢气发电站在发电阶段优先耗水，不占小行星支持但**提供**支持。
 - 区域数值（已用/总量）统一使用 `src/vue/components/region-balance.ts` 的 `regionBalanceBind` / `regionBalanceText` 渲染。
 
@@ -95,7 +104,7 @@
 - 710研究站T19（850k，前置超空间采矿探查+气体云吸积）：`jobSlots:{lab:1}`经`calculateGrantedJobSlots`计入`calculateWorkerCapacity`与地面结算／收支岗位上限（按已建座数）；属于`HYPERSPACE_CONSUMER_IDS`，在超空间来源循环之后按整座扣25电力+1氘，付费座数经`SupportPreview.researchStationUnits`进入储量快照，每座知识+50000（在CRISPR与空间撕裂者加成之前加入）。
 - 遥远星际（T20/T21）：
   - 超空间太空港的+25%已移除，`calculateHyperspaceOutputFactor`只保留`calculateProductionMultiplier`。星环加成经`isSpaceResourceSource`覆盖采冰船（水）、五类超空间来源、精金采矿船和石墨烯厂。
-  - 设施本地倍率`calculateHyperspaceLocalMultiplier`：精金采矿船为`1+0.1×精金加工站`。结算、回放和收支明细都乘这个倍率，明细里在采矿船下列出「精金加工站」子行。
+  - 设施本地倍率`calculateHyperspaceLocalMultiplier`：精金采矿船为`1+0.1×整座付费运行的精金加工站数`。精金加工站可开关，每座维护电力10/s，按整座全额付费分配；停机或未付费的站不提供加成，不按已建数或小数供能比例计算。结算、回放和收支明细必须复用同一付费运行数与倍率，维护只扣一次；明细里在采矿船下列出「精金加工站」子行。
   - 精金采矿船与石墨烯厂属于`HYPERSPACE_SOURCE_IDS`，按整座供能比例结算。黑洞星际站属于`HYPERSPACE_CONSUMER_IDS`，付费座数经`blackHoleStationUnits`进入储量快照。`calculateRipperKnowledgeBonus`=`0.2+0.01×付费站数`，作用于每座完整撕裂者。
   - 新建筑全部在地面结算的跳过列表里。
   - 彭罗斯球体`segmentEffects:true`：`countRunningBuildings`直接按段数计，`settlePowerPlants`每段+5电力。
@@ -113,7 +122,7 @@
   - `GameState.smelterIdle`记录空闲工位数。容量`calculateSmelterSlotCapacity`=冶炼厂+2×恒星熔炉。运行工位`calculateRunningSmelterSlots`=（运行中的冶炼厂+2×熔炉）−min(空闲, 容量)。
   - 地面结算按运行工位套用原`calculateBuildingInput/Output('smelter')`配方，因此`inputUnits.smelter`=付费工位，钛副产物同源。
   - 缺字段旧档按0读取，即全部工位炼钢；超过容量或非整数时拒绝。`changeSmelterAssignment`供⚙弹窗（`SmelterModal.vue`）调用。
-- 恒星熔炉：工匠可用数与`calculateWorkerCapacity('foundry')`各+2/座；`calculateStellarForgeCraftMultiplier`=`1+0.1×座数`乘入锻造倍率，收支明细列为「恒星熔炉」行。
+- 恒星熔炉：新增电力产出25/s，进入发电结算；原有冶炼厂工位+2/座、工匠可用数与`calculateWorkerCapacity('foundry')`各+2/座保持。`calculateStellarForgeCraftMultiplier`=`1+0.1×座数`乘入锻造倍率，收支明细列为「恒星熔炉」行。
 - VR中心：Asriel支持优先级排在末位，`allocations.vrCenter`经`vrCenterUnits`进入`calculateMorale`（每座+2.5，仍受上限）。虚拟训练：`calculateTrainingBoost`=8（原5）。
 - 新资源：
   - `graphene`、`nanoAlloy`、`adamantite`：基础容量0，可分配集装箱。锚点货运站解锁后每种+32000。

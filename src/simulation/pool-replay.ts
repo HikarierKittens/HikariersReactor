@@ -46,6 +46,7 @@ export function replaySettledPool(
   // 1. Quantum cores: helium reserved first (historical order).
   const aiSupercoreUnits = ledger.aiSupercoreUnits;
   pool.helium3 = Math.max(0, pool.helium3 - aiSupercoreUnits * 25 * dt);
+  pool.energy = Math.max(0, pool.energy - aiSupercoreUnits * 100 * dt);
   inputUnits.aiSupercore = outputs.aiSupercore = aiSupercoreUnits;
 
   // 2. Power plants: fuel debits and energy credits from the ledger units.
@@ -179,6 +180,9 @@ function replaySpaceDebits(
   const e710ContainerUnits = spaceUnits.e710Container || 0;
   charge(pool, 'helium3', .5 * fuelMultiplier * e710ContainerUnits * dt);
 
+  // Processor power is reserved before source production, matching the ledger.
+  charge(pool, 'energy', (spaceUnits.adamantiteProcessor || 0) * 10 * dt);
+  outputs.adamantiteProcessor = spaceUnits.adamantiteProcessor || 0;
   // Hyperspace facilities (710富集区 & stable zone): fixed funded units with
   // per-building input charge then output credit, exactly like the historical
   // loop so later consumers see earlier producers (e.g. gas-ship deuterium).
@@ -189,7 +193,7 @@ function replaySpaceDebits(
       charge(pool, resource, amount * actual * dt);
     }
     for (const [resource, amount] of Object.entries(BUILDINGS[id].output || {}) as [ResourceId, number][]) {
-      const speed = actual * calculateHyperspaceOutputFactor(resource, state, happiness, stageThree.ports) * calculateHyperspaceLocalMultiplier(id, state);
+      const speed = actual * calculateHyperspaceOutputFactor(resource, state, happiness, stageThree.ports) * calculateHyperspaceLocalMultiplier(id, state, spaceUnits.adamantiteProcessor || 0);
       outputs[id] = actual;
       credit(pool, resource, amount * speed * calculateParticleMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt);
     }

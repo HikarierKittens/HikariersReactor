@@ -48,7 +48,7 @@ export function hasContinuousEnergyInput(id: BuildingId, state: Pick<GameState, 
 export function calculateBuildingInput(id: BuildingId, state: GameState): ResourceRecipe {
   if (id === 'navigationBeacon') return { energy: state.tech.includes('spaceBroadcasting') ? 3 : 2 };
   if (id === 'metalRefinery') return state.tech.includes('advancedMetalRefining') ? { energy: 4 } : {};
-  if (id === 'aiSupercore') return { helium3: 25 };
+  if (id === 'aiSupercore') return { helium3: 25, energy: 100 };
   const input = BUILDINGS[id].input || {};
   return applySpaceFuelDiscount(id, id === 'smelter' && state.tech.includes('electrochemicalSmelting') ? { ...input, energy: 2 } : input, state);
 }

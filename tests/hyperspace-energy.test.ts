@@ -30,8 +30,8 @@ test('hyperspace technology tiers costs and building-gated research retain exact
 });
 test('funded repeaters amplify only funded arrays and never amplify spaceport stability',()=>{
  for(const dt of [.2,1]){const s=ready();s.buildings.constraintArray=2;s.buildings.signalRepeater=3;s.buildings.hyperspaceSpaceport=1;s.resources.e710=1;s.resources.helium3=1e4;s.resources.energy=165*dt;
- const before=clone(s),p=calculateProduction(s,dt);assert.deepEqual(s,before);assert.deepEqual(p.stageThree,calculateSupportPreview(s,dt).stageThree);near(p.stageThree.capacity,11);near(p.rates.energy,-160);near(calculateResourceBreakdown('energy',s,p).net,-160);
- s.resources.energy=120*dt;const short=calculateProduction(s,dt);near(short.stageThree.capacity,6);near(short.rates.energy,-120);
+ const before=clone(s),p=calculateProduction(s,dt);assert.deepEqual(s,before);assert.deepEqual(p.stageThree,calculateSupportPreview(s,dt).stageThree);near(p.stageThree.capacity,9.5);near(p.rates.energy,-160);near(calculateResourceBreakdown('energy',s,p).net,-160);
+ s.resources.energy=120*dt;const short=calculateProduction(s,dt);near(short.stageThree.capacity,5);near(short.rates.energy,-120);
  s.stoppedBuildings.constraintArray=2;s.resources.energy=60*dt;s.resources.helium3=1e4;near(calculateProduction(s,dt).stageThree.capacity,4);
  }
 });

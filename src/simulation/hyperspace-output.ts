@@ -15,7 +15,8 @@ export function calculateHyperspaceOutputFactor(resource: ResourceId, state: Gam
   void fundedPorts;
   return calculateProductionMultiplier(resource, happiness, state);
 }
-/** Building-local bonus: each 精金加工站 raises 精金采矿船 output by 10% (passive, no upkeep). */
-export function calculateHyperspaceLocalMultiplier(id: BuildingId, state: Pick<GameState, 'buildings'>): number {
-  return id === 'adamantiteMiningShip' ? 1 + .1 * (state.buildings.adamantiteProcessor || 0) : 1;
+/** Only whole powered, running 精金加工站 grant the miner bonus. Callers pass the settled units. */
+export function calculateHyperspaceLocalMultiplier(id: BuildingId, state: Pick<GameState, 'buildings'>, fundedProcessors = 0): number {
+  void state;
+  return id === 'adamantiteMiningShip' ? 1 + .1 * fundedProcessors : 1;
 }

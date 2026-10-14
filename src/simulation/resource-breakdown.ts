@@ -54,7 +54,7 @@ export function calculateResourceBreakdown(
     const n = id === 'smelter' ? calculateSmelterSlotCapacity(state) : state.buildings[id];
     if (!n && !b.unlimited) continue;
     const speed = (HYPERSPACE_SOURCE_IDS.includes(id)
-      ? (result.inputUnits[id] || 0) * calculateHyperspaceOutputFactor(resource, state, result.morale.happiness, result.stageThree.ports) * calculateHyperspaceLocalMultiplier(id, state)
+      ? (result.inputUnits[id] || 0) * calculateHyperspaceOutputFactor(resource, state, result.morale.happiness, result.stageThree.ports) * calculateHyperspaceLocalMultiplier(id, state, result.inputUnits.adamantiteProcessor || 0)
       : result.outputs[id] || 0)
       * (isSpaceResourceSource(id) ? calculateSpaceMultiplier(id, state, result.asriel) : 1)
      
@@ -270,13 +270,13 @@ export function calculateResourceFactorRows(
       / (id === 'iridiumMine' && resource === 'iridium' ? 1 + .05 * (result.inputUnits.geothermalPlant || 0) : 1)
       / (id === 'talosMoonMiningStation' && resource === 'neutron' ? 1 + .05 * (state.buildings.miningDrone || 0) : 1)
       / calculateSpaceMultiplier(id, state, result.asriel)
-      / calculateHyperspaceLocalMultiplier(id, state);
+      / calculateHyperspaceLocalMultiplier(id, state, result.inputUnits.adamantiteProcessor || 0);
     add(id === 'smelter' ? '钢冶炼工位' : id === 'catCafe' && resource === 'cash' ? calculateBuildingName(id, state) : b.workerName || calculateBuildingName(id, state), signedRate(sourceValue));
 
     // 基因修饰 bonuses are already part of the base value (calculateBuildingOutput); no separate row.
     let local = 1;
     if (id === 'adamantiteMiningShip') {
-      const factor = calculateHyperspaceLocalMultiplier(id, state);
+      const factor = calculateHyperspaceLocalMultiplier(id, state, result.inputUnits.adamantiteProcessor || 0);
       pct('精金加工站', factor, true); local *= factor;
     }
     if (id === 'iridiumMine' && resource === 'iridium') {

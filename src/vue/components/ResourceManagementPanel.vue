@@ -68,11 +68,11 @@ const rows = computed(() => {
         <p class="small subtle">每单位喷射容量每秒喷射1单位资源。质量喷射器需完整供电；电力不足时按供电比例减少喷射，库存不足时只喷射现有库存。分配支持 Ctrl ×10、Shift ×25、Alt ×100。</p>
       </section>
     </div>
-    <div class="detail-grid">
-      <article v-for="row in ejectionRows" :key="row.id" class="card" :data-eject-row="row.id">
-        <div class="card-top"><div class="card-title"><h3>{{ row.definition.icon }} {{ row.definition.name }}</h3></div></div>
-        <p class="small subtle">每单位{{ row.exotic ? '奇异质量' : '质量' }} {{ mass(row.mass) }}</p>
-        <div class="workers">
+    <div class="management-list">
+      <article v-for="row in ejectionRows" :key="row.id" class="management-row" :data-eject-row="row.id">
+        <h3 class="management-name">{{ row.definition.icon }} {{ row.definition.name }}</h3>
+        <span class="management-note small subtle">每单位{{ row.exotic ? '奇异质量' : '质量' }} {{ mass(row.mass) }}</span>
+        <div class="management-controls">
           <button :data-eject-resource="row.id" :data-delta="-1" :disabled="row.rate <= 0" :aria-label="`减少${row.definition.name}喷射`" @click="emit('eject', row.id, -10 * clickMultiplier($event))">−</button>
           <strong>{{ fmt(row.rate) }}/s</strong>
           <button :data-eject-resource="row.id" :data-delta="1" :disabled="ejectionAllocated >= ejectionCapacity" :aria-label="`增加${row.definition.name}喷射`" @click="emit('eject', row.id, 10 * clickMultiplier($event))">+</button>
@@ -91,10 +91,10 @@ const rows = computed(() => {
         <p class="small subtle">制造及分配支持 Ctrl ×10、Shift ×25、Alt ×100，可组合相乘。资源不足只制造可负担的数量。撤回不销毁集装箱；撤回后超出储量上限的资源立即丢失。</p>
       </section>
     </div>
-    <div class="detail-grid">
-      <article v-for="row in rows" :key="row.id" class="card">
-        <div class="card-top"><div class="card-title"><h3>{{ row.definition.icon }} {{ row.definition.name }}</h3></div></div>
-        <div class="workers">
+    <div class="management-list">
+      <article v-for="row in rows" :key="row.id" class="management-row" :data-container-row="row.id">
+        <h3 class="management-name">{{ row.definition.icon }} {{ row.definition.name }}</h3>
+        <div class="management-controls">
           <button :data-container-resource="row.id" :data-delta="-1" :disabled="row.count <= 0" :aria-label="`撤回${row.definition.name}集装箱`" @click="emit('assign', row.id, -clickMultiplier($event))">−</button>
           <strong>{{ fmt(row.count) }}</strong>
           <button :data-container-resource="row.id" :data-delta="1" :disabled="assigned >= owned" :aria-label="`分配${row.definition.name}集装箱`" @click="emit('assign', row.id, clickMultiplier($event))">+</button>
@@ -104,3 +104,51 @@ const rows = computed(() => {
     </div>
   </template>
 </template>
+
+<style scoped>
+.management-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-x: auto;
+}
+.management-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  min-width: 400px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  white-space: nowrap;
+}
+.management-name {
+  flex: 0 0 100px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 400;
+}
+.management-note { min-width: 180px; }
+.management-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.management-controls button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  flex: 0 0 26px;
+}
+.management-controls strong { min-width: 48px; text-align: center; }
+.management-controls > span { min-width: 105px; }
+@media (max-width: 600px) {
+  .management-row { gap: 6px; }
+  .management-name { flex-basis: 80px; }
+  .management-note { min-width: 160px; }
+}
+</style>

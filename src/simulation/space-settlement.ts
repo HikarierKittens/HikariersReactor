@@ -75,6 +75,11 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
   pool.helium3 = Math.max(0, pool.helium3 - .5 * fuelMultiplier * e710ContainerUnits * dt);
   // Hyperspace facilities (710富集区 & stable zone) run on energy + helium/deuterium
   // inputs without asteroid support; outputs use ordinary multipliers like ice ships.
+  // Fund processors before the miners: stopped/unfunded stations never grant a bonus.
+  const processorRunning = Math.max(0, (state.buildings.adamantiteProcessor || 0) - (state.stoppedBuildings.adamantiteProcessor || 0));
+  const fundedProcessors = Math.min(processorRunning, Math.floor((Math.max(0, pool.energy) + 1e-8) / (10 * dt)));
+  inputs.adamantiteProcessor = outputs.adamantiteProcessor = fundedProcessors;
+  pool.energy = Math.max(0, pool.energy - fundedProcessors * 10 * dt);
   // 天元六alpha星区 producers share this loop; 精金加工站 boosts the adamantite miners.
   for (const id of HYPERSPACE_SOURCE_IDS) {
     const running = Math.max(0, (state.buildings[id] || 0) - (state.stoppedBuildings[id] || 0));
@@ -91,7 +96,7 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
     // Multi-resource buildings expose funded units, not a sum of resource-local speeds.
     outputs[id] = actual;
     for (const [resource, amount] of Object.entries(out) as [ResourceId, number][]) {
-      const speed = actual * calculateHyperspaceOutputFactor(resource, state, happiness, stageThree.ports) * calculateHyperspaceLocalMultiplier(id, state);
+      const speed = actual * calculateHyperspaceOutputFactor(resource, state, happiness, stageThree.ports) * calculateHyperspaceLocalMultiplier(id, state, fundedProcessors);
       pool[resource] = (pool[resource] || 0)
         + amount * speed * calculateParticleMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt;
     }

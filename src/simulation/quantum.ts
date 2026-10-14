@@ -13,8 +13,9 @@ export interface QuantumSnapshot {
 }
 /** Completed cores are indivisible; partial segments never reserve fuel or grant quantum. */
 export function settleQuantumCores(state: GameState, pool: ResourceAmounts, dt = 1): number {
-  const cores = Math.min(countRunningBuildings('aiSupercore', state), Math.floor(Math.max(0, pool.helium3) / (25 * dt)));
+  const cores = Math.min(countRunningBuildings('aiSupercore', state), Math.floor((Math.max(0, pool.helium3) + 1e-8) / (25 * dt)), Math.floor((Math.max(0, pool.energy) + 1e-8) / (100 * dt)));
   pool.helium3 = Math.max(0, pool.helium3 - cores * 25 * dt);
+  pool.energy = Math.max(0, pool.energy - cores * 100 * dt);
   return cores;
 }
 /** Inject the already-funded storage snapshot during settlement to avoid preview recursion. */

@@ -139,7 +139,7 @@ const content = computed<TipContent | null>(() => {
     if (id === 'penroseSphere' && (state.buildings.massEjector || 0) > 0) tip.description += `\n黑洞质量：${formatBlackHoleMass(state.blackHole.mass)}\n奇异质量：${formatBlackHoleMass(state.blackHole.exoticMass)}`;
     if (id === 'penroseSphere' && state.tech.includes('gravityConversion')) tip.description += `\n引力转化：电力+${formatEffectNumber(calculateGravityConversionEnergy(state))}/s`;
     if (id === 'iceMiningShip' && state.tech.includes('icebreakingPlan')) tip.description = (building.desc || '').replace('水产量+1/s', '水产量+1.25/s');
-    if (id === 'aiSupercore') tip.description = `分段进度： ${Math.min(count, building.segmentedRequired!)} /${building.segmentedRequired}\n量子水平 +25%\n氦-3 - 25/s`;
+    if (id === 'aiSupercore') tip.description = `分段进度： ${Math.min(count, building.segmentedRequired!)} /${building.segmentedRequired}\n量子水平 +25%\n氦-3 - 25/s\n电力 - 100/s`;
     const queueUid = Number(anchor.value?.dataset.queueUid);
     const queued = state.queue.find(item => item.uid === queueUid && item.kind === 'build' && item.id === id);
     const queuedSegments = queued?.kind === 'build' ? queued.segments : undefined;
@@ -278,6 +278,7 @@ const content = computed<TipContent | null>(() => {
       add('分段进度', `${Math.min(count, building.segmentedRequired!)} /${building.segmentedRequired}`);
       add('量子水平', '+25%');
       add('氦-3', '-25/s', true);
+      add('电力', '-100/s', true);
     }
   } else if (target.kind === 'mission' && Object.hasOwn(REGIONAL_MISSIONS, target.id)) {
     const id = target.id as RegionalMissionId, mission = REGIONAL_MISSIONS[id];
@@ -442,6 +443,9 @@ const content = computed<TipContent | null>(() => {
   return tip;
 });
 
+const splitEnergyExpense = computed(() => selected.value?.kind === 'resource'
+  && selected.value.id === 'energy' && (content.value?.expense.length || 0) > 15);
+
 function trigger(target: EventTarget | null): HTMLElement | null {
   return target instanceof Element ? target.closest<HTMLElement>(selector) : null;
 }
@@ -535,7 +539,7 @@ onUnmounted(() => {
 
 <template>
   <Teleport :to="anchor?.closest('dialog') || 'body'">
-    <div v-if="content" ref="panel" id="gameTooltip" class="building-tooltip" :class="{ 'resource-detail': selected?.kind === 'resource' }" role="tooltip" :style="position">
+    <div v-if="content" ref="panel" id="gameTooltip" class="building-tooltip" :class="{ 'resource-detail': selected?.kind === 'resource', 'energy-expense-split': splitEnergyExpense }" role="tooltip" :style="position">
       <h3>{{ content.title }}</h3>
       <p v-if="content.description" class="tip-desc" :style="selected?.kind === 'building' && ['aiSupercore', 'spaceRipper', 'penroseSphere'].includes(selected.id) ? { whiteSpace: 'pre-line' } : undefined">{{ content.description }}</p>
       <p v-if="content.warning" class="tip-desc danger" data-tech-warning>{{ content.warning }}</p>
@@ -557,7 +561,9 @@ onUnmounted(() => {
         </div>
         <div class="resource-column">
           <div class="resource-column-title">消耗</div>
-          <div v-for="(row, index) in content.expense" :key="index" class="resource-factor" :class="{ child: row.child, 'last-child': row.child && !content.expense[index + 1]?.child }"><span>{{ row.name }}</span><span class="resource-factor-value" :class="{ 'is-negative': row.negative }">{{ row.value }}</span></div>
+          <div class="expense-list" :class="{ 'expense-list-split': splitEnergyExpense }">
+            <div v-for="(row, index) in content.expense" :key="index" class="resource-factor" :class="{ child: row.child, 'last-child': row.child && !content.expense[index + 1]?.child }"><span>{{ row.name }}</span><span class="resource-factor-value" :class="{ 'is-negative': row.negative }">{{ row.value }}</span></div>
+          </div>
           <p v-if="!content.expense.length" class="small subtle">暂无消耗。</p>
         </div>
       </div>
@@ -567,3 +573,10 @@ onUnmounted(() => {
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.building-tooltip.resource-detail.energy-expense-split { width: 620px; }
+.energy-expense-split .resource-columns { grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr); }
+.expense-list-split { column-count: 2; column-gap: 16px; }
+.expense-list-split > .resource-factor { break-inside: avoid; }
+</style>

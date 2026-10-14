@@ -13,7 +13,7 @@ function stage(){const s=fresh();s.tech.push('fieldConstraintTheory','dualEndCou
 
 test('subsecond quantum-funded satellite generation uses the same interval as core and stability maintenance',()=>{
   const s=stage();s.tech.push('artificialIntelligenceII','quantumSwarm');s.buildings.lab=200;s.buildings.aiSupercore=100;s.buildings.swarmControlStation=1;s.buildings.swarmSatellite=25;s.buildings.constraintArray=1;
-  Object.assign(s.resources,{helium3:5,e710:1,energy:7.55});
+  Object.assign(s.resources,{helium3:5,e710:1,energy:27.55});
   const before=JSON.stringify(s);const preview=calculateSupportPreview(s,.2);const actual=calculateProduction(s,.2);
   assert.equal(actual.inputUnits.aiSupercore,1);assert.ok(actual.quantum.level>=5);
   assert.equal(actual.outputs.swarmSatellite,25,'funded core supports the 25th satellite during this tick');

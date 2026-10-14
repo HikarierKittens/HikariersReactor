@@ -1,4 +1,5 @@
 import { calculateSupportPreview } from './support-preview';
+import { ARRAY_STABILITY, REPEATER_BONUS_PER_ARRAY } from './building-effects';
 import type { GameState } from '../types/state';
 import type { ResourceAmounts } from '../types/economy';
 import type { BuildingId } from '../types/buildings';
@@ -15,7 +16,7 @@ export function settleStageThreeSupport(state: GameState, pool: ResourceAmounts,
   const ports = beacon ? Math.min(running('hyperspaceSpaceport'), Math.floor((pool.energy + 1e-8) / (30 * dt)), Math.floor((pool.helium3 + 1e-8) / (5 * dt))) : 0;
   pool.energy = Math.max(0, pool.energy - ports * 30 * dt);
   pool.helium3 = Math.max(0, pool.helium3 - ports * 5 * dt);
-  const capacity = arrays * (2 + .5 * repeaters) + ports * 4;
+  const capacity = arrays * (ARRAY_STABILITY + REPEATER_BONUS_PER_ARRAY * repeaters) + ports * 4;
   const relays = state.tech.includes('dualEndCoupling') && state.stageThree.signalCompleted ? Math.min(running('shortRangeRelay'), Math.floor(capacity / 2), Math.floor((pool.energy + 1e-8) / (10 * dt))) : 0;
   pool.energy = Math.max(0, pool.energy - relays * 10 * dt);
   const linked = state.tech.includes('anomalyTopology') && state.stageThree.remoteLinked;

@@ -137,6 +137,22 @@ try {
   store.mutate(state => { state.resources.wood = 123; }); await flush();
   log(!$('#gameTooltip').textContent.includes('当前数量 / 上限') && !$('#gameTooltip').textContent.includes('123 /'), '储量tooltip不重复显示当前数量与上限');
   await escapeTip(); log(!$('#gameTooltip'), 'Escape关闭tooltip');
+  const energyLayoutSnapshot = JSON.parse(JSON.stringify(S()));
+  const { BUILDINGS: energyLayoutBuildings } = await import('/src/data/buildings.ts');
+  store.mutate(state => {
+    state.tech = Object.keys(TECHNOLOGIES);
+    for (const id of Object.keys(state.resources)) state.resources[id] = 1e9;
+    for (const id of Object.keys(energyLayoutBuildings)) { state.buildings[id] = 100; state.stoppedBuildings[id] = 0; state.workers[id] = 10; }
+    for (const id of Object.keys(state.stageThree)) state.stageThree[id] = true;
+    for (const id of Object.keys(state)) if (id.endsWith('MissionCompleted')) state[id] = true;
+  }); await flush();
+  await showTip('[data-building-tip="energy"][data-tip-kind="resource"]');
+  log($$('.expense-list .resource-factor').length > 15 && $('#gameTooltip').classList.contains('energy-expense-split') && getComputedStyle($('.expense-list')).columnCount === '2', '电力消耗超过15项时自动分两列');
+  await escapeTip();
+  store.mutate(state => Object.assign(state, JSON.parse(JSON.stringify(energyLayoutSnapshot)))); await flush();
+  await showTip('[data-building-tip="energy"][data-tip-kind="resource"]');
+  log($$('.expense-list .resource-factor').length <= 15 && !$('#gameTooltip').classList.contains('energy-expense-split'), '电力消耗不超过15项时保持单列');
+  await escapeTip();
   store.mutate(state => { state.resources.wood = 123.456789; }); await flush();
   log($('[data-resource-id="wood"] .res-amount b').textContent === '123.45', '资源数量保留两位小数，不向上虚增库存');
   store.mutate(state => { state.resources.wood = 123; }); await flush();
@@ -217,6 +233,18 @@ try {
   log(S().containerAssignments.wood === 10 && $('[data-container-resource="wood"]').parentElement.querySelector('strong').textContent === '10', 'Ctrl分配10个集装箱并即时更新数量');
   modifiedClick($('[data-container-resource="wood"][data-delta="-1"]'), { shiftKey: true }); await flush();
   log(S().containerAssignments.wood === 0 && S().containers === 10, 'Shift撤回受已分配数量限制且不销毁集装箱');
+  const inlineRow = row => {
+    const name = row.querySelector('.management-name').getBoundingClientRect();
+    const button = row.querySelector('button').getBoundingClientRect();
+    return Math.abs((name.top + name.bottom) / 2 - (button.top + button.bottom) / 2) < 2 && row.getBoundingClientRect().height < 48;
+  };
+  log(inlineRow($('[data-container-row="wood"]')), '集装箱资源名称和按钮同一行且行高紧凑');
+  store.mutate(state => { state.buildings.massEjector = 1; }); await flush();
+  click($('[data-resource-view="massEjection"]')); await flush();
+  log(inlineRow($('[data-eject-row="wood"]')) && getComputedStyle($('[data-eject-row="wood"]')).whiteSpace === 'nowrap', '质量喷射名称说明和按钮紧凑单行显示');
+  click($('[data-eject-resource="wood"][data-delta="1"]')); await flush();
+  log(S().blackHole.ejection.wood === 10, '质量喷射单行布局仍可正常分配');
+  store.mutate(state => { state.buildings.massEjector = 0; state.blackHole.ejection = {}; }); await flush();
   click($('[data-tab="cats"]')); await flush();
   const craftButton = count => $(`[data-crafted-resource="plank"] [data-craft="plank"][data-craft-count="${count}"]`);
   log($('#craftedResources')?.parentElement.classList.contains('col-left') && $('#craftedResources').previousElementSibling === $('#resources').closest('.panel'), '锻造物位于左栏资源面板紧后方');
@@ -369,12 +397,16 @@ try {
   const beforeStageThree = JSON.parse(JSON.stringify(S()));
   log(!S().stageThree.coreActivated && !$('[data-stage3-action="probe"]'), '仅建成核心和生产预览不会激活第三阶段');
   log(!$('[data-world-view="hyperspace"]') && !$('[data-stage-three]'), '第三阶段未激活时不显示超空间页面与实验面板');
-  store.mutate(state => { state.stoppedBuildings.aiSupercore = 0; state.resources.helium3 = 1000; state.settings.paused = false; });
+  store.mutate(state => { state.stoppedBuildings.aiSupercore = 0; state.resources.helium3 = 1000; state.resources.energy = 1000; state.settings.paused = false; });
   await sleep(250); store.runtime.tick(.2); store.mutate(state => { state.settings.paused = true; }); await flush();
   log(S().stageThree.coreActivated && S().story.unlocked.includes('coreCalibration'), '核心实际供能tick即时激活第三阶段并收录校准剧情');
   store.mutate(state => { state.resources.helium3 = 1000; }); await flush();
   const corePowerButton = () => $('[data-buy="aiSupercore"]').closest('.building-control').querySelector('.building-toggle.start');
+  store.mutate(state => { state.resources.energy = 1000; }); await flush();
   log(!corePowerButton().classList.contains('is-shortage'), '完整AI核心维护充足时供能按钮不显示黄色');
+  store.mutate(state => { state.resources.energy = 0; }); await flush();
+  log(corePowerButton().classList.contains('is-shortage'), '完整AI核心缺电时供能按钮显示黄色');
+  store.mutate(state => { state.resources.energy = 1000; }); await flush();
   store.mutate(state => { state.resources.helium3 = 0; }); await flush();
   log(corePowerButton().classList.contains('is-shortage'), '完整AI核心缺少氦3时仍正确显示黄色');
   store.mutate(state => { state.resources.helium3 = 1000; }); await flush();
