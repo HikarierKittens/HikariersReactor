@@ -36,7 +36,7 @@
 ### 3.1 状态所有权
 - `createRuntime()` 持有可变普通对象 `GameState`（见 `src/state/create-state.ts`）。
 - Vue 通过 store 的 `shallowRef` + 显式 `revision` 失效机制刷新；模拟本身**不是**响应式的。
-- UI 定时器 200ms 一次；运行时按 `performance.now` 计算真实流逝时间，切步上限 1s，追赶封顶 28800s；离线结算保持同步。
+- UI 定时器 200ms 一次；运行时按 `performance.now` 计算真实流逝时间，切步上限 1s，追赶封顶 28800s（只用于页面在后台被节流的情况）。载入存档不做离线结算，`lastSaved`只作为存档元数据保留。
 
 ### 3.2 生产结算链（`src/simulation/production.ts`）
 一次 `calculateProduction(state, dt)` 的顺序（顺序不可乱改，维护费用只扣一次）：

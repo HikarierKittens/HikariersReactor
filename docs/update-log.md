@@ -20,6 +20,20 @@
 
 ---
 
+## 2026-10-14 推送脚本加入静态编译
+
+- 工具：`apush-to-github.bat`在检查未提交改动之前先编译静态网站。缺少`node_modules`时先执行`npm ci`。运行时会询问是否执行完整的`npm run check`，默认只执行`npm run build`。编译或检查失败，或没有生成`dist\index.html`时，脚本停止，不提交也不推送。
+- 仓库：`dist/`继续由`.gitignore`忽略，编译产物只用于本地或nginx部署，不上传GitHub。脚本另加一道保险：如果`dist`曾被git跟踪，会用`git rm --cached`从索引中移除，本地文件保留。
+- 兼容：无玩法变更。
+- 验证：单独运行脚本中的编译段，`npm run build`成功，`dist`的git状态为已忽略（`!!`），被跟踪的文件数为0。没有实际执行推送。
+
+## 2026-10-14 移除离线时间计算
+
+- 改动：载入存档时不再按`lastSaved`补算关闭页面期间的时间，读档后从存档时的状态继续。`runtime.load`删除了离线`simulateElapsed`调用。
+- 保留：页面开着但在后台或最小化时，回到前台仍按真实经过时间补算（上限8小时）；暂停时不计时。
+- 兼容：存档格式不变，`lastSaved`字段保留并照常写入，只是不再用于结算。旧存档读入后不会获得离线收益。
+- 验证：`npm run check`通过（退出码0），runtime测试改为断言载入不推进时间。
+
 ## 2026-10-14 更新日志改为独立页面
 
 - 界面：移除游戏内「更新日志」标签页。顶栏版本号左侧新增「更新日志」链接，点击后在新浏览器标签页打开独立页面`updatelog.html`，并带有`rel="noopener"`。`vite.config.ts`改为多页面构建（`index`与`updatelog`两个入口），独立页面入口为`src/updatelog.ts`，复用`UpdateLogPanel.vue`。

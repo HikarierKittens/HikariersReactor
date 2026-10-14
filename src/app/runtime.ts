@@ -125,8 +125,7 @@ export function createRuntime(): Runtime {
       addLog(state, '⚠ 存档校验失败，当前为临时新游戏，已暂停保存。', 'system');
       return;
     }
-    const elapsed = Math.max(0, (Date.now() - state.lastSaved) / 1000);
-    simulateElapsed(elapsed, dt => advanceGameTick(state, dt, tickHooks));
+    // No offline catch-up: time while the page was closed is never settled.
     scanAchievements();
     resetClock();
   }
@@ -164,7 +163,7 @@ export function createRuntime(): Runtime {
   }
 
   function exportSave(): string {
-    // This snapshot already includes elapsed simulation; importing it must not replay it.
+    // lastSaved is kept as save metadata only; loading never replays time from it.
     return JSON.stringify({ ...state, lastSaved: Date.now() }, null, 2);
   }
 

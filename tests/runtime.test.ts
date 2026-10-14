@@ -59,7 +59,7 @@ test('load clamps the candidate save and never mutates the previous state', t =>
   assert.equal(runtime.saveFailed, false);
 });
 
-test('load runs offline elapsed once and resets the live clock', t => {
+test('load never settles offline time and resets the live clock', t => {
   const env = environment(t);
   const saved = env.state();
   saved.time = 40;
@@ -68,18 +68,19 @@ test('load runs offline elapsed once and resets the live clock', t => {
   const runtime = createRuntime();
   env.advance(2);
   runtime.load();
-  assert.equal(runtime.state.time, 46);
+  // 4000s since the save and 2s before load are both discarded.
+  assert.equal(runtime.state.time, 40);
   runtime.load();
-  assert.equal(runtime.state.time, 46);
+  assert.equal(runtime.state.time, 40);
   assert.equal(env.reads, 1);
   runtime.tick(.2);
-  assert.equal(runtime.state.time, 46);
+  assert.equal(runtime.state.time, 40);
   env.advance(.2);
   runtime.tick(.2);
-  assert.equal(runtime.state.time, 46.2);
+  assert.equal(runtime.state.time, 40.2);
 });
 
-test('future save timestamps do not create negative offline time', t => {
+test('future save timestamps load without advancing time', t => {
   const env = environment(t);
   const saved = env.state();
   saved.lastSaved += 1000;
