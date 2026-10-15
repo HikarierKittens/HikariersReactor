@@ -15,6 +15,7 @@ const registry = [
   ['gene-data', 'data/genes'],
   ['genes', 'simulation/genes'],
   ['auto-workers', 'simulation/auto-workers'],
+  ['achievement-tracking', 'simulation/achievement-tracking'],
   ['state', 'state/create-state'],
   ['save-defaults', 'state/save-defaults'],
   ['challenges', 'simulation/challenges'],

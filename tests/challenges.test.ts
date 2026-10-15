@@ -21,7 +21,7 @@ test('challenge launch requires permanent unlock and commits an independent soft
   const state = fresh();
   assert.equal(launchChallenges(state, ['particleImbalance'], 60, 0), null);
   state.crispr = ['challengeGene']; state.prestige.particles = 100;
-  state.resources.wood = 200; state.tech = ['writing']; state.achievements = ['first']; state.settings.touchOptimization = true;
+  state.resources.wood = 200; state.tech = ['writing']; state.achievements = ['nuclearCuriosity']; state.settings.touchOptimization = true;
   state.statistics.lifetime.knowledgeSpent = 42;
   const before = JSON.stringify(state);
   for (const genes of [[], ['unknown'], ['particleImbalance', 'particleImbalance']]) {

@@ -171,10 +171,11 @@ test('runtime imports and loads clamp the candidate using powered lunar support 
     const candidate = lunarState();
     unlockAll(candidate);
     candidate.resources.iridium = 150;
+    candidate.buildings.swarmSatellite = 4096;
     const runtime = createRuntime();
     assert.equal(runtime.replaceState(candidate), true);
     assert.equal(runtime.state.resources.iridium, 150, 'import must retain storage unlocked by immediate generation');
-    assert(runtime.state.logs.some(log => log.type === 'achievement' && log.text.includes('科技先锋')));
+    assert(runtime.state.logs.some(log => log.type === 'achievement' && log.text.includes('遮天蔽日')));
     const next = createRuntime();
     next.load();
     assert(next.state.resources.iridium >= 150, 'load must validate against candidate support, not a fresh runtime');

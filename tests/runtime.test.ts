@@ -40,6 +40,16 @@ function environment(t: TestContext) {
   };
 }
 
+test('runtime achievement scan logs a newly reached condition once', t => {
+  const env = environment(t);
+  const runtime = createRuntime(); runtime.load();
+  runtime.state.buildings.swarmSatellite = 4096;
+  env.advance(1); runtime.tick(1);
+  assert.ok(runtime.state.achievements.includes('swarmEclipse'));
+  env.advance(1); runtime.tick(1);
+  assert.equal(runtime.state.logs.filter(row => row.type === 'achievement' && row.text.includes('遮天蔽日')).length, 1);
+});
+
 test('runtime initializes technology prices using the existing tier rules', () => {
   assert.equal(TECHNOLOGIES.titaniumSmelting.cost.knowledge, 42000);
   assert.equal(TECHNOLOGIES.steelSafe.cost.knowledge, 17500);

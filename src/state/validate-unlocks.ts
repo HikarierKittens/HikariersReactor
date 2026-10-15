@@ -6,6 +6,8 @@ import { isBuildingUnlocked } from '../simulation/unlocks';
 import { isBuildingFullyBuilt } from '../simulation/costs';
 import { SPACE_MISSIONS, isRegionalMissionCompleted, type SpaceMissionId, type RegionalMissionDefinition } from '../simulation/space-missions';
 import { validateSaveIds } from './validation';
+import { validateSaveSpaceship } from './validate-spaceship';
+import { SNAPSHOT_ACHIEVEMENT_IDS, snapshotAchievementConditions } from '../simulation/achievement-tracking';
 import type { GameState } from '../types/state';
 import type { BuildingId } from '../types/buildings';
 import type { TechnologyId } from '../types/technologies';
@@ -33,7 +35,24 @@ const BUILDING_SPACE_MISSIONS = {
 export function validateUnlockRecords(raw: Record<string, unknown>, state: GameState): void {
   state.unlockedResources = validateSaveIds(raw.unlockedResources, RESOURCES);
   state.tech = validateSaveIds(raw.tech, TECHNOLOGIES);
-  state.achievements = validateSaveIds(raw.achievements, ACHIEVEMENTS);
+  const retiredAchievements = ['first', 'hundred', 'food', 'pioneer', 'builder', 'space'];
+  // Only known retired ids are stripped; malformed or unknown ids still reject.
+  state.achievements = validateSaveIds(Array.isArray(raw.achievements)
+    ? raw.achievements.filter(id => !retiredAchievements.includes(id)) : raw.achievements, ACHIEVEMENTS);
+  const tracking = raw.achievementTracking;
+  if (tracking === undefined) {
+    // Ship records are loaded later in validation and may omit explicit flags;
+    // derive their current paid completion on a temporary state, just as the
+    // later spaceship validator does. Never mutate or backfill the source save.
+    const snapshot = { ...state };
+    validateSaveSpaceship(raw, snapshot);
+    state.achievementTracking = snapshotAchievementConditions(snapshot);
+  } else {
+    if (!tracking || typeof tracking !== 'object' || Array.isArray(tracking)
+      || Object.keys(tracking).some(id => !SNAPSHOT_ACHIEVEMENT_IDS.includes(id as typeof SNAPSHOT_ACHIEVEMENT_IDS[number]))
+      || SNAPSHOT_ACHIEVEMENT_IDS.some(id => !Object.hasOwn(tracking, id) || typeof (tracking as Record<string, unknown>)[id] !== 'boolean')) throw Error('成就追踪状态无效。');
+    state.achievementTracking = { ...tracking } as GameState['achievementTracking'];
+  }
   state.legacyRocketry = raw.legacyRocketry === true;
   if (typeof raw.asrielMissionCompleted !== 'boolean' || typeof raw.asrielMissionQueued !== 'boolean' || raw.asrielMissionQueued) throw Error('Asriel任务状态无效。');
   state.asrielMissionCompleted = raw.asrielMissionCompleted; state.asrielMissionQueued = false;

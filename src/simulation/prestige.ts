@@ -6,6 +6,9 @@ import { recordParticlesEarned, recordCasimirEarned, recordDarkEnergyEarned } fr
 import { calculateDarkEnergyReward } from './black-hole';
 import { isTechnologyUnlocked } from './unlocks';
 import { syncPrestigeUnlocks } from './prestige-unlocks';
+import { ACHIEVEMENTS } from '../data/progression';
+import { addLog } from './progression';
+import { updateAchievementTracking } from './achievement-tracking';
 
 function preserveLifetime(state: GameState, next: GameState): void {
   const snapshot = { ...state };
@@ -25,7 +28,22 @@ import { calculatePrestigeReward, calculateEscapePrestigeReward, calculateCasimi
 import { hasCompleteShip } from './spaceship';
 export { calculateEscapePrestigeReward, calculateCasimirReward } from './government';
 import type { ResourceId } from '../types/economy';
-import type { GameState } from '../types/state';
+import type { AchievementId, GameState } from '../types/state';
+
+/** Successful reset awards live and log only on its returned state. */
+function awardResetAchievement(next: GameState, id: AchievementId): void {
+  if (next.achievements.includes(id)) return;
+  next.achievements.push(id);
+  addLog(next, `🏅 成就达成：${ACHIEVEMENTS[id].name}`, 'achievement');
+}
+
+/** Capture final unobserved run edges without mutating the reset source. */
+function preserveFinalAchievements(state: GameState, next: GameState): void {
+  const snapshot = { ...state, achievements: [...state.achievements] };
+  const unlocked = updateAchievementTracking(snapshot);
+  next.achievements = [...state.achievements];
+  for (const id of unlocked) awardResetAchievement(next, id);
+}
 
 export const NUCLEAR_PROJECT = { name: '核弹', icon: '☢️', cost: { oil: 4000, alloy: 2000, uranium: 1000 } } as const;
 
@@ -67,6 +85,7 @@ export function launchNuclearPrestige(state: GameState, eventIn: number, now: nu
   next.achievements = [...state.achievements];
   const settings = (state as { settings?: unknown }).settings;
   if (settings !== undefined) (next as { settings?: unknown }).settings = JSON.parse(JSON.stringify(settings));
+  awardResetAchievement(next, 'nuclearCuriosity');
   return { next, reward };
 }
 
@@ -94,6 +113,8 @@ export function launchEscapePrestige(state: GameState, eventIn: number, now: num
   next.achievements = [...state.achievements];
   const settings = (state as { settings?: unknown }).settings;
   if (settings !== undefined) (next as { settings?: unknown }).settings = JSON.parse(JSON.stringify(settings));
+  preserveFinalAchievements(state, next);
+  awardResetAchievement(next, 'escapeRun');
   updateStoryProgress(next);
   return { next, reward, casimirReward };
 }
@@ -127,6 +148,7 @@ export function launchBlackHolePrestige(state: GameState, eventIn: number, now: 
   next.achievements = [...state.achievements];
   const settings = (state as { settings?: unknown }).settings;
   if (settings !== undefined) (next as { settings?: unknown }).settings = JSON.parse(JSON.stringify(settings));
+  awardResetAchievement(next, 'spaceDestroyer');
   updateStoryProgress(next);
   return { next, reward, casimirReward, darkEnergyReward };
 }

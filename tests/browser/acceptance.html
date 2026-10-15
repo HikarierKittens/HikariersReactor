@@ -95,6 +95,15 @@ try {
 
   log($('[data-tab="statistics"]').nextElementSibling === $('[data-tab="story"]'), '剧情主标签紧邻统计右侧');
   click($('[data-tab="statistics"]')); await flush();
+  const achievementTab = $$('.tabs button').find(button => button.textContent.trim() === '成就');
+  click(achievementTab); await flush();
+  log($$('[data-achievement]').length === 7 && $('[data-achievement-filter="all"]').getAttribute('aria-pressed') === 'true', '成就默认显示全部七项新成就');
+  store.mutate(state => { state.achievements = ['nuclearCuriosity']; }); await flush();
+  click($('[data-achievement-filter="complete"]')); await flush();
+  log($$('[data-achievement]').length === 1 && !!$('[data-achievement="nuclearCuriosity"]') && getComputedStyle($('[data-achievement-filter="complete"]')).borderTopColor === 'rgb(99, 184, 117)', '已完成筛选仅显示已获成就，按钮绿色边框');
+  click($('[data-achievement-filter="incomplete"]')); await flush();
+  log($$('[data-achievement]').length === 6 && !$('[data-achievement="nuclearCuriosity"]'), '未完成筛选隐藏已获成就');
+  store.mutate(state => { state.achievements = []; }); await flush();
   click($('[data-statistics-view="perks"]')); await flush();
   log(!!$('.perk-list .empty') && !$('[data-perk]'), '无CRISPR时特权页显示空状态');
   const perkSnapshot = JSON.parse(JSON.stringify(S().crispr));

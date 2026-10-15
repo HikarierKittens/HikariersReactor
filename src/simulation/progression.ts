@@ -2,7 +2,8 @@ import { updateStageThreeProgress } from './stage-three';
 import { updateStoryProgress } from './story';
 import { syncPrestigeUnlocks } from './prestige-unlocks';
 import { RESOURCES } from '../data/resources';
-import { ACHIEVEMENTS, LOG_TYPES } from '../data/progression';
+import { LOG_TYPES } from '../data/progression';
+import { updateAchievementTracking } from './achievement-tracking';
 import { meetsResourceUnlock, isResourceUnlocked } from './unlocks';
 import type { ResourceId } from '../types/economy';
 import type { AchievementId, GameState, LogType } from '../types/state';
@@ -23,11 +24,5 @@ export function updateProgression(state: GameState): AchievementId[] {
   updateStageThreeProgress(state);
   updateStoryProgress(state);
   if (isResourceUnlocked('fur', state)) state.furUnlocked = true;
-  const unlocked: AchievementId[] = [];
-  for (const id of Object.keys(ACHIEVEMENTS) as AchievementId[]) {
-    if (!state.achievements.includes(id) && ACHIEVEMENTS[id].test(state)) {
-      state.achievements.push(id); unlocked.push(id);
-    }
-  }
-  return unlocked;
+  return updateAchievementTracking(state);
 }

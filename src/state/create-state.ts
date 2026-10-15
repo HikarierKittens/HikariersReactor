@@ -5,6 +5,7 @@ import { createStatistics } from '../simulation/statistics';
 import { createGeneModificationState } from '../simulation/genes';
 import { createBlackHoleState } from '../simulation/black-hole';
 import { createAutoWorkersState } from '../simulation/auto-workers';
+import { createAchievementTracking } from '../simulation/achievement-tracking';
 import { DEFAULT_GAME_SETTINGS } from '../types/state';
 import type { GameState } from '../types/state';
 
@@ -47,7 +48,7 @@ export function createInitialState(version: number, eventIn: number, now: number
     legacyPopulationCeiling: 0, asrielMissionCompleted: false, asrielMissionQueued: false, kerberosMissionCompleted: false,
     solarMissionCompleted: false, talosMissionCompleted: false, talosMoonMissionCompleted: false, asteroidBeltMissionCompleted: false, misenMissionCompleted: false,
     neutronStarMissionCompleted: false, blackHoleMissionCompleted: false, blackHole: createBlackHoleState(),
-    happiness: 99.5, growth: 0, starvation: 0, achievements: [], effects: [],
+    happiness: 99.5, growth: 0, starvation: 0, achievements: [], achievementTracking: createAchievementTracking(), effects: [],
     eventIn, time: 0, clicks: 0, logs: [], queue: [], settings: { ...DEFAULT_GAME_SETTINGS }, lastSaved: now,
   };
 }

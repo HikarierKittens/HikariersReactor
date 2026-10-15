@@ -169,6 +169,8 @@ test('奇异失控 cannot be bought or queued directly; 黑洞重置 pays and gr
   assert.equal(next.prestige.particles, 7 + result.reward);
   assert.equal(next.prestige.darkEnergy, 2 + result.darkEnergyReward);
   assert.equal(next.prestige.blackHoleResets, 1);
+  assert.ok(next.achievements.includes('spaceDestroyer'));
+  assert.equal(next.logs.filter(l => l.type === 'achievement' && l.text.includes('空间毁灭者')).length, 1);
   assert.equal(next.statistics.lifetime.darkEnergyEarned, result.darkEnergyReward);
   assert.deepEqual(next.blackHole, { mass: 10, exoticMass: 0, unstable: false, ejection: {} });
   assert.ok(next.prestigeUnlocked.includes('darkEnergy'));

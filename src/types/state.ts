@@ -29,7 +29,10 @@ export type GovernmentId = 'none' | 'democracy' | 'militaryRule' | 'oligarchy' |
 export type ArpaProjectId = 'rocketPlatform' | 'monument' | 'geneSequencing' | 'stockExchange' | 'arpaResearchInstitute' | 'deepSpaceInterferometer' | 'deepSpaceLab' | 'remoteAnchor';
 export type ShipComponentId = 'hull' | 'energyCore' | 'computer' | 'ecosystem' | 'electromagneticEngine' | 'fuel';
 export type ShipResourceProgress = Partial<ResourceRecipe & { population: number }>;
-export type AchievementId = 'first' | 'hundred' | 'food' | 'pioneer' | 'builder' | 'space';
+export type SnapshotAchievementId = 'artificialCelestial' | 'swarmEclipse' | 'worldExecution' | 'overclockPrince';
+export type AchievementId = 'nuclearCuriosity' | 'escapeRun' | SnapshotAchievementId | 'spaceDestroyer';
+/** Run-scoped previous observations; permanent awards live in achievements. */
+export type AchievementTracking = Record<SnapshotAchievementId, boolean>;
 export type LogType = 'progress' | 'event' | 'achievement' | 'system';
 export type QueueSettingKey = 'paused' | 'alwaysEnableNewBuildings' | 'unorderedBuildingQueue' | 'queueHotkeys' | 'unorderedResearchQueue' | 'touchOptimization';
 export type GameSettings = Record<QueueSettingKey, boolean>;
@@ -147,6 +150,7 @@ export interface GameState {
   growth: number;
   starvation: number;
   achievements: AchievementId[];
+  achievementTracking: AchievementTracking;
   effects: { id: 'mice'; left: number }[];
   eventIn: number;
   time: number;

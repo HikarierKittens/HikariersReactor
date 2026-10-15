@@ -1,4 +1,57 @@
 import assert from 'node:assert/strict';
+import { ACHIEVEMENTS } from '../src/data/progression';
+import { updateProgression } from '../src/simulation/progression';
+import { launchEscapePrestige } from '../src/simulation/prestige';
+
+test('seven replacement achievements expose exact names and em-dash conditions', () => {
+  assert.deepEqual(Object.values(ACHIEVEMENTS).map(a => a.name), ['好奇害死猫', '跑路了跑路了', '人造天体', '遮天蔽日', 'world.exection(cat);', '超频小王子', '空间毁灭者']);
+  for (const a of Object.values(ACHIEVEMENTS)) assert.ok(a.desc.includes('——'));
+});
+
+test('new snapshot achievements trigger only on fresh completion and never duplicate', () => {
+  const s = createInitialState(29, 60, 0);
+  s.buildings.swarmSatellite = 4095;
+  assert.deepEqual(updateProgression(s), []);
+  s.buildings.swarmSatellite = 4096;
+  assert.deepEqual(updateProgression(s), ['swarmEclipse']);
+  s.stageThree.coreActivated = true;
+  assert.ok(updateProgression(s).includes('worldExecution'));
+  s.tech.push('overclocking13');
+  assert.ok(updateProgression(s).includes('overclockPrince'));
+  assert.deepEqual(updateProgression(s), []);
+});
+
+test('retired achievement ids load cleanly without backfilling existing new progress', () => {
+  const s = createMilestoneState('space');
+  s.buildings.swarmSatellite = 4096;
+  const raw = JSON.parse(JSON.stringify(s));
+  raw.achievements = ['first', 'hundred', 'food', 'pioneer', 'builder', 'space'];
+  delete raw.achievementTracking;
+  const context = { now: 0, eventInterval: 60, housingCapacity: () => 1000, clampResources: () => {} };
+  const loaded = validateAndMigrateSave(raw, context);
+  assert.deepEqual(loaded.achievements, []);
+  assert.deepEqual(updateProgression(loaded), [], 'existing 4096 satellites and activated AI do not backfill');
+  loaded.buildings.swarmSatellite = 4095; updateProgression(loaded);
+  loaded.buildings.swarmSatellite = 4096;
+  assert.ok(updateProgression(loaded).includes('swarmEclipse'), 'new threshold crossing qualifies');
+  assert.throws(() => validateAndMigrateSave({ ...raw, achievements: ['unknownAchievement'] }, context));
+});
+
+test('nuclear and escape achievements are awarded once on successful reset with logs', () => {
+  const s = createInitialState(29, 60, 0);
+  s.tech.push('nuclearProgram'); s.nuclearProgress = 100;
+  const nuclear = launchNuclearPrestige(s, 60, 0)!;
+  assert.ok(nuclear.next.achievements.includes('nuclearCuriosity'));
+  assert.equal(nuclear.next.logs.filter(l => l.type === 'achievement' && l.text.includes('好奇害死猫')).length, 1);
+  assert.deepEqual(s.achievements, []);
+  const ship = createInitialState(29, 60, 0);
+  ship.buildings.interstellarDock = 1;
+  for (const id of Object.keys(ship.shipComponents) as (keyof typeof ship.shipComponents)[]) ship.shipComponents[id] = true;
+  const escape = launchEscapePrestige(ship, 60, 0)!;
+  assert.ok(escape.next.achievements.includes('escapeRun'));
+  assert.ok(escape.next.achievements.includes('artificialCelestial'), 'immediate launch retains completion achievement');
+  assert.equal(escape.next.logs.filter(l => l.type === 'achievement').length, 2);
+});
 import { AUTO_WORKER_JOBS, applyAutoWorkerAssignment, setAutoWorkersEnabled, setAutoWorkerEnabled, setAutoWorkerLimit, moveAutoWorkerPriority } from '../src/simulation/auto-workers';
 
 import { advanceGameTick } from '../src/simulation/tick';

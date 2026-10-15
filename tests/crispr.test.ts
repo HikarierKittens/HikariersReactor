@@ -151,12 +151,12 @@ test('perks list shows only the highest owned tier of each chain with live value
 
 test('earned achievements contribute perks only when they define a special effect', () => {
   const state = fresh();
-  state.achievements = ['first'];
+  state.achievements = ['nuclearCuriosity'];
   assert.deepEqual(listActivePerks(state), []);
-  const definition = ACHIEVEMENTS.first as { perk?: string };
+  const definition = ACHIEVEMENTS.nuclearCuriosity as { perk?: string };
   definition.perk = '测试特权';
   try {
-    assert.deepEqual(listActivePerks(state), [{ id: 'first', source: 'achievement', name: ACHIEVEMENTS.first.name, lines: ['测试特权'] }]);
+    assert.deepEqual(listActivePerks(state), [{ id: 'nuclearCuriosity', source: 'achievement', name: ACHIEVEMENTS.nuclearCuriosity.name, lines: ['测试特权'] }]);
     state.achievements = [];
     assert.deepEqual(listActivePerks(state), []);
   } finally { delete definition.perk; }
