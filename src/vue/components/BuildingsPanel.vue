@@ -216,8 +216,6 @@ function canGather(id: string): boolean {
     </section>
   </template>
 
-  <slot />
-
   <section v-for="section in sections" :key="section.id" class="building-group" :data-building-group="section.id">
     <h3 class="building-group-title">
       <span v-if="worldView !== 'home' && REGION_DESCRIPTIONS[section.id]" class="region-name" tabindex="0" :data-region-description="section.id" :aria-describedby="`region-tip-${section.id}`">

@@ -14,7 +14,7 @@ const near = (a:number,b:number) => assert.ok(Math.abs(a-b)<1e-7, `${a} != ${b}`
 function state() {
  const s=createInitialState(CONFIG.version,60,0);
  s.tech.push('dimensionBeaconDeployment','gasCloudAccretion','largeMiningShips','hyperspaceMiningSurvey','highTechFarmPlatform');
- s.stageThree.remoteLinked=true;
+
  Object.assign(s.resources,{energy:1000,helium3:100,deuterium:10});
  s.buildings.hyperspaceSpaceport=1;s.buildings.gasCloudMiningShip=1;s.buildings.metalMiningShip=1;
  return s;

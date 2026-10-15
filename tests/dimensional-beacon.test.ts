@@ -16,12 +16,12 @@ import type { ResourceId } from '../src/types/economy';
 const fresh=()=>createInitialState(CONFIG.version,60,0);
 const clone=<T>(x:T):T=>JSON.parse(JSON.stringify(x));
 const near=(a:number,b:number)=>assert.ok(Math.abs(a-b)<1e-7,`${a} != ${b}`);
-const setup=()=>{const s=fresh();s.tech.push('anomalyTopology','dimensionBeaconDeployment');s.stageThree.remoteLinked=true;return s;};
+const setup=()=>{const s=fresh();s.tech.push('fieldConstraintTheory','dimensionBeaconDeployment');return s;};
 const snap=(s:ReturnType<typeof fresh>,dt=1)=>{const p=calculateSupportPreview(s,dt);return {...p,moonBaseUnits:p.moon.baseUnits};};
 const ordinary:ResourceId[]=['wood','cement','stone','iron','coal','copper','aluminum','titanium','metal','oil','uranium','alloy','polymer','iridium'];
-test('beacon research gates on completed remote link and unlocks the new building chain',()=>{
- const s=fresh();s.tech.push('anomalyTopology');s.resources.knowledge=700000;
- assert.equal(isTechnologyUnlocked('dimensionBeaconDeployment',s),false);s.stageThree.remoteLinked=true;
+test('beacon research gates directly on field constraint theory and unlocks the new building chain',()=>{
+ const s=fresh();s.resources.knowledge=700000;
+ assert.equal(isTechnologyUnlocked('dimensionBeaconDeployment',s),false);s.tech.push('fieldConstraintTheory');assert.deepEqual(TECHNOLOGIES.dimensionBeaconDeployment.pre,['fieldConstraintTheory']);
  assert.equal(isTechnologyUnlocked('dimensionBeaconDeployment',s),true);
  assert.deepEqual(TECHNOLOGIES.dimensionBeaconDeployment.cost,{knowledge:700000});
  assert.equal(TECHNOLOGIES.dimensionBeaconDeployment.tier,17);

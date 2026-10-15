@@ -20,7 +20,7 @@ function registryKeys<K extends string>(registry: Record<K, unknown>): K[] {
 export function createInitialState(version: number, eventIn: number, now: number): GameState {
   return {
     autoWorkers: createAutoWorkersState(),
-    stageThree: { coreActivated: false, fieldStabilized: false, signalCompleted: false, transferCompleted: false, remoteLinked: false },
+    stageThree: { coreActivated: false },
     story: { unlocked: [], read: [] },
     challenge: { genes: [], modes: [], story: null, particleBaseline: 0 },
     statistics: createStatistics(), starvationElapsed: 0,

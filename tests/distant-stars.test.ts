@@ -93,7 +93,7 @@ test('new resources: zero base caps, containers, anchor storage and unlock rules
   s.tech.push('containerManagement', 'grapheneProcessing', 'nanoAlloy');
   for (const id of ['graphene', 'nanoAlloy', 'adamantite']) assert.equal(isContainerAssignable(id, s), true, id);
   assert.equal(isContainerAssignable('aerogel', s), false);
-  s.tech.push('fieldConstraintTheory', 'dualEndCoupling', 'anomalyTopology'); s.stageThree.signalCompleted = s.stageThree.remoteLinked = true;
+  s.tech.push('fieldConstraintTheory');
   s.buildings.constraintArray = 2; s.buildings.anchorFreightStation = 1; Object.assign(s.resources, { energy: 200, e710: 1, helium3: 1e4 });
   const totals = calculateStorageTotals(s, snap(s));
   for (const id of ['graphene', 'nanoAlloy', 'adamantite'] as ResourceId[]) {
@@ -152,7 +152,7 @@ test('adamantite processor bonuses require whole funded running stations', () =>
 
 test('star-ring bonus applies to distant ordinary resources while the old port bonus is gone', () => {
   const s = alpha(); s.buildings.grapheneFactory = 1; s.buildings.hyperspaceSpaceport = 1;
-  s.stageThree.remoteLinked = true;
+
   const plain = calculateProduction(s, 1).rates.graphene; near(plain, 2);
   s.asrielMissionCompleted = true; s.tech.push('planetaryExploration');
   s.buildings.asrielSpaceport = 1; s.buildings.asrielResidence = 4; s.buildings.starRingStation = 2; s.population = 10; s.workers.asrielResidence = 4;
@@ -240,7 +240,7 @@ test('电磁发射器 fuel discount covers only ground and space regions, never 
     const s = createInitialState(CONFIG.version, 60, 0);
     s.tech = Object.keys(TECHNOLOGIES) as TechnologyId[];
     for (const key of Object.keys(s.resources) as ResourceId[]) s.resources[key] = 1e7;
-    s.asrielMissionCompleted = true; s.stageThree.remoteLinked = true;
+    s.asrielMissionCompleted = true;
     Object.assign(s.buildings, { asrielSpaceport: 1, spaceWaystation: waystations, constraintArray: 2, hyperspaceSpaceport: 1, iceMiningShip: 1, comprehensiveMiningFacility: 1, adamantiteMiningShip: 1, grapheneFactory: 1 });
     return s;
   };

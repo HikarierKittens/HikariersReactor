@@ -2,10 +2,10 @@ import type { TechnologyId, TechnologyDefinition } from '../types/technologies';
 
 export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
   spaceBroadcasting: { name: '太空广播', era: 4, tier: 16, knowledgeCost: 480000, cost: { knowledge: 480000 }, pre: ['artificialIntelligenceII'], desc: '导航灯塔升级为广播信标，每座获得完整供电的广播信标使幸福度+3%，电力消耗增加1/s；月球支持保持+1。' },
-  accessPointBeacon: { name: '接入点信标', era: 4, tier: 17, knowledgeCost: 650000, cost: { knowledge: 650000 }, pre: ['finiteAperture'], desc: '安置信号中继器为接入点附近提供通信保障，解锁建筑：信号中继' },
+  accessPointBeacon: { name: '接入点信标', era: 4, tier: 17, knowledgeCost: 650000, cost: { knowledge: 650000 }, pre: ['fieldConstraintTheory'], desc: '安置信号中继器为接入点附近提供通信保障，解锁建筑：信号中继' },
   hydrogenRecovery: { name: '氢气回收', era: 4, tier: 17, knowledgeCost: 660000, cost: { knowledge: 660000 }, pre: ['dimensionBeaconDeployment'], buildingRequired: 'asteroidBase', desc: '再利用水加工过程中的多余氢气，拿去发电喵！解锁建筑：氢气发电站' },
   icebreakingPlan: { name: '破冰计划', era: 4, tier: 18, knowledgeCost: 690000, cost: { knowledge: 690000 }, pre: ['hydrogenRecovery'], desc: '研究水冰开采技术，将采冰船基础水产量提升至1.25/s' },
-  dimensionBeaconDeployment: { name: '维度信标投放', era: 4, tier: 17, knowledgeCost: 700000, cost: { knowledge: 700000 }, pre: ['anomalyTopology'], desc: '完成远端连接验证后开放。投放维度探测信标，解锁空间异常·稳定区域、喷发小行星群与维度边界，并开放超空间太空港和采冰船建设。' },
+  dimensionBeaconDeployment: { name: '维度信标投放', era: 4, tier: 17, knowledgeCost: 700000, cost: { knowledge: 700000 }, pre: ['fieldConstraintTheory'], desc: '研究场约束理论后开放。投放维度探测信标，解锁空间异常·稳定区域、喷发小行星群与维度边界，并开放超空间太空港和采冰船建设。' },
   hyperspaceMiningSurvey: { name: '超空间采矿探查', era: 4, tier: 18, knowledgeCost: 700000, cost: { knowledge: 700000, e710: 1000 }, pre: ['dimensionBeaconDeployment'], desc: '对超空间深处的小行星体进行大规模勘探，解锁区域「710富集区」与建筑：综合采矿设施' },
   gasCloudAccretion: { name: '气体云吸积', era: 4, tier: 18, knowledgeCost: 720000, cost: { knowledge: 720000, e710: 1000 }, pre: ['hyperspaceMiningSurvey'], desc: '研究超空间气体分子云的收集技术，解锁建筑：气体云采矿舰' },
   highTechFarmPlatform: { name: '高科技农场平台', era: 4, tier: 18, knowledgeCost: 750000, cost: { knowledge: 750000 }, pre: ['gasCloudAccretion'], desc: '为了在超空间站稳脚跟，必须要有稳定的食物来源。解锁建筑：高科技农场平台' },
@@ -33,12 +33,9 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
   stabilizeBlackHole: { name: '稳定黑洞', era: 4, tier: -1, knowledgeCost: 2500000, cost: { knowledge: 2500000, neutron: 100000 }, pre: ['massEjector'], repeatable: true, desc: '黑洞越来越不稳定，我们可以尝试喷射大量已知最致密的物质来稳定它' },
   exoticRunaway: { name: '奇异失控', era: 4, tier: -1, knowledgeCost: 2500000, cost: { knowledge: 2500000, nanoAlloy: 100000, e710: 2500 }, pre: ['massEjector'], prestigeReset: true, desc: '黑洞已经很不稳定了，要不再扔点奇异物质试试？', warning: '警告：这可能会导致无法预料的爆炸，毁灭一切，无限，永恒' },
   higherDimensionalStorage: { name: '高维存储', era: 4, tier: 19, knowledgeCost: 1000000, cost: { knowledge: 1000000 }, pre: ['dimensionPioneer'], buildingRequired: 'spaceRipper', desc: '需要建成完整的空间撕裂者。锚点货运站资源容量×2；民用航线站资金与猫粮容量×2；小行星基地水与氘容量×2；超空间太空港水容量+16k、氘与氦-3容量×2。' },
-  anomalyTopology: { name: '异常拓扑测绘', era: 4, tier: 17, knowledgeCost: 600000, cost: { knowledge: 600000, e710: 400, nanotubes: 25000 }, pre: ['finiteAperture'], desc: '完成首次物质转移后开放。确认连接依赖两端空间环境，寻找相似异常区域；解锁ARPA进度工程「远端锚点验证」。' },
   globalObservationCalibration: { name: '全域观测校准', era: 4, tier: 16, knowledgeCost: 420000, cost: { knowledge: 420000 }, pre: ['artificialIntelligenceII'], desc: 'AI超级核心首次实际运行后开放。统一太阳系观测标准，识别无法消除的局部测量偏差，为异常区域测绘提供依据。' },
   anomalyMapping: { name: '异常区域测绘', era: 4, tier: 16, knowledgeCost: 460000, cost: { knowledge: 460000 }, pre: ['globalObservationCalibration'], desc: '定位可重复观测的空间异常，确认E-710在特定场条件下的响应，开放超空间页面与场约束理论研究。' },
-  fieldConstraintTheory: { name: '场约束理论', era: 4, tier: 17, knowledgeCost: 520000, cost: { knowledge: 520000, e710: 200 }, pre: ['anomalyMapping'], desc: '解锁场约束阵列。每座运行的阵列提供2稳定度，消耗50电力/s与0.25 E-710/s；不足时安全停机。' },
-  dualEndCoupling: { name: '双端场耦合', era: 4, tier: 17, knowledgeCost: 560000, cost: { knowledge: 560000, nanotubes: 20000 }, pre: ['fieldConstraintTheory'], desc: '首次稳定运行场约束阵列后开放。开放双端信号实验，成功后可运行短程通信节点；每座占用2稳定度、消耗10电力/s，额外提供2 Asriel支持。' },
-  finiteAperture: { name: '有限孔径稳定', era: 4, tier: 17, knowledgeCost: 600000, cost: { knowledge: 600000, e710: 300 }, pre: ['dualEndCoupling'], desc: '完成双端信号实验后开放。研究可容纳微小物体的连接，开放首次无生命样本转移实验。' },
+  fieldConstraintTheory: { name: '场约束理论', era: 4, tier: 17, knowledgeCost: 520000, cost: { knowledge: 520000, e710: 200 }, pre: ['anomalyMapping'], desc: '解锁场约束阵列、短程通信节点、锚点货运站与民用航线站，并开放接入点信标与维度信标投放研究。每座运行的阵列提供2稳定度，消耗50电力/s与0.25 E-710/s；不足时安全停机。' },
 
     advancedMetalRefining: { name: '高级金属精炼', era: 4, tier: 14, knowledgeCost: 380000, cost: { knowledge: 380000 }, pre: ['geothermalFurnace'], desc: '金属精炼厂启用供能体系；每座供能的金属精炼厂铝产量加成提升至8%，并额外增加钢产量1%、铱产量0.5%，消耗4电力/s。' },
     spaceControlTower: { name: '太空控制塔', era: 4, tier: 13, knowledgeCost: 200000, cost: { knowledge: 200000 }, pre: ['planetaryExploration'], buildingRequired: 'asrielSpaceport', desc: '解锁Asriel控制塔，每座供电充足的控制塔提供1火星支持。' },

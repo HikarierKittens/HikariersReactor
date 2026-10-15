@@ -1,88 +1,60 @@
 import './retired-anomaly.test';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CONFIG } from '../src/data/config';
 import { TECHNOLOGIES } from '../src/data/technologies';
-import { createInitialState } from '../src/state/create-state';
+import { ARPA_PROJECTS } from '../src/data/projects';
+import * as stageThree from '../src/simulation/stage-three';
 import { validateCurrentSave } from '../src/state/validate-save';
-import { stageThreeExperimentAvailable, runStageThreeExperiment, type StageThreeExperimentId } from '../src/simulation/stage-three';
 import { resetRunState, launchNuclearPrestige } from '../src/simulation/prestige';
 import { updateProgression } from '../src/simulation/progression';
-import type { TechnologyId } from '../src/types/technologies';
-const fresh = () => createInitialState(CONFIG.version, 60, 0);
-const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
-const context = { now: 0, eventInterval: 60, housingCapacity: () => 1000, clampResources: () => {} };
-function complete() {
-  const s = fresh();
-  s.tech = Object.keys(TECHNOLOGIES).filter(id => !['spaceControlTower','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];
-  s.prestige.nuclearResets = 1;
-  s.asrielMissionCompleted = s.kerberosMissionCompleted = s.solarMissionCompleted = s.talosMissionCompleted = s.talosMoonMissionCompleted = s.asteroidBeltMissionCompleted = s.misenMissionCompleted = true;
-  s.arpaBuildings.rocketPlatform = s.arpaBuildings.monument = s.arpaBuildings.geneSequencing = s.arpaBuildings.remoteAnchor = 1;
-  s.arpaBuildings.arpaResearchInstitute = 2;
-  s.buildings.aiSupercore = 100; s.buildings.constraintArray = 2;
-  for (const id of Object.keys(s.stageThree) as (keyof typeof s.stageThree)[]) s.stageThree[id] = true;
-  return s;
+import { requestPurchaseModule } from '../src/simulation/purchases';
+import { createMilestoneState } from './fixtures/milestones';
+const clone = <T>(value:T):T => JSON.parse(JSON.stringify(value));
+const context={now:0,eventInterval:60,housingCapacity:()=>1000,clampResources:()=>{}};
+const retiredTech=['dualEndCoupling','finiteAperture','anomalyTopology','anomalyResponse','interstellarScoutPlan','interstellarCalibration'];
+const retiredProjects=['remoteAnchor','deepSpaceInterferometer','deepSpaceLab','interstellarScout','extrasolarAnchor'];
+const retiredFlags=['fieldStabilized','signalCompleted','transferCompleted','remoteLinked','probeCompleted','responseObserved','scoutArrived','interstellarSignal','interstellarCargo'];
+const complete=()=>createMilestoneState('postBeacon',{buildings:{constraintArray:3,shortRangeRelay:1,anchorFreightStation:1,civilianRouteStation:1}});
+function legacy(){
+ const raw:any=clone(complete());raw.tech.push(...retiredTech);raw.legacyTechPrerequisites=[...retiredTech];
+ for(const id of retiredFlags)raw.stageThree[id]=true;
+ for(const id of retiredProjects){raw.arpaBuildings[id]=1;raw.arpaProgress[id]=40;raw.arpaResourceProgress[id]={cash:234,e710:3};}
+ raw.queue=[...retiredTech.map((id,i)=>({uid:i+1,kind:'tech',id})),...retiredProjects.map((id,i)=>({uid:i+20,kind:'arpa',id})),{uid:99,kind:'build',id:'nest'}];
+ Object.assign(raw.resources,{water:71,e710:42,helium3:1000,cash:123456});raw.prestige.particles=123;
+ updateProgression(raw);return raw;
 }
-
-test('activation and stabilization history require persistent current-run facilities, not current fuel or switches', () => {
-  const initial = fresh(); initial.stageThree.coreActivated = true;
-  assert.throws(() => validateCurrentSave(initial, context), /第三阶段/);
-  const full = complete();
-  assert.doesNotThrow(() => validateCurrentSave(full, context));
-  for (const count of [0, 99]) { const s = clone(full); s.buildings.aiSupercore = count; assert.throws(() => validateCurrentSave(s, context), /第三阶段/); }
-  const noArray = clone(full); noArray.buildings.constraintArray = 0;
-  assert.throws(() => validateCurrentSave(noArray, context), /第三阶段/);
-  full.stoppedBuildings.aiSupercore = 1; full.stoppedBuildings.constraintArray = 2;
-  full.resources.helium3 = full.resources.energy = full.resources.e710 = 0;
-  assert.deepEqual(validateCurrentSave(full, context).stageThree, full.stageThree);
+test('retired experiment APIs and registries are absent and commands reject atomically',()=>{
+ const s=complete();
+ for(const id of ['STAGE_THREE_EXPERIMENTS','runStageThreeExperiment','stageThreeExperimentAvailable'])assert.equal(Object.hasOwn(stageThree,id),false,id);
+ for(const id of retiredTech){assert.equal(Object.hasOwn(TECHNOLOGIES,id),false);const before=clone(s);assert.equal(requestPurchaseModule(s,'tech',id,0,true).status,'rejected');assert.deepEqual(s,before);}
+ for(const id of retiredProjects){assert.equal(Object.hasOwn(ARPA_PROJECTS,id),false);const before=clone(s);assert.equal(requestPurchaseModule(s,'arpa',id,0,true).status,'rejected');assert.deepEqual(s,before);}
 });
-
-test('unknown experiment ids fail in both availability and execution without falling through to transfer', () => {
-  const s = complete(); s.stageThree.transferCompleted = false;
-  for (const id of ['probe', 'invalid', 'constructor', '__proto__', 'toString'] as unknown as StageThreeExperimentId[]) {
-    const before = clone(s);
-    assert.equal(stageThreeExperimentAvailable(s, id), false);
-    assert.equal(runStageThreeExperiment(s, id), false);
-    assert.deepEqual(s, before);
-  }
+test('all old flags content and queues migrate immutably idempotently and preserve later progress',()=>{
+ const raw=legacy(),before=clone(raw),restored=validateCurrentSave(raw,context);assert.deepEqual(raw,before);
+ assert.deepEqual(restored.stageThree,{coreActivated:true});
+ for(const id of retiredTech){assert.equal((restored.tech as string[]).includes(id),false);assert.equal((restored.legacyTechPrerequisites as string[]|undefined)?.includes(id)??false,false);}
+ for(const id of retiredProjects)for(const record of [restored.arpaBuildings,restored.arpaProgress,restored.arpaResourceProgress])assert.equal(Object.hasOwn(record??{},id),false);
+ assert.deepEqual(restored.queue,[{uid:99,kind:'build',id:'nest'}]);
+ for(const field of ['resources','buildings','workers','stoppedBuildings','prestige','shipComponents','shipResourceProgress','story'] as const)assert.deepEqual(restored[field],raw[field],field);
+ for(const id of ['fieldConstraintTheory','dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan'])assert.ok((restored.tech as string[]).includes(id));
+ assert.deepEqual(validateCurrentSave(clone(restored),context),restored);
 });
-
-test('legacy missing additions default without mutating caller; explicit null additions are rejected', () => {
-  const raw: any = clone(fresh());
-  delete raw.stageThree;
-  for (const id of ['constraintArray', 'shortRangeRelay']) { delete raw.buildings[id]; delete raw.workers[id]; delete raw.stoppedBuildings[id]; }
-  for (const id of ['remoteAnchor']) { delete raw.arpaProgress[id]; delete raw.arpaBuildings[id]; }
-  const before = clone(raw); const migrated = validateCurrentSave(raw, context);
-  assert.deepEqual(raw, before); assert.deepEqual(migrated.stageThree, fresh().stageThree);
-  for (const key of ['stageThree', 'buildings', 'workers', 'arpaProgress', 'arpaBuildings']) {
-    const bad: any = clone(fresh());
-    if (key === 'stageThree') bad[key] = null;
-    else bad[key][key.startsWith('arpa') ? 'remoteAnchor' : 'constraintArray'] = null;
-    assert.throws(() => validateCurrentSave(bad, context), key);
-  }
+test('migration rejects malformed retained state unknown content and wrong-kind retired queues',()=>{
+ for(const change of [(s:any)=>s.stageThree.unknownFutureFlag=true,(s:any)=>s.stageThree.coreActivated=1,(s:any)=>s.stageThree=null,(s:any)=>s.tech.push('unknownFutureTech'),(s:any)=>s.arpaBuildings.unknownFutureProject=1,(s:any)=>s.queue=[{uid:1,kind:'build',id:'remoteAnchor'}],(s:any)=>s.queue=[{uid:1,kind:'arpa',id:'dualEndCoupling'}]]){
+  const raw=legacy();change(raw);const before=clone(raw);assert.throws(()=>validateCurrentSave(raw,context));assert.deepEqual(raw,before);
+ }
 });
-
-test('research, project and queue prerequisites cannot skip missing stage events or completed projects', () => {
-  const full = complete();
-  const noAnchor = clone(full); noAnchor.arpaBuildings.remoteAnchor = 0; assert.throws(() => validateCurrentSave(noAnchor, context));
-  const noMapping = clone(full); noMapping.tech = noMapping.tech.filter(id => id !== 'anomalyMapping'); assert.throws(() => validateCurrentSave(noMapping, context));
-  const s = clone(full); s.stageThree.signalCompleted = s.stageThree.transferCompleted = false;
-  s.tech = s.tech.filter(id => id !== 'finiteAperture' && id !== 'anomalyTopology' && id !== 'dimensionBeaconDeployment');
-  s.stageThree.remoteLinked = false; s.arpaBuildings.remoteAnchor = 0;
-  s.queue = [{ uid: 1, kind: 'tech', id: 'finiteAperture' }];
-  assert.throws(() => validateCurrentSave(s, context), /队列科技/);
-  s.queue = [{ uid: 1, kind: 'build', id: 'shortRangeRelay' }];
-  assert.throws(() => validateCurrentSave(s, context), /队列建筑/);
+test('core activation needs a constructed core but field services need no historical array operation',()=>{
+ const full=complete();assert.doesNotThrow(()=>validateCurrentSave(full,context));
+ for(const count of [0,99]){const s=clone(full);s.buildings.aiSupercore=count;assert.throws(()=>validateCurrentSave(s,context));}
+ full.buildings.constraintArray=0;full.stoppedBuildings.aiSupercore=1;full.resources.helium3=full.resources.energy=full.resources.e710=0;
+ assert.deepEqual(validateCurrentSave(full,context).stageThree,{coreActivated:true});
+ const noTheory=clone(full);noTheory.tech=noTheory.tech.filter(id=>id!=='fieldConstraintTheory');assert.throws(()=>validateCurrentSave(noTheory,context));
 });
-
-test('reset permanent stories are not reused as current-run event proof; nuclear reset also clears flags', () => {
-  const s = complete(); updateProgression(s); s.story.read = [...s.story.unlocked];
-  const soft = resetRunState(s, 'soft', 60, 0)!.next;
-  assert.ok(soft.story.unlocked.includes('coreCalibration')); assert.deepEqual(soft.stageThree, fresh().stageThree);
-  assert.deepEqual(validateCurrentSave(soft, context).stageThree, fresh().stageThree);
-  s.nuclearProgress = 100;
-  const nuclear = launchNuclearPrestige(s, 60, 0)!.next;
-  assert.deepEqual(nuclear.stageThree, fresh().stageThree);
-  assert.ok(nuclear.story.unlocked.includes('firstTransfer'));
-  nuclear.story.read.pop(); assert.notDeepEqual(nuclear.story.read, s.story.read);
+test('reset keeps archived stories without retaining retired flags or current activation',()=>{
+ const s=validateCurrentSave(legacy(),context);updateProgression(s);s.story.read=[...s.story.unlocked];
+ const soft=resetRunState(s,'soft',60,0)!.next;assert.deepEqual(soft.stageThree,{coreActivated:false});assert.deepEqual(soft.story,s.story);
+ assert.deepEqual(validateCurrentSave(soft,context).stageThree,soft.stageThree);
+ s.tech.push('nuclearProgram');s.nuclearProgress=100;const nuclear=launchNuclearPrestige(s,60,0)!.next;
+ assert.deepEqual(nuclear.stageThree,{coreActivated:false});assert.ok(nuclear.story.unlocked.includes('coreCalibration'));
 });

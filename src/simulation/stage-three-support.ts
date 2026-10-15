@@ -12,14 +12,14 @@ export function settleStageThreeSupport(state: GameState, pool: ResourceAmounts,
   pool.e710 = Math.max(0, pool.e710 - arrays * .25 * dt);
   const repeaters = state.tech.includes('accessPointBeacon') ? Math.min(running('signalRepeater'), Math.floor((pool.energy + 1e-8) / (10 * dt))) : 0;
   pool.energy = Math.max(0, pool.energy - repeaters * 10 * dt);
-  const beacon = state.tech.includes('dimensionBeaconDeployment') && state.stageThree.remoteLinked;
+  const beacon = state.tech.includes('dimensionBeaconDeployment');
   const ports = beacon ? Math.min(running('hyperspaceSpaceport'), Math.floor((pool.energy + 1e-8) / (30 * dt)), Math.floor((pool.helium3 + 1e-8) / (5 * dt))) : 0;
   pool.energy = Math.max(0, pool.energy - ports * 30 * dt);
   pool.helium3 = Math.max(0, pool.helium3 - ports * 5 * dt);
   const capacity = arrays * (ARRAY_STABILITY + REPEATER_BONUS_PER_ARRAY * repeaters) + ports * 4;
-  const relays = state.tech.includes('dualEndCoupling') && state.stageThree.signalCompleted ? Math.min(running('shortRangeRelay'), Math.floor(capacity / 2), Math.floor((pool.energy + 1e-8) / (10 * dt))) : 0;
+  const relays = state.tech.includes('fieldConstraintTheory') ? Math.min(running('shortRangeRelay'), Math.floor(capacity / 2), Math.floor((pool.energy + 1e-8) / (10 * dt))) : 0;
   pool.energy = Math.max(0, pool.energy - relays * 10 * dt);
-  const linked = state.tech.includes('anomalyTopology') && state.stageThree.remoteLinked;
+  const linked = state.tech.includes('fieldConstraintTheory');
   const freight = linked ? Math.min(running('anchorFreightStation'), Math.floor((capacity - relays * 2) / 2), Math.floor((pool.energy + 1e-8) / (15 * dt))) : 0;
   pool.energy = Math.max(0, pool.energy - freight * 15 * dt);
   const civilian = linked ? Math.min(running('civilianRouteStation'), Math.floor((capacity - relays * 2 - freight * 2) / 2), Math.floor((pool.energy + 1e-8) / (15 * dt)), Math.floor((pool.food + 1e-8) / (50 * dt))) : 0;

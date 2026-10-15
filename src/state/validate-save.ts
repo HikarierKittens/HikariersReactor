@@ -44,8 +44,8 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
   // Retire removed content before validating dependencies, without mutating any
   // part of the caller's save. Historical logs and spent resources stay intact.
   const original = value as Record<string, unknown>;
-  const retiredTech = ['acceleratorOverclock', 'advancedParticleOverclock', 'e710Analysis', 'transcendenceHopeless', 'engineAdjustment', 'ftlWaypointResearch', 'interstellarScoutPlan', 'interstellarCalibration', 'anomalyResponse'];
-  const retiredProjects = ['interstellarScout', 'extrasolarAnchor', 'deepSpaceInterferometer', 'deepSpaceLab'];
+  const retiredTech = ['acceleratorOverclock', 'advancedParticleOverclock', 'e710Analysis', 'transcendenceHopeless', 'engineAdjustment', 'ftlWaypointResearch', 'interstellarScoutPlan', 'interstellarCalibration', 'anomalyResponse', 'dualEndCoupling', 'finiteAperture', 'anomalyTopology'];
+  const retiredProjects = ['interstellarScout', 'extrasolarAnchor', 'deepSpaceInterferometer', 'deepSpaceLab', 'remoteAnchor'];
   const retiredStories = ['scoutDeparture', 'anotherSun', 'distantFoundation', 'distantReply', 'firstInterstellarCargo'];
   const retiredBuildings = ['particleOverclockStation', 'tianxingMiningStation', 'ftlSolar', 'ftlTianxing'];
   const raw: Record<string, unknown> = { ...original };
@@ -64,7 +64,7 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
   const savedStage = original.stageThree;
   if (savedStage && typeof savedStage === 'object' && !Array.isArray(savedStage)) {
     const record = { ...savedStage as Record<string, unknown> };
-    for (const key of ['scoutArrived', 'interstellarSignal', 'interstellarCargo', 'probeCompleted', 'responseObserved']) delete record[key];
+    for (const key of ['scoutArrived', 'interstellarSignal', 'interstellarCargo', 'probeCompleted', 'responseObserved', 'fieldStabilized', 'signalCompleted', 'transferCompleted', 'remoteLinked']) delete record[key];
     raw.stageThree = record;
   }
   const savedStory = original.story;

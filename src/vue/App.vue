@@ -46,8 +46,7 @@ import ArpaPanel from './components/ArpaPanel.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
 import StatsPanel from './components/StatsPanel.vue';
 import StoryPanel from './components/StoryPanel.vue';
-import StageThreePanel from './components/StageThreePanel.vue';
-import { isHyperspaceUnlocked, runStageThreeExperiment, type StageThreeExperimentId } from '../simulation/stage-three';
+import { isHyperspaceUnlocked } from '../simulation/stage-three';
 import { markStoryRead } from '../simulation/story';
 import type { StoryChapterId } from '../types/state';
 import { CONFIG } from '../data/config';
@@ -82,10 +81,6 @@ const TABS: { id: string; label: string }[] = [
 const activeTab = ref('buildings');
 const statisticsView = ref('info');
 const unreadStories = computed(() => { props.store.revision(); const archive = props.store.state().story; return archive.unlocked.filter(id => !archive.read.includes(id)).length; });
-function performStageThreeExperiment(id: StageThreeExperimentId): void {
-  props.store.mutate(state => runStageThreeExperiment(state, id));
-  afterAction();
-}
 function readStory(id: StoryChapterId): void {
   props.store.mutate(state => markStoryRead(state, id));
   props.store.runtime.save();
@@ -545,9 +540,7 @@ onUnmounted(() => {
               @ship-settings="shipModal = true"
               @world-view="worldView = $event"
               @mission="mission"
-            >
-              <StageThreePanel v-if="currentWorldView === 'hyperspace' && !state.tech.includes('dimensionBeaconDeployment')" :state="state" :revision="store.revision()" @experiment="performStageThreeExperiment" />
-            </BuildingsPanel>
+            />
               </div>
             </div>
             <TechPanel

@@ -6,7 +6,6 @@ export interface ProjectDefinition {
   name: string; icon: string; pre: TechnologyId[]; desc: string; cost?: ResourceRecipe; repeatable?: boolean; costScale?: number;
 }
 export const ARPA_PROJECTS: Record<ArpaProjectId, ProjectDefinition> = {
-  remoteAnchor: { name: '远端锚点验证', icon: '⌖', pre: ['anomalyTopology'], cost: { cash: 5000000, knowledge: 600000, alloy: 75000, iridium: 20000, nanotubes: 100000, e710: 500, helium3: 30000 }, desc: '以常规运输将供能、测量与E-710场响应装置送至太阳系内候选异常区。一次性工程，完工即结束部署校准，随后在超空间执行远端连接验证。无现实倒计时。' },
 
   geneSequencing: { name: '基因测序', icon: '', pre: ['genetics'], desc: '注入100万知识完成基因测序，每周目只能完成一次。', cost: { knowledge: 1000000 } },
   rocketPlatform: { name: '火箭平台', icon: '🚀', pre: ['arpa', 'rocketry'], desc: '需要分段建造的唯一超级工程；建成后可研究太空航行', cost: { metal: 10000, alloy: 5000 } },

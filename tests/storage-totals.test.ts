@@ -22,7 +22,7 @@ function lateState(): GameState {
   state.tech = Object.keys(state.tech).length ? state.tech : state.tech;
   for (const tech of ['survival', 'tools', 'writing', 'mining', 'ironTools', 'metallurgy', 'science', 'electricity', 'automation', 'electronics',
     'dataCenter', 'artificialIntelligence', 'nuclearEnergy', 'rocketry', 'spaceflight', 'moonExploration', 'planetaryExploration',
-    'fieldConstraintTheory', 'dualEndCoupling', 'finiteAperture', 'anomalyTopology', 'dimensionBeaconDeployment', 'accessPointBeacon',
+    'fieldConstraintTheory', 'dimensionBeaconDeployment', 'accessPointBeacon',
     'hydrogenRecovery', 'icebreakingPlan', 'spaceBroadcasting', 'savingsBonds', 'stockTrading', 'internet', 'warehouseUpgrade',
     'dimensionCompression', 'iridiumAlloyWarehouse', 'iridiumSteelVault', 'vaultExpansion', 'steelSafe', 'intelligentStorage',
     'reinforcedContainers', 'neutronConstructionMaterials', 'carbonNanotubes', 'genetics', 'artificialIntelligenceII', 'quantumSwarm',

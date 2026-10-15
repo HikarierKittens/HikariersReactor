@@ -9,7 +9,7 @@ import { calculateHousingDetails } from '../src/simulation/housing';
 import { constructBuildingState } from '../src/simulation/purchases';
 const fresh=()=>createInitialState(CONFIG.version,60,0);
 const close=(a:number,b:number)=>assert.ok(Math.abs(a-b)<1e-8,`${a} != ${b}`);
-function stage(){const s=fresh();s.tech.push('fieldConstraintTheory','dualEndCoupling');s.stageThree.signalCompleted=true;return s;}
+function stage(){const s=fresh();s.tech.push('fieldConstraintTheory');return s;}
 
 test('subsecond quantum-funded satellite generation uses the same interval as core and stability maintenance',()=>{
   const s=stage();s.tech.push('artificialIntelligenceII','quantumSwarm');s.buildings.lab=200;s.buildings.aiSupercore=100;s.buildings.swarmControlStation=1;s.buildings.swarmSatellite=25;s.buildings.constraintArray=1;

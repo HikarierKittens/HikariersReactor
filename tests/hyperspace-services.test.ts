@@ -18,7 +18,7 @@ import type { ResourceId } from '../src/types/economy';
 const fresh=()=>createInitialState(CONFIG.version,60,0);
 const clone=<T>(value:T):T=>JSON.parse(JSON.stringify(value));
 const near=(a:number,b:number)=>assert.ok(Math.abs(a-b)<1e-7,`${a} != ${b}`);
-function services(){const s=fresh();s.tech.push('fieldConstraintTheory','dualEndCoupling','anomalyTopology');s.stageThree.signalCompleted=s.stageThree.remoteLinked=true;return s;}
+function services(){const s=fresh();s.tech.push('fieldConstraintTheory');return s;}
 function snapshot(s:ReturnType<typeof fresh>,dt=1){const p=calculateSupportPreview(s,dt);return {...p,moonBaseUnits:p.moon.baseUnits};}
 const resources:ResourceId[]=['wood','cement','stone','iron','coal','copper','aluminum','titanium','metal','oil','uranium','alloy','polymer','iridium'];
 
@@ -68,7 +68,7 @@ test('civilian housing and cash capacity use actually funded units and preserve 
 
 test('civilian unlock cost creep and direct queued support-shortage defaults share service gates',()=>{
  const s=services();assert.equal(isBuildingUnlocked('civilianRouteStation',s),true);assert.equal(isBuildingUnlocked('anchorFreightStation',s),true);
- s.stageThree.remoteLinked=false;assert.equal(isBuildingUnlocked('civilianRouteStation',s),false);s.stageThree.remoteLinked=true;
+ s.tech=[];assert.equal(isBuildingUnlocked('civilianRouteStation',s),false);s.tech.push('fieldConstraintTheory');
  for(const r of Object.keys(BUILDINGS.civilianRouteStation.cost) as ResourceId[])assert.equal(calculateBuildingScale('civilianRouteStation',r,s),1.21);
  assert.deepEqual(BUILDINGS.civilianRouteStation.cost,{cash:1200000,alloy:20000,iridium:6000,nanotubes:20000,e710:100});
  s.buildings.constraintArray=1;Object.assign(s.resources,{energy:100,food:100,e710:1});constructBuildingState(s,'civilianRouteStation',0);assert.equal(s.stoppedBuildings.civilianRouteStation,0);
@@ -78,7 +78,7 @@ test('civilian unlock cost creep and direct queued support-shortage defaults sha
 });
 
 test('legacy saves default missing civilian records but reject explicit malformed records immutably',()=>{
- const s=fresh();s.tech=Object.keys(TECHNOLOGIES).filter(id=>!['spaceControlTower','globalObservationCalibration','anomalyMapping','fieldConstraintTheory','dualEndCoupling','finiteAperture','anomalyTopology','dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];
+ const s=fresh();s.tech=Object.keys(TECHNOLOGIES).filter(id=>!['spaceControlTower','globalObservationCalibration','anomalyMapping','fieldConstraintTheory','dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];
  s.prestige.nuclearResets=1;s.asrielMissionCompleted=s.kerberosMissionCompleted=s.solarMissionCompleted=s.talosMissionCompleted=s.talosMoonMissionCompleted=s.asteroidBeltMissionCompleted=s.misenMissionCompleted=true;
  s.arpaBuildings.rocketPlatform=s.arpaBuildings.monument=s.arpaBuildings.geneSequencing=1;s.arpaBuildings.arpaResearchInstitute=2;
  const raw:any=clone(s);for(const field of ['buildings','workers','stoppedBuildings'])delete raw[field].civilianRouteStation;const before=clone(raw);

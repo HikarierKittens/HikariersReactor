@@ -22,16 +22,15 @@ test('milestone fixtures stay registry-known, additive and individually save-val
 });
 
 test('milestone option overrides remain explicit and preserve base progression', () => {
-  const without = createMilestoneState('remote', { withoutTech: ['dualEndCoupling'] });
-  assert.equal((without.tech as string[]).includes('dualEndCoupling'), false);
-  assert.ok((without.tech as string[]).includes('finiteAperture') === false || true);
+  const without = createMilestoneState('remote', { withoutTech: ['fieldConstraintTheory'] });
+  assert.equal((without.tech as string[]).includes('fieldConstraintTheory'), false);
   const extra = createMilestoneState('beacon', { extraTech: ['iridiumSteelVault'], extraArpa: ['stockExchange'], buildings: { hyperspaceSpaceport: 2 } });
   assert.ok((extra.tech as string[]).includes('iridiumSteelVault'));
   assert.equal(extra.arpaBuildings.stockExchange, 1);
   assert.equal(extra.buildings.hyperspaceSpaceport, 2);
   const flags = createMilestoneState('remote', { stageThreeFlags: ['coreActivated'] });
   assert.equal(flags.stageThree.coreActivated, true);
-  assert.equal(flags.stageThree.transferCompleted, false);
+  assert.deepEqual(flags.stageThree, { coreActivated: true });
   assert.equal(milestoneTech('ground').length, (createMilestoneState('ground').tech as string[]).length);
   for (const id of ['dimensionBeaconDeployment', 'accessPointBeacon', 'hydrogenRecovery', 'icebreakingPlan']) {
     assert.ok(Object.hasOwn(TECHNOLOGIES, id));

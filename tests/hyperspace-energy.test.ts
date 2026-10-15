@@ -15,13 +15,13 @@ import type { TechnologyId } from '../src/types/technologies';
 const fresh=()=>createInitialState(CONFIG.version,60,0);
 const clone=<T>(x:T):T=>JSON.parse(JSON.stringify(x));
 const near=(a:number,b:number)=>assert.ok(Math.abs(a-b)<1e-7,`${a} != ${b}`);
-function ready(){const s=fresh();s.tech.push('fieldConstraintTheory','finiteAperture','accessPointBeacon','anomalyTopology','dimensionBeaconDeployment','hydrogenRecovery');s.stageThree.remoteLinked=true;return s;}
+function ready(){const s=fresh();s.tech.push('fieldConstraintTheory','accessPointBeacon','dimensionBeaconDeployment','hydrogenRecovery');return s;}
 test('hyperspace technology tiers costs and building-gated research retain exact research payments',()=>{
- assert.equal(TECHNOLOGIES.anomalyTopology.tier,17);assert.equal(TECHNOLOGIES.anomalyTopology.cost.knowledge,600000);assert.equal(TECHNOLOGIES.dimensionBeaconDeployment.tier,17);
+ assert.equal(TECHNOLOGIES.dimensionBeaconDeployment.tier,17);
  assert.equal(TECHNOLOGIES.accessPointBeacon.tier,17);assert.deepEqual(TECHNOLOGIES.accessPointBeacon.cost,{knowledge:650000});
  assert.equal(TECHNOLOGIES.hydrogenRecovery.tier,17);assert.deepEqual(TECHNOLOGIES.hydrogenRecovery.cost,{knowledge:660000});
  assert.equal(TECHNOLOGIES.icebreakingPlan.tier,18);assert.deepEqual(TECHNOLOGIES.icebreakingPlan.cost,{knowledge:690000});
- const s=fresh();s.tech.push('finiteAperture','dimensionBeaconDeployment');s.stageThree.remoteLinked=true;
+ const s=fresh();s.tech.push('fieldConstraintTheory','dimensionBeaconDeployment');
  assert.equal(isTechnologyUnlocked('accessPointBeacon',s),true);assert.equal(isTechnologyUnlocked('hydrogenRecovery',s),false);
  s.buildings.asteroidBase=1;assert.equal(isTechnologyUnlocked('hydrogenRecovery',s),true);assert.equal(isTechnologyUnlocked('icebreakingPlan',s),false);
  for(const [id,cost] of [['accessPointBeacon',650000],['hydrogenRecovery',660000],['icebreakingPlan',690000]] as const){s.resources.knowledge=cost;assert.equal(requestPurchaseModule(s,'tech',id,0).status,'buy-now');assert.equal(s.resources.knowledge,0);assert.equal(requestPurchaseModule(s,'tech',id,0).status,'rejected');}
@@ -46,7 +46,7 @@ test('hydrogen plants use stored water before energy maintenance and supply inde
 test('hydrogen research cannot be smuggled through saves without its permanent base prerequisite',()=>{
  const s=fresh();s.tech=Object.keys(TECHNOLOGIES).filter(id=>id!=='spaceControlTower'&&id!=='higherDimensionalStorage'&&!['overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];s.prestige.nuclearResets=1;
  s.asrielMissionCompleted=s.kerberosMissionCompleted=s.solarMissionCompleted=s.talosMissionCompleted=s.talosMoonMissionCompleted=s.asteroidBeltMissionCompleted=s.misenMissionCompleted=true;
- for(const id of ['rocketPlatform','monument','geneSequencing','remoteAnchor'] as const)s.arpaBuildings[id]=1;s.arpaBuildings.arpaResearchInstitute=2;
+ for(const id of ['rocketPlatform','monument','geneSequencing'] as const)s.arpaBuildings[id]=1;s.arpaBuildings.arpaResearchInstitute=2;
  s.buildings.aiSupercore=100;s.buildings.constraintArray=s.buildings.iceMiningShip=s.buildings.asteroidBase=1;for(const key of Object.keys(s.stageThree) as (keyof typeof s.stageThree)[])s.stageThree[key]=true;
  const ctx={now:0,eventInterval:60,housingCapacity:()=>1000,clampResources:()=>{}};assert.doesNotThrow(()=>validateCurrentSave(s,ctx));const bad=clone(s);bad.buildings.asteroidBase=0;assert.throws(()=>validateCurrentSave(bad,ctx));
 });

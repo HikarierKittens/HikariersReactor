@@ -17,7 +17,7 @@ export function validateProjectRecords(raw: Record<string, unknown>, state: Game
   if (tracking !== undefined && (!tracking || typeof tracking !== 'object' || Array.isArray(tracking)
     || Object.keys(tracking).some(id => !Object.hasOwn(ARPA_PROJECTS, id)))) throw Error('工程投入数据无效');
   for (const id of Object.keys(ARPA_PROJECTS) as ArpaProjectId[]) {
-    const addedProject = ['stockExchange', 'arpaResearchInstitute', 'remoteAnchor'].includes(id);
+    const addedProject = ['stockExchange', 'arpaResearchInstitute'].includes(id);
     const missingProgress = addedProject && !Object.hasOwn(progress || {}, id);
     const missingBuildings = addedProject && !Object.hasOwn(buildings || {}, id);
     state.arpaProgress[id] = validateSaveNumber(missingProgress || (id === 'geneSequencing' && progress?.[id] === undefined) ? 0 : progress?.[id], 0, tracking === undefined ? 99 : 100, '工程进度');

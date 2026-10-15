@@ -11,11 +11,7 @@ import { isBuildingFullyBuilt } from './costs';
 
 export function isTechnologyUnlocked(id: string, state: GameState): boolean {
   if (!Object.hasOwn(TECHNOLOGIES, id)) return false;
-  if (id === 'dimensionBeaconDeployment' && !state.stageThree.remoteLinked) return false;
   if (id === 'globalObservationCalibration' && !state.stageThree.coreActivated) return false;
-  if (id === 'dualEndCoupling' && !state.stageThree.fieldStabilized) return false;
-  if (id === 'anomalyTopology' && !state.stageThree.transferCompleted) return false;
-  if (id === 'finiteAperture' && !state.stageThree.signalCompleted) return false;
   // 高维存储 requires a COMPLETED 空间撕裂者 (all 100 segments), not merely one segment.
   if ((id === 'higherDimensionalStorage' || id === 'overclocking13') && !isBuildingFullyBuilt('spaceRipper', state)) return false;
   // 质量喷射器 requires a COMPLETED 彭罗斯球体; the two black-hole specials open while it is unstable.
@@ -64,8 +60,6 @@ export function isResourceUnlocked(id: string, state: GameState): boolean {
 }
 export function isBuildingUnlocked(id: string, state: GameState): boolean {
   if (!Object.hasOwn(BUILDINGS, id)) return false;
-  if ((id === 'anchorFreightStation' || id === 'civilianRouteStation') && !state.stageThree.remoteLinked) return false;
-  if (id === 'shortRangeRelay' && !state.stageThree.signalCompleted) return false;
   const building = BUILDINGS[id as BuildingId];
   if (building.spaceMissionRequired && !isSpaceMissionCompleted(state, building.spaceMissionRequired)) return false;
   if (id === 'geothermalPlant' && !state.kerberosMissionCompleted) return false;

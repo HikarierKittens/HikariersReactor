@@ -277,7 +277,7 @@ test('higher-dimensional storage doubles hyperspace storage and adds spaceport w
   assert.deepEqual(calculateStorageBonuses('asteroidBase', s, null, null), { water: 16000, deuterium: 4000 });
   assert.deepEqual(calculateStorageBonuses('civilianRouteStation', s, null, null), { cash: 64000, food: 64000 });
   // Funded freight stations: 32000 × (1 + 5% per running base + 100%).
-  s.stageThree.remoteLinked = true;
+
   s.buildings.constraintArray = 3; s.buildings.anchorFreightStation = 1; s.buildings.hyperspaceSpaceport = 1;
   s.buildings.iceMiningShip = 1; s.buildings.asteroidBase = 1;
   const snap = { ...calculateSupportPreview(s, 1), moonBaseUnits: 0 };
