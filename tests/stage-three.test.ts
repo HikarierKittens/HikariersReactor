@@ -22,7 +22,7 @@ const clone = <T>(x:T):T => JSON.parse(JSON.stringify(x));
 const close = (a:number,b:number) => assert.ok(Math.abs(a-b)<1e-8, `${a} != ${b}`);
 const context = { now: 0, eventInterval: 60, housingCapacity: () => 1000, clampResources: () => {} };
 function tick(s:GameState, dt=1) { advanceGameTick(s,dt,{ happiness:()=>100, capacity:()=>1000, event:()=>{s.eventIn=60;},projects:()=>{},purchases:()=>{},unlocks:()=>{updateProgression(s);} }); }
-const flags = { coreActivated:false, probeCompleted:false, responseObserved:false, fieldStabilized:false, signalCompleted:false, transferCompleted:false, remoteLinked:false };
+const flags = { coreActivated:false, fieldStabilized:false, signalCompleted:false, transferCompleted:false, remoteLinked:false };
 function stageState() { const s=fresh(); Object.keys(s.stageThree).forEach(k => { s.stageThree[k as keyof typeof flags]=true; }); s.tech.push('fieldConstraintTheory','dualEndCoupling'); return s; }
 
 test('stage three defaults false and never infers actual AI activation from old construction alone',()=>{
@@ -48,21 +48,21 @@ test('only committed fully fueled enabled AI ticks activate third stage, not pre
   const stories=[...s.story.unlocked]; tick(s); assert.deepEqual(s.story.unlocked,stories);
 });
 
-test('third stage research and one-shot experiments follow actual event and engineering gates',()=>{
+test('mapping needs only global calibration and field theory needs mapping without an ARPA project',()=>{
   const s=fresh(); s.tech.push('artificialIntelligenceII');
   assert.equal(isTechnologyUnlocked('globalObservationCalibration',s),false);
   s.stageThree.coreActivated=true; assert.equal(isTechnologyUnlocked('globalObservationCalibration',s),true);
-  s.tech.push('globalObservationCalibration'); assert.equal(isTechnologyUnlocked('anomalyMapping',s),false);
-  s.arpaBuildings.deepSpaceInterferometer=1; assert.equal(isTechnologyUnlocked('anomalyMapping',s),true);
-  s.tech.push('anomalyMapping'); assert.equal(stageThreeExperimentAvailable(s,'probe'),true);
-  assert.equal(isTechnologyUnlocked('anomalyResponse',s),false);
-  s.resources.helium3=20000; s.resources.alloy=5000;
-  assert.equal(runStageThreeExperiment(s,'probe'),true); close(s.resources.helium3,0);close(s.resources.alloy,0);
-  const after=clone(s); assert.equal(runStageThreeExperiment(s,'probe'),false);assert.deepEqual(s,after);
-  assert.equal(isTechnologyUnlocked('anomalyResponse',s),true);s.tech.push('anomalyResponse');
-  updateStageThreeProgress(s);assert.equal(s.stageThree.responseObserved,false);
-  s.arpaBuildings.deepSpaceLab=1; updateStageThreeProgress(s);assert.equal(s.stageThree.responseObserved,true);
-  assert.equal(isTechnologyUnlocked('fieldConstraintTheory',s),true);s.tech.push('fieldConstraintTheory');
+  assert.equal(isTechnologyUnlocked('anomalyMapping',s),false);
+  assert.equal(isTechnologyUnlocked('fieldConstraintTheory',s),false);
+  s.tech.push('globalObservationCalibration');
+  assert.equal(isTechnologyUnlocked('anomalyMapping',s),true);
+  assert.equal(isTechnologyUnlocked('fieldConstraintTheory',s),false);
+  assert.ok(Object.values(s.arpaBuildings).every(count=>count===0));
+  s.tech.push('anomalyMapping');
+  assert.equal(isHyperspaceUnlocked({tech:s.tech}),true);
+  assert.equal(isTechnologyUnlocked('fieldConstraintTheory',s),true);
+  assert.deepEqual(TECHNOLOGIES.fieldConstraintTheory.pre,['anomalyMapping']);
+  s.tech.push('fieldConstraintTheory');
   assert.equal(isTechnologyUnlocked('dualEndCoupling',s),false);
   s.buildings.constraintArray=1;s.resources.energy=50;s.resources.e710=.25;
   calculateProduction(s);assert.equal(s.stageThree.fieldStabilized,false);tick(s);
@@ -70,6 +70,15 @@ test('third stage research and one-shot experiments follow actual event and engi
   s.tech.push('dualEndCoupling');assert.equal(isTechnologyUnlocked('finiteAperture',s),false);
 });
 
+test('stabilization requires mapping and a committed funded enabled constraint array',()=>{
+  for(const kind of ['unmapped','stopped','energy','e710'] as const){
+    const s=fresh();s.stageThree.coreActivated=true;s.buildings.aiSupercore=100;
+    s.tech.push('fieldConstraintTheory');if(kind!=='unmapped')s.tech.push('anomalyMapping');
+    s.buildings.constraintArray=1;s.resources.energy=kind==='energy'?49.9:50;s.resources.e710=kind==='e710'?.2499:.25;
+    if(kind==='stopped')s.stoppedBuildings.constraintArray=1;
+    tick(s);assert.equal(s.stageThree.fieldStabilized,false,kind);
+  }
+});
 test('constraint arrays and relays fund full units with exact once-only upkeep and pure support previews',()=>{
   for(const dt of [.2,1,3]) {
     const s=stageState();s.buildings.constraintArray=2;s.buildings.shortRangeRelay=3;s.resources.energy=120*dt;s.resources.e710=.5*dt;
@@ -97,8 +106,8 @@ test('all hyperspace experiments have zero stability requirements and exact reba
   assert.deepEqual(STAGE_THREE_EXPERIMENTS.signal.cost,{energy:4000,e710:15,nanotubes:2500});
   assert.deepEqual(STAGE_THREE_EXPERIMENTS.transfer.cost,{energy:10000,metal:2000,alloy:2000,e710:50});
   assert.deepEqual(STAGE_THREE_EXPERIMENTS.remote.cost,{energy:16000,e710:100,helium3:20000,nanotubes:6000});
-  assert.deepEqual(STAGE_THREE_EXPERIMENTS.probe.cost,{helium3:20000,alloy:5000});
-  assert.deepEqual(Object.keys(STAGE_THREE_EXPERIMENTS).sort(), ['probe','remote','signal','transfer']);
+  assert.equal(Object.hasOwn(STAGE_THREE_EXPERIMENTS,'probe'),false);
+  assert.deepEqual(Object.keys(STAGE_THREE_EXPERIMENTS).sort(), ['remote','signal','transfer']);
 });
 
 test('signal and transfer use atomic material costs without operational stability or maintenance reserves',()=>{
@@ -126,18 +135,18 @@ test('complete third stage saves round trip immutably and reject incoherent flag
   const s=fresh(); s.tech=Object.keys(TECHNOLOGIES).filter(id=>!['spaceControlTower','hydrogenRecovery','icebreakingPlan','higherDimensionalStorage','overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];
   s.prestige.nuclearResets=1;
   s.asrielMissionCompleted=s.kerberosMissionCompleted=s.solarMissionCompleted=s.talosMissionCompleted=s.talosMoonMissionCompleted=s.asteroidBeltMissionCompleted=s.misenMissionCompleted=true;
-  s.arpaBuildings.rocketPlatform=s.arpaBuildings.monument=s.arpaBuildings.geneSequencing=s.arpaBuildings.deepSpaceInterferometer=s.arpaBuildings.deepSpaceLab=s.arpaBuildings.remoteAnchor=1;s.arpaBuildings.arpaResearchInstitute=2;
+  s.arpaBuildings.rocketPlatform=s.arpaBuildings.monument=s.arpaBuildings.geneSequencing=s.arpaBuildings.remoteAnchor=1;s.arpaBuildings.arpaResearchInstitute=2;
   for(const key of Object.keys(flags) as (keyof typeof flags)[])s.stageThree[key]=true;
   s.buildings.aiSupercore=100;s.buildings.constraintArray=2;s.buildings.shortRangeRelay=1;
   const raw=clone(s), before=clone(raw);const restored=validateCurrentSave(raw,context);
   assert.deepEqual(raw,before);assert.deepEqual(restored.stageThree,s.stageThree);
   assert.deepEqual(validateCurrentSave(clone(restored),context).stageThree,s.stageThree);
-  for(const key of ['coreActivated','probeCompleted','responseObserved','fieldStabilized','signalCompleted'] as const){ const bad=clone(s);bad.stageThree[key]=false;assert.throws(()=>validateCurrentSave(bad,context),key); }
+  for(const key of ['coreActivated','fieldStabilized','signalCompleted'] as const){ const bad=clone(s);bad.stageThree[key]=false;assert.throws(()=>validateCurrentSave(bad,context),key); }
   const legacy:any=clone(fresh());delete legacy.stageThree;assert.deepEqual(validateCurrentSave(legacy,context).stageThree,flags);
 });
 
 test('complete third stage chain uses real research project funding construction and experiments without reading or RNG',()=>{
-  const s=fresh(); const newTech=['globalObservationCalibration','anomalyMapping','anomalyResponse','fieldConstraintTheory','dualEndCoupling','finiteAperture','anomalyTopology','dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'];
+  const s=fresh(); const newTech=['globalObservationCalibration','anomalyMapping','fieldConstraintTheory','dualEndCoupling','finiteAperture','anomalyTopology','dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'];
   s.tech=Object.keys(TECHNOLOGIES).filter(id=>id!=='spaceControlTower'&&!newTech.includes(id)) as TechnologyId[];
   s.prestige.nuclearResets=1;s.asrielMissionCompleted=s.kerberosMissionCompleted=s.solarMissionCompleted=s.talosMissionCompleted=s.talosMoonMissionCompleted=s.asteroidBeltMissionCompleted=s.misenMissionCompleted=true;
   s.arpaBuildings.rocketPlatform=s.arpaBuildings.monument=s.arpaBuildings.geneSequencing=1;s.arpaBuildings.arpaResearchInstitute=2;
@@ -145,10 +154,8 @@ test('complete third stage chain uses real research project funding construction
   const fund=()=>{for(const r of Object.keys(s.resources) as (keyof typeof s.resources)[])s.resources[r]=1e9;};
   const valid=()=>assert.deepEqual(validateCurrentSave(clone(s),context).stageThree,s.stageThree);
   const research=(id:TechnologyId)=>{fund();assert.equal(researchTechnologyNow(s,id).bought,true,id);updateProgression(s);valid();};
-  const project=(id:'deepSpaceInterferometer'|'deepSpaceLab')=>{fund();assert.equal(isProjectUnlocked(id,s),true);assert.equal(investInProject(id,s,100,()=>{throw Error('unexpected RNG');}),100);assert.equal(s.arpaBuildings[id],1);updateProgression(s);valid();};
-  valid();assert.equal(isProjectUnlocked('deepSpaceInterferometer',s),false);fund();tick(s);valid();
-  research('globalObservationCalibration');project('deepSpaceInterferometer');research('anomalyMapping');
-  fund();assert.equal(runStageThreeExperiment(s,'probe'),true);valid();research('anomalyResponse');project('deepSpaceLab');research('fieldConstraintTheory');
+  valid();fund();tick(s);valid();
+  research('globalObservationCalibration');research('anomalyMapping');research('fieldConstraintTheory');
   fund();assert.equal(buyBuildingNow(s,'constraintArray',0).bought,true);assert.equal(buyBuildingNow(s,'constraintArray',0).bought,true);s.stoppedBuildings.constraintArray=0;
   tick(s);valid();research('dualEndCoupling');fund();assert.equal(runStageThreeExperiment(s,'signal'),true);valid();
   research('finiteAperture');fund();assert.equal(runStageThreeExperiment(s,'transfer'),true);valid();
@@ -157,19 +164,23 @@ test('complete third stage chain uses real research project funding construction
 });
 
 test('all new technology prerequisite chains are present in the registry',()=>{
-  for(const id of ['globalObservationCalibration','anomalyMapping','anomalyResponse','fieldConstraintTheory','dualEndCoupling','finiteAperture'] as TechnologyId[]) {
+  for(const id of ['globalObservationCalibration','anomalyMapping','fieldConstraintTheory','dualEndCoupling','finiteAperture'] as TechnologyId[]) {
     assert.ok(TECHNOLOGIES[id]);for(const pre of TECHNOLOGIES[id].pre)assert.ok(TECHNOLOGIES[pre]);
   }
 });
 
-test('超空间 view unlocks only after ARPA 深空实验平台; earlier stage three lives on ARPA-进度', () => {
+test('hyperspace opens immediately on mapping research, before stabilization or experiments', () => {
   const s = fresh();
-  assert.equal(isHyperspaceUnlocked(s), false);
+  assert.equal(isHyperspaceUnlocked({tech:s.tech}), false);
   assert.equal(isEarlyStageThree(s), false, 'inactive stage three shows nowhere');
   s.stageThree.coreActivated = true;
   assert.equal(isHyperspaceUnlocked(s), false);
   assert.equal(isEarlyStageThree(s), true);
-  s.arpaBuildings.deepSpaceLab = 1;
-  assert.equal(isHyperspaceUnlocked(s), true);
+  s.tech.push('anomalyMapping');
+  const before=clone(s);
+  assert.equal(isHyperspaceUnlocked({tech:s.tech}), true);
   assert.equal(isEarlyStageThree(s), false);
+  assert.equal(s.stageThree.fieldStabilized,false);
+  assert.ok(Object.values(s.arpaBuildings).every(count=>count===0));
+  assert.deepEqual(s,before,'view gate queries are pure');
 });

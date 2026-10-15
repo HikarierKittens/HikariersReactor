@@ -123,9 +123,9 @@ export function constructBuildingState(state: GameState, id: BuildingId, moonAva
     state.stoppedBuildings[id] = (state.stoppedBuildings[id] || 0) + 1;
   }
   // The last segment of 空间撕裂者 completes the current main storyline.
-  if (id === 'massEjector' && state.buildings[id] === 1) addLog(state, MASS_EJECTION_UNLOCK_LOG, 'event');
+  if (id === 'massEjector' && state.buildings[id] === 1) addLog(state, MASS_EJECTION_UNLOCK_LOG, 'progress');
   if (id === 'spaceRipper' && state.buildings[id] === building.segmentedRequired) {
-    addLog(state, SPACE_RIPPER_COMPLETED_LOG, 'event');
+    addLog(state, SPACE_RIPPER_COMPLETED_LOG, 'progress');
   }
 }
 export const SPACE_RIPPER_COMPLETED_LOG = '当前游戏主线部分已完成喵，请等待未来更新喵';
@@ -143,12 +143,12 @@ export interface ResearchSideEffects {
  */
 export function applyResearchSideEffects(state: GameState, id: TechnologyId, previousTech: TechnologyId[]): ResearchSideEffects {
   if (id === 'dimensionBeaconDeployment' && !previousTech.includes(id)) addLog(state, '投放维度探测信标后，虚空之中传来了另一个信号');
-  if (id === 'overclocking13' && !previousTech.includes(id)) addLog(state, OVERCLOCKING13_LOG, 'event');
+  if (id === 'overclocking13' && !previousTech.includes(id)) addLog(state, OVERCLOCKING13_LOG, 'progress');
   // 稳定黑洞 is repeatable: apply once, then drop it so it reappears on the next instability.
   if (id === 'stabilizeBlackHole') {
     stabilizeBlackHole(state);
     state.tech = state.tech.filter(tech => tech !== id);
-    addLog(state, STABILIZE_BLACK_HOLE_LOG, 'event');
+    addLog(state, STABILIZE_BLACK_HOLE_LOG, 'progress');
   }
   const before = { ...state, tech: previousTech };
   const poweredShutdown: BuildingId[] = [];
@@ -358,7 +358,7 @@ export function settlePurchaseQueue(state: GameState, moonAvailable: MoonAvailab
     const segmented = current.kind === 'build' && BUILDINGS[current.id].segmentedRequired;
     const projectComplete = !segmented || (current.kind === 'build' && (current.segments ?? 1) <= 1);
     if (projectComplete) {
-      addLog(state, `队列中 ${name} 已完成`, 'event');
+      addLog(state, `队列中 ${name} 已完成`, 'queue');
       state.queue.splice(selected.index, 1);
     } else if (current.kind === 'build') {
       current.segments = (current.segments ?? 1) - 1;

@@ -48,7 +48,7 @@ test('completing the space ripper logs the main-story completion exactly once on
   assert.ok(buyBuildingNow(direct, 'spaceRipper', 0).bought);
   assert.equal(direct.buildings.spaceRipper, 100);
   assert.equal(count(direct), 1);
-  assert.equal(direct.logs[0]?.type, 'event');
+  assert.equal(direct.logs[0]?.type, 'progress');
   assert.equal(buyBuildingNow(direct, 'spaceRipper', 0).bought, false, 'cannot exceed 100 segments');
   assert.equal(count(direct), 1);
   // Batch buy spanning the final segment.

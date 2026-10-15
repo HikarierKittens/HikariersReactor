@@ -7,9 +7,9 @@ export const STORY_CHAPTER_IDS: readonly StoryChapterId[] = ['firstShelter', 'be
 export function collectStoryMilestones(state: GameState): StoryChapterId[] {
   const gates: Record<StoryChapterId, boolean> = {
     coreCalibration: state.stageThree.coreActivated,
-    anomalyConfirmed: state.arpaBuildings.deepSpaceInterferometer > 0,
-    twoMaps: state.stageThree.probeCompleted,
-    anomalyResponse: state.stageThree.responseObserved,
+    anomalyConfirmed: state.tech.includes('globalObservationCalibration'),
+    twoMaps: state.tech.includes('anomalyMapping'),
+    anomalyResponse: state.tech.includes('fieldConstraintTheory'),
     controlledField: state.stageThree.fieldStabilized,
     firstSignal: state.stageThree.signalCompleted,
     firstTransfer: state.stageThree.transferCompleted,

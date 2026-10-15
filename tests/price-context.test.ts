@@ -15,7 +15,7 @@ function lateState(): GameState {
   state.asrielMissionCompleted = state.kerberosMissionCompleted = state.solarMissionCompleted
     = state.talosMissionCompleted = state.talosMoonMissionCompleted = state.asteroidBeltMissionCompleted
     = state.misenMissionCompleted = true;
-  for (const id of ['rocketPlatform', 'monument', 'geneSequencing', 'deepSpaceInterferometer', 'deepSpaceLab', 'remoteAnchor'] as const) state.arpaBuildings[id] = 1;
+  for (const id of ['rocketPlatform', 'monument', 'geneSequencing', 'remoteAnchor'] as const) state.arpaBuildings[id] = 1;
   state.arpaBuildings.arpaResearchInstitute = 2;
   state.buildings.aiSupercore = 100;
   state.buildings.ironMiningShip = 5;

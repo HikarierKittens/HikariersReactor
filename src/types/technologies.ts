@@ -11,7 +11,7 @@ export type TechnologyId =
   | 'dimensionPioneer' | 'highTechFactory' | 'higherDimensionalStorage' | 'e710ResearchStation' | 'ripperOverclock'
   | 'overclocking13' | 'superMetal' | 'grapheneProcessing' | 'nanoAlloy' | 'virtualReality' | 'virtualTraining'
   | 'virtualEntertainment' | 'aerogel' | 'plasmaResearch' | 'plasmaMining' | 'energyShield' | 'stellarForge' | 'penroseTheory'
-  | 'globalObservationCalibration' | 'anomalyMapping' | 'anomalyResponse' | 'fieldConstraintTheory' | 'dualEndCoupling' | 'finiteAperture'
+  | 'globalObservationCalibration' | 'anomalyMapping' | 'fieldConstraintTheory' | 'dualEndCoupling' | 'finiteAperture'
   | 'advancedMetalRefining'
   | 'spaceControlTower'
   | 'alienScienceResearch' | 'starRingOptimization' | 'artificialIntelligenceII'

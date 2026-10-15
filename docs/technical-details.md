@@ -12,6 +12,17 @@
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
 - 包管理：npm；生成式桥接脚本见 `scripts/generate-legacy-data.cjs`。
 
+### 日志分类与核心副标题
+
+- `LogType` 新增 `queue`，建筑/科研/ARPA队列完成日志使用该类型。普通事件继续使用 `event`，里程碑、AI启动、黑洞进展与飞船部件完成使用 `progress`，成就使用 `achievement`，存档等诊断保留 `system`。旧存档的「队列中 … 已完成」事件日志在读取时转为queue。
+- 日志正文14px、行高1.6，时间12px；队列灰蓝、普通事件暖黄、进度浅蓝、成就浅绿、系统浅红，筛选同步这些类别。
+- `TooltipPanel.vue` 的AI超级核心描述首行增加 `world.exection(cat);`，保留原分段进度和维护信息。
+
+### 队列悬停递增价格
+
+- `TooltipPanel.vue` 根据悬停元素的稳定 `queueUid` 从 `describeQueuedPurchases(state)` 读取建筑预测价格，与队列时间预估共用顺序累计结果；普通建筑按已建数量+前序同类数量计算成本蠕变，不受其他建筑插队影响。
+- 每次revision重新计算，因此取消中间项目后后续同类价格自动前移；显示序号仍使用当前队列下标+1，uid只作身份标识而不当作序号。分段项目保持剩余分段总需求展示，并用单段价格判断储量是否不足。
+
 ### 七项替换成就与不补发兼容
 
 - 成就字典替换为核爆、ESS逃逸、飞船完成、4096蜂群卫星、实际启动AI核心、OC-13研究和黑洞重置七项；描述包含破折号后的条件，`AchievementsPanel.vue` 默认全部，可切换未完成/已完成，选中边框为绿色。
@@ -141,7 +152,7 @@
 - 阵列维护50电力+0.25 E-710/s，太空港和采冰船各新增5氦-3/s；地热基准0.5氦-3/s、铱／铁采矿船2、E-710采矿船3，原有适用的燃料折扣保持。
 - 猫猫社区移除直接普通资源+25%，人口增长乘1.10；其他原有幸福度与食物需求规则保持。
 
-- 超空间视图解锁：`isHyperspaceUnlocked`=`stageThree.coreActivated && arpaBuildings.deepSpaceLab>0`，控制世界导航按钮与超空间分组；`isEarlyStageThree`（已激活但未解锁）时`StageThreePanel`经`ArpaPanel`的`progress`插槽渲染于ARPA-进度页并强制显示该页。`App.vue`的`currentWorldView`在超空间锁定时（如读入其他存档）回落到地面。纯UI门槛，存档无变化。
+- 超空间视图解锁：`isHyperspaceUnlocked`=`tech.includes('anomalyMapping')`，异常区域测绘只需全域观测校准，研究后立即显示世界导航及超空间分组。场约束理论直接前置异常区域测绘；深空干涉阵列、异常区探测任务、异常响应实验科技与深空实验平台移除。`StageThreePanel`只在超空间渲染，不再提前放置于ARPA进度。旧档移除上述退役科技/工程/队列/标志，保留后续进度，无退款；剧情章节ID保留并按新流程改写。`App.vue`在超空间锁定时仍回落到地面。
 
 ### 3.4c 破维先锋与高维存储
 - 科技：高科技工厂T18（800k，前置高科技农场平台）；破维先锋T19（1M，前置超空间采矿探查+气体云吸积）；高维存储T19（1M，前置破维先锋，且`isBuildingFullyBuilt('spaceRipper')`，存档校验同样要求）。

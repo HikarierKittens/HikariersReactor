@@ -127,6 +127,30 @@ try {
   log(S().workers.forage === 1, '猫猫分配按钮实际增加工人');
   log(/^1\s*\//.test(plus.closest('.workers').querySelector('.worker-count').textContent.trim()), '同猫猫面板立即更新工人数量');
 
+  // Queue hover prices follow current same-building ordinals, not stable uids.
+  const queuePriceSnapshot = JSON.parse(JSON.stringify(S()));
+  const showQueuePrice = async uid => { $(`[data-queue-uid="${uid}"]`).dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' })); await flush(); };
+  const hideQueuePrice = async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await flush(); };
+  const { describeQueuedPurchases: queuedQuotes } = await import('/src/simulation/purchases.ts');
+  const { fmt: queuePriceNumber } = await import('/src/vue/format.ts');
+  store.mutate(state => {
+    state.settings.paused = true;
+    state.queue = [901, 902, 903, 904].map(uid => ({ uid, kind: 'build', id: 'nest' }));
+  }); await flush();
+  const originalQuotes = queuedQuotes(S());
+  for (const quote of originalQuotes) {
+    await showQueuePrice(quote.uid);
+    log(Object.entries(quote.cost).every(([id, amount]) => $$('#gameTooltip .tip-cost').some(row => row.textContent === `${RESOURCES[id].name} ${queuePriceNumber(amount)}`)), `队列${quote.uid}悬停按同类前序数量递增价格`);
+    await hideQueuePrice();
+  }
+  click($('[data-cancel-queue="902"]')); await flush();
+  const remainingRows = $$('[data-queue-uid]').filter(row => row.dataset.tipKind === 'building');
+  log(remainingRows.map(row => row.dataset.queueUid).join(',') === '901,903,904' && remainingRows.every((row, index) => row.querySelector('.q-top span').textContent.startsWith(`${index + 1}.`)), '删除第2项后第3和第4项显示编号顺延为2和3');
+  await showQueuePrice(903);
+  log(Object.entries(originalQuotes[1].cost).every(([id, amount]) => $$('#gameTooltip .tip-cost').some(row => row.textContent === `${RESOURCES[id].name} ${queuePriceNumber(amount)}`)), '原第3项悬停价格顺延为原第2项价格');
+  await hideQueuePrice();
+  store.mutate(state => { Object.assign(state, queuePriceSnapshot); }); await flush();
+
   // Automation UI is independent of manual assignments and uses only idle cats.
   const autoSnapshot = JSON.parse(JSON.stringify(S()));
   store.mutate(state => { state.population = 5; state.buildings.forage = 10; state.buildings.school = 10; if (!state.tech.includes('writing')) state.tech.push('writing'); }); await flush();
@@ -186,6 +210,13 @@ try {
     await flush();
   };
   const escapeTip = async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await flush(); };
+  const logUiSnapshot = JSON.parse(JSON.stringify(S().logs));
+  store.mutate(state => { state.logs = ['queue', 'event', 'progress', 'achievement', 'system'].map(type => ({ time: 0, type, text: `日志可读性测试-${type}` })); }); await flush();
+  const logColors = $$('.log-line').map(row => getComputedStyle(row).color);
+  log(logColors.length === 5 && new Set(logColors).size === 5 && $$('.log-line').every(row => parseFloat(getComputedStyle(row).fontSize) >= 14), '五类日志独立配色且正文字号至少14px');
+  click($('[data-log-filter="queue"]')); await flush();
+  log($$('.log-line').length === 1 && $('.log-line').classList.contains('t-queue'), '队列日志可独立筛选');
+  click($('[data-log-filter="all"]')); store.mutate(state => { state.logs = logUiSnapshot; }); await flush();
   const governmentTipSnapshot = JSON.parse(JSON.stringify(S()));
   store.mutate(state => { state.tech.push('government', 'advancedGovernment'); state.lastReformTime = null; state.government = 'none'; }); await flush();
   click($('[data-internal-view="government"]')); await flush();
@@ -472,6 +503,9 @@ try {
   log(S().buildings.aiSupercore === 100 && !!$('[data-buy="aiSupercore"]').closest('.building-control').querySelector('.building-toggle'), '第100段实际建成完整AI核心并开放运行开关');
   log($('[data-buy="aiSupercore"]').disabled && $('[data-buy="aiSupercore"] .building-count').textContent === '1' && !$('[id="quantumLevel"]'), '核心建满后数量显示1禁止继续建造且世界页面移除量子水平');
   log(!$('[data-buy="aiSupercore"] .building-segment-requirement') && $('[data-buy="aiSupercore"] .building-name').textContent === 'AI超级核心', '核心按钮保留建筑名称并移除重叠的分段说明');
+  await showTip('.building-info[data-building-tip="aiSupercore"]');
+  log($('#gameTooltip .tip-description')?.textContent.includes('world.exection(cat);') || $('#gameTooltip').textContent.includes('world.exection(cat);'), 'AI超级核心悬停副标题包含world.exection(cat);');
+  await escapeTip();
   const beforeStageThree = JSON.parse(JSON.stringify(S()));
   log(!S().stageThree.coreActivated && !$('[data-stage3-action="probe"]'), '仅建成核心和生产预览不会激活第三阶段');
   log(!$('[data-world-view="hyperspace"]') && !$('[data-stage-three]'), '第三阶段未激活时不显示超空间页面与实验面板');
@@ -489,34 +523,28 @@ try {
   log(corePowerButton().classList.contains('is-shortage'), '完整AI核心缺少氦3时仍正确显示黄色');
   store.mutate(state => { state.resources.helium3 = 1000; }); await flush();
   log(!$('[data-stage-three]') && !$('[data-building-group="anomaly"]'), '太空页不再展示第三阶段面板与专属设施');
-  log(!$('[data-world-view="hyperspace"]'), '第三阶段激活但未建成深空实验平台时超空间页面仍未解锁');
+  log(!$('[data-world-view="hyperspace"]'), '第三阶段激活但未研究异常区域测绘时超空间仍未解锁');
   click($('[data-tab="arpa"]')); await flush();
   click($('[data-arpa-view="progress"]')); await flush();
-  log(!!$('[data-stage-three]') && !$('[data-gather]'), '深空实验平台建成前第三阶段面板位于ARPA进度页');
-  log($('[data-stage3-next-step]').textContent.includes('全域观测校准'), '第三阶段入口明确提示当前应研究的科技');
-  log(!!($('[data-arpa-view="progress"]').compareDocumentPosition($('[data-stage-three]')) & Node.DOCUMENT_POSITION_FOLLOWING), 'ARPA分类导航位于第三阶段长面板之前');
+  log(!$('[data-stage-three]') && !$$('.arpa-project h3').some(node => /深空干涉阵列|深空实验平台/.test(node.textContent)), 'ARPA移除早期实验面板和两项多余工程');
   const { updateStageThreeProgress } = await import('/src/simulation/stage-three.ts');
-  store.mutate(state => { state.tech.push('globalObservationCalibration','anomalyMapping'); state.arpaBuildings.deepSpaceInterferometer = 1; state.resources.helium3 = 20000; state.resources.alloy = 5000; updateStageThreeProgress(state); }); await flush();
-  const probeButton = $('[data-stage3-action="probe"]');
-  log(!!probeButton && !probeButton.disabled, '第三阶段面板开放已满足条件的异常区探测任务');
-  click(probeButton); await flush();
-  log(S().stageThree.probeCompleted && S().resources.helium3 === 0 && S().resources.alloy === 0 && S().story.unlocked.includes('twoMaps'), '探测任务即时原子扣款完成并收录两张地图');
-  log(!$('[data-stage3-action="probe"]') || $('[data-stage3-action="probe"]').disabled, '一次性探测任务完成后无法重复执行');
-  log($('[data-stage3-next-step]').textContent.includes('异常响应实验'), '实验完成后下一步提示即时推进到对应科技');
-  store.mutate(state => { state.tech.push('fieldConstraintTheory', 'dualEndCoupling'); state.stageThree.signalCompleted = true; }); await flush();
+  const { isTechnologyUnlocked: anomalyTechUnlocked } = await import('/src/simulation/unlocks.ts');
+  store.mutate(state => { state.tech.push('globalObservationCalibration'); }); await flush();
+  log(anomalyTechUnlocked('anomalyMapping', S()), '全域观测校准后立即开放异常区域测绘，无工程前置');
+  store.mutate(state => { state.tech.push('anomalyMapping'); updateStageThreeProgress(state); }); await flush();
   click($('[data-tab="buildings"]')); await flush();
-  log(!$('[data-world-view="hyperspace"]') && !$('[data-buy="constraintArray"]'), '已研究后续科技但未建成深空实验平台时仍不开放超空间');
-  store.mutate(state => { state.arpaBuildings.deepSpaceLab = 1; }); await flush();
-  log(!!$('[data-world-view="hyperspace"]'), '深空实验平台建成后立即解锁超空间页面');
+  log(!!$('[data-world-view="hyperspace"]'), '异常区域测绘研究后立即解锁超空间');
   click($('[data-world-view="hyperspace"]')); await flush();
+  log($('[data-stage3-next-step]').textContent.includes('场约束理论') && !$('[data-stage3-action="probe"]') && anomalyTechUnlocked('fieldConstraintTheory', S()), '超空间下一步直接研究场约束理论，探测任务已移除');
+  store.mutate(state => { state.tech.push('fieldConstraintTheory', 'dualEndCoupling'); state.stageThree.signalCompleted = true; }); await flush();
   log(!!$('[data-stage-three]') && !!$('[data-buy="constraintArray"]') && !!$('[data-buy="shortRangeRelay"]') && !$('[data-building-group="moon"]') && !$('[data-gather]'), '超空间展示第三阶段面板与场约束阵列、短程通信节点，隐藏太空建筑与采集');
   click($('[data-tab="arpa"]')); await flush();
   click($('[data-arpa-view="progress"]')); await flush();
   log(!$('[data-stage-three]'), '超空间解锁后ARPA进度页不再重复显示第三阶段面板');
   store.mutate(state => {
-    state.tech.push('anomalyResponse','finiteAperture','anomalyTopology');
-    Object.assign(state.stageThree,{responseObserved:true,fieldStabilized:true,transferCompleted:true,remoteLinked:false});
-    state.arpaBuildings.deepSpaceLab=state.arpaBuildings.remoteAnchor=1;
+    state.tech.push('finiteAperture','anomalyTopology');
+    Object.assign(state.stageThree,{fieldStabilized:true,transferCompleted:true,remoteLinked:false});
+    state.arpaBuildings.remoteAnchor=1;
     state.buildings.constraintArray=3;state.stoppedBuildings.constraintArray=0;state.stoppedBuildings.aiSupercore=1;
     Object.assign(state.resources,{energy:20000,e710:200,helium3:20000,nanotubes:6000,food:1000,oil:1000});
   }); await flush();

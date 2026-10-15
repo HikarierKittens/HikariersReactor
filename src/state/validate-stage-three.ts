@@ -23,10 +23,7 @@ export function validateStageThreeProgress(state: GameState): void {
   if (s.coreActivated && state.buildings.aiSupercore < (BUILDINGS.aiSupercore.segmentedRequired || 100)) fail();
   if (s.fieldStabilized && state.buildings.constraintArray < 1) fail();
   if (state.tech.includes('globalObservationCalibration') && !s.coreActivated) fail();
-  if (s.probeCompleted && (!s.coreActivated || !state.tech.includes('anomalyMapping') || !state.arpaBuildings.deepSpaceInterferometer)) fail();
-  if (state.tech.includes('anomalyResponse') && !s.probeCompleted) fail();
-  if (s.responseObserved && (!s.probeCompleted || !state.tech.includes('anomalyResponse') || !state.arpaBuildings.deepSpaceLab)) fail();
-  if (s.fieldStabilized && (!s.responseObserved || !state.tech.includes('fieldConstraintTheory'))) fail();
+  if (s.fieldStabilized && (!s.coreActivated || !state.tech.includes('anomalyMapping') || !state.tech.includes('fieldConstraintTheory'))) fail();
   if (state.tech.includes('dualEndCoupling') && !s.fieldStabilized) fail();
   if (s.signalCompleted && (!s.fieldStabilized || !state.tech.includes('dualEndCoupling'))) fail();
   if (state.tech.includes('finiteAperture') && !s.signalCompleted) fail();

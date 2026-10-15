@@ -7,13 +7,13 @@ import type { TechnologyId } from '../../src/types/technologies';
 export type MilestoneStage = 'ground' | 'moon' | 'space' | 'remote' | 'beacon' | 'postBeacon';
 
 /** Historical third-stage events in research order (remoteLinked excluded; it is an experiment). */
-const REMOTE_CHAIN_FLAGS = ['coreActivated', 'probeCompleted', 'responseObserved', 'fieldStabilized', 'signalCompleted', 'transferCompleted'] as const;
+const REMOTE_CHAIN_FLAGS = ['coreActivated', 'fieldStabilized', 'signalCompleted', 'transferCompleted'] as const;
 
 /** Technology chains that unlock each anomaly-research capability. */
 const BASE_ERA_TECH = ['survival', 'tools', 'writing', 'mining', 'ironTools', 'metallurgy', 'science', 'electricity', 'automation', 'electrochemicalSmelting', 'oilTechnology', 'oilStorage', 'titaniumSmelting'] as const;
 const SPACE_BASE_TECH = ['electronics', 'dataCenter', 'artificialIntelligence', 'savingsBonds', 'internet', 'biologicalScience', 'genetics', 'monument', 'stockExchange', 'arpaResearchInstitute', 'nuclearEnergy', 'coalMining', 'uraniumStorage', 'arpa', 'rocketry', 'spaceflight', 'laser', 'outerPlanetExploration', 'asteroidBeltMining', 'asteroidMiningOptimization', 'exoticElementResearch'] as const;
 const ANOMALY_BASE_TECH = [...BASE_ERA_TECH, ...SPACE_BASE_TECH, 'artificialIntelligenceII', 'globalObservationCalibration'] as const;
-const ANOMALY_CHAIN_TECH = ['anomalyMapping', 'anomalyResponse', 'fieldConstraintTheory', 'dualEndCoupling', 'finiteAperture', 'anomalyTopology'] as const;
+const ANOMALY_CHAIN_TECH = ['anomalyMapping', 'fieldConstraintTheory', 'dualEndCoupling', 'finiteAperture', 'anomalyTopology'] as const;
 /** Techs whose save validity requires matching historical third-stage events. */
 const ANOMALY_DEPENDENT_TECH = [...ANOMALY_CHAIN_TECH, 'artificialIntelligenceII', 'globalObservationCalibration'] as const;
 const BEACON_TECH = ['dimensionBeaconDeployment'] as const;
@@ -26,7 +26,7 @@ const EXPEDITION_TECH = ['outerPlanetExploration', 'asteroidBeltMining', 'astero
 /** Completed regional missions and the ARPA projects the space milestones rely on. */
 const SPACE_MISSION_FLAGS = ['asrielMissionCompleted', 'kerberosMissionCompleted', 'solarMissionCompleted', 'talosMissionCompleted', 'talosMoonMissionCompleted', 'asteroidBeltMissionCompleted', 'misenMissionCompleted'] as const;
 const CORE_ARPA = ['rocketPlatform', 'monument', 'geneSequencing'] as const;
-const REMOTE_ARPA = ['deepSpaceInterferometer', 'deepSpaceLab', 'remoteAnchor'] as const;
+const REMOTE_ARPA = ['remoteAnchor'] as const;
 
 export interface MilestoneOptions {
   /** Explicit tech ids merged into the milestone list (deduplicated). */
@@ -55,7 +55,7 @@ function stateAt(stage: MilestoneStage, options: MilestoneOptions = {}) {
     missions.push(...SPACE_MISSION_FLAGS);
     // Completed missions and research institutes are part of every post-ground save.
     state.kerberosMissionCompleted = true;
-    arpa.push('arpaResearchInstitute', 'geneSequencing', 'deepSpaceInterferometer', 'deepSpaceLab');
+    arpa.push('arpaResearchInstitute', 'geneSequencing');
     // Historical third-stage evidence matches the milestone's researched chain.
     state.buildings.aiSupercore = 100;
     state.buildings.constraintArray = 1;

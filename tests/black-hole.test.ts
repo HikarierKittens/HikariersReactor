@@ -71,7 +71,7 @@ test('质量喷射器 tech needs a completed Penrose sphere; first ejector logs 
   assert.equal(isTechnologyUnlocked('massEjector', s), true);
   const b = stage(0);
   constructBuildingState(b, 'massEjector', () => 0);
-  assert.equal(b.logs.filter(log => log.text === MASS_EJECTION_UNLOCK_LOG && log.type === 'event').length, 1);
+  assert.equal(b.logs.filter(log => log.text === MASS_EJECTION_UNLOCK_LOG && log.type === 'progress').length, 1);
   constructBuildingState(b, 'massEjector', () => 0);
   assert.equal(b.logs.filter(log => log.text === MASS_EJECTION_UNLOCK_LOG).length, 1);
 });
@@ -135,7 +135,7 @@ test('instability logs once per crossing, unlocks both specials, and 稳定黑�
   s.blackHole.exoticMass = .0249999; changeEjectionAllocation(s, 'e710', 1000); s.resources.e710 = 1e6;
   advanceGameTick(s, 1, hooks); advanceGameTick(s, 1, hooks);
   assert.equal(s.blackHole.unstable, true);
-  assert.equal(s.logs.filter(log => log.text === BLACK_HOLE_UNSTABLE_LOG && log.type === 'event').length, 1);
+  assert.equal(s.logs.filter(log => log.text === BLACK_HOLE_UNSTABLE_LOG && log.type === 'progress').length, 1);
   assert.equal(isTechnologyUnlocked('stabilizeBlackHole', s), true);
   assert.equal(isTechnologyUnlocked('exoticRunaway', s), true);
   changeEjectionAllocation(s, 'e710', -1000);

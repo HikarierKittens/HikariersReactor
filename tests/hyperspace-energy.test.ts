@@ -46,7 +46,7 @@ test('hydrogen plants use stored water before energy maintenance and supply inde
 test('hydrogen research cannot be smuggled through saves without its permanent base prerequisite',()=>{
  const s=fresh();s.tech=Object.keys(TECHNOLOGIES).filter(id=>id!=='spaceControlTower'&&id!=='higherDimensionalStorage'&&!['overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];s.prestige.nuclearResets=1;
  s.asrielMissionCompleted=s.kerberosMissionCompleted=s.solarMissionCompleted=s.talosMissionCompleted=s.talosMoonMissionCompleted=s.asteroidBeltMissionCompleted=s.misenMissionCompleted=true;
- for(const id of ['rocketPlatform','monument','geneSequencing','deepSpaceInterferometer','deepSpaceLab','remoteAnchor'] as const)s.arpaBuildings[id]=1;s.arpaBuildings.arpaResearchInstitute=2;
+ for(const id of ['rocketPlatform','monument','geneSequencing','remoteAnchor'] as const)s.arpaBuildings[id]=1;s.arpaBuildings.arpaResearchInstitute=2;
  s.buildings.aiSupercore=100;s.buildings.constraintArray=s.buildings.iceMiningShip=s.buildings.asteroidBase=1;for(const key of Object.keys(s.stageThree) as (keyof typeof s.stageThree)[])s.stageThree[key]=true;
  const ctx={now:0,eventInterval:60,housingCapacity:()=>1000,clampResources:()=>{}};assert.doesNotThrow(()=>validateCurrentSave(s,ctx));const bad=clone(s);bad.buildings.asteroidBase=0;assert.throws(()=>validateCurrentSave(bad,ctx));
 });

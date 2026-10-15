@@ -141,7 +141,7 @@ test('research capacity and morale previews use all power plants and the product
 });
 
 function unlockAll(state: GameState): void {
-  const milestone = createMilestoneState('moon', { extraTech: ['solarExploration', 'dysonTheory', 'outerPlanetExploration', 'atmosphericMining', 'talosMoonScanning', 'asteroidBeltMining', 'asteroidMiningOptimization', 'misenDiscovery', 'exoticElementResearch', 'spaceControlTower', 'polymer', 'spaceflight', 'solarSatellite'], extraArpa: ['deepSpaceInterferometer', 'deepSpaceLab'] });
+  const milestone = createMilestoneState('moon', { extraTech: ['solarExploration', 'dysonTheory', 'outerPlanetExploration', 'atmosphericMining', 'talosMoonScanning', 'asteroidBeltMining', 'asteroidMiningOptimization', 'misenDiscovery', 'exoticElementResearch', 'spaceControlTower', 'polymer', 'spaceflight', 'solarSatellite'] });
   state.tech = milestone.tech;
   state.stageThree = { ...milestone.stageThree };
   state.prestige.nuclearResets = 1;
@@ -156,8 +156,6 @@ function unlockAll(state: GameState): void {
   state.arpaBuildings.monument = 1;
   state.arpaBuildings.geneSequencing = 1;
   state.arpaBuildings.arpaResearchInstitute = 2;
-  state.arpaBuildings.deepSpaceInterferometer = 1;
-  state.arpaBuildings.deepSpaceLab = 1;
 }
 
 test('runtime imports and loads clamp the candidate using powered lunar support and log achievement names', () => {

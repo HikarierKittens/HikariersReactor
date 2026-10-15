@@ -41,7 +41,7 @@ export function advanceProjectQueue(state: GameState, dt: number, random: () => 
     result.dirty = true;
     if (state.arpaBuildings[entry.id] === before) break;
     state.queue.splice(index, 1); result.completed++;
-    addLog(state, `队列中 ${ARPA_PROJECTS[entry.id].name} 已完成`, 'event');
+    addLog(state, `队列中 ${ARPA_PROJECTS[entry.id].name} 已完成`, 'queue');
   }
   return result;
 }

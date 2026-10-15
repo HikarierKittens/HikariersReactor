@@ -28,12 +28,12 @@ export function advanceGameTick(state: GameState, dt: number, hooks: TickHooks):
   const foodBefore = state.resources.food;
   const result = calculateProduction(state, dt);
   state.resources = result.pool;
-  if (applyMassEjection(state, result.ejected, dt)) addLog(state, BLACK_HOLE_UNSTABLE_LOG, 'event');
+  if (applyMassEjection(state, result.ejected, dt)) addLog(state, BLACK_HOLE_UNSTABLE_LOG, 'progress');
   applyGeneSynthesis(state, result.geneSynthesis, dt);
   const corePreviouslyActivated = state.stageThree.coreActivated;
   updateStageThreeProgress(state, result);
   updateStoryProgress(state);
-  if (!corePreviouslyActivated && state.stageThree.coreActivated) addLog(state, 'AI超级核心提交了一份异常观测复核申请，已收录至「剧情」。', 'event');
+  if (!corePreviouslyActivated && state.stageThree.coreActivated) addLog(state, 'AI超级核心提交了一份异常观测复核申请，已收录至「剧情」。', 'progress');
   state.starvation = 0;
   state.time += dt;
   recordGameDays(state, dt / CONFIG.secondsPerDay);

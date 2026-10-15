@@ -13,7 +13,6 @@ export function isTechnologyUnlocked(id: string, state: GameState): boolean {
   if (!Object.hasOwn(TECHNOLOGIES, id)) return false;
   if (id === 'dimensionBeaconDeployment' && !state.stageThree.remoteLinked) return false;
   if (id === 'globalObservationCalibration' && !state.stageThree.coreActivated) return false;
-  if (id === 'anomalyResponse' && !state.stageThree.probeCompleted) return false;
   if (id === 'dualEndCoupling' && !state.stageThree.fieldStabilized) return false;
   if (id === 'anomalyTopology' && !state.stageThree.transferCompleted) return false;
   if (id === 'finiteAperture' && !state.stageThree.signalCompleted) return false;

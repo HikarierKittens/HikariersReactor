@@ -21,7 +21,7 @@ const clone = <T>(s:T):T => JSON.parse(JSON.stringify(s));
 const near = (a:number,b:number) => assert.ok(Math.abs(a-b)<1e-7,`${a} != ${b}`);
 const context={now:0,eventInterval:60,housingCapacity:()=>1000,clampResources:()=>{}};
 function complete() {
- const s=createMilestoneState('remote',{withoutTech:['anomalyTopology'],stageThreeFlags:['coreActivated','probeCompleted','responseObserved','fieldStabilized','signalCompleted','transferCompleted'],buildings:{aiSupercore:100,constraintArray:3},extraArpa:[]});
+ const s=createMilestoneState('remote',{withoutTech:['anomalyTopology'],stageThreeFlags:['coreActivated','fieldStabilized','signalCompleted','transferCompleted'],buildings:{aiSupercore:100,constraintArray:3},extraArpa:[]});
  s.stoppedBuildings.aiSupercore=1;s.stageThree.remoteLinked=false;delete (s.arpaBuildings as Record<string,number>).remoteAnchor;
  return s;
 }
@@ -65,7 +65,7 @@ test('freight no longer boosts any mining output and breakdown still matches set
  near(on.rates.energy-off.rates.energy,-30);
 });
 
-test('old six-field saves default remote additions and malformed flags are rejected immutably',()=>{
+test('older saves default remote additions and malformed flags are rejected immutably',()=>{
  const raw:any=clone(complete());delete raw.stageThree.remoteLinked;delete raw.arpaBuildings.remoteAnchor;delete raw.arpaProgress.remoteAnchor;delete raw.buildings.anchorFreightStation;delete raw.workers.anchorFreightStation;delete raw.stoppedBuildings.anchorFreightStation;
  const before=clone(raw);const restored=validateCurrentSave(raw,context);assert.deepEqual(raw,before);assert.equal(restored.stageThree.remoteLinked,false);assert.equal(restored.arpaBuildings.remoteAnchor,0);assert.equal(restored.buildings.anchorFreightStation,0);
  for(const value of [null,1,'false']){const bad=clone(raw);bad.stageThree.remoteLinked=value;assert.throws(()=>validateCurrentSave(bad,context));}

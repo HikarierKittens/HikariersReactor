@@ -21,4 +21,4 @@ export const ACHIEVEMENTS: Record<AchievementId, AchievementDefinition> = {
 };
 export const EVENTS: { id: string; name: string; tech: TechnologyId }[] = [];
 export const ERAS = ['🌱 生存时代', '🌾 农业时代', '🏭 工业时代', '⚡ 能源时代', '🚀 太空时代'];
-export const LOG_TYPES: LogType[] = ['progress', 'event', 'achievement', 'system'];
+export const LOG_TYPES: LogType[] = ['queue', 'progress', 'event', 'achievement', 'system'];

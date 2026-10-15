@@ -1,3 +1,4 @@
+import './retired-anomaly.test';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONFIG } from '../src/data/config';
@@ -16,7 +17,7 @@ function complete() {
   s.tech = Object.keys(TECHNOLOGIES).filter(id => !['spaceControlTower','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];
   s.prestige.nuclearResets = 1;
   s.asrielMissionCompleted = s.kerberosMissionCompleted = s.solarMissionCompleted = s.talosMissionCompleted = s.talosMoonMissionCompleted = s.asteroidBeltMissionCompleted = s.misenMissionCompleted = true;
-  s.arpaBuildings.rocketPlatform = s.arpaBuildings.monument = s.arpaBuildings.geneSequencing = s.arpaBuildings.deepSpaceInterferometer = s.arpaBuildings.deepSpaceLab = s.arpaBuildings.remoteAnchor = 1;
+  s.arpaBuildings.rocketPlatform = s.arpaBuildings.monument = s.arpaBuildings.geneSequencing = s.arpaBuildings.remoteAnchor = 1;
   s.arpaBuildings.arpaResearchInstitute = 2;
   s.buildings.aiSupercore = 100; s.buildings.constraintArray = 2;
   for (const id of Object.keys(s.stageThree) as (keyof typeof s.stageThree)[]) s.stageThree[id] = true;
@@ -38,7 +39,7 @@ test('activation and stabilization history require persistent current-run facili
 
 test('unknown experiment ids fail in both availability and execution without falling through to transfer', () => {
   const s = complete(); s.stageThree.transferCompleted = false;
-  for (const id of ['invalid', 'constructor', '__proto__', 'toString'] as unknown as StageThreeExperimentId[]) {
+  for (const id of ['probe', 'invalid', 'constructor', '__proto__', 'toString'] as unknown as StageThreeExperimentId[]) {
     const before = clone(s);
     assert.equal(stageThreeExperimentAvailable(s, id), false);
     assert.equal(runStageThreeExperiment(s, id), false);
@@ -50,20 +51,21 @@ test('legacy missing additions default without mutating caller; explicit null ad
   const raw: any = clone(fresh());
   delete raw.stageThree;
   for (const id of ['constraintArray', 'shortRangeRelay']) { delete raw.buildings[id]; delete raw.workers[id]; delete raw.stoppedBuildings[id]; }
-  for (const id of ['deepSpaceInterferometer', 'deepSpaceLab']) { delete raw.arpaProgress[id]; delete raw.arpaBuildings[id]; }
+  for (const id of ['remoteAnchor']) { delete raw.arpaProgress[id]; delete raw.arpaBuildings[id]; }
   const before = clone(raw); const migrated = validateCurrentSave(raw, context);
   assert.deepEqual(raw, before); assert.deepEqual(migrated.stageThree, fresh().stageThree);
   for (const key of ['stageThree', 'buildings', 'workers', 'arpaProgress', 'arpaBuildings']) {
     const bad: any = clone(fresh());
     if (key === 'stageThree') bad[key] = null;
-    else bad[key][key.startsWith('arpa') ? 'deepSpaceLab' : 'constraintArray'] = null;
+    else bad[key][key.startsWith('arpa') ? 'remoteAnchor' : 'constraintArray'] = null;
     assert.throws(() => validateCurrentSave(bad, context), key);
   }
 });
 
 test('research, project and queue prerequisites cannot skip missing stage events or completed projects', () => {
   const full = complete();
-  for (const id of ['deepSpaceInterferometer', 'deepSpaceLab'] as const) { const s = clone(full); s.arpaBuildings[id] = 0; assert.throws(() => validateCurrentSave(s, context)); }
+  const noAnchor = clone(full); noAnchor.arpaBuildings.remoteAnchor = 0; assert.throws(() => validateCurrentSave(noAnchor, context));
+  const noMapping = clone(full); noMapping.tech = noMapping.tech.filter(id => id !== 'anomalyMapping'); assert.throws(() => validateCurrentSave(noMapping, context));
   const s = clone(full); s.stageThree.signalCompleted = s.stageThree.transferCompleted = false;
   s.tech = s.tech.filter(id => id !== 'finiteAperture' && id !== 'anomalyTopology' && id !== 'dimensionBeaconDeployment');
   s.stageThree.remoteLinked = false; s.arpaBuildings.remoteAnchor = 0;

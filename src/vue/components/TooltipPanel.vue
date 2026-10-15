@@ -15,6 +15,7 @@ import { CONFIG } from '../../data/config';
 import { floorWithPrecision, formatEffectNumber, formatResourceNumber } from '../../shared/format';
 import { calculateFoodPerCat } from '../../simulation/population';
 import { calculateBuildingCost, isBuildingFullyBuilt } from '../../simulation/costs';
+import { describeQueuedPurchases } from '../../simulation/purchases';
 import { calculateTechCost, calculateTrainingBoost, calculateBankerTaxRate, BANKER_TAX_BONUS, STOCK_EXCHANGE_BANKER_BONUS, GOVERNMENTS } from '../../simulation/government';
 import { SPACE_MISSIONS, REGIONAL_MISSIONS, calculateRegionalMissionCost, isRegionalMissionCompleted, type RegionalMissionId } from '../../simulation/space-missions';
 import { calculateBuildingInput, calculateBuildingOutput, calculateToolMultiplier, calculateBuildingName } from '../../simulation/building-production';
@@ -144,11 +145,16 @@ const content = computed<TipContent | null>(() => {
     if (id === 'penroseSphere' && (state.buildings.massEjector || 0) > 0) tip.description += `\n黑洞质量：${formatBlackHoleMass(state.blackHole.mass)}\n奇异质量：${formatBlackHoleMass(state.blackHole.exoticMass)}`;
     if (id === 'penroseSphere' && state.tech.includes('gravityConversion')) tip.description += `\n引力转化：电力+${formatEffectNumber(calculateGravityConversionEnergy(state))}/s`;
     if (id === 'iceMiningShip' && state.tech.includes('icebreakingPlan')) tip.description = (building.desc || '').replace('水产量+1/s', '水产量+1.25/s');
-    if (id === 'aiSupercore') tip.description = `分段进度： ${Math.min(count, building.segmentedRequired!)} /${building.segmentedRequired}\n量子水平 +25%\n氦-3 - 25/s\n电力 - 100/s`;
+    if (id === 'aiSupercore') tip.description = `world.exection(cat);\n分段进度： ${Math.min(count, building.segmentedRequired!)} /${building.segmentedRequired}\n量子水平 +25%\n氦-3 - 25/s\n电力 - 100/s`;
     const queueUid = Number(anchor.value?.dataset.queueUid);
-    const queued = state.queue.find(item => item.uid === queueUid && item.kind === 'build' && item.id === id);
+    // Resolve by stable uid, but recompute the ordinal price from the current queue.
+    // Removing an earlier duplicate shifts all later quotes without changing their identity.
+    const queued = Number.isFinite(queueUid)
+      ? describeQueuedPurchases(state).find(item => item.uid === queueUid && item.kind === 'build' && item.id === id) : undefined;
     const queuedSegments = queued?.kind === 'build' ? queued.segments : undefined;
-    const cost = calculateBuildingCost(id, count, state);
+    const cost = queued ? (queuedSegments
+      ? Object.fromEntries(Object.entries(queued.cost).map(([resource, value]) => [resource, value / queuedSegments]))
+      : queued.cost) : calculateBuildingCost(id, count, state);
     // A completed segmented project can no longer be built, so it quotes no price.
     const segmentedComplete = !!building.segmentedRequired && isBuildingFullyBuilt(id, state);
     tip.costs = segmentedComplete ? [] : prices(queuedSegments ? Object.fromEntries(Object.entries(cost).map(([resource, value]) => [resource, value * queuedSegments])) : cost);
@@ -280,7 +286,7 @@ const content = computed<TipContent | null>(() => {
     }
     if (miningPowered || gatheringPowered || mixerPowered) add('电力', `-${mixerPowered ? 2 : 1}/s`, true);
     if (id === 'aiSupercore') {
-      tip.description = `当前量子水平：${calculateQuantumLevel(state).toFixed(2)}`;
+      tip.description = `world.exection(cat);\n当前量子水平：${calculateQuantumLevel(state).toFixed(2)}`;
       tip.rows = [];
       tip.footnote = '';
       add('分段进度', `${Math.min(count, building.segmentedRequired!)} /${building.segmentedRequired}`);

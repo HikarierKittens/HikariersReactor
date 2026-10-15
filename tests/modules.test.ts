@@ -1,4 +1,29 @@
 import assert from 'node:assert/strict';
+import { validateHistory } from '../src/state/validate-history';
+
+test('legacy queue completion logs migrate to queue while ordinary events retain their type', () => {
+  const s = createInitialState(29, 60, 0);
+  const raw = { ...s, logs: [{ time: 0, text: '队列中 猫窝 已完成', type: 'event' }, { time: 1, text: '一只猫猫饿死了.....', type: 'event' }, { time: 2, text: '队列中 学校 已完成', type: 'queue' }] };
+  validateHistory(raw, s);
+  assert.deepEqual(s.logs.map(log => log.type), ['queue', 'event', 'queue']);
+});
+
+test('duplicate queued building prices reindex after middle cancellation and completion', () => {
+  const s = createInitialState(29, 60, 0);
+  s.buildings.warehouse = 3;
+  s.queue = [1, 2, 3, 4].map(uid => ({ uid, kind: 'build' as const, id: 'warehouse' as const }));
+  const quote = () => describeQueuedPurchases(s).filter(item => item.kind === 'build');
+  const before = quote();
+  for (let i = 0; i < 4; i++) assert.deepEqual(before[i]!.cost, calculateBuildingCost('warehouse', 3 + i, s));
+  removeQueuedPurchase(s, 2);
+  const after = quote();
+  assert.deepEqual(after.map(item => item.uid), [1, 3, 4]);
+  assert.deepEqual(after.map(item => item.cost), before.slice(0, 3).map(item => item.cost));
+  s.queue.unshift({ uid: 9, kind: 'build', id: 'nest' });
+  assert.deepEqual(quote().filter(item => item.id === 'warehouse').map(item => item.cost), after.map(item => item.cost), 'other buildings do not shift same-kind prices');
+  s.buildings.warehouse++; removeQueuedPurchase(s, 1);
+  assert.deepEqual(quote().filter(item => item.id === 'warehouse').map(item => item.cost), after.slice(1).map(item => item.cost), 'completion keeps later projected prices stable');
+});
 import { ACHIEVEMENTS } from '../src/data/progression';
 import { updateProgression } from '../src/simulation/progression';
 import { launchEscapePrestige } from '../src/simulation/prestige';

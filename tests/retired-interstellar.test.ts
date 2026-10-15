@@ -24,7 +24,7 @@ const retiredStories=['scoutDeparture','anotherSun','distantFoundation','distant
 function ready(){
  const s=createInitialState(CONFIG.version,60,0);s.tech=Object.keys(TECHNOLOGIES).filter(id=>!['spaceControlTower','hydrogenRecovery','icebreakingPlan','higherDimensionalStorage','overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];s.prestige.nuclearResets=1;
  s.asrielMissionCompleted=s.kerberosMissionCompleted=s.solarMissionCompleted=s.talosMissionCompleted=s.talosMoonMissionCompleted=s.asteroidBeltMissionCompleted=s.misenMissionCompleted=true;
- for(const id of ['rocketPlatform','monument','geneSequencing','deepSpaceInterferometer','deepSpaceLab','remoteAnchor'] as const)s.arpaBuildings[id]=1;s.arpaBuildings.arpaResearchInstitute=2;
+ for(const id of ['rocketPlatform','monument','geneSequencing','remoteAnchor'] as const)s.arpaBuildings[id]=1;s.arpaBuildings.arpaResearchInstitute=2;
  s.buildings.aiSupercore=100;s.buildings.constraintArray=3;s.buildings.anchorFreightStation=s.buildings.civilianRouteStation=s.buildings.interstellarDock=1;
  for(const key of Object.keys(s.stageThree) as (keyof typeof s.stageThree)[])s.stageThree[key]=true;
  for(const key of Object.keys(SHIP_COMPONENTS) as ShipComponentId[]){s.shipComponents[key]=true;s.shipResourceProgress[key]=Object.fromEntries(Object.keys(SHIP_COMPONENTS[key].cost).map(id=>[id,100]));if(SHIP_COMPONENTS[key].population)s.shipResourceProgress[key].population=100;}
@@ -43,7 +43,7 @@ test('retired interstellar registries and commands disappear while solar facilit
  for(const id of retiredTech){assert.equal(Object.hasOwn(TECHNOLOGIES,id),false);assert.equal(isTechnologyUnlocked(id,s),false);}
  for(const id of retiredProjects){assert.equal(Object.hasOwn(ARPA_PROJECTS,id),false);assert.equal(isProjectUnlocked(id,s),false);const before=clone(s);assert.equal(requestPurchaseModule(s,'arpa',id,0,true).status,'rejected');assert.deepEqual(s,before);}
  for(const id of ['scout','stellarSignal','stellarCargo'] as unknown as StageThreeExperimentId[]){const before=clone(s);assert.equal(Object.hasOwn(STAGE_THREE_EXPERIMENTS,id),false);assert.equal(stageThreeExperimentAvailable(s,id),false);assert.equal(runStageThreeExperiment(s,id),false);assert.deepEqual(s,before);}
- assert.equal(STORY_CHAPTERS.length,22);assert.ok(STORY_CHAPTERS.every(row=>!retiredStories.includes(row.id)));assert.equal(Object.keys(s.stageThree).length,7);
+ assert.equal(STORY_CHAPTERS.length,22);assert.ok(STORY_CHAPTERS.every(row=>!retiredStories.includes(row.id)));assert.equal(Object.keys(s.stageThree).length,5);
  assert.ok(s.tech.includes('anomalyTopology'));assert.equal(s.arpaBuildings.remoteAnchor,1);assert.equal(isBuildingUnlocked('anchorFreightStation',s),true);assert.equal(isBuildingUnlocked('civilianRouteStation',s),true);assert.ok(Object.values(s.shipComponents).every(Boolean));
 });
 test('legacy interstellar content is scrubbed immutably without refunds and repeated imports are stable',()=>{

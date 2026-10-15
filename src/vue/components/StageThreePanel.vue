@@ -14,11 +14,7 @@ const nextStep = computed(() => {
   props.revision;
   const s = props.state;
   if (!s.tech.includes('globalObservationCalibration')) return '前往科技页，研究「全域观测校准」。';
-  if (!s.arpaBuildings.deepSpaceInterferometer) return '在本页下方完成「深空干涉阵列」各项材料投入。';
-  if (!s.tech.includes('anomalyMapping')) return '前往科技页，研究「异常区域测绘」。';
-  if (!s.stageThree.probeCompleted) return '准备氦-3与合金，在下方执行「异常区探测任务」。';
-  if (!s.tech.includes('anomalyResponse')) return '前往科技页，研究「异常响应实验」。';
-  if (!s.arpaBuildings.deepSpaceLab) return '在本页下方完成「深空实验平台」各项材料投入；建成后开放超空间页面，异常研究随之移至超空间。';
+  if (!s.tech.includes('anomalyMapping')) return '前往科技页，研究「异常区域测绘」，开放超空间。';
   if (!s.tech.includes('fieldConstraintTheory')) return '前往科技页，研究「场约束理论」。';
   if (!s.stageThree.fieldStabilized) return '在下方空间异常区建造并启用场约束阵列，提供维护资源并让游戏实际运行一次；暂停时不会记录首次稳定运行。';
   if (!s.tech.includes('dualEndCoupling')) return '前往科技页，研究「双端场耦合」。';
@@ -33,13 +29,13 @@ const nextStep = computed(() => {
 const experiments = computed(() => {
   props.revision;
   const s = props.state;
-  return (['probe', 'signal', 'transfer', 'remote'] as const).map(id => {
+  return (['signal', 'transfer', 'remote'] as const).map(id => {
     const definition = STAGE_THREE_EXPERIMENTS[id];
-    const complete = id === 'probe' ? s.stageThree.probeCompleted : id === 'signal' ? s.stageThree.signalCompleted : id === 'transfer' ? s.stageThree.transferCompleted : s.stageThree.remoteLinked;
+    const complete = id === 'signal' ? s.stageThree.signalCompleted : id === 'transfer' ? s.stageThree.transferCompleted : s.stageThree.remoteLinked;
     const unlocked = stageThreeExperimentAvailable(s, id);
     const affordable = canPayCost(s.resources, definition.cost);
     return { id, ...definition, complete, unlocked, affordable,
-      prerequisite: id === 'probe' ? '需要异常区域测绘与已建深空干涉阵列' : id === 'signal' ? '需要双端场耦合与首次稳定运行的场约束阵列' : id === 'transfer' ? '需要有限孔径稳定与已完成信号实验' : '需要完成首次物质转移、研究异常拓扑测绘并完成远端锚点验证工程',
+      prerequisite: id === 'signal' ? '需要双端场耦合与首次稳定运行的场约束阵列' : id === 'transfer' ? '需要有限孔径稳定与已完成信号实验' : '需要完成首次物质转移、研究异常拓扑测绘并完成远端锚点验证工程',
       costs: orderedCostEntries(definition.cost).map(([resource, amount]) => ({ id: resource, name: RESOURCES[resource as ResourceId].name, amount: fmt(amount), enough: s.resources[resource as ResourceId] >= amount })) };
   });
 });
@@ -48,7 +44,7 @@ const experiments = computed(() => {
 <template>
   <section class="stage-three" data-stage-three>
     <h3>第三阶段 · 异常研究</h3>
-    <p class="subtle">先在科技页建立理论，在ARPA完成观测与实验工程，再进行独立验证。剧情自动收录，无需阅读或等待。</p>
+    <p class="subtle">异常区域已完成测绘。研究场约束理论、运行场约束阵列，再逐步验证信号与物质传递。剧情自动收录，无需阅读或等待。</p>
     <p data-stage3-next-step><strong>下一步：</strong>{{ nextStep }}</p>
     <p data-stage3-stability>稳定度：已占用 {{ support.used }} / 总量 {{ support.capacity }} · 可用 {{ support.available }}</p>
     <p class="small subtle">运行阵列 {{ support.arrays }} 座 · 运行通信节点 {{ support.relays }} 座 · 运行货运站 {{ support.freight }} 座 · 运行民用航路站 {{ support.civilian }} 座。每座阵列提供2稳定度；通信、货运与民用航路站各占用2，按此顺序分配。</p>

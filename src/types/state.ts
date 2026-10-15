@@ -26,14 +26,14 @@ export interface GeneModificationState {
   synthesis: Record<DnaId, number>;
 }
 export type GovernmentId = 'none' | 'democracy' | 'militaryRule' | 'oligarchy' | 'technocracy' | 'industrialism';
-export type ArpaProjectId = 'rocketPlatform' | 'monument' | 'geneSequencing' | 'stockExchange' | 'arpaResearchInstitute' | 'deepSpaceInterferometer' | 'deepSpaceLab' | 'remoteAnchor';
+export type ArpaProjectId = 'rocketPlatform' | 'monument' | 'geneSequencing' | 'stockExchange' | 'arpaResearchInstitute' | 'remoteAnchor';
 export type ShipComponentId = 'hull' | 'energyCore' | 'computer' | 'ecosystem' | 'electromagneticEngine' | 'fuel';
 export type ShipResourceProgress = Partial<ResourceRecipe & { population: number }>;
 export type SnapshotAchievementId = 'artificialCelestial' | 'swarmEclipse' | 'worldExecution' | 'overclockPrince';
 export type AchievementId = 'nuclearCuriosity' | 'escapeRun' | SnapshotAchievementId | 'spaceDestroyer';
 /** Run-scoped previous observations; permanent awards live in achievements. */
 export type AchievementTracking = Record<SnapshotAchievementId, boolean>;
-export type LogType = 'progress' | 'event' | 'achievement' | 'system';
+export type LogType = 'queue' | 'progress' | 'event' | 'achievement' | 'system';
 export type QueueSettingKey = 'paused' | 'alwaysEnableNewBuildings' | 'unorderedBuildingQueue' | 'queueHotkeys' | 'unorderedResearchQueue' | 'touchOptimization';
 export type GameSettings = Record<QueueSettingKey, boolean>;
 export const DEFAULT_GAME_SETTINGS: GameSettings = {
@@ -76,7 +76,7 @@ export interface ChallengeState {
 export type StoryChapterId = 'firstShelter' | 'beyondStone' | 'sleeplessCity' | 'aboveRoof' | 'secondHome' | 'interplanetaryRoutes' | 'strangeElement' | 'anotherMind' | 'essPlan' | 'firstEscape' | 'geneRewrite' | 'nuclearChoice' | 'dysonSwarm' | 'coreCalibration' | 'anomalyConfirmed' | 'twoMaps' | 'anomalyResponse' | 'controlledField' | 'firstSignal' | 'firstTransfer' | 'anomalyTopology' | 'remoteAnchor';
 export interface StoryArchive { unlocked: StoryChapterId[]; read: StoryChapterId[] }
 
-export interface StageThreeState { coreActivated: boolean; probeCompleted: boolean; responseObserved: boolean; fieldStabilized: boolean; signalCompleted: boolean; transferCompleted: boolean; remoteLinked: boolean; }
+export interface StageThreeState { coreActivated: boolean; fieldStabilized: boolean; signalCompleted: boolean; transferCompleted: boolean; remoteLinked: boolean; }
 export interface AutoWorkerJobState {
   enabled: boolean;
   /** -1 fills every available physical slot; nonnegative values cap total assigned workers. */

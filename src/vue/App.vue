@@ -47,7 +47,7 @@ import SettingsPanel from './components/SettingsPanel.vue';
 import StatsPanel from './components/StatsPanel.vue';
 import StoryPanel from './components/StoryPanel.vue';
 import StageThreePanel from './components/StageThreePanel.vue';
-import { isEarlyStageThree, isHyperspaceUnlocked, runStageThreeExperiment, type StageThreeExperimentId } from '../simulation/stage-three';
+import { isHyperspaceUnlocked, runStageThreeExperiment, type StageThreeExperimentId } from '../simulation/stage-three';
 import { markStoryRead } from '../simulation/story';
 import type { StoryChapterId } from '../types/state';
 import { CONFIG } from '../data/config';
@@ -91,14 +91,14 @@ function readStory(id: StoryChapterId): void {
   props.store.runtime.save();
 }
 const worldView = ref('home');
-// A locked 超空间 (no 深空实验平台 yet, e.g. after loading another save) falls back to 地面.
+// A locked 超空间 (before 异常区域测绘, e.g. after loading another save) falls back to 地面.
 const currentWorldView = computed(() => {
   props.store.revision();
   return worldView.value === 'hyperspace' && !isHyperspaceUnlocked(props.store.state()) ? 'home' : worldView.value;
 });
 const techView = ref('available');
 const logFilter = ref('all');
-const logFilters = [{ id: 'all', name: '全部' }, { id: 'progress', name: '发展' }, { id: 'event', name: '事件' }, { id: 'achievement', name: '成就' }, { id: 'system', name: '系统' }];
+const logFilters = [{ id: 'all', name: '全部' }, { id: 'queue', name: '队列' }, { id: 'event', name: '普通事件' }, { id: 'progress', name: '进度事件' }, { id: 'achievement', name: '成就' }, { id: 'system', name: '系统' }];
 const visibleLogs = computed(() => { props.store.revision(); return state.value.logs.filter(log => logFilter.value === 'all' || log.type === logFilter.value); });
 const saveStatus = computed(() => { props.store.revision(); return props.store.runtime.saveBlocked ? '存档读取失败，已保护原存档' : props.store.runtime.saveFailed ? '本地保存失败，请导出备份' : '本地存档 · 自动保存已启用'; });
 
@@ -589,11 +589,7 @@ onUnmounted(() => {
               @dna-craft="(id, count) => { store.mutate(s => craftDna(s, id, count)); afterAction(); }"
               @gene-upgrade="id => { store.mutate(s => upgradeGene(s, id)); afterAction(); }"
                @challenge-launch="startChallenges"
-            >
-              <template #progress>
-                <StageThreePanel v-if="isEarlyStageThree(state)" :state="state" :revision="store.revision()" @experiment="performStageThreeExperiment" />
-              </template>
-            </ArpaPanel>
+            />
             <StoryPanel v-else-if="activeTab === 'story'" :state="state" :revision="store.revision()" @read="readStory" />
             <div v-else-if="activeTab === 'statistics'">
               <nav class="tabs" aria-label="统计分类">

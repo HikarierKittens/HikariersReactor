@@ -66,7 +66,7 @@ export function investInShipComponent(id: string, requested: number | 'max', sta
   const complete = calculateShipComponentProgress(id, state) === 100;
   if (complete) {
     state.shipComponents[id] = true;
-    addLog(state, `${definition.name} 已完成`, 'event');
+    addLog(state, `${definition.name} 已完成`, 'progress');
   }
   return { investedPercent, spent, complete, completed: complete };
 }
