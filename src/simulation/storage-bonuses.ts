@@ -34,16 +34,20 @@ export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: 
   if (id === 'e710Warehouse') return { e710: 200 };
   if (id === 'granary') return { food: 500 };
   if (id === 'bank' || id === 'catCafe') {
-    // Bank/catCafe capacity = flat base (iridiumSteelVault adds directly) +
-    // percentage bonuses (additive percentages on the current base).
+    // Vault upgrades add to the flat base before additive percentage bonuses;
+    // intelligent banking doubles the full per-building contribution afterwards.
+    const multiplier = (1 + (state.tech.includes('iridiumAlloyWarehouse') ? .2 : 0))
+      * (state.tech.includes('intelligentBankingSystem') ? 2 : 1);
     if (id === 'catCafe') {
-      const base = 4000 + (state.tech.includes('iridiumSteelVault') ? 2500 : 0);
-      return { cash: base * (1 + (state.tech.includes('iridiumAlloyWarehouse') ? .2 : 0)) };
+      const base = 4000 + (state.tech.includes('iridiumSteelVault') ? 2500 : 0)
+        + (state.tech.includes('neutronVault') ? 3000 : 0);
+      return { cash: base * multiplier };
     }
     const base = 1000 + (state.tech.includes('iridiumSteelVault') ? 1500 : 0)
       + (state.tech.includes('vaultExpansion') ? 750 : 0)
-      + (state.tech.includes('steelSafe') ? 750 : 0);
-    return { cash: base * (1 + (state.tech.includes('iridiumAlloyWarehouse') ? .2 : 0)) };
+      + (state.tech.includes('steelSafe') ? 750 : 0)
+      + (state.tech.includes('neutronVault') ? 2000 : 0);
+    return { cash: base * multiplier };
   }
   if (id === 'warehouse') return Object.fromEntries((upgraded ? ADVANCED_STORAGE_RESOURCES : WAREHOUSE_RESOURCES).map(r => [r, (upgraded ? 500 : 250) * warehouseMultiplier]));
   if (id === 'biologyLab') return { knowledge: 3000 };

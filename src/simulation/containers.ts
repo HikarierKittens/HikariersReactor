@@ -5,18 +5,19 @@ import type { BuildingId } from '../types/buildings';
 import type { ResourceId, ResourceRecipe } from '../types/economy';
 import type { GameState } from '../types/state';
 
-/** Per-building ordinary container cap; 超级集装箱 raises 集装仓库 from 20 to 25. */
+/** 超级集装箱 raises 集装仓库 to 25; 中子库 replaces 格纳库's ordinary cap with 40. */
 export function calculateBuildingContainerCap(id: BuildingId, state: Pick<GameState, 'tech'>): number {
+  if (id === 'hangar' && state.tech.includes('neutronVault')) return 40;
   if (id === 'containerWarehouse' && state.tech.includes('superContainers')) return 25;
   return BUILDINGS[id].containerCap || 0;
 }
 export function calculateContainerCapacity(state: Pick<GameState, 'buildings' | 'tech'>): number {
   return (Object.keys(BUILDINGS) as BuildingId[]).reduce((sum, id) => sum + calculateBuildingContainerCap(id, state) * state.buildings[id], 0);
 }
-/** 合金集装箱 slots exist only after 超级集装箱: 集装仓库 +10, 格纳库 +15 each. */
+/** Alloy slots require 超级集装箱: 集装仓库 10, 格纳库 15 (replaced by 25 with 中子库). */
 export function calculateBuildingAlloyContainerCap(id: BuildingId, state: Pick<GameState, 'tech'>): number {
   if (!state.tech.includes('superContainers')) return 0;
-  return id === 'containerWarehouse' ? 10 : id === 'hangar' ? 15 : 0;
+  return id === 'containerWarehouse' ? 10 : id === 'hangar' ? (state.tech.includes('neutronVault') ? 25 : 15) : 0;
 }
 export function calculateAlloyContainerCapacity(state: Pick<GameState, 'buildings' | 'tech'>): number {
   return (['containerWarehouse', 'hangar'] as const).reduce((sum, id) => sum + calculateBuildingAlloyContainerCap(id, state) * (state.buildings[id] || 0), 0);

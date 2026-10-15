@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createInitialState } from '../src/state/create-state';
 import { CONFIG } from '../src/data/config';
+import { createMilestoneState } from './fixtures/milestones';
+import { TECHNOLOGIES } from '../src/data/technologies';
+import { calculateStorageBonuses } from '../src/simulation/storage-bonuses';
+import { calculateBuildingContainerCap, calculateBuildingAlloyContainerCap, calculateContainerCapacity, calculateAlloyContainerCapacity } from '../src/simulation/containers';
+import { isTechnologyUnlocked } from '../src/simulation/unlocks';
+import { validateAndMigrateSave } from '../src/state/validate-save';
 import { RESOURCES } from '../src/data/resources';
 import { calculateStorageDetails, calculateStorageTotals, type StorageSnapshot } from '../src/simulation/storage';
 import { calculateSupportPreview } from '../src/simulation/support-preview';
@@ -51,6 +57,75 @@ function lateState(): GameState {
   state.crispr.push('casimirEffect');
   return state;
 }
+
+test('banking and neutron vault technologies use exact tiers, costs and sole prerequisites', () => {
+  assert.equal(TECHNOLOGIES.intelligentBankingSystem.tier, 16);
+  assert.deepEqual(TECHNOLOGIES.intelligentBankingSystem.cost, { knowledge: 410000, cash: 750000 });
+  assert.deepEqual(TECHNOLOGIES.intelligentBankingSystem.pre, ['artificialIntelligenceII']);
+  assert.equal(TECHNOLOGIES.neutronVault.tier, 14);
+  assert.deepEqual(TECHNOLOGIES.neutronVault.cost, { knowledge: 245000, neutron: 2000 });
+  assert.deepEqual(TECHNOLOGIES.neutronVault.pre, ['neutronConstructionMaterials']);
+  const state = createInitialState(CONFIG.version, 60, 0);
+  assert.equal(isTechnologyUnlocked('intelligentBankingSystem', state), false);
+  assert.equal(isTechnologyUnlocked('neutronVault', state), false);
+  state.tech.push('artificialIntelligenceII', 'neutronConstructionMaterials');
+  assert.equal(isTechnologyUnlocked('intelligentBankingSystem', state), true);
+  assert.equal(isTechnologyUnlocked('neutronVault', state), true);
+});
+
+test('neutron flat vault capacity precedes warehouse percentages and intelligent banking doubling', () => {
+  const state = createInitialState(CONFIG.version, 60, 0);
+  state.tech.push('neutronVault');
+  assert.equal(calculateStorageBonuses('bank', state, null).cash, 3000);
+  assert.equal(calculateStorageBonuses('catCafe', state, null).cash, 7000);
+  state.tech.push('vaultExpansion', 'steelSafe', 'iridiumSteelVault', 'iridiumAlloyWarehouse');
+  assert.equal(calculateStorageBonuses('bank', state, null).cash, 6000 * 1.2);
+  assert.equal(calculateStorageBonuses('catCafe', state, null).cash, 9500 * 1.2);
+  state.tech.push('intelligentBankingSystem');
+  assert.equal(calculateStorageBonuses('bank', state, null).cash, 6000 * 1.2 * 2);
+  assert.equal(calculateStorageBonuses('catCafe', state, null).cash, 9500 * 1.2 * 2);
+});
+
+test('intelligent banking replaces rather than stacks prior population cash bonuses', () => {
+  const state = createInitialState(CONFIG.version, 60, 0);
+  state.population = 10;
+  state.tech.push('intelligentBankingSystem');
+  const snapshot = snapshotOf(state);
+  const first = calculateStorageDetails('cash', state, snapshot);
+  assert.equal(first.rows.find(row => row.name === '智能化银行系统')?.value, 10000);
+  state.tech.push('savingsBonds', 'stockTrading');
+  assert.equal(calculateStorageDetails('cash', state, snapshot).total, first.total);
+  state.arpaBuildings.stockExchange = 2;
+  state.buildings.bank = 3; state.buildings.catCafe = 2;
+  state.tech.push('neutronVault');
+  const details = calculateStorageDetails('cash', state, snapshot);
+  assert.equal(details.total, calculateStorageTotals(state, snapshot).cash);
+});
+
+test('neutron hangar capacity replaces ordinary and alloy caps without bypassing super containers', () => {
+  const state = createInitialState(CONFIG.version, 60, 0);
+  state.buildings.hangar = 2;
+  assert.equal(calculateBuildingContainerCap('hangar', state), 30);
+  state.tech.push('neutronVault');
+  assert.equal(calculateBuildingContainerCap('hangar', state), 40);
+  assert.equal(calculateContainerCapacity(state), 80);
+  assert.equal(calculateBuildingAlloyContainerCap('hangar', state), 0);
+  state.tech.push('superContainers');
+  assert.equal(calculateBuildingAlloyContainerCap('hangar', state), 25);
+  assert.equal(calculateAlloyContainerCapacity(state), 50);
+  assert.equal(calculateBuildingContainerCap('containerWarehouse', state), 25);
+  assert.equal(calculateBuildingAlloyContainerCap('containerWarehouse', state), 10);
+});
+
+test('new banking technology ids roundtrip current saves without a schema migration', () => {
+  const raw = createMilestoneState('space', { extraTech: ['intelligentBankingSystem', 'neutronConstructionMaterials', 'neutronVault'] });
+  const restored = validateAndMigrateSave(JSON.parse(JSON.stringify(raw)), context);
+  assert.equal(restored.tech.includes('intelligentBankingSystem'), true);
+  assert.equal(restored.tech.includes('neutronVault'), true);
+  const invalid = JSON.parse(JSON.stringify(raw));
+  invalid.tech = invalid.tech.filter((id: string) => id !== 'neutronConstructionMaterials');
+  assert.throws(() => validateAndMigrateSave(invalid, context));
+});
 
 test('batched storage totals match per-resource details exactly across milestones', () => {
   for (const build of [() => createInitialState(CONFIG.version, 60, 0), lateState]) {

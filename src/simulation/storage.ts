@@ -93,11 +93,12 @@ function accumulateStorageRows(
     }
   }
   if (detailResource === 'cash') {
-    const perCat = state.tech.includes('savingsBonds') ? 500 : state.tech.includes('stockTrading') ? 250 : 0;
+    const intelligentBanking = state.tech.includes('intelligentBankingSystem');
+    const perCat = intelligentBanking ? 1000 : state.tech.includes('savingsBonds') ? 500 : state.tech.includes('stockTrading') ? 250 : 0;
     if (perCat && state.population) {
       const value = state.population * perCat;
       if (totals) totals.cash = (totals.cash || 0) + value;
-      if (rows) rows.push({ name: state.tech.includes('savingsBonds') ? '储蓄债券' : '股票交易', value });
+      if (rows) rows.push({ name: intelligentBanking ? '智能化银行系统' : state.tech.includes('savingsBonds') ? '储蓄债券' : '股票交易', value });
     }
     const exchanges = state.arpaBuildings?.stockExchange || 0;
     if (exchanges && rows) {

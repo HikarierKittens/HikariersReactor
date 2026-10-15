@@ -22,6 +22,7 @@ export type TechnologyId =
   | 'neutronConstructionMaterials' | 'asteroidBeltMining' | 'laser'
   | 'asteroidMiningOptimization' | 'exoticElementResearch'
   | 'talosMoonScanning' | 'misenDiscovery'
+  | 'intelligentBankingSystem' | 'neutronVault'
   | 'stockTrading'
   | 'savingsBonds'
   | 'stockExchange'
