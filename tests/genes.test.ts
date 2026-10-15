@@ -4,7 +4,8 @@ import { CRISPR_UPGRADES } from '../src/data/crispr';
 import { GENE_DEFINITIONS, DNA_KNOWLEDGE_COST } from '../src/data/genes';
 import { validateCurrentSave } from '../src/state/validate-save';
 import { purchaseCrisprUpgrade } from '../src/simulation/crispr';
-import { craftDna, upgradeGene, calculateGeneUpgradeCost, isGeneModificationUnlocked, MAX_GENE_LEVEL } from '../src/simulation/genes';
+import { craftDna, upgradeGene, calculateGeneUpgradeCost, isGeneModificationUnlocked, MAX_GENE_LEVEL, changeGeneSynthesisRate, isGeneSynthesisUnlocked, applyGeneSynthesis } from '../src/simulation/genes';
+import { TECHNOLOGIES } from '../src/data/technologies';
 import { calculateBuildingOutput } from '../src/simulation/building-production';
 import { calculateFactoryRecipe } from '../src/simulation/factory';
 import { calculateCombatPower, calculateSoldierPressure, calculatePopulationPressure } from '../src/simulation/government';
@@ -216,4 +217,68 @@ test('超频锻造 (G) adds 2% crafted output and 1% artisan output per level wi
   const rows = calculateResourceFactorRows('plank', s, after).rows.map(row => row.name);
   assert.ok(rows.includes('超频锻造') && rows.includes('超频锻造（工匠）'), JSON.stringify(rows));
   assert.ok(!calculateResourceFactorRows('plank', base, before).rows.some(row => row.name.startsWith('超频锻造')));
+});
+
+test('基因合成 is a T11 200k tech after 遗传学 gated by 基因测序', () => {
+  const tech = TECHNOLOGIES.geneSynthesis;
+  assert.deepEqual([tech.tier, tech.cost.knowledge, tech.pre, tech.arpaPre], [11, 200000, ['genetics'], 'geneSequencing']);
+});
+
+test('基因合成 converts 20k knowledge into 0.1 DNA per lab at 10%, rates independent and settled for real', () => {
+  const s = geneState();
+  s.tech = [...new Set([...s.tech, 'genetics', 'geneSynthesis'] as const)];
+  s.buildings.biologyLab = 3; s.stoppedBuildings.biologyLab = 0;
+  s.resources.energy = 1e6; s.resources.knowledge = 1e7;
+  assert.deepEqual(s.geneModification.synthesis, { C: 0, G: 0, A: 0, T: 0 }, 'default 0%');
+  assert.equal(calculateProduction(s).geneSynthesis.knowledge, 0);
+  for (const bad of [-1, 101, 2.5, NaN]) assert.equal(changeGeneSynthesisRate(s, 'C', bad), false, String(bad));
+  assert.equal(changeGeneSynthesisRate(s, 'X', 10), false);
+  assert.equal(changeGeneSynthesisRate(s, 'C', 10), true);
+  assert.equal(changeGeneSynthesisRate(s, 'T', 100), true, 'each base may use the full 100%');
+  const result = calculateProduction(s);
+  const labs = result.inputUnits.biologyLab;
+  assert.equal(labs, 3);
+  near(result.geneSynthesis.knowledge, (10 + 100) * 2000 * labs, 'knowledge use');
+  near(result.geneSynthesis.dna.C!, .1 * labs, 'C at 10%');
+  near(result.geneSynthesis.dna.T!, 1 * labs, 'T at 100%');
+  const entry = calculateResourceBreakdown('knowledge', s, result).entries.find(row => row.id === 'geneSynthesis');
+  near(entry!.value, -result.geneSynthesis.knowledge, 'breakdown row');
+  // Through the real tick: DNA credited, knowledge withdrawn, statistics recorded.
+  const spent = s.statistics.run.knowledgeSpent, knowledge = s.resources.knowledge;
+  const step = calculateProduction(s, 1);
+  s.resources = step.pool; applyGeneSynthesis(s, step.geneSynthesis, 1);
+  near(s.geneModification.dna.C, .3); near(s.geneModification.dna.T, 3);
+  assert.ok(s.resources.knowledge < knowledge);
+  near(s.statistics.run.knowledgeSpent - spent, 660000, 'knowledge spent');
+  // Knowledge short: every base scales down by the same factor.
+  const poor = clone(s); poor.resources.knowledge = 0;
+  const scarce = calculateProduction(poor);
+  assert.ok(scarce.geneSynthesis.knowledge < step.geneSynthesis.knowledge, 'short knowledge throttles synthesis');
+  const ratio = (scarce.geneSynthesis.dna.C || 0) / .3;
+  near(scarce.geneSynthesis.dna.T || 0, 3 * ratio, 'proportional scaling');
+  // Stopped labs do not synthesise.
+  const stopped = clone(s); stopped.stoppedBuildings.biologyLab = 3;
+  assert.equal(calculateProduction(stopped).geneSynthesis.knowledge, 0);
+});
+
+test('基因合成 needs the tech and 基因剪切; rates and fractional DNA survive saves and reset with the run', () => {
+  const s = geneState(false);
+  s.tech = [...new Set([...s.tech, 'genetics', 'geneSynthesis'] as const)];
+  assert.equal(isGeneSynthesisUnlocked(s), false, 'needs 基因剪切');
+  assert.equal(changeGeneSynthesisRate(s, 'C', 10), false);
+  s.crispr.push('geneOptimization', 'geneSplicing');
+  assert.equal(isGeneSynthesisUnlocked(s), true);
+  const noTech = clone(s); noTech.tech = noTech.tech.filter(id => id !== 'geneSynthesis');
+  assert.equal(isGeneSynthesisUnlocked(noTech), false);
+  changeGeneSynthesisRate(s, 'A', 35); s.geneModification.dna.A = 1.25;
+  const restored = validateCurrentSave(clone(s), context);
+  assert.deepEqual(restored.geneModification.synthesis, { C: 0, G: 0, A: 35, T: 0 });
+  assert.equal(restored.geneModification.dna.A, 1.25);
+  const legacy = clone(s) as unknown as { geneModification: Record<string, unknown> };
+  delete legacy.geneModification.synthesis;
+  assert.deepEqual(validateCurrentSave(legacy, context).geneModification.synthesis, { C: 0, G: 0, A: 0, T: 0 }, 'older saves default to 0%');
+  for (const synthesis of [{ C: 101 }, { C: 1.5 }, { C: -1 }, { X: 1 }]) {
+    assert.throws(() => validateCurrentSave({ ...clone(s), geneModification: { ...clone(s.geneModification), synthesis } }, context), JSON.stringify(synthesis));
+  }
+  assert.deepEqual(resetRunState(s, 'soft', 60, 0)!.next.geneModification.synthesis, { C: 0, G: 0, A: 0, T: 0 });
 });

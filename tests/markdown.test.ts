@@ -22,6 +22,15 @@ test('block parser handles headings, nested lists, rules, quotes and paragraphs'
   assert.equal(paragraph.segments[0]!.text, 'line one line two');
 });
 
+test('game title matches the README, app header and both HTML entry pages', () => {
+  const title = '喵星旅人_world.execution(cat);';
+  const source = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
+  assert.ok(source('../index.html').includes(`<title>${title}</title>`));
+  assert.ok(source('../updatelog.html').includes(`<title>更新日志 · ${title}</title>`));
+  assert.ok(source('../src/vue/App.vue').includes(`<b>${title}</b>`));
+  assert.equal(source('../README.md').split(/\r?\n/)[0], `# ${title}`);
+});
+
 test('root updatelog.md exists and starts with a version heading', () => {
   const blocks = parseMarkdown(readFileSync(new URL('../updatelog.md', import.meta.url), 'utf8'));
   assert.ok(blocks.some(block => block.kind === 'heading' && block.level === 2));

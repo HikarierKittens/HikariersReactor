@@ -1,12 +1,12 @@
 import { BUILDINGS } from '../data/buildings';
 import { RESOURCES } from '../data/resources';
-import { calculateContainerCapacity, countAssignedContainers, isContainerAssignable } from '../simulation/containers';
+import { calculateContainerCapacity, countAssignedContainers, isContainerAssignable, calculateAlloyContainerCapacity, countAssignedAlloyContainers } from '../simulation/containers';
 import type { BuildingId } from '../types/buildings';
 import type { ResourceId } from '../types/economy';
 import type { GameState } from '../types/state';
 import { NEW_BUILDING_STOPPED, isDefaultZeroResource } from './save-defaults';
 
-export function validateStorageAssignments(raw: { stoppedBuildings?: unknown; containers?: unknown; containerAssignments?: unknown }, state: GameState): void {
+export function validateStorageAssignments(raw: { stoppedBuildings?: unknown; containers?: unknown; containerAssignments?: unknown; alloyContainers?: unknown; alloyContainerAssignments?: unknown }, state: GameState): void {
   const stopped = raw.stoppedBuildings as Record<string, unknown> | null | undefined;
   for (const id of ['catCafe', 'touristCenter']) if (!Number.isInteger(stopped?.[id])) throw Error('商业设施停用数量无效');
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
@@ -34,6 +34,18 @@ export function validateStorageAssignments(raw: { stoppedBuildings?: unknown; co
     state.containerAssignments[id] = count;
   }
   if (countAssignedContainers(state) > state.containers) throw Error('已分配集装箱超过持有量。');
+  state.alloyContainers = validateSaveNumber(raw.alloyContainers === undefined ? 0 : raw.alloyContainers, 0, calculateAlloyContainerCapacity(state), '合金集装箱');
+  if (!Number.isSafeInteger(state.alloyContainers)) throw Error('合金集装箱数量无效。');
+  const alloyAssignments = raw.alloyContainerAssignments;
+  if (alloyAssignments !== undefined && (!alloyAssignments || typeof alloyAssignments !== 'object' || Array.isArray(alloyAssignments) || Object.keys(alloyAssignments).some(id => !Object.hasOwn(RESOURCES, id)))) throw Error('合金集装箱分配无效。');
+  const alloyValues = alloyAssignments as Record<string, unknown> | undefined;
+  for (const id of Object.keys(RESOURCES) as ResourceId[]) {
+    const value = alloyValues === undefined ? 0 : alloyValues[id];
+    const count = validateSaveNumber(value === undefined && isDefaultZeroResource(id) ? 0 : value, 0, state.alloyContainers, '合金集装箱分配');
+    if (!Number.isSafeInteger(count) || (count > 0 && !isContainerAssignable(id, state))) throw Error('合金集装箱分配无效。');
+    state.alloyContainerAssignments[id] = count;
+  }
+  if (countAssignedAlloyContainers(state) > state.alloyContainers) throw Error('已分配合金集装箱超过持有量。');
 }
 
 /** Validate untrusted JSON without coercion; retain existing save error messages. */

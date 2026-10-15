@@ -12,7 +12,7 @@ import type { CraftId, ResourceId, FactoryLineId } from '../types/economy';
 import { calculateFactoryCapacity, countAssignedLines, calculateSmelterSlotCapacity } from './factory';
 import { isFactoryLineUnlocked } from './factory-settlement';
 
-import { calculateContainerRecipe, calculateContainerCapacity, countAssignedContainers, isContainerAssignable } from './containers';
+import { calculateContainerRecipe, calculateContainerCapacity, countAssignedContainers, isContainerAssignable, calculateAlloyContainerCapacity, countAssignedAlloyContainers, ALLOY_CONTAINER_RECIPE } from './containers';
 import { payResourceCost } from './costs';
 import { SPACE_MISSIONS, completeRegionalMissionNow } from './space-missions';
 
@@ -31,6 +31,23 @@ export function changeContainerAssignment(state: GameState, id: string, delta: n
   const resource = id as ResourceId;
   const amount = delta > 0 ? Math.min(delta, state.containers - countAssignedContainers(state)) : -Math.min(-delta, state.containerAssignments[resource]);
   if (amount) state.containerAssignments[resource] += amount;
+  return amount;
+}
+
+export function createAlloyContainers(state: GameState, count: number): number {
+  if (!state.tech.includes('superContainers') || !Number.isSafeInteger(count) || count < 1 || !isResourceUnlocked('alloy', state)) return 0;
+  const price = ALLOY_CONTAINER_RECIPE.alloy!;
+  const amount = Math.min(count, calculateAlloyContainerCapacity(state) - state.alloyContainers, Math.floor((state.resources.alloy + 1e-8) / price));
+  if (amount <= 0 || !payResourceCost(state.resources, { alloy: price * amount })) return 0;
+  state.alloyContainers += amount;
+  return amount;
+}
+/** The caller must clamp resources after capacity decreases, exactly as for ordinary containers. */
+export function changeAlloyContainerAssignment(state: GameState, id: string, delta: number): number {
+  if (!state.tech.includes('superContainers') || !isContainerAssignable(id, state) || !Number.isSafeInteger(delta) || !delta) return 0;
+  const resource = id as ResourceId;
+  const amount = delta > 0 ? Math.min(delta, state.alloyContainers - countAssignedAlloyContainers(state)) : -Math.min(-delta, state.alloyContainerAssignments[resource]);
+  if (amount) state.alloyContainerAssignments[resource] += amount;
   return amount;
 }
 

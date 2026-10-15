@@ -14,6 +14,7 @@ import { REGIONAL_MISSIONS, calculateRegionalMissionCost, isRegionalMissionAvail
 import { uiPreview } from '../preview-cache';
 import { isHyperspaceUnlocked } from '../../simulation/stage-three';
 import { isBuildingUnderworking } from '../building-status';
+import { isGeneSynthesisUnlocked } from '../../simulation/genes';
 import { fmt, buildingUnlocked, orderedCostEntries, moonSnapshot, clickMultiplier } from '../format';
 
 const qHeld = ref(false);
@@ -29,6 +30,7 @@ const emit = defineEmits<{
   gather: [id: 'food' | 'wood' | 'stone'];
   factorySettings: [id: BuildingId];
   smelterSettings: [];
+  synthesisSettings: [];
   shipSettings: [];
   worldView: [view: string];
   mission: [id: RegionalMissionId, forceQueue: boolean];
@@ -278,6 +280,14 @@ function canGather(id: string): boolean {
           aria-label="冶炼厂工位设置"
           title="冶炼厂工位设置"
           @click="emit('smelterSettings')"
+        >⚙</button>
+        <button
+          v-if="id === 'biologyLab' && buildingCount(id) > 0 && isGeneSynthesisUnlocked(state)"
+          class="building-gear"
+          data-synthesis-settings
+          aria-label="基因合成设置"
+          title="基因合成设置"
+          @click="emit('synthesisSettings')"
         >⚙</button>
 
         <button

@@ -9,7 +9,7 @@ import type { TechnologyId } from '../types/technologies';
 import { sampleEventInterval } from '../simulation/events';
 import { requestPurchaseModule, buyBuildingsInBatch, removeQueuedPurchase, describeQueuedPurchases } from '../simulation/purchases';
 
-import { changeWorkerAssignment, changeFactoryAssignment, changeSmelterAssignment, changeGovernment, createContainers, changeContainerAssignment, craftManually } from '../simulation/commands';
+import { changeWorkerAssignment, changeFactoryAssignment, changeSmelterAssignment, changeGovernment, createContainers, changeContainerAssignment, createAlloyContainers, changeAlloyContainerAssignment, craftManually } from '../simulation/commands';
 import type { RegionalMissionId } from '../simulation/space-missions';
 import { clampResourcesToCaps } from '../simulation/storage';
 import type { ResourceId, ResourceAmounts } from '../types/economy';
@@ -17,17 +17,18 @@ import { RESOURCES } from '../data/resources';
 import { uiPreview } from './preview-cache';
 import { estimateQueueTimes } from './queue-estimates';
 import { changeCraftAssignment } from '../simulation/crafting';
+import { setAutoWorkersEnabled, setAutoWorkerEnabled, setAutoWorkerLimit, moveAutoWorkerPriority, applyAutoWorkerAssignment } from '../simulation/auto-workers';
 import { trimFactoryAssignments } from '../simulation/factory';
 import { fillNuclearProject, launchNuclearPrestige, launchEscapePrestige, launchBlackHolePrestige, calculateBlackHolePrestigeRewards } from '../simulation/prestige';
 import { calculateEscapePrestigeReward, calculateCasimirReward, calculateTechCost } from '../simulation/government';
 import { TECHNOLOGIES } from '../data/technologies';
 import { canPayCost } from '../simulation/costs';
-import { calculateContainerCapacity } from '../simulation/containers';
+import { calculateContainerCapacity, calculateAlloyContainerCapacity } from '../simulation/containers';
 import { changeEjectionAllocation } from '../simulation/black-hole';
 import { investInProject } from '../simulation/projects';
 import { enqueueProject } from '../simulation/project-queue';
 import { buildingQueueCapacity, buildingQueueUsage, researchQueueCapacity } from '../simulation/queue-settings';
-import type { CrisprUpgradeId, GovernmentId, GameState } from '../types/state';
+import type { CrisprUpgradeId, DnaId, GovernmentId, GameState } from '../types/state';
 import { launchChallenges } from '../simulation/challenges';
 import type { ChallengeGeneId } from '../types/state';
 import { purchaseCrisprUpgrade } from '../simulation/crispr';
@@ -56,6 +57,8 @@ import ResourceManagementPanel from './components/ResourceManagementPanel.vue';
 import TipsPanel from './components/TipsPanel.vue';
 import FactoryModal from './components/FactoryModal.vue';
 import SmelterModal from './components/SmelterModal.vue';
+import GeneSynthesisModal from './components/GeneSynthesisModal.vue';
+import { changeGeneSynthesisRate } from '../simulation/genes';
 import SpaceshipModal from './components/SpaceshipModal.vue';
 import { investInShipComponent, type ShipComponentId } from '../simulation/spaceship';
 import TooltipPanel from './components/TooltipPanel.vue';
@@ -113,7 +116,7 @@ const state = computed(() => {
 
 const resourceManagementUnlocked = computed(() => {
   props.store.revision();
-  return calculateContainerCapacity(state.value) > 0 || state.value.containers > 0 || state.value.buildings.massEjector > 0;
+  return calculateContainerCapacity(state.value) > 0 || state.value.containers > 0 || calculateAlloyContainerCapacity(state.value) > 0 || state.value.alloyContainers > 0 || state.value.buildings.massEjector > 0;
 });
 watch(resourceManagementUnlocked, unlocked => { if (!unlocked && activeTab.value === 'resourceManagement') activeTab.value = 'buildings'; });
 
@@ -154,6 +157,48 @@ function toggle(id: BuildingId, delta: number): void {
 
 function assignWorker(id: BuildingId, delta: number): void {
   props.store.mutate(s => { changeWorkerAssignment(s, id, delta); });
+  afterAction();
+}
+
+function changeAutoWorkersEnabled(enabled: boolean): void {
+  props.store.mutate(s => {
+    setAutoWorkersEnabled(s, enabled);
+    if (enabled) applyAutoWorkerAssignment(s);
+  });
+  afterAction();
+}
+
+function changeAutoWorkerEnabled(id: BuildingId, enabled: boolean): void {
+  props.store.mutate(s => {
+    setAutoWorkerEnabled(s, id, enabled);
+    applyAutoWorkerAssignment(s);
+  });
+  afterAction();
+}
+
+function changeAutoWorkerLimit(id: BuildingId, limit: number): void {
+  props.store.mutate(s => {
+    setAutoWorkerLimit(s, id, limit);
+    applyAutoWorkerAssignment(s);
+  });
+  afterAction();
+}
+
+function changeAutoWorkerPriority(sourceId: BuildingId, targetId: BuildingId): void {
+  props.store.mutate(s => {
+    moveAutoWorkerPriority(s, sourceId, targetId);
+    applyAutoWorkerAssignment(s);
+  });
+  afterAction();
+}
+
+function changeAutoWorkerOrder(priority: BuildingId[]): void {
+  const current = state.value.autoWorkers.priority;
+  if (priority.length !== current.length || new Set(priority).size !== current.length || priority.some(id => !current.includes(id))) return;
+  props.store.mutate(s => {
+    s.autoWorkers.priority = [...priority];
+    applyAutoWorkerAssignment(s);
+  });
   afterAction();
 }
 
@@ -204,7 +249,7 @@ function startChallenges(genes: ChallengeGeneId[]): void {
 
 function resetRun(kind: 'soft' | 'hard', done?: (success: boolean) => void): void {
   const success = props.store.runtime.reset(kind);
-  if (success) { worldView.value = 'home'; techView.value = 'available'; factoryOpen.value = false; smelterOpen.value = false; shipModal.value = false; escapeConfirm.value = false; }
+  if (success) { worldView.value = 'home'; techView.value = 'available'; factoryOpen.value = false; smelterOpen.value = false; synthesisOpen.value = false; shipModal.value = false; escapeConfirm.value = false; }
   props.store.refresh();
   done?.(success && !props.store.runtime.saveFailed);
 }
@@ -228,6 +273,19 @@ function manufacture(count: number): void {
 function assignContainer(id: ResourceId, delta: number): void {
   props.store.mutate(s => {
     changeContainerAssignment(s, id, delta);
+    clampResourcesToCaps(s, storageSnapshot(s));
+  });
+  afterAction();
+}
+
+function manufactureAlloy(count: number): void {
+  props.store.mutate(s => { createAlloyContainers(s, count); });
+  afterAction();
+}
+
+function assignAlloyContainer(id: ResourceId, delta: number): void {
+  props.store.mutate(s => {
+    changeAlloyContainerAssignment(s, id, delta);
     clampResourcesToCaps(s, storageSnapshot(s));
   });
   afterAction();
@@ -293,6 +351,7 @@ function confirmEscape(): void {
   shipModal.value = false;
   factoryOpen.value = false;
   smelterOpen.value = false;
+  synthesisOpen.value = false;
   worldView.value = 'home';
   activeTab.value = 'buildings';
   techView.value = 'available';
@@ -313,6 +372,7 @@ function confirmBlackHole(): void {
   shipModal.value = false;
   factoryOpen.value = false;
   smelterOpen.value = false;
+  synthesisOpen.value = false;
   worldView.value = 'home';
   activeTab.value = 'buildings';
   techView.value = 'available';
@@ -393,6 +453,20 @@ function assignSmelter(delta: number): void {
   afterAction();
 }
 
+const synthesisOpen = ref(false);
+const synthesisDialog = ref<HTMLDialogElement | null>(null);
+watch(synthesisOpen, async open => { if (open) { await nextTick(); synthesisDialog.value?.showModal(); } });
+function dismissSynthesisBackdrop(event: MouseEvent): void {
+  const dialog = synthesisDialog.value;
+  if (!dialog || event.target !== dialog) return;
+  const bounds = dialog.getBoundingClientRect();
+  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) synthesisOpen.value = false;
+}
+function setSynthesisRate(id: DnaId, value: number): void {
+  props.store.mutate(s => { changeGeneSynthesisRate(s, id, value); });
+  afterAction();
+}
+
 let timer: number | undefined;
 
 onMounted(() => {
@@ -411,7 +485,7 @@ onUnmounted(() => {
 <template>
   <div class="app" :class="{ 'touch-optimized': state.settings.touchOptimization }">
     <header class="topbar">
-      <div class="brand">🐱 <b>Eden_Kittens</b><span>从登陆的第一只猫猫，到登陆月球</span></div>
+      <div class="brand">🐱 <b>喵星旅人_world.execution(cat);</b><span>从登陆的第一只猫猫，到登陆月球</span></div>
       <span class="game-date">{{ gameDate }}</span>
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
@@ -467,6 +541,7 @@ onUnmounted(() => {
               @gather="gather"
               @factory-settings="factoryOpen = true"
               @smelter-settings="smelterOpen = true"
+              @synthesis-settings="synthesisOpen = true"
               @ship-settings="shipModal = true"
               @world-view="worldView = $event"
               @mission="mission"
@@ -489,6 +564,11 @@ onUnmounted(() => {
               :revision="store.revision()"
               @assign="assignWorker"
               @craft="assignCraft"
+              @auto-workers-enabled="changeAutoWorkersEnabled"
+              @auto-worker-enabled="changeAutoWorkerEnabled"
+              @auto-worker-limit="changeAutoWorkerLimit"
+              @auto-worker-priority="changeAutoWorkerPriority"
+              @auto-worker-order="changeAutoWorkerOrder"
             />
             <InternalPanel
               v-else-if="activeTab === 'internal'"
@@ -551,6 +631,8 @@ onUnmounted(() => {
               :revision="store.revision()"
               @manufacture="manufacture"
               @assign="assignContainer"
+              @manufacture-alloy="manufactureAlloy"
+              @assign-alloy="assignAlloyContainer"
               @eject="changeEjection"
             />
             <TipsPanel
@@ -642,6 +724,10 @@ onUnmounted(() => {
         :revision="store.revision()"
         @assign="assignSmelter"
       />
+    </dialog>
+    <dialog v-if="synthesisOpen" ref="synthesisDialog" id="geneSynthesisModal" class="factory-modal" @cancel="synthesisOpen = false" @click="dismissSynthesisBackdrop">
+      <h2>基因合成</h2>
+      <GeneSynthesisModal :state="state" :revision="store.revision()" @rate="setSynthesisRate" />
     </dialog>
   </div>
 </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type { GameState } from '../../types/state';
 import type { BuildingId } from '../../types/buildings';
 import type { CraftId } from '../../types/economy';
@@ -7,6 +7,7 @@ import { BUILDINGS } from '../../data/buildings';
 import { RESOURCES, CRAFT_RECIPES } from '../../data/resources';
 import { calculateWorkerCapacity, countUsedWorkers } from '../../simulation/building-production';
 import { countCraftWorkers } from '../../simulation/crafting';
+import { AUTO_WORKER_JOBS } from '../../simulation/auto-workers';
 import { isResourceUnlocked } from '../../simulation/unlocks';
 import { clickMultiplier, fmt, orderedCostEntries } from '../format';
 
@@ -14,6 +15,11 @@ const props = defineProps<{ state: GameState; revision: number }>();
 const emit = defineEmits<{
   assign: [id: BuildingId, delta: number];
   craft: [id: CraftId, delta: number];
+  autoWorkersEnabled: [enabled: boolean];
+  autoWorkerEnabled: [id: BuildingId, enabled: boolean];
+  autoWorkerLimit: [id: BuildingId, limit: number];
+  autoWorkerPriority: [sourceId: BuildingId, targetId: BuildingId];
+  autoWorkerOrder: [priority: BuildingId[]];
 }>();
 
 // Use the command boundary's capabilities, not merely a positive building count:
@@ -39,6 +45,77 @@ const rows = computed(() => {
     unlocked: props.state.tech.includes(BUILDINGS[id].tech) || (id === 'theater' && props.state.tech.includes(BUILDINGS.catCafe.tech)),
   })).filter(row => row.assigned > 0 || (row.unlocked && row.cap > 0));
 });
+
+const autoEnabled = computed(() => { props.revision; return props.state.autoWorkers?.enabled ?? false; });
+const autoRows = computed(() => rows.value.filter(row => Number.isFinite(row.cap) && AUTO_WORKER_JOBS.includes(row.id)));
+const dragPriority = ref<BuildingId[] | null>(null);
+const priorityRows = computed(() => {
+  props.revision;
+  const priority = dragPriority.value ?? props.state.autoWorkers?.priority ?? AUTO_WORKER_JOBS;
+  const order = [...priority, ...AUTO_WORKER_JOBS.filter(id => !priority.includes(id))];
+  return order.flatMap(id => autoRows.value.filter(row => row.id === id && row.unlocked && row.cap > 0));
+});
+const draggedJob = ref<BuildingId | null>(null);
+let lastDragTarget: BuildingId | null = null;
+function isAutoJob(id: BuildingId): boolean {
+  return autoRows.value.some(row => row.id === id);
+}
+function jobAutoEnabled(id: BuildingId): boolean {
+  return props.state.autoWorkers?.jobs[id]?.enabled ?? false;
+}
+function jobAutoLimit(id: BuildingId): number {
+  return props.state.autoWorkers?.jobs[id]?.limit ?? -1;
+}
+function changeAutoLimit(id: BuildingId, event: Event): void {
+  const input = event.target as HTMLInputElement;
+  if (input.value.trim() === '' || !Number.isFinite(input.valueAsNumber)) {
+    input.value = String(jobAutoLimit(id));
+    return;
+  }
+  const limit = Math.max(-1, Math.floor(input.valueAsNumber));
+  input.value = String(limit);
+  emit('autoWorkerLimit', id, limit);
+}
+function startPriorityDrag(id: BuildingId, event: DragEvent): void {
+  draggedJob.value = id;
+  dragPriority.value = [...props.state.autoWorkers.priority];
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', id);
+  }
+}
+function previewPriority(targetId: BuildingId, event: DragEvent): void {
+  const sourceId = draggedJob.value;
+  const order = dragPriority.value;
+  if (!sourceId || !order || sourceId === targetId) { lastDragTarget = null; return; }
+  if (lastDragTarget === targetId) return;
+  lastDragTarget = targetId;
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  const sourceIndex = order.indexOf(sourceId), targetIndex = order.indexOf(targetId);
+  if (sourceIndex < 0 || targetIndex < 0) return;
+  const next = [...order];
+  next.splice(sourceIndex, 1);
+  next.splice(targetIndex, 0, sourceId);
+  dragPriority.value = next;
+}
+function endPriorityDrag(): void {
+  draggedJob.value = null;
+  dragPriority.value = null;
+  lastDragTarget = null;
+}
+function dropPriority(): void {
+  if (draggedJob.value && dragPriority.value) emit('autoWorkerOrder', [...dragPriority.value]);
+  endPriorityDrag();
+}
+function shiftPriority(index: number, delta: number): void {
+  const row = priorityRows.value[index];
+  const target = priorityRows.value[index + delta];
+  if (row && target) {
+    // The core inserts before the target; moving the next row up lowers this one.
+    if (delta > 0) emit('autoWorkerPriority', target.id, row.id);
+    else emit('autoWorkerPriority', row.id, target.id);
+  }
+}
 
 function allocationClass(assigned: number, cap: number): string {
   if (!Number.isFinite(cap)) return 'is-unlimited';
@@ -71,8 +148,14 @@ const craftRows = computed(() => {
   <div class="settings">
     <section>
       <h3>工作猫分配 <span class="subtle">{{ fmt(used) }} / {{ fmt(total) }} · 空闲 {{ fmt(Math.max(0, total - used)) }}</span></h3>
+      <label class="auto-workers-master">
+        <input type="checkbox" data-auto-workers-toggle :checked="autoEnabled" @change="emit('autoWorkersEnabled', ($event.target as HTMLInputElement).checked)">
+        自动分配空闲猫
+      </label>
+      <p v-if="autoEnabled" class="small subtle auto-workers-help">仅补充空闲猫，不抢其他岗位。上限为该岗总在岗数，仅约束自动分配；-1 不限。</p>
       <div v-if="!rows.length" class="empty">尚无可用岗位，研究并建造生产建筑后可分配工作猫。</div>
-      <div class="job-list">
+      <div class="allocation-layout" :class="{ 'with-auto': autoEnabled }">
+      <div class="job-list" :class="{ 'with-auto': autoEnabled }">
       <div v-for="row in rows" :key="row.id" class="craft-row workers">
         <span class="craft-name" :data-building-tip="row.id" data-tip-kind="job" tabindex="0">{{ row.building.workerName || (row.id === 'theater' ? '猫猫艺术家' : row.building.name) }}</span>
         <span class="worker-count" :class="allocationClass(row.assigned, row.cap)">{{ fmt(row.assigned) }} / {{ Number.isFinite(row.cap) ? fmt(row.cap) : '∞' }}</span>
@@ -80,7 +163,25 @@ const craftRows = computed(() => {
           <button :data-worker="row.id" :data-delta="-1" :disabled="!row.unlocked || row.assigned <= 0" :aria-label="`撤回${row.building.name}工作猫`" @click="emit('assign', row.id, -clickMultiplier($event))">«</button>
           <button :data-worker="row.id" :data-delta="1" :disabled="!row.unlocked || used >= total || row.assigned >= row.cap" :aria-label="`分配${row.building.name}工作猫`" @click="emit('assign', row.id, clickMultiplier($event))">»</button>
         </span>
+        <span v-if="autoEnabled && isAutoJob(row.id)" class="auto-worker-settings">
+          <button :data-auto-worker="row.id" :aria-pressed="jobAutoEnabled(row.id)" :aria-label="`${row.building.name}自动分配`" @click="emit('autoWorkerEnabled', row.id, !jobAutoEnabled(row.id))">自动分配</button>
+          <label>上限 <input type="number" min="-1" step="1" :data-auto-worker-limit="row.id" :value="jobAutoLimit(row.id)" :aria-label="`${row.building.name}自动分配上限，-1 不限`" @change="changeAutoLimit(row.id, $event)"></label>
+        </span>
       </div>
+      </div>
+      <aside v-if="autoEnabled && priorityRows.length" class="auto-priority" aria-label="自动分配优先级" @dragover.prevent @drop.prevent="dropPriority">
+        <strong>优先级</strong>
+        <p class="small subtle">拖动排序，靠前优先。</p>
+        <TransitionGroup tag="ol" name="priority">
+          <li v-for="(row, index) in priorityRows" :key="row.id" :data-auto-priority="row.id" :class="{ 'is-dragging': draggedJob === row.id }" draggable="true" @dragstart="startPriorityDrag(row.id, $event)" @dragend="endPriorityDrag" @dragover.prevent="previewPriority(row.id, $event)">
+            <span class="priority-name"><span aria-hidden="true">⠿</span> {{ row.building.workerName || (row.id === 'theater' ? '猫猫艺术家' : row.building.name) }}</span>
+            <span class="priority-actions">
+              <button :disabled="index === 0" :aria-label="`提高${row.building.name}优先级`" @click="shiftPriority(index, -1)">↑</button>
+              <button :disabled="index === priorityRows.length - 1" :aria-label="`降低${row.building.name}优先级`" @click="shiftPriority(index, 1)">↓</button>
+            </span>
+          </li>
+        </TransitionGroup>
+      </aside>
       </div>
       <p class="small subtle">岗位分配受空闲猫口与岗位容量限制。伐木工人与石工在研究工具后即可分配，无需建造伐木场或采石场。Ctrl ×10、Shift ×25、Alt ×100，可组合相乘。</p>
     </section>
@@ -112,4 +213,30 @@ const craftRows = computed(() => {
 .workers .worker-count { grid-column: 3; }
 .workers .craft-actions { grid-column: 4; flex-wrap: nowrap; }
 .craft-allocation { grid-template-columns: minmax(max-content, 2fr) 65px 60px minmax(0, 3fr); }
+.auto-workers-master { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px; cursor: pointer; }
+.auto-workers-master input { width: auto; margin: 0; }
+.auto-workers-help { margin-top: 0; }
+.allocation-layout { overflow-x: auto; }
+.allocation-layout.with-auto { display: grid; grid-template-columns: minmax(580px, 1fr) minmax(180px, 220px); gap: 20px; align-items: start; }
+.job-list.with-auto { grid-template-columns: max-content minmax(20px, 2fr) max-content max-content max-content minmax(0, 1fr); }
+.auto-worker-settings { grid-column: 5; display: inline-flex; align-items: center; gap: 8px; margin-left: 12px; padding-left: 12px; border-left: 1px solid currentColor; white-space: nowrap; }
+.auto-worker-settings label { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+.auto-worker-settings input { width: 65px; min-width: 0; box-sizing: border-box; }
+.auto-worker-settings button[aria-pressed="true"] { border-color: #63b875; }
+.priority-move { transition: transform 160ms ease; }
+.auto-priority li { transition: transform 160ms ease, opacity 160ms ease, background-color 160ms ease; }
+.auto-priority li.is-dragging { opacity: .45; background-color: rgb(99 184 117 / 12%); }
+@media (prefers-reduced-motion: reduce) {
+  .priority-move, .auto-priority li { transition: none; }
+}
+.auto-priority { border-left: 1px solid currentColor; padding-left: 12px; font-size: 12px; }
+.auto-priority p { margin: 4px 0 8px; }
+.auto-priority ol { list-style: none; margin: 0; padding: 0; }
+.auto-priority li { display: flex; justify-content: space-between; align-items: center; gap: 6px; min-height: 30px; cursor: grab; }
+.priority-name { overflow-wrap: anywhere; }
+.priority-actions { display: inline-flex; flex-shrink: 0; gap: 2px; }
+.priority-actions button { padding: 1px 5px; min-width: 22px; }
+@media (max-width: 760px) {
+  .allocation-layout.with-auto { grid-template-columns: minmax(580px, 1fr) 180px; gap: 12px; }
+}
 </style>

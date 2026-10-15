@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue';
 import type { GameState } from '../../types/state';
 import type { ResourceId } from '../../types/economy';
 import { RESOURCES } from '../../data/resources';
-import { calculateContainerCapacity, countAssignedContainers, isContainerAssignable, calculateContainerUnitCapacity, calculateContainerRecipe } from '../../simulation/containers';
+import { calculateContainerCapacity, countAssignedContainers, isContainerAssignable, calculateContainerUnitCapacity, calculateContainerRecipe, calculateAlloyContainerCapacity, countAssignedAlloyContainers, calculateAlloyContainerUnitCapacity, ALLOY_CONTAINER_RECIPE } from '../../simulation/containers';
 import { canPayCost } from '../../simulation/costs';
 import { isResourceUnlocked } from '../../simulation/unlocks';
 import { clickMultiplier, fmt, orderedCostEntries } from '../format';
@@ -14,12 +14,15 @@ const props = defineProps<{ state: GameState; revision: number }>();
 const emit = defineEmits<{
   manufacture: [count: number];
   assign: [id: ResourceId, delta: number];
+  manufactureAlloy: [count: number];
+  assignAlloy: [id: ResourceId, delta: number];
   eject: [id: ResourceId, delta: number];
 }>();
 
 const view = ref<'containers' | 'massEjection'>('containers');
 const ejectionUnlocked = computed(() => { props.revision; return (props.state.buildings.massEjector || 0) > 0; });
-const containersUnlocked = computed(() => { props.revision; return calculateContainerCapacity(props.state) > 0 || props.state.containers > 0; });
+const alloyUnlocked = computed(() => { props.revision; return props.state.tech.includes('superContainers'); });
+const containersUnlocked = computed(() => { props.revision; return calculateContainerCapacity(props.state) > 0 || props.state.containers > 0 || calculateAlloyContainerCapacity(props.state) > 0 || props.state.alloyContainers > 0; });
 watch([containersUnlocked, ejectionUnlocked], ([containers, ejection]) => {
   if (view.value === 'containers' && !containers && ejection) view.value = 'massEjection';
   else if (view.value === 'massEjection' && !ejection) view.value = 'containers';
@@ -56,6 +59,20 @@ const rows = computed(() => {
     .filter(id => isContainerAssignable(id, props.state))
     .map(id => ({ id, definition: RESOURCES[id], count: props.state.containerAssignments[id] || 0 }));
 });
+const alloyCapacity = computed(() => { props.revision; return calculateAlloyContainerCapacity(props.state); });
+const alloyOwned = computed(() => { props.revision; return props.state.alloyContainers || 0; });
+const alloyAssigned = computed(() => { props.revision; return countAssignedAlloyContainers(props.state); });
+const alloyUnitCapacity = computed(() => { props.revision; return calculateAlloyContainerUnitCapacity(props.state); });
+const alloyRecipeText = orderedCostEntries(ALLOY_CONTAINER_RECIPE).map(([resource, amount]) => `${RESOURCES[resource as ResourceId].name}: ${fmt(amount)}`).join(' + ');
+const canManufactureAlloy = computed(() => {
+  props.revision;
+  return alloyUnlocked.value && alloyOwned.value < alloyCapacity.value && canPayCost(props.state.resources, ALLOY_CONTAINER_RECIPE)
+    && (Object.keys(ALLOY_CONTAINER_RECIPE) as ResourceId[]).every(resource => isResourceUnlocked(resource, props.state));
+});
+const alloyRows = computed(() => {
+  props.revision;
+  return rows.value.map(row => ({ ...row, count: props.state.alloyContainerAssignments[row.id] || 0 }));
+});
 </script>
 
 <template>
@@ -85,8 +102,10 @@ const rows = computed(() => {
       </article>
     </div>
   </template>
-  <p v-else-if="!capacity && !owned" class="empty">建造提供集装箱上限的建筑后解锁。初始上限为0。</p>
-  <template v-else-if="containersUnlocked">
+  <p v-else-if="!containersUnlocked" class="empty">建造提供集装箱上限的建筑后解锁。初始上限为0。</p>
+  <div v-else-if="containersUnlocked" class="container-columns">
+    <section class="container-column" aria-label="普通集装箱">
+    <h3>普通集装箱</h3>
     <div class="settings">
       <section>
         <p id="containerSummary">已有 {{ fmt(owned) }} / {{ fmt(capacity) }} · 已分配 {{ fmt(assigned) }} · 空闲 {{ fmt(Math.max(0, owned - assigned)) }}</p>
@@ -106,10 +125,49 @@ const rows = computed(() => {
         </div>
       </article>
     </div>
-  </template>
+    </section>
+    <section v-if="alloyUnlocked" class="container-column" aria-label="合金集装箱">
+      <h3>合金集装箱</h3>
+      <div class="settings">
+        <section>
+          <p id="alloyContainerSummary">已有 {{ fmt(alloyOwned) }} / {{ fmt(alloyCapacity) }} · 已分配 {{ fmt(alloyAssigned) }} · 空闲 {{ fmt(Math.max(0, alloyOwned - alloyAssigned)) }}</p>
+          <p>单个合金集装箱当前提供储量：<strong id="alloyContainerUnit">{{ fmt(alloyUnitCapacity) }}</strong></p>
+          <button id="manufactureAlloyContainers" :disabled="!canManufactureAlloy" @click="emit('manufactureAlloy', clickMultiplier($event))">制造合金集装箱 · {{ alloyRecipeText }}</button>
+          <p class="small subtle">独立制造与分配，每个提供普通集装箱4倍储量。支持相同批量快捷键；撤回后超出储量上限的资源立即丢失。</p>
+        </section>
+      </div>
+      <div class="management-list">
+        <article v-for="row in alloyRows" :key="row.id" class="management-row" :data-alloy-container-row="row.id">
+          <h3 class="management-name">{{ row.definition.icon }} {{ row.definition.name }}</h3>
+          <div class="management-controls">
+            <button :data-alloy-container-resource="row.id" :data-delta="-1" :disabled="row.count <= 0" :aria-label="`撤回${row.definition.name}合金集装箱`" @click="emit('assignAlloy', row.id, -clickMultiplier($event))">−</button>
+            <strong>{{ fmt(row.count) }}</strong>
+            <button :data-alloy-container-resource="row.id" :data-delta="1" :disabled="alloyAssigned >= alloyOwned" :aria-label="`分配${row.definition.name}合金集装箱`" @click="emit('assignAlloy', row.id, clickMultiplier($event))">+</button>
+            <span class="small subtle">储量 +{{ fmt(row.count * alloyUnitCapacity) }}</span>
+          </div>
+        </article>
+      </div>
+    </section>
+  </div>
 </template>
 
 <style scoped>
+.container-columns {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.container-column {
+  display: flex;
+  flex: 1 0 420px;
+  min-width: 420px;
+  flex-direction: column;
+}
+.container-column > .settings { flex: 1; }
+.container-column > .management-list { overflow-x: visible; }
+.container-column .management-row { width: auto; }
 .management-list {
   display: flex;
   flex-direction: column;

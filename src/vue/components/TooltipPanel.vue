@@ -28,6 +28,7 @@ import { calculateGravityConversionEnergy, formatBlackHoleMass } from '../../sim
 import { calculateResourceBreakdown, calculateResourceFactorRows, calculateResourceExpenseRows, signedRate } from '../../simulation/resource-breakdown';
 import { calculateArtistEffect } from '../../simulation/morale';
 import { calculateEffectiveParticles, calculateParticleMultiplier } from '../../simulation/crafting';
+import { calculateBuildingContainerCap, calculateBuildingAlloyContainerCap } from '../../simulation/containers';
 import { calculateCrisprStorageBonus } from '../../simulation/crispr';
 import { calculateEffectiveParticleCount, isChallengeGeneActive } from '../../simulation/challenges';
 import { duration, fmt, moraleSnapshot, orderedCostEntries, percent, storageSnapshot } from '../format';
@@ -233,7 +234,10 @@ const content = computed<TipContent | null>(() => {
     if (id === 'adamantiteProcessor') add('精金采矿船产量', '+10%');
     if (id === 'vrCenter') add('幸福度', '+2.5%', false, '获得Asriel支持时生效，仍受幸福度上限限制。');
     if (id === 'blackHoleStation') add('空间撕裂者知识容量效果', '+1%', false, '完整支付电力维护后生效。');
-    if (building.containerCap) add('集装箱容量', `+${number(building.containerCap)}`);
+    const containerCap = calculateBuildingContainerCap(id, state);
+    const alloyContainerCap = calculateBuildingAlloyContainerCap(id, state);
+    if (containerCap) add('集装箱容量', `+${number(containerCap)}`);
+    if (alloyContainerCap) add('合金集装箱容量', `+${number(alloyContainerCap)}`);
     if (building.moraleCap) add('幸福度上限', `+${percent(building.moraleCap)}%`);
     if (building.morale) add('幸福度', `+${percent(building.morale)}%`);
     if (id === 'navigationBeacon' && state.tech.includes('spaceBroadcasting')) add('幸福度', '+3%', false, '完整获得供电时生效，保留月球支持。');

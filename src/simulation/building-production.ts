@@ -49,6 +49,7 @@ export function calculateBuildingInput(id: BuildingId, state: GameState): Resour
   if (id === 'navigationBeacon') return { energy: state.tech.includes('spaceBroadcasting') ? 3 : 2 };
   if (id === 'metalRefinery') return state.tech.includes('advancedMetalRefining') ? { energy: 4 } : {};
   if (id === 'aiSupercore') return { helium3: 25, energy: 100 };
+  if (id === 'refinery' && state.tech.includes('crudeOilRefiningOptimization')) return { energy: 2 };
   const input = BUILDINGS[id].input || {};
   return applySpaceFuelDiscount(id, input, state);
 }
@@ -87,6 +88,7 @@ function calculateRawBuildingOutput(id: BuildingId, state: GameState, inputs: Pr
   if (id === 'penroseSphere' && state.tech.includes('gravityConversion') && (state.buildings.penroseSphere || 0) > 0 && state.blackHole) {
     return { energy: (output.energy || 0) + calculateGravityConversionEnergy(state) / state.buildings.penroseSphere };
   }
+  if (id === 'refinery' && state.tech.includes('crudeOilRefiningOptimization')) return { oil: 1.5 };
   if (id === 'quarry' && state.buildings.metalRefinery > 0) return { ...output, aluminum: 1 };
   if (id === 'coalMine' && state.tech.includes('nuclearEnergy')) return { ...output, uranium: (output.coal || 0) * .05 };
   return output;

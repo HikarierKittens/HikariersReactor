@@ -1,4 +1,86 @@
 import assert from 'node:assert/strict';
+import { AUTO_WORKER_JOBS, applyAutoWorkerAssignment, setAutoWorkersEnabled, setAutoWorkerEnabled, setAutoWorkerLimit, moveAutoWorkerPriority } from '../src/simulation/auto-workers';
+
+import { advanceGameTick } from '../src/simulation/tick';
+
+test('real ticks allocate workers before production and after new slots, but paused ticks do not', () => {
+  const s = automationFixture();
+  setAutoWorkersEnabled(s, true); setAutoWorkerEnabled(s, 'forage', true);
+  s.resources.food = 100;
+  const hooks = { happiness: () => 100, capacity: () => 100, event: () => {}, projects: () => {}, purchases: () => { s.buildings.school = 20; }, unlocks: () => {} };
+  s.settings.paused = true;
+  advanceGameTick(s, .2, hooks);
+  assert.equal(s.workers.forage, 0);
+  s.settings.paused = false;
+  setAutoWorkerEnabled(s, 'school', true); setAutoWorkerLimit(s, 'forage', 2);
+  s.buildings.school = 0;
+  advanceGameTick(s, .2, hooks);
+  assert.equal(s.workers.forage, 2);
+  assert.equal(s.workers.school, 6, 'newly purchased capacity fills at tick end');
+});
+
+function automationFixture() {
+  const s = createInitialState(29, 60, 0);
+  s.tech.push('survival', 'tools', 'writing');
+  s.buildings.forage = 10; s.buildings.school = 10;
+  s.population = 8;
+  return s;
+}
+
+test('automatic workers fill only idle population by priority and respect independent limits', () => {
+  const s = automationFixture();
+  setAutoWorkerEnabled(s, 'forage', true); setAutoWorkerEnabled(s, 'school', true);
+  setAutoWorkerLimit(s, 'forage', 3);
+  applyAutoWorkerAssignment(s);
+  assert.equal(s.workers.forage, 0, 'master defaults off');
+  setAutoWorkersEnabled(s, true);
+  applyAutoWorkerAssignment(s);
+  assert.equal(s.workers.forage, 3);
+  assert.equal(s.workers.school, 5);
+  s.population = 10;
+  moveAutoWorkerPriority(s, 'school', 'forage');
+  applyAutoWorkerAssignment(s);
+  assert.equal(s.workers.forage, 3, 'never takes from existing jobs');
+  assert.equal(s.workers.school, 7);
+  setAutoWorkerLimit(s, 'school', 0);
+  applyAutoWorkerAssignment(s);
+  assert.equal(s.workers.school, 7, 'lower limit never removes workers');
+  s.population = 12; setAutoWorkersEnabled(s, false);
+  applyAutoWorkerAssignment(s);
+  assert.equal(countUsedWorkers(s), 10);
+});
+
+test('automatic workers reject invalid settings and exclude unlimited or locked jobs', () => {
+  const s = automationFixture();
+  setAutoWorkersEnabled(s, true);
+  const before = JSON.stringify(s.autoWorkers);
+  for (const limit of [-2, .5, Infinity, NaN]) setAutoWorkerLimit(s, 'forage', limit);
+  setAutoWorkerEnabled(s, 'lumber', true);
+  assert.equal(JSON.stringify(s.autoWorkers), before);
+  assert.ok(!AUTO_WORKER_JOBS.includes('lumber'));
+  setAutoWorkerEnabled(s, 'lab', true); s.buildings.lab = 10;
+  applyAutoWorkerAssignment(s);
+  assert.equal(s.workers.lab, 0, 'locked job not assigned');
+  setAutoWorkerEnabled(s, 'forage', true); setAutoWorkerLimit(s, 'forage', -1);
+  s.buildings.forage = 2;
+  applyAutoWorkerAssignment(s);
+  assert.equal(s.workers.forage, calculateWorkerCapacity('forage', s));
+});
+
+test('automatic worker settings survive saves, default for older saves and clear on reset', () => {
+  const s = createMilestoneState('ground');
+  setAutoWorkersEnabled(s, true); setAutoWorkerEnabled(s, 'school', true); setAutoWorkerLimit(s, 'school', 7);
+  moveAutoWorkerPriority(s, 'school', 'forage');
+  const context = { now: 0, eventInterval: 60, housingCapacity: () => 1000, clampResources: () => {} };
+  const raw = JSON.parse(JSON.stringify(s));
+  assert.deepEqual(validateAndMigrateSave(raw, context).autoWorkers, s.autoWorkers);
+  for (const malformed of [null, { ...raw.autoWorkers, enabled: 1 }, { ...raw.autoWorkers, priority: ['school', 'school'] }, { ...raw.autoWorkers, jobs: { school: { enabled: true, limit: -2 } } }]) {
+    assert.throws(() => validateAndMigrateSave({ ...raw, autoWorkers: malformed }, context));
+  }
+  delete raw.autoWorkers;
+  assert.equal(validateAndMigrateSave(raw, context).autoWorkers.enabled, false);
+  assert.equal(resetRunState(s, 'soft', 60, 0)!.next.autoWorkers.enabled, false);
+});
 
 test('ARPA institute description updates only after the dimension compression technology', () => {
   const before = calculateProjectDescription('arpaResearchInstitute', { tech: [] });
@@ -11,10 +93,12 @@ test('ARPA institute description updates only after the dimension compression te
 });
 import { orderedCostEntries } from '../src/vue/format';
 import { test } from 'node:test';
-import { calculateBuildingOutput, calculateWorkerCapacity, hasContinuousEnergyInput } from '../src/simulation/building-production';
+import { calculateBuildingOutput, calculateWorkerCapacity, hasContinuousEnergyInput, countUsedWorkers } from '../src/simulation/building-production';
 import { calculateArtistEffect, calculateMorale } from '../src/simulation/morale';
 import { changeWorkerAssignment, changeContainerAssignment } from '../src/simulation/commands';
-import { isContainerAssignable, countAssignedContainers } from '../src/simulation/containers';
+import { isContainerAssignable, countAssignedContainers, calculateContainerCapacity, calculateAlloyContainerCapacity, calculateAlloyContainerUnitCapacity } from '../src/simulation/containers';
+import { createAlloyContainers, changeAlloyContainerAssignment } from '../src/simulation/commands';
+import { createMilestoneState } from './fixtures/milestones';
 import { validateStorageAssignments } from '../src/state/validation';
 import { persistGame } from '../src/state/persistence';
 import { enqueueProject, advanceProjectQueue } from '../src/simulation/project-queue';
@@ -484,6 +568,68 @@ test('particle production follows a continuous decreasing-marginal-return curve'
   assert.ok(Number.isFinite(effective(Number.MAX_SAFE_INTEGER)));
 });
 
+test('超级集装箱 is T8 51.4k; warehouses gain 25 ordinary / 10 alloy slots and hangars 15 alloy slots', () => {
+  assert.deepEqual([TECHNOLOGIES.superContainers.tier, TECHNOLOGIES.superContainers.cost, TECHNOLOGIES.superContainers.pre], [8, { knowledge: 51400 }, ['automatedStorage']]);
+  const s = createInitialState(29, 60, 0);
+  s.buildings.containerWarehouse = 2; s.buildings.hangar = 3;
+  assert.equal(calculateContainerCapacity(s), 130);
+  assert.equal(calculateAlloyContainerCapacity(s), 0);
+  s.tech.push('superContainers');
+  assert.equal(calculateContainerCapacity(s), 140);
+  assert.equal(calculateAlloyContainerCapacity(s), 65);
+  assert.equal(calculateAlloyContainerUnitCapacity(s), 1000);
+  for (const tech of ['steelContainers', 'reinforcedContainers', 'iridiumAlloyContainers'] as const) {
+    s.tech.push(tech);
+    assert.equal(calculateAlloyContainerUnitCapacity(s), 4 * calculateContainerUnitCapacity(s));
+  }
+  assert.equal(calculateAlloyContainerUnitCapacity(s), 10000);
+});
+
+test('alloy containers manufacture for 10 alloy, allocate independently, save and validate strictly', () => {
+  const s = createInitialState(29, 60, 0);
+  s.buildings.containerWarehouse = 1; s.buildings.factory = 1;
+  s.resources.alloy = 35;
+  assert.equal(createAlloyContainers(s, 10), 0);
+  s.tech.push('superContainers');
+  assert.equal(createAlloyContainers(s, 10), 3);
+  assert.equal(s.resources.alloy, 5);
+  assert.equal(changeAlloyContainerAssignment(s, 'wood', 10), 3);
+  assert.equal(s.containerAssignments.wood, 0);
+  assert.equal(changeAlloyContainerAssignment(s, 'oil', 1), 0);
+  assert.equal(changeAlloyContainerAssignment(s, 'wood', .5), 0);
+  const raw = JSON.parse(JSON.stringify(s));
+  validateStorageAssignments(raw, s);
+  assert.equal(s.alloyContainerAssignments.wood, 3);
+  assert.equal(changeAlloyContainerAssignment(s, 'wood', -10), -3);
+  assert.equal(s.alloyContainers, 3);
+  for (const value of [-1, .5, 11, null]) {
+    assert.throws(() => validateStorageAssignments({ ...raw, alloyContainers: value }, s), /合金集装箱/);
+  }
+  assert.throws(() => validateStorageAssignments({ ...raw, alloyContainerAssignments: null }, s), /合金集装箱/);
+  assert.throws(() => validateStorageAssignments({ ...raw, alloyContainerAssignments: { ...raw.alloyContainerAssignments, stone: 1 } }, s), /合金集装箱/);
+  delete raw.alloyContainers; delete raw.alloyContainerAssignments;
+  validateStorageAssignments(raw, s);
+  assert.equal(s.alloyContainers, 0);
+  assert.equal(s.alloyContainerAssignments.wood, 0);
+});
+
+test('alloy containers survive full JSON validation and clear on run reset', () => {
+  const s = createMilestoneState('ground', { extraTech: ['automatedStorage', 'superContainers', 'warehouseUpgrade', 'containerManagement'] });
+  s.buildings.containerWarehouse = 1;
+  s.alloyContainers = 2; s.alloyContainerAssignments.wood = 2;
+  const context = { now: 0, eventInterval: 60, housingCapacity: () => 1000, clampResources: () => {} };
+  const raw = JSON.parse(JSON.stringify(s));
+  const loaded = validateAndMigrateSave(raw, context);
+  assert.equal(loaded.alloyContainers, 2);
+  assert.equal(loaded.alloyContainerAssignments.wood, 2);
+  const snapshot = JSON.stringify(raw);
+  const reset = resetRunState(loaded, 'soft', 60, 1);
+  assert.ok(reset);
+  assert.equal(reset.next.alloyContainers, 0);
+  assert.equal(reset.next.alloyContainerAssignments.wood, 0);
+  assert.equal(JSON.stringify(raw), snapshot);
+});
+
 test('mithril rejects containers and legacy allocations return to the idle pool', () => {
   const state = createInitialState(29, 60, 0);
   state.buildings.spaceFactory = 1;
@@ -568,6 +714,30 @@ test('electrochemical smelting raises steel output without power upkeep even at 
     assert.equal(calculateResourceBreakdown('energy', state, after).net, 0);
     assert.equal(after.rates.iron, before.rates.iron);
     assert.equal(after.rates.coal, before.rates.coal);
+  }
+});
+
+test('原油精炼优化 is a T9 70k tech after 化学沉积工艺 and 石油存储', () => {
+  const tech = TECHNOLOGIES.crudeOilRefiningOptimization;
+  assert.deepEqual([tech.tier, tech.cost, [...tech.pre].sort()], [9, { knowledge: 70000 }, ['chemicalDeposition', 'oilStorage']]);
+});
+
+test('原油精炼优化 raises refinery base oil to 1.5/s and power to 2/s in real settlement', () => {
+  for (const dt of [.2, 1]) {
+    const state = createInitialState(29, 60, 0);
+    state.tech.push('oilTechnology'); state.buildings.refinery = 4;
+    state.resources.energy = 1e6;
+    assert.deepEqual([calculateBuildingOutput('refinery', state), calculateBuildingInput('refinery', state)], [{ oil: 1 }, { energy: .5 }]);
+    const before = calculateProduction(state, dt);
+    state.tech.push('crudeOilRefiningOptimization');
+    assert.deepEqual([calculateBuildingOutput('refinery', state), calculateBuildingInput('refinery', state)], [{ oil: 1.5 }, { energy: 2 }]);
+    const after = calculateProduction(state, dt);
+    assert.ok(Math.abs(after.rates.oil - 1.5 * before.rates.oil) < 1e-8, `oil ${after.rates.oil} vs ${before.rates.oil}`);
+    assert.ok(Math.abs((before.rates.energy - after.rates.energy) - 4 * 1.5) < 1e-8, 'four refineries draw 1.5 more power each');
+    // Power short: only the funded share of refineries runs at the new recipe.
+    state.resources.energy = 2 * 2 * dt;
+    const short = calculateProduction(state, dt);
+    assert.ok(Math.abs((short.inputUnits.refinery ?? 0) - 2) < 1e-8, `funded ${short.inputUnits.refinery}`);
   }
 });
 

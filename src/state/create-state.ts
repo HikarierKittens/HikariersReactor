@@ -4,6 +4,7 @@ import { RESOURCES, CRAFT_RECIPES, FACTORY_OPTIONS } from '../data/resources';
 import { createStatistics } from '../simulation/statistics';
 import { createGeneModificationState } from '../simulation/genes';
 import { createBlackHoleState } from '../simulation/black-hole';
+import { createAutoWorkersState } from '../simulation/auto-workers';
 import { DEFAULT_GAME_SETTINGS } from '../types/state';
 import type { GameState } from '../types/state';
 
@@ -17,6 +18,7 @@ function registryKeys<K extends string>(registry: Record<K, unknown>): K[] {
 
 export function createInitialState(version: number, eventIn: number, now: number): GameState {
   return {
+    autoWorkers: createAutoWorkersState(),
     stageThree: { coreActivated: false, probeCompleted: false, responseObserved: false, fieldStabilized: false, signalCompleted: false, transferCompleted: false, remoteLinked: false },
     story: { unlocked: [], read: [] },
     challenge: { genes: [], modes: [], story: null, particleBaseline: 0 },
@@ -34,6 +36,7 @@ export function createInitialState(version: number, eventIn: number, now: number
     monumentMaterial: 'stone', arpaQueueElapsed: 0, legacyRocketry: false,
     craftWorkers: zeroRecord(registryKeys(CRAFT_RECIPES)), version,
     containers: 0, containerAssignments: zeroRecord(registryKeys(RESOURCES)),
+    alloyContainers: 0, alloyContainerAssignments: zeroRecord(registryKeys(RESOURCES)),
     resources: zeroRecord(registryKeys(RESOURCES)),
     buildings: zeroRecord(registryKeys(BUILDINGS)),
     stoppedBuildings: zeroRecord(registryKeys(BUILDINGS)),

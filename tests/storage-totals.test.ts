@@ -39,6 +39,10 @@ function lateState(): GameState {
     nanotubes: 1, water: 1 });
   state.containerAssignments.wood = 3;
   state.containerAssignments.copper = 2;
+  state.tech.push('superContainers');
+  state.alloyContainers = 5;
+  state.alloyContainerAssignments.wood = 2;
+  state.alloyContainerAssignments.copper = 3;
   state.containerAssignments.mithril = 0;
   state.arpaBuildings.stockExchange = 2;
   state.arpaBuildings.geneSequencing = 1;

@@ -13,6 +13,7 @@ import { validateChallenges } from './validate-challenges';
 import { validateHistory } from './validate-history';
 import { validateStatistics } from './validate-stats';
 import { validateBlackHole } from './validate-black-hole';
+import { validateAutoWorkers } from './validate-auto-workers';
 import { validateProjectRecords } from './validate-projects';
 import { validateSaveSpaceship } from './validate-spaceship';
 import { validateSaveQueue } from './validate-queue';
@@ -97,6 +98,7 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
     }
   }
   state.settings = settings;
+  validateAutoWorkers(raw, state);
   // Load permanent modifiers before any cost/cap-dependent validation.
   validateCrispr(raw, state);
   // Gene levels scale base outputs and morale, so load them with the other modifiers.

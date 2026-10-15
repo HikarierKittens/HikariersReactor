@@ -12,10 +12,35 @@
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
 - 包管理：npm；生成式桥接脚本见 `scripts/generate-legacy-data.cjs`。
 
+### 工作自动分配
+
+- 周目字段 `autoWorkers` 保存总开关、岗位优先级和各岗位开关/人数上限（-1不限）。默认全部关闭，旧存档缺失时创建默认配置，版本仍为29；周目重置清空设置。
+- `simulation/auto-workers.ts` 使用规范有限岗位列表，复用 `calculateWorkerCapacity`，按优先级仅填充空闲人口，受实际岗位容量及自动人数上限共同限制；无限岗位不参与，不撤回或挪用已有工作猫。手动分配不受自动人数上限约束。
+- tick开始、生产结算前自动补员，tick末尾再处理新增人口与新建岗位。暂停游戏时不执行tick分配。UI修改配置后立即尝试补员，总开关关闭时停止并隐藏设置。
+- `CatsPanel.vue` 在原手动按钮右侧以竖线分隔自动开关与上限，右侧优先级列表支持HTML拖拽：本地 `dragPriority` 实时预览顺序，`TransitionGroup` 提供160ms位移动画；松手一次性提交完整优先级，取消拖拽恢复原序，不在悬停中触发补员。自动按钮固定显示「自动分配」，开启边框与设置页一致为 `#63b875`；尊重减少动态效果偏好。`App.vue` 通过模拟层命令更新配置。
+
 ### 基因修饰布局与新增基因
 
 - `GeneModificationPanel.vue` 每个碱基分组使用独立的4列 `.gene-grid`，不同类型不共享一行。面板宽度低于520px时通过容器查询降为2列（依据面板自身宽度，而非视口）。
 - 成熟加速（C，1%/级）乘入 `calculateGrowthMultiplier`。超频锻造（G）主加成2%/级经 `calculateOverclockCraftMultiplier` 乘入 `calculateCraftingMultiplier`（手动锻造与工匠共享）；`GeneDefinition.extra` 的1%/级只乘入工匠产出倍率，不改原料倍率。资源详情列出「超频锻造」与「超频锻造（工匠）」两行。
+
+### 超级集装箱与合金集装箱
+
+- `superContainers`：T8，51400知识，前置 `automatedStorage`。研究后 `calculateBuildingContainerCap` 将集装仓库普通上限改为25；`calculateBuildingAlloyContainerCap` 为集装仓库/格纳库分别返回10/15（均需科技），格纳库普通上限仍为30。
+- 新增周目字段 `alloyContainers` 与完整资源记录 `alloyContainerAssignments`。旧存档缺失时按0读取，显式非法值、超额数量/分配、不可分配资源均拒绝；存档版本仍为29。
+- 合金箱每个10合金，单箱储量=`calculateContainerUnitCapacity ×4`，因此钢/强化/铱合金集装箱升级即时影响所有已分配合金箱。`storage.ts` 的明细与批量上限路径均累加两种箱子，明细独列「合金集装箱」。
+- UI在普通列表右侧使用独立同样式列，窄屏横向滚动；制造、分配及撤回沿用普通箱快捷键，撤回立即执行储量截断。软/核爆/逃逸重置通过初始状态清空箱子及分配。
+
+### 原油精炼优化
+
+- 科技 `crudeOilRefiningOptimization`（tier 9，70k知识，`pre: ['chemicalDeposition', 'oilStorage']`）。`calculateRawBuildingOutput('refinery')` 返回 `{ oil: 1.5 }`，`calculateBuildingInput('refinery')` 返回 `{ energy: 2 }`；地面结算按该配方计算缺电开工比例，建筑悬停显示同一配方。
+
+### 基因合成
+
+- 科技 `geneSynthesis`（tier 11，200k知识，`pre: ['genetics']`，`arpaPre: 'geneSequencing'`）。`isGeneSynthesisUnlocked` 另需基因修饰已解锁（基因剪切+本周目基因测序）。
+- 速率存于 `geneModification.synthesis`（每碱基0–100整数百分比，互相独立，随周目重置）。旧存档缺省为0；DNA数量放宽为非负有限数以容纳小数产出。
+- `settleGeneSynthesis` 在 `calculateProduction` 中位于全部产出之后、质量喷射之前，按供电生物实验室数（`biologyUnits`）扣除知识：每座每1%为2000知识/s→0.01碱基/s；知识不足时所有碱基按同一比例缩减。`applyGeneSynthesis` 在tick中把产出计入DNA并记入知识消耗统计。知识详情显示「基因合成消耗」行。
+- UI：`BuildingsPanel.vue` 的生物科学实验室齿轮按钮打开 `GeneSynthesisModal.vue`，滑块交互同税率。
 
 ### 统计-特权页
 

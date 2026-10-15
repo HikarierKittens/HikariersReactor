@@ -73,17 +73,21 @@ function accumulateStorageRows(
     };
     for (const [resource, base] of Object.entries(bonuses) as [ResourceId, number][]) record(resource, base * count * freightMultiplier);
   }
-  const boxes = (isContainerAssignable(detailResource!, state) ? state.containerAssignments?.[detailResource!] || 0 : 0) * calculateContainerUnitCapacity(state);
-  if (boxes) {
-    if (totals) totals[detailResource!] = (totals[detailResource!] || 0) + boxes;
-    if (rows) rows.push({ name: '集装箱 ×' + formatNumber(state.containerAssignments[detailResource!]), value: boxes });
+  if (detailResource && isContainerAssignable(detailResource, state)) {
+    for (const [label, assignments, multiplier] of [['集装箱', state.containerAssignments, 1], ['合金集装箱', state.alloyContainerAssignments, 4]] as const) {
+      const count = assignments[detailResource] || 0;
+      const boxes = count * calculateContainerUnitCapacity(state) * multiplier;
+      if (!boxes) continue;
+      if (totals) totals[detailResource] = (totals[detailResource] || 0) + boxes;
+      if (rows) rows.push({ name: label + ' ×' + formatNumber(count), value: boxes });
+    }
   }
   if (!detailResource && totals) {
     // The batched ordinary pass must also carry container assignments for every
     // assignable resource, matching the per-resource detail rows exactly.
     for (const resource of Object.keys(RESOURCES) as ResourceId[]) {
       if (!isContainerAssignable(resource, state)) continue;
-      const assigned = state.containerAssignments?.[resource] || 0;
+      const assigned = (state.containerAssignments[resource] || 0) + 4 * (state.alloyContainerAssignments[resource] || 0);
       if (!assigned) continue;
       totals[resource] = (totals[resource] || 0) + assigned * calculateContainerUnitCapacity(state);
     }

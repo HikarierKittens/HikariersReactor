@@ -7,6 +7,8 @@ import { calculateProduction } from './production';
 import { advancePopulationGrowth, advanceStarvation, enforcePopulationCapacity } from './population';
 import { recordGameDays } from './statistics';
 import { applyMassEjection, BLACK_HOLE_UNSTABLE_LOG } from './black-hole';
+import { applyGeneSynthesis } from './genes';
+import { applyAutoWorkerAssignment } from './auto-workers';
 import type { GameState } from '../types/state';
 
 /** Transitional application hooks keep UI, queue notifications and previews outside simulation. */
@@ -20,12 +22,14 @@ export interface TickHooks {
 }
 export function advanceGameTick(state: GameState, dt: number, hooks: TickHooks): void {
   if (state.settings.paused || !Number.isFinite(dt) || dt <= 0) return;
+  applyAutoWorkerAssignment(state);
   advanceSoldierTraining(state, dt);
   state.happiness = hooks.happiness();
   const foodBefore = state.resources.food;
   const result = calculateProduction(state, dt);
   state.resources = result.pool;
   if (applyMassEjection(state, result.ejected, dt)) addLog(state, BLACK_HOLE_UNSTABLE_LOG, 'event');
+  applyGeneSynthesis(state, result.geneSynthesis, dt);
   const corePreviouslyActivated = state.stageThree.coreActivated;
   updateStageThreeProgress(state, result);
   updateStoryProgress(state);
@@ -43,6 +47,7 @@ export function advanceGameTick(state: GameState, dt: number, hooks: TickHooks):
   hooks.projects(dt);
   hooks.purchases();
   hooks.unlocks();
+  applyAutoWorkerAssignment(state);
   state.happiness = hooks.happiness();
 }
 export function simulateElapsed(seconds: number, tick: (dt: number) => void): void {

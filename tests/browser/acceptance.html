@@ -118,6 +118,34 @@ try {
   log(S().workers.forage === 1, '猫猫分配按钮实际增加工人');
   log(/^1\s*\//.test(plus.closest('.workers').querySelector('.worker-count').textContent.trim()), '同猫猫面板立即更新工人数量');
 
+  // Automation UI is independent of manual assignments and uses only idle cats.
+  const autoSnapshot = JSON.parse(JSON.stringify(S()));
+  store.mutate(state => { state.population = 5; state.buildings.forage = 10; state.buildings.school = 10; if (!state.tech.includes('writing')) state.tech.push('writing'); }); await flush();
+  log(!$('[data-auto-worker="forage"]'), '自动分配默认关闭并隐藏岗位配置');
+  click($('[data-auto-workers-toggle]')); await flush();
+  log(!!$('[data-auto-worker="forage"]') && !$('[data-auto-worker="lumber"]'), '总开关打开后显示有限岗位自动设置，不显示无限岗位');
+  const autoLimit = $('[data-auto-worker-limit="forage"]');
+  autoLimit.value = '2'; autoLimit.dispatchEvent(new Event('input', { bubbles: true })); autoLimit.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+  click($('[data-auto-worker="forage"]')); await flush();
+  log(S().workers.forage === 2 && S().autoWorkers.jobs.forage.limit === 2, '岗位自动开关立即补员至设定上限');
+  const prioritySchool = $('[data-auto-priority="school"]'), priorityForage = $('[data-auto-priority="forage"]');
+  const dragData = new DataTransfer();
+  prioritySchool.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dragData }));
+  priorityForage.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dragData }));
+  await flush();
+  log($$('[data-auto-priority]')[0].dataset.autoPriority === 'school' && S().autoWorkers.priority[0] === 'forage', '拖动中实时预览新排序但松手前不修改实际优先级');
+  priorityForage.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dragData })); await flush();
+  log($('[data-auto-worker="forage"]').textContent === '自动分配' && getComputedStyle($('[data-auto-worker="forage"]')).borderTopColor === 'rgb(99, 184, 117)', '自动分配按钮使用固定文字和设置页同款绿色开启边框');
+  log(S().autoWorkers.priority.indexOf('school') < S().autoWorkers.priority.indexOf('forage'), '拖拽优先级列表调整岗位顺序');
+  const committedPriority = JSON.stringify(S().autoWorkers.priority);
+  priorityForage.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dragData }));
+  prioritySchool.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dragData })); await flush();
+  priorityForage.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dragData })); await flush();
+  log(JSON.stringify(S().autoWorkers.priority) === committedPriority && $$('[data-auto-priority]')[0].dataset.autoPriority === 'school', '取消拖拽恢复已保存顺序，不改变自动分配优先级');
+  click($('[data-auto-workers-toggle]')); await flush();
+  log(!S().autoWorkers.enabled && !$('[data-auto-worker="forage"]'), '关闭总开关停止自动分配并隐藏配置');
+  store.mutate(state => { Object.assign(state, autoSnapshot); }); await flush();
+
   // Real-time date refresh, without remounting or changing tabs.
   store.mutate(state => { state.time = 4; }); await flush();
   const beforeDate = $('.game-date').textContent;
@@ -269,6 +297,17 @@ try {
     return Math.abs((name.top + name.bottom) / 2 - (button.top + button.bottom) / 2) < 2 && row.getBoundingClientRect().height < 48;
   };
   log(inlineRow($('[data-container-row="wood"]')), '集装箱资源名称和按钮同一行且行高紧凑');
+  log(!$('#manufactureAlloyContainers'), '未研究超级集装箱时隐藏合金集装箱列表');
+  store.mutate(state => { state.tech.push('superContainers'); state.resources.alloy = 100; }); await flush();
+  modifiedClick($('#manufactureAlloyContainers'), { ctrlKey: true }); await flush();
+  log(S().alloyContainers === 10 && S().resources.alloy === 0, 'Ctrl制造10合金集装箱消耗100合金');
+  modifiedClick($('[data-alloy-container-resource="wood"][data-delta="1"]'), { ctrlKey: true }); await flush();
+  log(S().alloyContainerAssignments.wood === 10 && S().containerAssignments.wood === 0, '合金集装箱独立分配，不影响普通集装箱');
+  const ordinaryRect = $('[data-container-row="wood"]').getBoundingClientRect();
+  const alloyRect = $('[data-alloy-container-row="wood"]').getBoundingClientRect();
+  log(alloyRect.left > ordinaryRect.right && Math.abs(alloyRect.top - ordinaryRect.top) < 2 && inlineRow($('[data-alloy-container-row="wood"]')), '合金配置列表位于普通列表右侧、同行且样式紧凑');
+  modifiedClick($('[data-alloy-container-resource="wood"][data-delta="-1"]'), { shiftKey: true }); await flush();
+  log(S().alloyContainerAssignments.wood === 0 && S().alloyContainers === 10, '合金集装箱撤回不销毁');
   store.mutate(state => { state.buildings.massEjector = 1; }); await flush();
   click($('[data-resource-view="massEjection"]')); await flush();
   log(inlineRow($('[data-eject-row="wood"]')) && getComputedStyle($('[data-eject-row="wood"]')).whiteSpace === 'nowrap', '质量喷射名称说明和按钮紧凑单行显示');
@@ -798,6 +837,17 @@ try {
       log($('[data-dna="C"]')?.textContent === 'C-10', '资源栏DNA数量实时更新');
       click($('[data-gene-upgrade="goodCat"]')); await flush();
       log(S().geneModification.levels.goodCat === 1 && S().geneModification.dna.C === 0 && $('[data-gene-level="goodCat"]')?.textContent === 'Lv.1' && $('[data-gene="goodCat"] [data-gene-cost]')?.dataset.geneCost === '20', '好猫基因升级消耗10个C，下一级价格翻倍为20');
+      // 基因合成: lab gear opens a slider panel only after the tech.
+      store.mutate(state => { state.buildings.biologyLab = Math.max(1, state.buildings.biologyLab); state.stoppedBuildings.biologyLab = 0; });
+      click($('[data-tab="buildings"]')); $('[data-world-view="home"]')?.click(); await flush();
+      log(!!$('[data-buy="biologyLab"]') && !$('[data-synthesis-settings]'), '未研究基因合成时生物科学实验室无配置按钮');
+      store.mutate(state => { state.tech.push('geneSynthesis'); }); await flush();
+      click($('[data-synthesis-settings]')); await flush();
+      const sliders = $$('#geneSynthesisModal input[type="range"][data-synthesis-rate]');
+      log(sliders.length === 4 && sliders.every(input => input.value === '0' && input.max === '100'), '基因合成面板含4个独立滑块且默认0%');
+      const slider = $('[data-synthesis-rate="G"]'); slider.value = '10'; slider.dispatchEvent(new Event('input', { bubbles: true })); await flush();
+      log(S().geneModification.synthesis.G === 10 && S().geneModification.synthesis.C === 0 && $('[data-synthesis-value="G"]')?.textContent === '10%', '拖动滑块设置G合成速率为10%且不影响其他碱基');
+      $('#geneSynthesisModal')?.close(); $('#geneSynthesisModal')?.dispatchEvent(new Event('cancel')); await flush();
     } catch (error) {
       log(false, `CRISPR回归异常：${errorText(error)}`);
     } finally {
@@ -896,6 +946,8 @@ try {
   // Exercise the shared, real TooltipPanel for every building, not just unlocked cards.
   // A temporary anchor uses the same delegated pointer listener as the live UI.
   const { BUILDINGS } = await import('/src/data/buildings.ts');
+  // Pause so the app's real 200ms timer cannot tick between restore and comparison.
+  store.mutate(state => { state.settings.paused = true; });
   const tooltipState = JSON.parse(JSON.stringify(S()));
   const tooltipAnchor = document.createElement('button');
   tooltipAnchor.type = 'button'; tooltipAnchor.textContent = 'tooltip layout fixture';
@@ -960,6 +1012,7 @@ try {
     await flush();
   }
   log(JSON.stringify(S()) === JSON.stringify(tooltipState), '全建筑悬停布局夹具恢复原游戏状态');
+  store.mutate(state => { state.settings.paused = false; });
   log($$('.app').length === 1, '所有验收均在同一次应用挂载中完成');
 } catch (error) {
   log(false, `异常：${errorText(error)}`);

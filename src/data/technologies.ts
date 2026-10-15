@@ -122,6 +122,7 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
     housing: { name: '住宅楼', era: 2, desc: '解锁住宅楼，每座增加5猫口容量。', cost: { knowledge: 600, stone: 160 }, pre: ['electricity'] },
     storage: { name: '存储', era: 0, desc: '解锁仓库，每座为木材、石头、毛皮、铜、铁、铝、水泥、煤、钢各增加250储量，不包含猫粮。', cost: { knowledge: 50 }, pre: ['writing'] },
     automatedStorage: { name: '自动化存储', era: 3, desc: '解锁高级存储枢纽，每座为木材、石头、毛皮、铜、铁、铝、水泥、煤、钢、钛、合金各增加1000储量，不包含猫粮、现金、石油、铀或特殊资源。', cost: { knowledge: 1800, metal: 250, copper: 100 }, pre: ['automation'] },
+    superContainers: { name: '超级集装箱', era: 3, tier: 8, knowledgeCost: 51400, cost: { knowledge: 51400 }, pre: ['automatedStorage'], desc: '集装仓库的普通集装箱上限提升至25，并提供10合金集装箱上限；每座格纳库提供15合金集装箱上限。合金集装箱每个消耗10合金，储量为普通集装箱的4倍，同享集装箱科技加成。' },
     warehouseUpgrade: { name: '仓库升级', era: 2, tier: 5, desc: '每座仓库为木材、石头、毛皮、铜、铁、铝、水泥、煤、钢提供的储量提升至500，并为钛和合金各提供500储量；不增加猫粮储量，也不影响高级存储枢纽。', cost: { knowledge: 5000, metal: 1000 }, pre: ['metallurgy'] },
     music: { name: '音乐节', era: 0, desc: '解锁剧场与艺术家岗位。', cost: { knowledge: 50 }, pre: ['writing'] },
     broadcasting: { name: '喵喵广播', era: 2, desc: '解锁广播塔，以喵能提供士气。', cost: { knowledge: 500 }, pre: ['electricity'] },
@@ -143,6 +144,7 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
     metallurgy: { name: '冶金', era: 2, desc: '解锁冶炼厂与钢。', cost: { knowledge: 650 }, pre: ['coalMining'] },
     syntheticFur: { name: '人造毛皮', era: 4, tier: 11, knowledgeCost: 140000, desc: '工厂开设了新的毛皮生产线', cost: { knowledge: 140000, polymer: 1000 }, pre: ['polymer'] },
     chemicalDeposition: { name: '化学沉积工艺', era: 3, tier: 8, knowledgeCost: 50000, desc: '新的化学工艺增加了工厂的生产效率20%', cost: { knowledge: 50000, alloy: 1000 }, pre: ['electrochemicalSmelting', 'automation'] },
+    crudeOilRefiningOptimization: { name: '原油精炼优化', era: 4, tier: 9, knowledgeCost: 70000, cost: { knowledge: 70000 }, pre: ['chemicalDeposition', 'oilStorage'], desc: '石油精炼厂基础产量由1石油/s提升至1.5石油/s，耗电由0.5/s提升至2/s。' },
     automatedEngineering: { name: '自动化工程机械', era: 4, tier: 9, knowledgeCost: 80000, desc: '新机器增加工厂的速度30%，当然材料需求也会增加', cost: { knowledge: 80000, alloy: 1000 }, pre: ['chemicalDeposition'] },
     intelligentFactory: { name: '智能化工厂', era: 4, tier: 11, knowledgeCost: 140000, desc: '基础人工智能替代了部分工作，工厂的产量与原料消耗+50%', cost: { knowledge: 140000, alloy: 2000 }, pre: ['automatedEngineering', 'artificialIntelligence'] },
     oxygenConverter: { name: '氧气转炉', era: 4, tier: 9, knowledgeCost: 76000, desc: '持续供氧使其完全燃烧，冶炼效率+20%', cost: { knowledge: 76000, coal: 1000 }, pre: ['electrochemicalSmelting'] },
@@ -160,6 +162,7 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
     internet: { name: '互联网', era: 3, tier: 8, desc: '学校与图书馆提供的知识容量增加50%。', cost: { knowledge: 47500 }, pre: ['electronics'] },
     biologicalScience: { name: '生物科学', era: 4, tier: 9, desc: '解锁生物实验室。', cost: { knowledge: 75000 }, pre: ['internet'] },
     genetics: { name: '遗传学', era: 4, tier: 10, desc: '开放A.R.P.A遗传学标签页，后续项目敬请期待。', cost: { knowledge: 105000 }, pre: ['biologicalScience', 'arpa'] },
+    geneSynthesis: { name: '基因合成', era: 4, tier: 11, knowledgeCost: 200000, cost: { knowledge: 200000 }, pre: ['genetics'], arpaPre: 'geneSequencing', desc: '需要完成基因测序；生物科学实验室可配置4种DNA碱基的合成速率（需要基因剪切）' },
     dataCenter: { name: '数据中心', era: 4, desc: '解锁数据中心建筑，提升知识产量并扩展知识储量。', cost: { "knowledge": 30100, "alloy": 1290, "energy": 3440 }, pre: ['electronics'] },
     spaceflight: { name: '太空航行', era: 4, tier: 11, knowledgeCost: 135000, desc: '需先研究火箭学并建成火箭发射平台；研究后开放世界的太空页。', cost: { knowledge: 135000, oil: 8000 }, pre: ['rocketry'], arpaPre: 'rocketPlatform' }
 };

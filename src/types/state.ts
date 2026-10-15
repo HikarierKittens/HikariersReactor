@@ -18,7 +18,13 @@ export interface BlackHoleState {
 export type DnaId = 'C' | 'G' | 'A' | 'T';
 export type GeneId = 'goodCat' | 'hardWorking' | 'maturationAcceleration' | 'superWorkshop' | 'perfectionism' | 'overclockForging' | 'titanPower' | 'advancedScience' | 'catCohesion' | 'kinoFire';
 /** Run-scoped gene modification: DNA stock and gene levels reset with every run. */
-export interface GeneModificationState { dna: Record<DnaId, number>; levels: Record<GeneId, number> }
+export interface GeneModificationState {
+  /** DNA stock; 基因合成 produces fractional amounts. */
+  dna: Record<DnaId, number>;
+  levels: Record<GeneId, number>;
+  /** 基因合成 rate per base, integer percent 0–100 of each 生物科学实验室. */
+  synthesis: Record<DnaId, number>;
+}
 export type GovernmentId = 'none' | 'democracy' | 'militaryRule' | 'oligarchy' | 'technocracy' | 'industrialism';
 export type ArpaProjectId = 'rocketPlatform' | 'monument' | 'geneSequencing' | 'stockExchange' | 'arpaResearchInstitute' | 'deepSpaceInterferometer' | 'deepSpaceLab' | 'remoteAnchor';
 export type ShipComponentId = 'hull' | 'energyCore' | 'computer' | 'ecosystem' | 'electromagneticEngine' | 'fuel';
@@ -68,7 +74,19 @@ export type StoryChapterId = 'firstShelter' | 'beyondStone' | 'sleeplessCity' | 
 export interface StoryArchive { unlocked: StoryChapterId[]; read: StoryChapterId[] }
 
 export interface StageThreeState { coreActivated: boolean; probeCompleted: boolean; responseObserved: boolean; fieldStabilized: boolean; signalCompleted: boolean; transferCompleted: boolean; remoteLinked: boolean; }
+export interface AutoWorkerJobState {
+  enabled: boolean;
+  /** -1 fills every available physical slot; nonnegative values cap total assigned workers. */
+  limit: number;
+}
+export interface AutoWorkersState {
+  enabled: boolean;
+  priority: BuildingId[];
+  jobs: Partial<Record<BuildingId, AutoWorkerJobState>>;
+}
+
 export interface GameState {
+  autoWorkers: AutoWorkersState;
   stageThree: StageThreeState;
   story: StoryArchive;
   challenge: ChallengeState;
@@ -99,6 +117,8 @@ export interface GameState {
   craftWorkers: Record<CraftId, number>;
   containers: number;
   containerAssignments: ResourceAmounts;
+  alloyContainers: number;
+  alloyContainerAssignments: ResourceAmounts;
   resources: ResourceAmounts;
   buildings: Record<BuildingId, number>;
   stoppedBuildings: Record<BuildingId, number>;

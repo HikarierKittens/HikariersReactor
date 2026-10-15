@@ -1,5 +1,5 @@
 import { DNA_BASE_IDS, GENE_DEFINITIONS } from '../data/genes';
-import { MAX_GENE_LEVEL, createGeneModificationState } from '../simulation/genes';
+import { MAX_GENE_LEVEL, MAX_GENE_SYNTHESIS_RATE, createGeneModificationState } from '../simulation/genes';
 import { PRESTIGE_RESOURCE_IDS, syncPrestigeUnlocks } from '../simulation/prestige-unlocks';
 import type { GameState, GeneId, PrestigeResourceId } from '../types/state';
 
@@ -33,13 +33,19 @@ export function validateGeneModification(raw: Record<string, unknown>, state: Ga
   if (raw.geneModification === undefined) { state.geneModification = fresh; return; }
   const source = geneSaveObject(raw.geneModification, '基因修饰记录');
   const dna = geneSaveObject(source.dna ?? {}, 'DNA记录'), levels = geneSaveObject(source.levels ?? {}, '基因等级');
-  if (Object.keys(source).some(key => key !== 'dna' && key !== 'levels')
-    || Object.keys(dna).some(key => !(DNA_BASE_IDS as readonly string[]).includes(key))
+  const synthesis = geneSaveObject(source.synthesis ?? {}, '基因合成速率');
+  const isBase = (key: string) => (DNA_BASE_IDS as readonly string[]).includes(key);
+  if (Object.keys(source).some(key => key !== 'dna' && key !== 'levels' && key !== 'synthesis')
+    || Object.keys(dna).some(key => !isBase(key)) || Object.keys(synthesis).some(key => !isBase(key))
     || Object.keys(levels).some(key => !Object.hasOwn(GENE_DEFINITIONS, key))) throw Error('基因修饰记录无效。');
   for (const id of DNA_BASE_IDS) {
+    // 基因合成 produces fractional DNA; crafting and upgrades keep whole amounts.
     const amount = dna[id] ?? 0;
-    if (!Number.isSafeInteger(amount) || (amount as number) < 0) throw Error('DNA数量无效。');
-    fresh.dna[id] = amount as number;
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0 || amount > Number.MAX_SAFE_INTEGER) throw Error('DNA数量无效。');
+    fresh.dna[id] = amount;
+    const rate = synthesis[id] ?? 0;
+    if (!Number.isSafeInteger(rate) || (rate as number) < 0 || (rate as number) > MAX_GENE_SYNTHESIS_RATE) throw Error('基因合成速率无效。');
+    fresh.synthesis[id] = rate as number;
   }
   for (const id of Object.keys(GENE_DEFINITIONS) as GeneId[]) {
     const level = levels[id] ?? 0;

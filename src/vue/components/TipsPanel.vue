@@ -4,12 +4,13 @@ import type { GameState } from '../../types/state';
 import type { ResourceId } from '../../types/economy';
 import { RESOURCES } from '../../data/resources';
 import { CONFIG } from '../../data/config';
-import { calculateContainerUnitCapacity, calculateContainerRecipe } from '../../simulation/containers';
+import { calculateContainerUnitCapacity, calculateContainerRecipe, calculateAlloyContainerUnitCapacity } from '../../simulation/containers';
 import { fmt } from '../format';
 
 const props = defineProps<{ state: GameState; revision: number }>();
 
 const unitCapacity = computed(() => { props.revision; return calculateContainerUnitCapacity(props.state); });
+const alloyUnitCapacity = computed(() => { props.revision; return calculateAlloyContainerUnitCapacity(props.state); });
 const recipeText = computed(() => {
   props.revision;
   return Object.entries(calculateContainerRecipe(props.state))
@@ -23,6 +24,8 @@ const recipeText = computed(() => {
     <section>
       <h3>集装箱</h3>
       <p>每个集装箱当前提供 {{ fmt(unitCapacity) }} 储量，制造消耗 {{ recipeText }}。钢集装箱科技会立即升级所有已有集装箱，包括已分配的集装箱；不改变可分配资源种类。</p>
+      <p>超级集装箱科技解锁合金集装箱，在普通集装箱列表右侧独立制造与分配，每个消耗10合金，提供普通集装箱4倍储量（当前 {{ fmt(alloyUnitCapacity) }}）。已有普通集装箱不转换，也不占用合金集装箱名额。科技完成后，每座集装仓库提供25个普通名额与10个合金名额；每座格纳库保留30个普通名额，另提供15个合金名额。</p>
+      <p>两类集装箱的可分配资源与批量快捷键相同。撤回只解除分配，不销毁集装箱；撤回后超过新储量上限的资源会立即丢失。</p>
     </section>
 
     <section>
