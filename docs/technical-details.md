@@ -92,8 +92,8 @@
 
 ### 资源显示精度
 
-- `src/shared/format.ts` 的 `formatResourceNumber` 专供资源库存、上限与速率：显示最多2位小数（缩写单位同样适用），去除尾零和负零；使用 `floorWithPrecision` 修正二进制机器尾差而不虚增真实库存。
-- `signedRate` 与资源列表/储量明细共享该格式。普通价格、人口计数等仍用原 `formatNumber`，黑洞质量保留8位。
+- `src/shared/format.ts` 的 `formatResourceNumber` 专供资源库存与上限：显示最多2位小数（缩写单位同样适用），去除尾零和负零；使用 `floorWithPrecision` 修正二进制机器尾差而不虚增真实库存。
+- `signedRate` 改用独立的 `formatRateNumber`：净产量和收支明细统一舍入至两位小数，消除库存相减尾差导致20/19.99跳变；库存及容量仍向下截断。普通价格、人口计数等仍用原 `formatNumber`，黑洞质量保留8位。
 - 显示精度不写回模拟或存档，资源结算保留完整精度，避免小额产出逐tick丢失。
 
 ### 政府改革效果预览

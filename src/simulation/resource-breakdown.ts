@@ -16,7 +16,7 @@ import { calculateGovernmentMultiplier, calculateTaxBase, calculateBankerMultipl
 import { calculateFoundryMultiplier, calculateStellarForgeCraftMultiplier, calculateOverclockCraftMultiplier } from './crafting';
 import { geneExtraBonus } from './genes';
 import { CONFIG } from '../data/config';
-import { formatNumber, formatResourceNumber } from '../shared/format';
+import { formatNumber, formatRateNumber } from '../shared/format';
 import type { BuildingId } from '../types/buildings';
 import type { ResourceId } from '../types/economy';
 import type { GameState } from '../types/state';
@@ -188,7 +188,7 @@ export interface FactorRows { rows: FactorRow[] }
 
 /** Signed per-second rate text, matching the tooltip formatting exactly. */
 export function signedRate(n: number): string {
-  const text = formatResourceNumber(Math.abs(n));
+  const text = formatRateNumber(Math.abs(n));
   return (n < 0 && text !== '0' ? '−' : '+') + text + '/s';
 }
 

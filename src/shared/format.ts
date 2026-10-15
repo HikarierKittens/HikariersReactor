@@ -12,7 +12,17 @@ export function formatEffectNumber(value: number): string {
   return text === '-0' ? '0' : text.replace(/^-/, '−');
 }
 
-/** Resource amounts and rates retain two fractional digits, including compact units.
+/** Rates are measurements, not spendable balances: round independently of inventory. */
+export function formatRateNumber(value: number): string {
+  if (!Number.isFinite(value)) return value === Infinity ? '∞' : '0';
+  const magnitude = Math.abs(value);
+  const units: readonly (readonly [number, string])[] = [[1e15, 'P'], [1e12, 'T'], [1e9, 'G'], [1e6, 'M'], [1e3, 'K']];
+  const [scale, suffix] = magnitude >= 10000 ? units.find(([scale]) => magnitude >= scale)! : [1, ''];
+  const text = (magnitude / scale).toFixed(2).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
+  return (value < 0 && text !== '0' ? '−' : '') + text + suffix;
+}
+
+/** Resource amounts retain two fractional digits, including compact units.
  * Display truncates spendable stock rather than claiming a rounded-up balance.
  * Only machine representation noise at a decimal boundary is snapped. */
 export function formatResourceNumber(value: number): string {
