@@ -349,16 +349,29 @@ test('display-only history stays tolerant while unknown settings reject', () => 
   assert.deepEqual(restored.logs, [{ text: 'retained', time: 0, type: 'progress' }]);
 });
 
+test('protected export preserves malformed raw bytes and can retry a failed storage read', t => {
+ const env=environment(t), text='  { broken old save\n'; env.writes.set(CONFIG.saveKey,text);
+ const runtime=createRuntime();runtime.load();
+ env.failRead=true;assert.equal(runtime.exportProtectedSave(),text);
+ assert.equal(env.saves,0);assert.equal(runtime.saveBlocked,true);
+ const retry=createRuntime();retry.load();
+ assert.throws(()=>retry.exportProtectedSave(),/无法读取/);
+ env.failRead=false;assert.equal(retry.exportProtectedSave(),text);
+ assert.equal(env.writes.get(CONFIG.saveKey),text);
+});
+
 for(const version of [12,29,30])test(`incompatible v${version} guides hard reset and protects original until successful persistence`,t=>{
  const env=environment(t),raw=JSON.stringify({...env.state(),version});env.writes.set(CONFIG.saveKey,raw);
  const runtime=createRuntime();runtime.load();
  assert.equal(runtime.saveBlocked,true);assert.equal(runtime.saveFailed,true);
  const guidance=runtime.state.logs.map(row=>row.text).join(' ');
- for(const text of ['beta 0.6.0','设置','硬重置','完全清空'])assert.ok(guidance.includes(text),text);
+ for(const text of ['beta 0.6.0','设置','硬重置','完全清空','导出不兼容的旧版本存档'])assert.ok(guidance.includes(text),text);
  env.advance(20);runtime.tick(.2);assert.equal(runtime.save(),false);assert.equal(runtime.reset('soft'),false);
  assert.equal(env.saves,0);assert.equal(env.writes.get(CONFIG.saveKey),raw);
+ assert.equal(runtime.exportProtectedSave(),raw);assert.equal(runtime.saveBlocked,true);assert.equal(env.saves,0);
  env.failWrite=true;assert.equal(runtime.reset('hard'),false);assert.equal(runtime.saveBlocked,true);assert.equal(env.writes.get(CONFIG.saveKey),raw);
  assert.ok(runtime.state.logs.some(row=>row.text.includes('新存档写入失败')));
  env.failWrite=false;assert.equal(runtime.reset('hard'),true);assert.equal(runtime.saveBlocked,false);assert.equal(runtime.saveFailed,false);
+ assert.throws(()=>runtime.exportProtectedSave(),/未处于保护模式/);
  const saved=JSON.parse(env.writes.get(CONFIG.saveKey)!);assert.equal(saved.version,CONFIG.version);assert.equal(saved.time,0);assert.equal(saved.prestige.particles,0);
 });

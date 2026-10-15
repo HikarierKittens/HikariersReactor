@@ -32,6 +32,8 @@ export function calculateGrantedJobSlots(id: BuildingId, state: Pick<GameState, 
   return JOB_SLOT_GRANTERS.reduce((sum, granter) => sum + (state.buildings[granter] || 0) * (BUILDINGS[granter].jobSlots?.[id] || 0), 0);
 }
 export function calculateToolMultiplier(id: BuildingId, state: Pick<GameState, 'tech'>): number {
+  if (state.tech.includes('alloyDrill') && (id === 'quarry' || id === 'mine' || id === 'coalMine')) return 2;
+  if (id === 'lumber' && state.tech.includes('alloyChainsaw')) return 2;
   if (id === 'coalMine') return state.tech.includes('steelTools') ? 1.5 : 1;
   return TOOL_JOBS.includes(id) ? state.tech.includes('steelTools') ? 1.5 : state.tech.includes('ironTools') ? 1.25 : 1 : 1;
 }
@@ -70,6 +72,7 @@ function calculateRawBuildingOutput(id: BuildingId, state: GameState, inputs: Pr
   if (id === 'catCafe') return { cash: 5 + Math.floor(state.population / 10) * 5 };
   if (id === 'touristCenter') return { cash: calculateTouristBase(state, inputs) };
   const building = BUILDINGS[id], output = building.workerOutput || building.output || {};
+  if (id === 'cementWorkshop' && state.tech.includes('silicateCement')) return { ...output, cement: (output.cement || 0) * 1.5 };
   if (id === 'smelter') return { ...output, metal: ((state.tech.includes('electrochemicalSmelting') ? 1 : output.metal || 0) + (state.tech.includes('quantumTunnelingThermalProcessing') ? .1 : 0)) * (state.tech.includes('oxygenConverter') ? 1.2 : 1) * (state.tech.includes('geothermalFurnace') ? 1.5 : 1) };
   if (state.tech.includes('plasmaMining')) {
     if (id === 'iridiumMiningShip') return { iridium: .15 };

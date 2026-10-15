@@ -31,6 +31,8 @@ export interface Runtime {
   /** Parsing/validation errors throw for callers to display; false means persistence failed. */
   importSave: (text: string) => boolean;
   exportSave: () => string;
+  /** Returns the untouched protected storage text, never the temporary game. */
+  exportProtectedSave: () => string;
   save: () => boolean;
   load: () => void;
   tick: (dt: number) => void;
@@ -45,6 +47,7 @@ export function createRuntime(): Runtime {
   let saveFailed = false;
   let saveBlocked = false;
   let loaded = false;
+  let protectedSaveText: string | null = null;
 
   function capacity(candidate: GameState = state): number {
     const { asriel, stageThree } = calculateSupportPreview(candidate);
@@ -111,7 +114,7 @@ export function createRuntime(): Runtime {
       raw = localStorage.getItem(CONFIG.saveKey);
     } catch {
       saveFailed = saveBlocked = true;
-      addLog(state, '无法读取本地存档，已暂停保存。', 'system');
+      addLog(state, '无法读取本地存档，已进入保护模式。可在「设置」点击「导出不兼容的旧版本存档」尝试备份；若仍无法读取，请先检查浏览器存储权限。', 'system');
       return;
     }
     if (raw === null) {
@@ -123,7 +126,8 @@ export function createRuntime(): Runtime {
       state = validate(JSON.parse(raw));
     } catch {
       saveFailed = saveBlocked = true;
-      addLog(state, '检测到不兼容或损坏的存档。新版 beta 0.6.0 不支持过去版本存档，当前已进入保护模式，原存档不会被自动覆盖。请前往「设置」执行「硬重置」并确认：这会完全清空游戏存档，重新开始；新档保存成功后退出保护模式。', 'system');
+      protectedSaveText = raw;
+      addLog(state, '检测到不兼容或损坏的存档。新版 beta 0.6.0_refresh 不支持过去版本存档，已进入保护模式，原存档不会被自动覆盖。请先前往「设置」点击「导出不兼容的旧版本存档」备份原档；再执行「硬重置」并确认：这会完全清空游戏存档，重新开始；新档保存成功后退出保护模式。', 'system');
       return;
     }
     // No offline catch-up: time while the page was closed is never settled.
@@ -163,6 +167,19 @@ export function createRuntime(): Runtime {
     return replaceState(JSON.parse(text));
   }
 
+  function exportProtectedSave(): string {
+    if (!saveBlocked) throw Error('当前未处于保护模式。');
+    if (protectedSaveText !== null) return protectedSaveText;
+    try {
+      const text = localStorage.getItem(CONFIG.saveKey);
+      if (text === null) throw Error('没有可导出的旧存档。');
+      protectedSaveText = text;
+      return text;
+    } catch {
+      throw Error('无法读取被保护的旧存档，请检查浏览器存储权限；未导出临时新游戏。');
+    }
+  }
+
   function exportSave(): string {
     // lastSaved is kept as save metadata only; loading never replays time from it.
     return JSON.stringify({ ...state, lastSaved: Date.now() }, null, 2);
@@ -195,6 +212,7 @@ export function createRuntime(): Runtime {
     replaceState,
     importSave,
     exportSave,
+    exportProtectedSave,
     save,
     load,
     tick,

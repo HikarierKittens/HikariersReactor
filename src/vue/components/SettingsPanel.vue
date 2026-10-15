@@ -24,7 +24,7 @@ const GAME_SETTING_HINTS = {
   touchOptimization: '开启为触摸屏设计的UI交互优化',
 } as const;
 
-const props = defineProps<{ state: GameState; revision: number }>();
+const props = defineProps<{ state: GameState; revision: number; saveBlocked?: boolean; exportProtectedSave?: () => string }>();
 // Emitting a request is not proof of persistence or state replacement. The
 // owner reports the actual result, including a successful load but failed save.
 const emit = defineEmits<{
@@ -63,6 +63,18 @@ function exportSave(): void {
     showStatus(`已生成 ${text.length} 字符的存档 JSON，请复制下面的内容备份。`, 'positive');
   } catch (error) {
     showStatus(`导出失败：${error instanceof Error ? error.message : String(error)}`, 'negative');
+  }
+}
+
+function exportOldSave(): void {
+  if (pending.value || !props.saveBlocked) return;
+  try {
+    if (!props.exportProtectedSave) throw Error('旧存档导出不可用。');
+    importText.value = props.exportProtectedSave();
+    confirmReset.value = null;
+    showStatus(`已原样导出被保护的旧存档（${importText.value.length}字符），请复制文本框内容备份。保护模式保持开启；当前版本不能导入此旧档。`, 'positive');
+  } catch (error) {
+    showStatus(`旧存档导出失败：${error instanceof Error ? error.message : String(error)}`, 'negative');
   }
 }
 
@@ -141,6 +153,7 @@ function cancelReset(): void {
       <h3>导入存档</h3>
       <textarea id="importSaveText" class="import-box" rows="6" placeholder="粘贴导出的存档 JSON" :disabled="pending" v-model="importText"></textarea>
       <div class="actions">
+        <button id="exportProtectedSave" :disabled="pending || !saveBlocked" @click="exportOldSave">导出不兼容的旧版本存档</button>
         <button id="exportSave" :disabled="pending" @click="exportSave">导出存档</button>
         <button id="importSave" :disabled="pending || !importText.trim()" @click="importSave">导入</button>
       </div>

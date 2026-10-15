@@ -1126,6 +1126,13 @@ try {
       if (!tip || tip.querySelector('h3')?.textContent !== expectedBuildingTitle) {
         tooltipFailures.push(`${id}: real tooltip did not render`); continue;
       }
+      if (BUILDINGS[id].max === 1 && tip.querySelector('.tip-cost')) tooltipFailures.push(`${id}: completed one-off still quotes cost`);
+      if (BUILDINGS[id].max === 1) {
+        store.mutate(state => { state.buildings[id] = 0; }); await flush();
+        if (!tip.querySelector('.tip-cost')) tooltipFailures.push(`${id}: unbuilt one-off missing cost`);
+        store.mutate(state => { state.buildings[id] = 1; }); await flush();
+        if (tip.querySelector('.tip-cost')) tooltipFailures.push(`${id}: built one-off still quotes cost`);
+      }
       for (const width of [242, 180]) {
         tip.style.width = `${width}px`;
         const bounds = tip.getBoundingClientRect();
@@ -1164,7 +1171,36 @@ try {
   }
   log(JSON.stringify(S()) === JSON.stringify(tooltipState), '全建筑悬停布局夹具恢复原游戏状态');
   store.mutate(state => { state.settings.paused = false; });
-  log($$('.app').length === 1, '所有验收均在同一次应用挂载中完成');
+  log($$('.app').length === 1, '主游戏验收在同一次应用挂载中完成');
+  {
+    const snapshot = structuredClone(S());
+    store.mutate(state => { state.settings.paused = true; });
+    const { storageSnapshot } = await import('/src/vue/format.ts');
+    const { calculateStorageTotals } = await import('/src/simulation/storage.ts');
+    const { isResourceUnlocked } = await import('/src/simulation/unlocks.ts');
+    const caps = calculateStorageTotals(S(), storageSnapshot(S()));
+    const unlocked = Object.keys(RESOURCES).filter(id => isResourceUnlocked(id, S()) && Number.isFinite(caps[id]) && caps[id] > 0);
+    const locked = Object.keys(RESOURCES).filter(id => !isResourceUnlocked(id, S()));
+    const revision = store.revision();
+    const result = window.fillUnlockedResources(); await flush();
+    log(result.filled.length === unlocked.length && unlocked.every(id => S().resources[id] === caps[id]) && store.revision() > revision, 'F12命令一次性填满已解锁资源并刷新界面');
+    log(locked.every(id => S().resources[id] === snapshot.resources[id]) && JSON.stringify(S().tech) === JSON.stringify(snapshot.tech) && JSON.stringify(S().prestige) === JSON.stringify(snapshot.prestige), '调试补满不解锁资源或修改科技威望');
+    store.mutate(state => { state.resources.food = 0; }); await flush();
+    log(S().resources.food === 0, '命令不是持续补满开关');
+    window.fillUnlockedResources(); await flush();
+    log(S().resources.food === caps.food, 'F12命令可以重复执行');
+    store.mutate(state => Object.assign(state, snapshot)); await flush();
+  }
+  mounted.app.unmount();
+  const protectedText = '  ' + JSON.stringify({ version: 29, original: '不可改写的旧档' }) + '\n';
+  localStorage.setItem(saveKey, protectedText);
+  mounted = mountGame($('#app'));
+  click($('[data-tab="settings"]')); await flush();
+  log(!$('#exportProtectedSave').disabled && mounted.store.runtime.saveBlocked, '保护模式启用旧存档导出按钮');
+  click($('#exportProtectedSave')); await flush();
+  log($('#importSaveText').value === protectedText && localStorage.getItem(saveKey) === protectedText && mounted.store.runtime.saveBlocked, '旧档原样导出到文本框，未覆盖存储或解除保护');
+  click($('#hardReset')); await flush(); click($('#hardReset')); await flush();
+  log($('#exportProtectedSave').disabled && !mounted.store.runtime.saveBlocked, '成功硬重置退出保护后禁用旧档导出按钮');
 } catch (error) {
   log(false, `异常：${errorText(error)}`);
 } finally {

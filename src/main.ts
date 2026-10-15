@@ -1,4 +1,5 @@
 import { createApp } from 'vue';
+import { installDebugConsole } from './app/debug-console';
 import App from './vue/App.vue';
 import { createGameStore } from './app/store';
 import type { GameStore } from './app/store';
@@ -9,6 +10,7 @@ export function mountGame(root: Element): { app: ReturnType<typeof createApp>; s
   store.runtime.load();
   const app = createApp(App, { store });
   app.mount(root);
+  app.onUnmount(installDebugConsole(store));
   return { app, store };
 }
 

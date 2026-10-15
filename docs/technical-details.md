@@ -21,6 +21,17 @@
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
 - 包管理：npm；生成式桥接脚本见 `scripts/generate-legacy-data.cjs`。
 
+### 保护模式原档导出
+
+- Runtime.exportProtectedSave仅在saveBlocked时可用。载入校验失败缓存原始字符串，不解析、格式化或迁移；原始读取失败时，导出操作可重试读取同一localStorage键。读取仍失败则报错，不能以临时新游戏冒充原档。
+- 设置按钮输出至现有文本框供复制备份，普通模式禁用。导出不改变存档、游戏状态或保护标记；硬重置成功后按钮禁用。浏览器验收覆盖旧档逐字保留与重置后的状态。
+
+### 合金工具与硅酸盐水泥（beta 0.6.1）
+
+- alloyDrill/alloyChainsaw为T8，显式knowledgeCost44000避免时代价格初始化覆盖；cost为44000知识+500合金，pre automation且resourceRequired alloy，使用统一资源解锁判断。
+- calculateToolMultiplier对quarry/mine/coalMine优先返回合金钻头2倍，对lumber优先返回链锯2倍；覆盖钢铁1.5/铁质1.25，不改变农民倍率。沿用统一基础工具倍率链，实际结算及明细一致。
+- silicateCement为T5，pre metallurgy+cement，knowledgeCost5000、stone1000；calculateRawBuildingOutput将水泥工人基础cement乘1.5，input不变，后续基因/工坊/电力搅拌等倍率保持原顺序。schema31不变，无存档迁移。
+
 ### 电力储量与电池聚能环
 
 - 电力注册基础容量10000；`batteryConcentrationRing`（T8，电子学前置，42114.514知识）在共享baseStorage中增加90000，明细和批量总量一致。

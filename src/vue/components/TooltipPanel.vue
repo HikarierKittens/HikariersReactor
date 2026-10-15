@@ -155,9 +155,9 @@ const content = computed<TipContent | null>(() => {
     const cost = queued ? (queuedSegments
       ? Object.fromEntries(Object.entries(queued.cost).map(([resource, value]) => [resource, value / queuedSegments]))
       : queued.cost) : calculateBuildingCost(id, count, state);
-    // A completed segmented project can no longer be built, so it quotes no price.
-    const segmentedComplete = !!building.segmentedRequired && isBuildingFullyBuilt(id, state);
-    tip.costs = segmentedComplete ? [] : prices(queuedSegments ? Object.fromEntries(Object.entries(cost).map(([resource, value]) => [resource, value * queuedSegments])) : cost);
+    // Completed one-off buildings and segmented projects have no further build cost.
+    const fullyBuilt = isBuildingFullyBuilt(id, state);
+    tip.costs = fullyBuilt ? [] : prices(queuedSegments ? Object.fromEntries(Object.entries(cost).map(([resource, value]) => [resource, value * queuedSegments])) : cost);
     if (queuedSegments) {
       add('队列剩余分段', `${queuedSegments} 段`);
       tip.footnote = '按分段逐个扣款建造；以下为剩余分段的总需求，无需一次备齐。';
