@@ -178,7 +178,7 @@ const content = computed<TipContent | null>(() => {
       add('蜂群卫星价格', `-${percent(reduction * 100)}%`);
     }
     // Building effects only: worker production belongs in the worker/resource details.
-    // 冶炼厂 only grants 冶炼厂工位; the slot recipe lives in the ⚙ smelter modal.
+    // 冶炼厂 only grants 冶炼厂工位; the slot recipe lives in the smelter settings modal.
     if (!building.workerOutput && !building.asrielSource && id !== 'smelter') {
       for (const [resource, amount] of orderedCostEntries(calculateBuildingOutput(id, state))) {
         add(RESOURCES[resource as ResourceId].name, `+${number(amount)}/s`);
@@ -235,7 +235,7 @@ const content = computed<TipContent | null>(() => {
     if (building.soldierCap) add('士兵容量', `+${number(building.soldierCap)}`);
     if (building.trainingBoost) add('训练效果', `+${percent(calculateTrainingBoost(state))}%`);
     if (building.lines) add('生产线容量', `+${number(building.lines)}`);
-    if (id === 'smelter') add('冶炼厂工位', '+1', false, '冶炼厂本身不产出也不消耗资源；资源由钢冶炼工位产出和消耗，可在⚙中查看配方并分配。');
+    if (id === 'smelter') add('冶炼厂工位', '+1', false, '冶炼厂本身不产出也不消耗资源；资源由钢冶炼工位产出和消耗，可在设置中查看配方并分配。');
     if (id === 'stellarForge') { add('冶炼厂工位', '+2'); add('工匠上限', '+2'); add('锻造物产量', '+10%'); }
     if (id === 'adamantiteProcessor') add('精金采矿船产量', '+10%');
     if (id === 'vrCenter') add('幸福度', '+2.5%', false, '获得Asriel支持时生效，仍受幸福度上限限制。');

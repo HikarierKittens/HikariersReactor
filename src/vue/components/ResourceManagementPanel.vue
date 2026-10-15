@@ -91,7 +91,7 @@ const alloyRows = computed(() => {
     </div>
     <div class="management-list">
       <article v-for="row in ejectionRows" :key="row.id" class="management-row" :data-eject-row="row.id">
-        <h3 class="management-name">{{ row.definition.icon }} {{ row.definition.name }}</h3>
+        <h3 class="management-name">{{ row.definition.name }}</h3>
         <span class="management-note small subtle">每单位{{ row.exotic ? '奇异质量' : '质量' }} {{ mass(row.mass) }}</span>
         <div class="management-controls">
           <button :data-eject-resource="row.id" :data-delta="-1" :disabled="row.rate <= 0" :aria-label="`减少${row.definition.name}喷射`" @click="emit('eject', row.id, -10 * clickMultiplier($event))">−</button>
@@ -116,7 +116,7 @@ const alloyRows = computed(() => {
     </div>
     <div class="management-list">
       <article v-for="row in rows" :key="row.id" class="management-row" :data-container-row="row.id">
-        <h3 class="management-name">{{ row.definition.icon }} {{ row.definition.name }}</h3>
+        <h3 class="management-name">{{ row.definition.name }}</h3>
         <div class="management-controls">
           <button :data-container-resource="row.id" :data-delta="-1" :disabled="row.count <= 0" :aria-label="`撤回${row.definition.name}集装箱`" @click="emit('assign', row.id, -clickMultiplier($event))">−</button>
           <strong>{{ fmt(row.count) }}</strong>
@@ -138,7 +138,7 @@ const alloyRows = computed(() => {
       </div>
       <div class="management-list">
         <article v-for="row in alloyRows" :key="row.id" class="management-row" :data-alloy-container-row="row.id">
-          <h3 class="management-name">{{ row.definition.icon }} {{ row.definition.name }}</h3>
+          <h3 class="management-name">{{ row.definition.name }}</h3>
           <div class="management-controls">
             <button :data-alloy-container-resource="row.id" :data-delta="-1" :disabled="row.count <= 0" :aria-label="`撤回${row.definition.name}合金集装箱`" @click="emit('assignAlloy', row.id, -clickMultiplier($event))">−</button>
             <strong>{{ fmt(row.count) }}</strong>

@@ -118,7 +118,7 @@ function replaceRun(next: GameState): boolean {
 const saveStatus = computed(() => { props.store.revision(); return props.store.runtime.saveBlocked ? '存档读取失败，已保护原存档' : props.store.runtime.saveFailed ? '本地保存失败，请导出备份' : '本地存档 · 自动保存已启用'; });
 
 function afterAction(): void {
-  props.store.mutate(s => { for (const id of updateProgression(s)) addLog(s, `🏅 成就达成：${ACHIEVEMENTS[id].name}`, 'achievement'); });
+  props.store.mutate(s => { for (const id of updateProgression(s)) addLog(s, `成就达成：${ACHIEVEMENTS[id].name}`, 'achievement'); });
   props.store.runtime.save();
   props.store.refresh();
 }
@@ -364,7 +364,7 @@ function confirmEscape(): void {
   const result = launchEscapePrestige(props.store.state(), sampleEventInterval(Math.random), Date.now());
   if (!result) return;
   if (!replaceRun(result.next)) return;
-  props.store.mutate(s => addLog(s, `🚀 ESS-喵星号已离开太阳系，获得 ${result.reward} 粒子与 ${result.casimirReward} 卡西米尔晶体。新的文明开始了。`, 'system'));
+  props.store.mutate(s => addLog(s, `ESS-喵星号已离开太阳系，获得 ${result.reward} 粒子与 ${result.casimirReward} 卡西米尔晶体。新的文明开始了。`, 'system'));
   escapeConfirm.value = false;
   shipModal.value = false;
   factoryOpen.value = false;
@@ -385,7 +385,7 @@ function confirmBlackHole(): void {
   const result = launchBlackHolePrestige(props.store.state(), sampleEventInterval(Math.random), Date.now());
   if (!result) return;
   if (!replaceRun(result.next)) return;
-  props.store.mutate(s => addLog(s, `🕳️ 奇异失控引发了黑洞爆炸，一切归于虚无。获得 ${result.reward} 粒子、${result.casimirReward} 卡西米尔晶体与 ${result.darkEnergyReward} 暗能量。新的文明开始了。`, 'system'));
+  props.store.mutate(s => addLog(s, `奇异失控引发了黑洞爆炸，一切归于虚无。获得 ${result.reward} 粒子、${result.casimirReward} 卡西米尔晶体与 ${result.darkEnergyReward} 暗能量。新的文明开始了。`, 'system'));
   blackHoleConfirm.value = false;
   shipModal.value = false;
   factoryOpen.value = false;
@@ -409,7 +409,7 @@ function confirmNuclear(): void {
   const result = launchNuclearPrestige(props.store.state(), sampleEventInterval(Math.random), Date.now());
   if (!result) return;
   if (!replaceRun(result.next)) return;
-  props.store.mutate(s => addLog(s, `☢️ 核弹已发射，获得 ${result.reward} 粒子。新的文明开始了。`, 'system'));
+  props.store.mutate(s => addLog(s, `核弹已发射，获得 ${result.reward} 粒子。新的文明开始了。`, 'system'));
   nuclearConfirm.value = false;
   worldView.value = 'home';
   activeTab.value = 'buildings';
@@ -503,12 +503,12 @@ onUnmounted(() => {
 <template>
   <div class="app" :class="{ 'touch-optimized': state.settings.touchOptimization }">
     <header class="topbar">
-      <div class="brand">🐱 <b>喵星旅人_world.execution(cat);</b><span>从登陆的第一只猫猫，到登陆月球</span></div>
+      <div class="brand"><b>喵星旅人_world.execution(cat);</b><span>从登陆的第一只猫猫，到登陆月球</span></div>
       <span class="game-date">{{ gameDate }}</span>
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.5.8</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.5.12</span>
     </header>
 
     <p v-if="actionError && !escapeConfirm && !blackHoleConfirm && !nuclearConfirm" class="action-error" role="alert">{{ actionError }}</p>

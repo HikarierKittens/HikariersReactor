@@ -195,7 +195,7 @@ function outputText(id: BuildingId): string {
   const entries = Object.entries(b.output || {}) as [string, number][];
   if (!entries.length || id === 'smelter') return '';
   return entries.map(([r, v]) =>
-    `${RESOURCES[r as keyof typeof RESOURCES].icon} ${fmt(v * runningCount(id))}/s`).join(' ');
+    `${RESOURCES[r as keyof typeof RESOURCES].name} ${fmt(v * runningCount(id))}/s`).join(' ');
 }
 function toggleLabel(id: BuildingId): boolean {
   return ['cementWorkshop', 'mine', 'coalMine', 'lumber', 'quarry', 'metalRefinery'].includes(id);
@@ -223,7 +223,7 @@ function canGather(id: string): boolean {
           :hidden="!canGather(r)"
           :aria-label="`采集${RESOURCES[r].name}`"
           @click="emit('gather', r)"
-        >{{ RESOURCES[r].icon }} 采集{{ RESOURCES[r].name }}</button>
+        >采集{{ RESOURCES[r].name }}</button>
       </div>
     </section>
   </template>

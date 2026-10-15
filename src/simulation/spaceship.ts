@@ -9,12 +9,12 @@ export type { ShipComponentId } from '../types/state';
 export interface ShipComponentDefinition { name: string; icon: string; desc: string; cost: ResourceRecipe; population?: number }
 /** Hull unlocks the remaining independently buildable, one-time components. Prices never receive emitter discounts. */
 export const SHIP_COMPONENTS: Record<ShipComponentId, ShipComponentDefinition> = {
-  hull: { name: '飞船船体', icon: '🚀', desc: '如此规模的飞船，船体是首要的组件', cost: { cash: 1000000, metal: 400000, titanium: 400000, alloy: 400000, polymer: 400000, nanotubes: 200000 } },
-  energyCore: { name: '能源核心', icon: '⚛️', desc: '少数工程师反对能源核心的建造，他们认为潜在的爆炸随时会摧毁米神星', cost: { cash: 1000000, titanium: 200000, copper: 400000, iron: 400000, uranium: 25000 } },
-  computer: { name: '飞船计算机', icon: '💻', desc: '计算机与舰载AI将以协议4运作', cost: { knowledge: 1000000, energy: 100000 } },
-  ecosystem: { name: '生态系统', icon: '🌱', desc: '喵星2号试验表明，如果规模不够大，任何生态系统都会毁灭，只有行星规模的生态才能接近无限', cost: { food: 400000, wood: 400000, stone: 400000, fur: 50000 }, population: 10 },
-  electromagneticEngine: { name: 'ESS-喵星号 电磁引擎', icon: '🧲', desc: '实验性的无工质引擎，它需要极端恐怖的能量输入才能工作，但是可以把大型飞船加速至光速的99.9999%', cost: { knowledge: 1000000, alloy: 100000, neutron: 10000 } },
-  fuel: { name: '飞船燃料', icon: '⛽', desc: 'E-710被认为是唯一有机会驱动电磁引擎的能量源，但是还不够，我们还需要许多氦-3', cost: { e710: 1000, helium3: 25000, energy: 100000 } },
+  hull: { name: '飞船船体', icon: '', desc: '如此规模的飞船，船体是首要的组件', cost: { cash: 1000000, metal: 400000, titanium: 400000, alloy: 400000, polymer: 400000, nanotubes: 200000 } },
+  energyCore: { name: '能源核心', icon: '', desc: '少数工程师反对能源核心的建造，他们认为潜在的爆炸随时会摧毁米神星', cost: { cash: 1000000, titanium: 200000, copper: 400000, iron: 400000, uranium: 25000 } },
+  computer: { name: '飞船计算机', icon: '', desc: '计算机与舰载AI将以协议4运作', cost: { knowledge: 1000000, energy: 100000 } },
+  ecosystem: { name: '生态系统', icon: '', desc: '喵星2号试验表明，如果规模不够大，任何生态系统都会毁灭，只有行星规模的生态才能接近无限', cost: { food: 400000, wood: 400000, stone: 400000, fur: 50000 }, population: 10 },
+  electromagneticEngine: { name: 'ESS-喵星号 电磁引擎', icon: '', desc: '实验性的无工质引擎，它需要极端恐怖的能量输入才能工作，但是可以把大型飞船加速至光速的99.9999%', cost: { knowledge: 1000000, alloy: 100000, neutron: 10000 } },
+  fuel: { name: '飞船燃料', icon: '', desc: 'E-710被认为是唯一有机会驱动电磁引擎的能量源，但是还不够，我们还需要许多氦-3', cost: { e710: 1000, helium3: 25000, energy: 100000 } },
 };
 /** Escape requires an owned dock and completion of every registered component. */
 export function hasCompleteShip(state: GameState): boolean {

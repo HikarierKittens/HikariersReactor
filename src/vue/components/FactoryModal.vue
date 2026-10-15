@@ -37,7 +37,7 @@ const rows = computed(() => {
     <p class="factory-ops">生产线: {{ fmt(used) }} / {{ fmt(cap) }} · 空闲 {{ fmt(Math.max(0, cap - used)) }}</p>
     <p v-if="!cap" class="empty">建造地面工厂、太空工厂或高科技工厂后获得生产线容量。</p>
     <div class="factory-rows">
-      <div v-for="row in rows" :key="row.id" class="factory-row">
+      <div v-for="row in rows" :key="row.id" class="factory-row" :data-recipe="row.recipe">
         <span class="factory-name" :data-tip="row.recipe" tabindex="0" :aria-label="`${row.name}生产线配方：${row.recipe}${row.locked ? '尚未解锁' : ''}`">{{ row.name }}<span v-if="row.locked" class="small subtle">（未解锁）</span></span>
         <button :data-line-option="row.id" :data-line-delta="-1" :disabled="row.count <= 0" :aria-label="`减少${row.name}生产线`" @click="emit('assign', row.id, -clickMultiplier($event))">«</button>
         <strong>{{ fmt(row.count) }}</strong>

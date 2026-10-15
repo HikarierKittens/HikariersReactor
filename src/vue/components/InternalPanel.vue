@@ -110,7 +110,7 @@ function setTax(event: Event): void {
 
   <div v-else class="settings">
     <section v-if="state.tech.includes('nuclearProgram')" class="arpa-project">
-      <h3>☢️ 建造超级核弹计划</h3>
+      <h3>建造超级核弹计划</h3>
       <p class="desc">填充完成后可发射核弹，结束本周目并获得粒子。发射会重置本周目，保留威望与成就。</p>
       <p>已投入 / 总需求：{{ nuclearCosts }}</p>
       <div class="q-bar arpa-progress" role="progressbar" aria-label="超级核弹填充进度" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="nuclearProgress">

@@ -1,3 +1,4 @@
+import { stripEmoji } from '../shared/plain-text';
 import { CONFIG } from '../data/config';
 import { LOG_TYPES } from '../data/progression';
 import { validateSaveNumber } from './validation';
@@ -22,6 +23,6 @@ export function validateHistory(raw: Record<string, unknown>, state: GameState):
     if (!entry || typeof entry !== 'object') continue;
     const log = entry as Record<string, unknown>;
     if (typeof log.text !== 'string' || typeof log.time !== 'number' || !Number.isFinite(log.time)) continue;
-    state.logs.push({ time: log.time, text: log.text.slice(0, 300), type: log.type === 'event' && /^队列中 .+ 已完成$/.test(log.text) ? 'queue' : LOG_TYPES.includes(log.type as LogType) ? log.type as LogType : 'progress' });
+    state.logs.push({ time: log.time, text: stripEmoji(log.text).slice(0, 300), type: log.type === 'event' && /^队列中 .+ 已完成$/.test(log.text) ? 'queue' : LOG_TYPES.includes(log.type as LogType) ? log.type as LogType : 'progress' });
   }
 }

@@ -25,7 +25,7 @@ const recipe = computed(() => {
     <p class="factory-ops">冶炼厂工位: {{ fmt(steel) }} / {{ fmt(cap) }} · 空闲 {{ fmt(Math.max(0, cap - steel)) }}</p>
     <p v-if="!cap" class="empty">建造冶炼厂或恒星熔炉后获得冶炼厂工位。</p>
     <div class="factory-rows">
-      <div class="factory-row">
+      <div class="factory-row" :data-recipe="recipe">
         <span class="factory-name" :data-tip="recipe" tabindex="0" :aria-label="`钢冶炼工位配方：${recipe}`">钢冶炼</span>
         <button data-smelter-option="metal" :data-smelter-delta="-1" :disabled="steel <= 0" aria-label="减少钢冶炼工位" @click="emit('assign', -clickMultiplier($event))">«</button>
         <strong>{{ fmt(steel) }}</strong>

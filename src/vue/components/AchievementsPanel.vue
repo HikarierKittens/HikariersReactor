@@ -37,9 +37,8 @@ const visibleEntries = computed(() => entries.value.filter(entry =>
   <div v-else class="detail-grid">
     <article v-for="entry in visibleEntries" :key="entry.id" class="card" :data-achievement="entry.id" :class="{ 'is-earned': entry.earned }">
       <div class="card-top">
-        <span class="icon">{{ entry.definition.icon }}</span>
         <div class="card-title"><h3>{{ entry.definition.name }}</h3></div>
-        <span :class="entry.earned ? 'check' : 'subtle'" class="small">{{ entry.earned ? '✓ 已达成' : '未达成' }}</span>
+        <span :class="entry.earned ? 'check' : 'subtle'" class="small">{{ entry.earned ? '已达成' : '未达成' }}</span>
       </div>
       <p class="desc">{{ entry.definition.desc }}</p>
     </article>

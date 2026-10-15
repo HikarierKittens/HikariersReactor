@@ -1,7 +1,49 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { stripEmoji } from '../src/shared/plain-text';
+import { createInitialState } from '../src/state/create-state';
+import { CONFIG } from '../src/data/config';
+import { addLog } from '../src/simulation/progression';
+import { validateHistory } from '../src/state/validate-history';
 import { parseInline, parseMarkdown } from '../src/vue/markdown';
+
+test('game sources and shipped pages never introduce emoji decorations', () => {
+  const forbidden = /[\p{Extended_Pictographic}\p{Regional_Indicator}\p{Emoji_Modifier}\uFE0F\u20E3]/u;
+  const scan = (directory: URL): void => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = new URL(entry.name + (entry.isDirectory() ? '/' : ''), directory);
+      if (entry.isDirectory()) scan(path);
+      else {
+        let source = readFileSync(path, 'utf8');
+        // User-approved exception: only the four configuration entrance buttons.
+        if (path.pathname.endsWith('/src/vue/components/BuildingsPanel.vue')) {
+          const gears = source.match(/>\u2699<\/button>/g) || [];
+          assert.equal(gears.length, 4, 'retain exactly the four approved gear entrances');
+          source = source.replace(/>\u2699<\/button>/g, '></button>');
+        }
+        assert.equal(forbidden.test(source), false, path.pathname);
+      }
+    }
+  };
+  scan(new URL('../src/', import.meta.url));
+  for (const path of ['../index.html', '../updatelog.html', '../updatelog.md', '../assets/css/style.css']) {
+    assert.equal(forbidden.test(readFileSync(new URL(path, import.meta.url), 'utf8')), false, path);
+  }
+});
+
+test('new logs and imported history strip legacy emoji without losing content', () => {
+  const oldText = '\u{1F3C5} 成就达成：测试 \u{1F1E8}\u{1F1F3} 1\uFE0F\u20E3 \u{1F469}\u200D\u{1F4BB}';
+  assert.equal(stripEmoji(oldText), '成就达成：测试');
+  const state = createInitialState(CONFIG.version, 60, 0);
+  addLog(state, oldText, 'achievement');
+  assert.equal(state.logs[0]?.text, '成就达成：测试');
+  const raw = { ...state, logs: [{ time: 1, type: 'achievement', text: oldText }] };
+  const before = JSON.stringify(raw);
+  validateHistory(raw, state);
+  assert.equal(state.logs[0]?.text, '成就达成：测试');
+  assert.equal(JSON.stringify(raw), before);
+});
 
 test('inline parser splits bold and code without producing HTML', () => {
   assert.deepEqual(parseInline('a **b** `c` <i>d</i>'), [

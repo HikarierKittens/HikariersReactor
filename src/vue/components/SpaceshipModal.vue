@@ -31,7 +31,7 @@ const rows = computed(() => {
       resources.push({ id: 'population', name: '猫猫', total: definition.population, funded, paid: definition.population * funded / 100 });
     }
     const canInvest = Object.entries(remaining).some(([resource, amount]) => (amount || 0) > 0 && (resource === 'population' ? state.population >= 1 : state.resources[resource as ResourceId] > 0));
-    return { id, name: labels[id], icon: definition.icon, description: definition.desc, progress, complete, unlocked, hullLocked, pending, resources, canInvest,
+    return { id, name: labels[id], description: definition.desc, progress, complete, unlocked, hullLocked, pending, resources, canInvest,
       queueDisabled: complete || !unlocked || pending || state.queue.length >= 100 || laneCount >= buildingQueueCapacity(state) };
   });
 });

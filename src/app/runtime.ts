@@ -72,7 +72,7 @@ export function createRuntime(): Runtime {
 
   function scanAchievements(): void {
     for (const id of updateProgression(state)) {
-      addLog(state, '🏅 成就达成：' + ACHIEVEMENTS[id].name, 'achievement');
+      addLog(state, '成就达成：' + ACHIEVEMENTS[id].name, 'achievement');
     }
   }
 
@@ -111,11 +111,11 @@ export function createRuntime(): Runtime {
       raw = localStorage.getItem(CONFIG.saveKey);
     } catch {
       saveFailed = saveBlocked = true;
-      addLog(state, '⚠ 无法读取本地存档，已暂停保存。', 'system');
+      addLog(state, '无法读取本地存档，已暂停保存。', 'system');
       return;
     }
     if (raw === null) {
-      addLog(state, '🐾 第一只猫猫登陆了这颗小小的星球。我们的故事开始了。', 'system');
+      addLog(state, '第一只猫猫登陆了这颗小小的星球。我们的故事开始了。', 'system');
       scanAchievements();
       return;
     }
@@ -123,7 +123,7 @@ export function createRuntime(): Runtime {
       state = validate(JSON.parse(raw));
     } catch {
       saveFailed = saveBlocked = true;
-      addLog(state, '⚠ 存档校验失败，当前为临时新游戏，已暂停保存。', 'system');
+      addLog(state, '存档校验失败，当前为临时新游戏，已暂停保存。', 'system');
       return;
     }
     // No offline catch-up: time while the page was closed is never settled.

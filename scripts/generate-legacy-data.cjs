@@ -6,6 +6,7 @@ const registry = [
   ['config', 'data/config'],
   ['progression', 'data/progression'],
   ['format', 'shared/format'],
+  ['plain-text', 'shared/plain-text'],
   ['resources', 'data/resources'],
   ['black-hole', 'simulation/black-hole'],
   ['buildings', 'data/buildings'],

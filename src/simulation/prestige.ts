@@ -34,7 +34,7 @@ import type { AchievementId, GameState } from '../types/state';
 function awardResetAchievement(next: GameState, id: AchievementId): void {
   if (next.achievements.includes(id)) return;
   next.achievements.push(id);
-  addLog(next, `🏅 成就达成：${ACHIEVEMENTS[id].name}`, 'achievement');
+  addLog(next, `成就达成：${ACHIEVEMENTS[id].name}`, 'achievement');
 }
 
 /** Capture final unobserved run edges without mutating the reset source. */
@@ -45,7 +45,7 @@ function preserveFinalAchievements(state: GameState, next: GameState): void {
   for (const id of unlocked) awardResetAchievement(next, id);
 }
 
-export const NUCLEAR_PROJECT = { name: '核弹', icon: '☢️', cost: { oil: 4000, alloy: 2000, uranium: 1000 } } as const;
+export const NUCLEAR_PROJECT = { name: '核弹', icon: '', cost: { oil: 4000, alloy: 2000, uranium: 1000 } } as const;
 
 /** Affordable whole percent points, bounded by resources and remaining progress. */
 export function calculateNuclearAffordablePercent(state: GameState, percent = 100): number {

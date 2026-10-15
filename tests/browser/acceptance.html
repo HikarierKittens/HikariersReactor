@@ -492,13 +492,22 @@ try {
     const otherControl = dialog.querySelector('button:not(:disabled)');
     otherControl.focus();
     dialog.style.width = 'min(340px, calc(100vw - 32px))'; await flush();
-    const closedHeight = recipe.getBoundingClientRect().height;
+    const recipeRow = recipe.closest('.factory-row');
+    const closedHeight = recipeRow.getBoundingClientRect().height;
     recipe.focus(); await flush();
-    const recipeBox = recipe.getBoundingClientRect(), dialogBox = dialog.getBoundingClientRect();
-    const detailStyle = getComputedStyle(recipe, '::after');
-    log(document.activeElement === recipe && detailStyle.display === 'block' && detailStyle.position === 'static' && detailStyle.whiteSpace === 'normal' && recipeBox.height > closedHeight && recipeBox.left >= dialogBox.left && recipeBox.right <= dialogBox.right && dialog.scrollWidth <= dialog.clientWidth + 1, `窄工厂弹窗键盘展开配方参与正常流并换行，无横向裁剪 [focus=${document.activeElement === recipe},display=${detailStyle.display},position=${detailStyle.position},whiteSpace=${detailStyle.whiteSpace},closed=${closedHeight},open=${recipeBox.height},left=${recipeBox.left},right=${recipeBox.right},dialogLeft=${dialogBox.left},dialogRight=${dialogBox.right},scroll=${dialog.scrollWidth},client=${dialog.clientWidth}]`);
+    const recipeBox = recipeRow.getBoundingClientRect(), dialogBox = dialog.getBoundingClientRect();
+    const detailStyle = getComputedStyle(recipeRow, '::after');
+    log(document.activeElement === recipe && detailStyle.display === 'none', '工厂配方自动聚焦或键盘聚焦不弹出提示');
+    const nextRow = recipeRow.nextElementSibling;
+    const nextTop = nextRow?.getBoundingClientRect().top;
+    const forceHover = document.createElement('style');
+    forceHover.textContent = '.factory-row.test-recipe-hover::after{display:block}';
+    document.head.append(forceHover); recipeRow.classList.add('test-recipe-hover'); await flush();
+    const overlay = getComputedStyle(recipeRow, '::after');
+    log(overlay.position === 'absolute' && parseFloat(overlay.top) >= closedHeight - 1 && overlay.whiteSpace === 'normal' && recipeRow.getBoundingClientRect().height === closedHeight && nextRow?.getBoundingClientRect().top === nextTop && dialog.scrollWidth <= dialog.clientWidth + 1, '工厂配方浮层位于当前行下方且不移动后续行、不横向溢出');
+    recipeRow.classList.remove('test-recipe-hover'); forceHover.remove();
     recipe.blur(); await flush();
-    log(getComputedStyle(recipe, '::after').display === 'none' && recipe.getBoundingClientRect().height === closedHeight, '工厂配方失焦后折叠并恢复行高');
+    log(getComputedStyle(recipeRow, '::after').display === 'none', '工厂配方无悬停时保持隐藏');
     dialog.style.width = originalWidth; await flush();
   }
   $('#factoryModal').dispatchEvent(new Event('cancel', { cancelable: true })); await flush();
@@ -772,6 +781,12 @@ try {
   log($('#smelterModal')?.matches(':modal')&&$('#smelterBody').textContent.includes('冶炼厂工位: 3 / 3'),'冶炼厂齿轮打开工位弹窗，默认全部分配到钢冶炼');
   click($('[data-smelter-option="metal"][data-smelter-delta="-1"]'));await flush();
   log(S().smelterIdle===1&&$('#smelterBody').textContent.includes('冶炼厂工位: 2 / 3'),'冶炼厂工位弹窗即时减少钢冶炼工位');
+  {
+    const row = $('#smelterModal .factory-row'), name = row.querySelector('.factory-name');
+    name.focus(); await flush();
+    const detail = getComputedStyle(row, '::after');
+    log(detail.display === 'none' && detail.position === 'absolute' && parseFloat(detail.top) >= row.getBoundingClientRect().height - 1, '冶炼配方不因聚焦自动显示，浮层定位于当前行下方');
+  }
   $('#smelterModal').dispatchEvent(new Event('cancel',{cancelable:true}));await flush();
   log(!$('#smelterModal'),'冶炼厂工位弹窗处理cancel后关闭');
   store.mutate(state=>{Object.assign(state,beforeRipperDone);});await flush();

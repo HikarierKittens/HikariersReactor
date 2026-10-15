@@ -380,7 +380,7 @@ export function describeQueuedPurchases(state: GameState): QueuedDisplayItem[] {
       return { ...item, name: component.name, icon: component.icon, cost: calculateShipComponentRemainingCost(item.id, state) };
     }
     if (item.kind === 'mission') {
-      return { ...item, name: REGIONAL_MISSIONS[item.id].name, icon: '🚀', cost: calculateRegionalMissionCost(state, item.id) };
+      return { ...item, name: REGIONAL_MISSIONS[item.id].name, icon: '', cost: calculateRegionalMissionCost(state, item.id) };
     }
     if (item.kind === 'arpa') {
       const project = ARPA_PROJECTS[item.id as ArpaProjectId];
@@ -389,7 +389,7 @@ export function describeQueuedPurchases(state: GameState): QueuedDisplayItem[] {
     }
     if (item.kind === 'tech') {
       const tech = TECHNOLOGIES[item.id];
-      return { ...item, name: tech.name, icon: '📚', cost: calculateTechCost(item.id, state) };
+      return { ...item, name: tech.name, icon: '', cost: calculateTechCost(item.id, state) };
     }
     const building = BUILDINGS[item.id];
     const position = state.buildings[item.id] + (counts[item.id] || 0);

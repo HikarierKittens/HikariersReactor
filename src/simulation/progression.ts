@@ -1,3 +1,4 @@
+import { stripEmoji } from '../shared/plain-text';
 import { updateStageThreeProgress } from './stage-three';
 import { updateStoryProgress } from './story';
 import { syncPrestigeUnlocks } from './prestige-unlocks';
@@ -11,7 +12,7 @@ import type { AchievementId, GameState, LogType } from '../types/state';
 /** Newest-first capped log; the caller owns every notification decision. */
 export function addLog(state: GameState, text: string, type: string = 'progress'): void {
   const safe = (LOG_TYPES as readonly string[]).includes(type) ? type as LogType : 'progress';
-  state.logs.unshift({ time: state.time, text, type: safe });
+  state.logs.unshift({ time: state.time, text: stripEmoji(text), type: safe });
   state.logs = state.logs.slice(0, 80);
 }
 

@@ -91,7 +91,7 @@ const projects = computed(() => {
   <div v-if="!projects.length" class="empty">尚无可用工程，研究 A.R.P.A 及对应的工程前置科技后开启。</div>
   <div class="arpa-project-grid" :class="{ 'is-buildings': currentView === 'buildings' }">
   <article v-for="project in projects" :key="project.id" class="card arpa-project">
-    <h3>{{ project.definition.icon }} {{ project.definition.name }}</h3>
+    <h3>{{ project.definition.name }}</h3>
     <p class="desc">{{ project.description }}</p>
     <p>已建 {{ fmt(project.completed) }}<span v-if="!project.definition.repeatable"> / {{ fmt(project.limit) }}</span><span v-if="project.pending"> · 队列 {{ project.pending }}</span></p>
     <template v-if="!project.atLimit">
