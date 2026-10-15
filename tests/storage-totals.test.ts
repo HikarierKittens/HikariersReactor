@@ -23,6 +23,30 @@ function snapshotOf(state: GameState, units: Partial<StorageSnapshot> = {}): Sto
     moon: support.moon, asriel: support.asriel, ...units };
 }
 
+test('battery concentration ring increases base energy and replaces station capacity', () => {
+  const state = createInitialState(CONFIG.version, 60, 0);
+  assert.equal(TECHNOLOGIES.batteryConcentrationRing.tier, 8);
+  assert.deepEqual(TECHNOLOGIES.batteryConcentrationRing.cost, { knowledge: 42114.514 });
+  assert.deepEqual(TECHNOLOGIES.batteryConcentrationRing.pre, ['electronics']);
+  assert.equal(isTechnologyUnlocked('batteryConcentrationRing', state), false);
+  state.tech.push('electronics');
+  assert.equal(isTechnologyUnlocked('batteryConcentrationRing', state), true);
+  const snapshot = snapshotOf(state);
+  assert.equal(calculateStorageTotals(state, snapshot).energy, 10000);
+  state.buildings.solarSatellite = 3;
+  state.buildings.batteryStation = 2;
+  assert.equal(calculateStorageTotals(state, snapshot).energy, 13500);
+  state.tech.push('batteryConcentrationRing');
+  const details = calculateStorageDetails('energy', state, snapshot);
+  assert.equal(details.rows[0]?.value, 100000);
+  assert.equal(details.total, 111500);
+  assert.equal(calculateStorageTotals(state, snapshot).energy, details.total);
+  assert.equal(calculateStorageBonuses('batteryStation', state, null).energy, 5000);
+  assert.equal(calculateStorageBonuses('solarSatellite', state, null).energy, 500);
+  const saved = createMilestoneState('space', { extraTech: ['batteryConcentrationRing'] });
+  assert.ok(validateAndMigrateSave(JSON.parse(JSON.stringify(saved)), context).tech.includes('batteryConcentrationRing'));
+});
+
 function lateState(): GameState {
   const state = createInitialState(CONFIG.version, 60, 0);
   state.tech = Object.keys(state.tech).length ? state.tech : state.tech;

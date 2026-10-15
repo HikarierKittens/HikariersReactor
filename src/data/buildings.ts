@@ -273,6 +273,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   },
   "solarSatellite": {
     "name": "太阳能卫星",
+    "desc": "每座固定产出5电力/s，提供500电力储量。",
     "icon": "",
     "cost": {
       "cash": 2000,
@@ -469,7 +470,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   "batteryStation": {
     "name": "储能站",
     "icon": "",
-    "desc": "电力存储设施，每座提供1000电力储量。",
+    "desc": "电力存储设施，每座提供1000电力储量，研究电池聚能环后改为5000。",
     "cost": {
       "stone": 200,
       "iron": 100,

@@ -19,6 +19,11 @@
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
 - 包管理：npm；生成式桥接脚本见 `scripts/generate-legacy-data.cjs`。
 
+### 电力储量与电池聚能环
+
+- 电力注册基础容量10000；`batteryConcentrationRing`（T8，电子学前置，42114.514知识）在共享baseStorage中增加90000，明细和批量总量一致。
+- `calculateStorageBonuses`：太阳能卫星每座500电力容量；储能站研究前1000、研究后5000（替换而非叠加）。发电产量及现有全局储量倍率不变；旧档按科技和建筑即时重算，无需迁移。
+
 ### 智能银行与中子库储量规则
 
 - `intelligentBankingSystem`（T16）只前置AI II；`neutronVault`（T14）只前置中子建筑材料，复用注册表解锁/购买/存档校验，存档版本仍29。
