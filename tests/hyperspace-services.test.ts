@@ -77,11 +77,11 @@ test('civilian unlock cost creep and direct queued support-shortage defaults sha
  requestPurchaseModule(q,'build','civilianRouteStation',0,true);settlePurchaseQueue(q,0);assert.equal(q.buildings.civilianRouteStation,1);assert.equal(q.stoppedBuildings.civilianRouteStation,1);
 });
 
-test('legacy saves default missing civilian records but reject explicit malformed records immutably',()=>{
+test('saves reject missing and malformed civilian records immutably',()=>{
  const s=fresh();s.tech=Object.keys(TECHNOLOGIES).filter(id=>!['spaceControlTower','globalObservationCalibration','anomalyMapping','fieldConstraintTheory','dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];
  s.prestige.nuclearResets=1;s.asrielMissionCompleted=s.kerberosMissionCompleted=s.solarMissionCompleted=s.talosMissionCompleted=s.talosMoonMissionCompleted=s.asteroidBeltMissionCompleted=s.misenMissionCompleted=true;
  s.arpaBuildings.rocketPlatform=s.arpaBuildings.monument=s.arpaBuildings.geneSequencing=1;s.arpaBuildings.arpaResearchInstitute=2;
  const raw:any=clone(s);for(const field of ['buildings','workers','stoppedBuildings'])delete raw[field].civilianRouteStation;const before=clone(raw);
- const ctx={now:0,eventInterval:60,housingCapacity:()=>1000,clampResources:()=>{}};const restored=validateCurrentSave(raw,ctx);assert.equal(restored.buildings.civilianRouteStation,0);assert.deepEqual(raw,before);
- for(const field of ['buildings','workers','stoppedBuildings']){const bad=clone(raw);bad[field].civilianRouteStation=null;assert.throws(()=>validateCurrentSave(bad,ctx));}
+ const ctx={now:0,eventInterval:60,housingCapacity:()=>1000,clampResources:()=>{}};assert.throws(()=>validateCurrentSave(raw,ctx));assert.deepEqual(raw,before);
+ for(const field of ['buildings','workers','stoppedBuildings']){const bad=clone(s) as unknown as Record<string,unknown>;(bad[field] as Record<string,unknown>).civilianRouteStation=null;assert.throws(()=>validateCurrentSave(bad,ctx));}
 });

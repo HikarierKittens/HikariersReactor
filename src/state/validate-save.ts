@@ -1,7 +1,6 @@
 import { loadStageThreeState, validateStageThreeProgress } from './validate-stage-three';
 import { validateStoryArchive } from './validate-story';
 import { CONFIG } from '../data/config';
-import { trimFactoryAssignments } from '../simulation/factory';
 import { createInitialState } from './create-state';
 import { validateEconomyRecords, validateFactoryAssignments, validateSmelterAssignments } from './validate-economy';
 import { validateUnlockRecords } from './validate-unlocks';
@@ -17,9 +16,7 @@ import { validateAutoWorkers } from './validate-auto-workers';
 import { validateProjectRecords } from './validate-projects';
 import { validateSaveSpaceship } from './validate-spaceship';
 import { validateSaveQueue } from './validate-queue';
-import { validateStorageAssignments } from './validation';
-import { migrateV12, migrateV13, migrateV14, migrateV15, migrateV16, migrateV17, migrateV18, migrateV19, migrateV20, migrateV21, migrateV22, migrateV23, migrateV24, migrateV25, migrateV26, migrateV27, migrateV28 } from './migrations';
-import type { MigrationRecord } from './migrations';
+import { validateSaveNumber, validateStorageAssignments } from './validation';
 import { DEFAULT_GAME_SETTINGS, type GameSettings, type QueueSettingKey } from '../types/state';
 import type { GameState } from '../types/state';
 
@@ -29,71 +26,25 @@ export interface SaveValidationContext {
   housingCapacity: (state: GameState) => number;
   clampResources: (state: GameState) => unknown;
 }
+/** Temporary API alias: validates schema 31 only; never migrates old saves. */
 export function validateAndMigrateSave(value: unknown, context: SaveValidationContext): GameState {
-  const migrations = [migrateV12, migrateV13, migrateV14, migrateV15, migrateV16, migrateV17, migrateV18, migrateV19, migrateV20, migrateV21, migrateV22, migrateV23, migrateV24, migrateV25, migrateV26, migrateV27, migrateV28];
-  let raw = value;
-  for (const [index, migrate] of migrations.entries()) {
-    if (raw && typeof raw === 'object' && (raw as MigrationRecord).version === index + 12) raw = migrate(raw as MigrationRecord);
-  }
-  return validateCurrentSave(raw, context);
+  return validateCurrentSave(value, context);
 }
 
-/** Current-version validation. Legacy migrations run before this boundary. */
+/** Strict current-schema boundary. Older and experimental schemas are unsupported. */
 export function validateCurrentSave(value: unknown, context: SaveValidationContext): GameState {
   if (!value || typeof value !== 'object' || (value as Record<string, unknown>).version !== CONFIG.version) throw Error('存档版本不受支持。');
-  // Retire removed content before validating dependencies, without mutating any
-  // part of the caller's save. Historical logs and spent resources stay intact.
-  const original = value as Record<string, unknown>;
-  const retiredTech = ['acceleratorOverclock', 'advancedParticleOverclock', 'e710Analysis', 'transcendenceHopeless', 'engineAdjustment', 'ftlWaypointResearch', 'interstellarScoutPlan', 'interstellarCalibration', 'anomalyResponse', 'dualEndCoupling', 'finiteAperture', 'anomalyTopology'];
-  const retiredProjects = ['interstellarScout', 'extrasolarAnchor', 'deepSpaceInterferometer', 'deepSpaceLab', 'remoteAnchor'];
-  const retiredStories = ['scoutDeparture', 'anotherSun', 'distantFoundation', 'distantReply', 'firstInterstellarCargo'];
-  const retiredBuildings = ['particleOverclockStation', 'tianxingMiningStation', 'ftlSolar', 'ftlTianxing'];
-  const raw: Record<string, unknown> = { ...original };
-  delete raw.tianxing;
-  if (Array.isArray(original.tech)) raw.tech = original.tech.filter(id => !retiredTech.includes(id));
-  if (Array.isArray(original.legacyTechPrerequisites)) raw.legacyTechPrerequisites = original.legacyTechPrerequisites.filter(id => !retiredTech.includes(id));
-  if (Array.isArray(original.queue)) raw.queue = original.queue.filter(item => !(item && typeof item === 'object' && ((item.kind === 'build' && retiredBuildings.includes(item.id)) || (item.kind === 'tech' && retiredTech.includes(item.id)) || (item.kind === 'arpa' && retiredProjects.includes(item.id)))));
-  for (const field of ['arpaBuildings', 'arpaProgress', 'arpaResourceProgress']) {
-    const saved = original[field];
-    if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
-      const record = { ...saved as Record<string, unknown> };
-      for (const id of retiredProjects) delete record[id];
-      raw[field] = record;
-    }
-  }
-  const savedStage = original.stageThree;
-  if (savedStage && typeof savedStage === 'object' && !Array.isArray(savedStage)) {
-    const record = { ...savedStage as Record<string, unknown> };
-    for (const key of ['scoutArrived', 'interstellarSignal', 'interstellarCargo', 'probeCompleted', 'responseObserved', 'fieldStabilized', 'signalCompleted', 'transferCompleted', 'remoteLinked']) delete record[key];
-    raw.stageThree = record;
-  }
-  const savedStory = original.story;
-  if (savedStory && typeof savedStory === 'object' && !Array.isArray(savedStory)) {
-    const archive = { ...savedStory as Record<string, unknown> };
-    for (const key of ['unlocked', 'read']) {
-      const ids = archive[key];
-      if (Array.isArray(ids)) archive[key] = ids.filter(id => !retiredStories.includes(id));
-    }
-    raw.story = archive;
-  }
-  for (const field of ['resources', 'containerAssignments']) {
-    const saved = original[field];
-    if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
-      const record = { ...saved as Record<string, unknown> };
-      delete record.rawMaterial;
-      raw[field] = record;
-    }
-  }
-  if (Array.isArray(original.unlockedResources)) raw.unlockedResources = original.unlockedResources.filter(id => id !== 'rawMaterial');
+  const raw = value as Record<string, unknown>;
   const state = createInitialState(CONFIG.version, context.eventInterval, context.now);
+  if (Object.keys(raw).some(key => !Object.hasOwn(state, key)) || Object.keys(state).some(key => !Object.hasOwn(raw, key))) throw Error('存档字段无效。');
   if (typeof raw.furUnlocked !== 'boolean') throw Error('毛皮解锁状态无效。');
-  state.furUnlocked = raw.furUnlocked || Number(raw.soldiers) > 0;
+  state.furUnlocked = raw.furUnlocked;
+  state.happiness = validateSaveNumber(raw.happiness, 0, Number.MAX_SAFE_INTEGER, '幸福度');
   const savedSettings = raw.settings;
-  if (savedSettings !== undefined && (!savedSettings || typeof savedSettings !== 'object' || Array.isArray(savedSettings))) throw Error('游戏设置无效。');
-  // Unknown settings are intentionally ignored for additive save compatibility.
+  if (!savedSettings || typeof savedSettings !== 'object' || Array.isArray(savedSettings) || Object.keys(savedSettings).some(key => !Object.hasOwn(DEFAULT_GAME_SETTINGS, key))) throw Error('游戏设置无效。');
   const settings: GameSettings = { ...DEFAULT_GAME_SETTINGS };
   for (const key of Object.keys(DEFAULT_GAME_SETTINGS) as QueueSettingKey[]) {
-    if (savedSettings !== undefined && Object.hasOwn(savedSettings as object, key)) {
+    {
       if (typeof (savedSettings as Record<string, unknown>)[key] !== 'boolean') throw Error('游戏设置无效。');
       settings[key] = (savedSettings as Record<QueueSettingKey, boolean>)[key];
     }
@@ -122,9 +73,6 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
   validateStoryArchive(raw, state);
   state.queue = validateSaveQueue(raw.queue, state);
   validateStorageAssignments(raw, state);
-  // Older saves allowed stopped factories to reserve lines. Normalize after
-  // validating total owned capacity and loading the stopped-building records.
-  trimFactoryAssignments(state);
   context.clampResources(state);
   return state;
 }

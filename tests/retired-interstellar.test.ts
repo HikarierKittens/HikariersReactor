@@ -44,14 +44,8 @@ test('retired interstellar registries and commands disappear while solar facilit
  assert.equal(STORY_CHAPTERS.length,22);assert.ok(STORY_CHAPTERS.every(row=>!retiredStories.includes(row.id)));assert.equal(Object.keys(s.stageThree).length,1);
  assert.ok(s.tech.includes('fieldConstraintTheory'));assert.equal(Object.hasOwn(s.arpaBuildings,'remoteAnchor'),false);assert.equal(isBuildingUnlocked('anchorFreightStation',s),true);assert.equal(isBuildingUnlocked('civilianRouteStation',s),true);assert.ok(Object.values(s.shipComponents).every(Boolean));
 });
-test('legacy interstellar content is scrubbed immutably without refunds and repeated imports are stable',()=>{
- const raw=legacy(),before=clone(raw),restored=validateCurrentSave(raw,context);assert.deepEqual(raw,before);
- for(const id of retiredTech)assert.equal((restored.tech as string[]).includes(id),false);
- for(const id of retiredProjects){assert.equal(Object.hasOwn(restored.arpaBuildings,id),false);assert.equal(Object.hasOwn(restored.arpaProgress,id),false);assert.equal(Object.hasOwn(restored.arpaResourceProgress||{},id),false);}
- for(const id of retiredFlags)assert.equal(Object.hasOwn(restored.stageThree,id),false);
- assert.equal(restored.queue.length,0);assert.ok(restored.story.unlocked.every(id=>!retiredStories.includes(id)));assert.ok(restored.story.read.every(id=>!retiredStories.includes(id)));
- assert.deepEqual(restored.resources,raw.resources);assert.deepEqual(restored.shipComponents,raw.shipComponents);assert.deepEqual(restored.prestige,raw.prestige);assert.deepEqual(restored.stageThree,ready().stageThree);assert.equal(restored.buildings.anchorFreightStation,1);assert.equal(restored.buildings.civilianRouteStation,1);
- assert.deepEqual(validateCurrentSave(clone(restored),context),restored);
+test('retired payload rejects immutably instead of being cleaned up',()=>{
+ const raw=legacy(),before=clone(raw);assert.throws(()=>validateCurrentSave(raw,context));assert.deepEqual(raw,before);
 });
 test('retirement scrubs only recognized IDs and matching queue kinds, not malformed or unknown data',()=>{
  const cases:Record<string,unknown>[]=[];
@@ -65,8 +59,8 @@ test('retirement scrubs only recognized IDs and matching queue kinds, not malfor
  cases.push({...legacy(),containers:-1});
  for(const raw of cases){const before=clone(raw);assert.throws(()=>validateCurrentSave(raw,context));assert.deepEqual(raw,before);}
 });
-test('retired migration preserves partial solar progress and reset archives with unchanged ESS escape',()=>{
- const raw=legacy();raw.arpaProgress.interstellarScout=60;raw.arpaBuildings.interstellarScout=0;raw.arpaBuildings.extrasolarAnchor=0;
+test('current solar progress preserves reset archives with unchanged ESS escape',()=>{
+ const raw=ready();
  const s=validateCurrentSave(raw,context);const archived=[...s.story.unlocked];
  const soft=resetRunState(s,'soft',60,0);assert.ok(soft);assert.deepEqual(soft.next.story.unlocked,archived);assert.ok(Object.values(soft.next.stageThree).every(v=>v===false));
  const escape=launchEscapePrestige(s,60,0);assert.ok(escape);assert.equal(escape.next.prestige.escapeResets,1);assert.deepEqual(escape.next.story.unlocked.filter(id=>id!=='firstEscape'),archived.filter(id=>id!=='firstEscape'));

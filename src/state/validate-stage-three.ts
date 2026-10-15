@@ -1,8 +1,6 @@
 import { BUILDINGS } from '../data/buildings';
 import type { GameState, StageThreeState } from '../types/state';
-import { updateStageThreeProgress } from '../simulation/stage-three';
 export function loadStageThreeState(raw: Record<string, unknown>, state: GameState): void {
-  if (!Object.hasOwn(raw, 'stageThree')) return;
   const saved = raw.stageThree;
   if (!saved || typeof saved !== 'object' || Array.isArray(saved)) throw Error('第三阶段状态无效。');
   const result = { ...state.stageThree };
@@ -22,5 +20,4 @@ export function validateStageThreeProgress(state: GameState): void {
   if (s.coreActivated && state.buildings.aiSupercore < (BUILDINGS.aiSupercore.segmentedRequired || 100)) fail();
   if (state.tech.includes('globalObservationCalibration') && !s.coreActivated) fail();
   if (state.tech.includes('hydrogenRecovery') && state.buildings.asteroidBase < 1) fail();
-  updateStageThreeProgress(state);
 }

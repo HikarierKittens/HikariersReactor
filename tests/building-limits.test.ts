@@ -121,9 +121,9 @@ test('large factory assignments follow capacity rather than the old million cuto
   const state = makeState();
   state.buildings.factory = 1000001;
   state.tech.push(BUILDINGS.factory.tech);
-  validateFactoryAssignments({ alloy: 1000001 }, state);
+  validateFactoryAssignments({ ...state.lines, alloy: 1000001 }, state);
   assert.equal(state.lines.alloy, 1000001);
-  assert.throws(() => validateFactoryAssignments({ alloy: Number.MAX_SAFE_INTEGER + 1 }, state), /生产线分配数据无效/);
+  assert.throws(() => validateFactoryAssignments({ ...state.lines, alloy: Number.MAX_SAFE_INTEGER + 1 }, state), /生产线分配数据无效/);
 });
 
 test('unbounded gameplay still rejects non-finite and unsafe saved building counts', () => {

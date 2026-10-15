@@ -28,7 +28,7 @@ function stageState() { const s=fresh(); Object.keys(s.stageThree).forEach(k => 
 test('stage three defaults false and never infers actual AI activation from old construction alone',()=>{
   const s=fresh(); assert.deepEqual(s.stageThree,flags);
   const old:any=clone(s); delete old.stageThree;
-  const restored=validateCurrentSave(old,context); assert.deepEqual(restored.stageThree,flags); assert.ok(!Object.hasOwn(old,'stageThree'));
+  assert.throws(()=>validateCurrentSave(old,context)); assert.ok(!Object.hasOwn(old,'stageThree'));
   for(const bad of [null,{}, {...flags, coreActivated:1}]) { const raw:any=clone(s); raw.stageThree=bad; assert.throws(()=>validateCurrentSave(raw,context)); }
   const built=fresh(); built.buildings.aiSupercore=100; built.resources.helium3=100;
   calculateProduction(built); calculateSupportPreview(built); updateProgression(built);
@@ -122,7 +122,7 @@ test('complete third stage saves round trip immutably and reject incoherent acti
   assert.deepEqual(raw,before);assert.deepEqual(restored.stageThree,s.stageThree);
   assert.deepEqual(validateCurrentSave(clone(restored),context).stageThree,s.stageThree);
   for(const key of ['coreActivated'] as const){ const bad=clone(s);bad.stageThree[key]=false;assert.throws(()=>validateCurrentSave(bad,context),key); }
-  const legacy:any=clone(fresh());delete legacy.stageThree;assert.deepEqual(validateCurrentSave(legacy,context).stageThree,flags);
+  const legacy:any=clone(fresh());delete legacy.stageThree;assert.throws(()=>validateCurrentSave(legacy,context));
 });
 
 test('complete third stage chain uses actual research and construction without experiments or reading',()=>{

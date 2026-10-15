@@ -194,7 +194,7 @@ test('era buildings are gated by their techs and respect region unlock chains', 
   assert.equal(requestPurchaseModule(buyer, 'tech', 'gasCloudAccretion', 0).status, 'rejected');
 });
 
-test('new era records migrate additively while malformed values reject immutably', () => {
+test('missing and malformed era records reject immutably', () => {
   const raw = clone(beaconState()) as unknown as Record<string, unknown>;
   raw.tech = (raw.tech as string[]).filter(id => !eraTechs.includes(id as (typeof eraTechs)[number]));
   for (const field of ['buildings', 'workers', 'stoppedBuildings']) {
@@ -202,20 +202,18 @@ test('new era records migrate additively while malformed values reject immutably
   }
   delete (raw.resources as Record<string, unknown>).deuterium;
   const before = clone(raw);
-  const restored = validateCurrentSave(raw, context);
+  assert.throws(() => validateCurrentSave(raw, context));
   assert.deepEqual(raw, before);
-  assert.equal(restored.resources.deuterium, 0);
-  for (const id of eraBuildings) assert.equal(restored.buildings[id as BuildingId], 0);
   for (const field of ['buildings', 'workers', 'stoppedBuildings']) {
     for (const id of eraBuildings) {
       for (const value of [null, .5]) {
-        const bad = clone(raw);
+        const bad = clone(beaconState()) as unknown as Record<string, unknown>;
         (bad[field] as Record<string, unknown>)[id] = value;
         assert.throws(() => validateCurrentSave(bad, context));
       }
     }
   }
-  const badWater = clone(raw);
+  const badWater = clone(beaconState());
   (badWater.resources as Record<string, unknown>).deuterium = null;
   assert.throws(() => validateCurrentSave(badWater, context));
 });

@@ -4,15 +4,31 @@ import { CONFIG } from '../src/data/config';
 import { createInitialState } from '../src/state/create-state';
 import { validateStorageAssignments } from '../src/state/validation';
 import { validatePopulationRecords } from '../src/state/validate-population';
+import { validateCurrentSave, validateAndMigrateSave } from '../src/state/validate-save';
 import { canPayCost, payResourceCost } from '../src/simulation/costs';
 import { queuePurchase, type QueuePurchaseArguments } from '../src/simulation/purchases';
 const fresh=()=>createInitialState(CONFIG.version,60,0);
 
-test('all stopped building counts reject fractional values while absent legacy counts remain compatible',()=>{
+test('both save entry points reject every old schema without mutating input and roundtrip current saves',()=>{
+ const context={now:0,eventInterval:60,housingCapacity:()=>1000,clampResources:()=>{}};
+ for(const validate of [validateCurrentSave,validateAndMigrateSave]){
+  const current=fresh();assert.deepEqual(validate(structuredClone(current),context),current);
+  for(let version=12;version<=30;version++){
+   const raw={...structuredClone(current),version},before=structuredClone(raw);
+   assert.throws(()=>validate(raw,context),`schema ${version}`);assert.deepEqual(raw,before);
+  }
+  for(const field of ['legacyTechPrerequisites','legacyRocketry','legacyPopulationCeiling']){
+   const raw={...structuredClone(current),[field]:field==='legacyTechPrerequisites'?[]:0},before=structuredClone(raw);
+   assert.throws(()=>validate(raw,context),field);assert.deepEqual(raw,before);
+  }
+ }
+});
+
+test('all stopped building counts reject fractional values and reject missing counts',()=>{
  const s=fresh();s.buildings.generator=1;const raw=structuredClone(s);raw.stoppedBuildings.generator=.5;
  assert.throws(()=>validateStorageAssignments(raw,s));
  const valid=fresh();valid.buildings.generator=1;valid.stoppedBuildings.generator=1;validateStorageAssignments(structuredClone(valid),valid);assert.equal(valid.stoppedBuildings.generator,1);
- const legacy=fresh();const stopped:Record<string,unknown>={...legacy.stoppedBuildings};delete stopped.generator;validateStorageAssignments({...legacy,stoppedBuildings:stopped},legacy);assert.equal(legacy.stoppedBuildings.generator,0);
+ const legacy=fresh();const stopped:Record<string,unknown>={...legacy.stoppedBuildings};delete stopped.generator;assert.throws(()=>validateStorageAssignments({...legacy,stoppedBuildings:stopped},legacy));
 });
 test('population preserves overhousing integer saves but rejects unsafe or fractional population',()=>{
  for(const population of [Number.MAX_SAFE_INTEGER+1,1e100,.5,-1]){const s=fresh();assert.throws(()=>validatePopulationRecords({...s,population},s,1,0));}

@@ -1,0 +1,932 @@
+﻿node.exe : npm notice run meow-civilization@0.29.0 check
+所在位置 行:1 字符: 1
++ & "D:\Program Files\nodejs/node.exe" "C:\Users\Rr\AppData\Roaming\npm ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm notice run ...on@0.29.0 check:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+npm notice run npm run typecheck && npm test && npm run test:browser && npm run build
+npm notice run meow-civilization@0.29.0 typecheck
+npm notice run vue-tsc --noEmit && tsc -p tsconfig.scripts.json --noEmit
+npm notice run meow-civilization@0.29.0 pretest
+npm notice run node scripts/generate-legacy-data.cjs
+generated 92 bridge scripts
+npm notice run meow-civilization@0.29.0 test
+npm notice run tsx --test tests/modules.test.ts tests/runtime.test.ts tests/support-preview.test.ts tests/tech-tree.tes
+t.ts tests/building-limits.test.ts tests/crispr.test.ts tests/statistics.test.ts tests/black-hole.test.ts tests/starvat
+ion.test.ts tests/outer-space.test.ts tests/challenges.test.ts tests/retired-tianxing.test.ts tests/particle-overclock.
+test.ts tests/asriel-control-tower.test.ts tests/automated-gathering.test.ts tests/building-cost-creep.test.ts tests/ad
+vanced-metal-refining.test.ts tests/segmented-queue.test.ts tests/story.test.ts tests/stage-three.test.ts tests/stage-t
+hree-progression-audit.test.ts tests/stage-three-economy-audit.test.ts tests/remote-anchor.test.ts tests/hyperspace-ser
+vices.test.ts tests/retired-interstellar.test.ts tests/dimensional-beacon.test.ts tests/hyperspace-energy.test.ts tests
+/space-broadcasting.test.ts tests/preview-reuse.test.ts tests/ui-preview-cache.test.ts tests/strict-boundaries.test.ts 
+tests/fixtures/milestones.test.ts tests/storage-totals.test.ts tests/price-context.test.ts tests/settlement-ledger.test
+.ts tests/creep-tiers.test.ts tests/deuterium-era.test.ts tests/hyperspace-output-parity.test.ts tests/dimensional-pion
+eer.test.ts tests/genes.test.ts tests/cat-housing.test.ts tests/distant-stars.test.ts tests/markdown.test.ts tests/rate
+-display.test.ts tests/recovery.test.ts tests/stage-four.test.ts tests/stage-four-integration.test.ts tests/stage-four-
+playthrough.test.ts && node tests/run.cjs
+✔ advanced refining definition and the unconditional original aluminum baseline (14.9218ms)
+✔ funded refineries stack 8% aluminum and 1% steel and 0.5% iridium, charge exactly 4 once without workers (25.8428ms)
+✔ shortage funds whole enabled units and preserves 6% passive baseline for unfunded/stopped owned buildings (37.4281ms)
+✔ refining applies to ground steel and lunar/outer space iridium before source outputs (3.3356ms)
+✔ existing lunar maintenance has priority and preview counts agree without recursive production (4.5942ms)
+✔ valid current saves preserve advanced refining research and reject missing prerequisites (10.388ms)
+✔ research makes existing refineries continuous-power consumers and defaults them stopped (6.7358ms)
+✔ control towers add one support per fully powered enabled unit after port reservation (3.3235ms)
+✔ tower support allocates in the existing residence/mine/dome/foundry/lab priority (0.4611ms)
+✔ built towers can operate independently of port fuel or enabled ports and have no jobs (0.523ms)
+✔ preview and production reserve towers exactly once before downstream factories and research (49.4268ms)
+✔ waystation and lunar maintenance precede port and tower power allocation (2.3126ms)
+✔ additive tower save records default missing counts to zero and reject malformed present values (16.0571ms)
+✔ fractional automation payments never leave negative floating energy (6.2998ms)
+✔ automatedMining gates gathering controls, energy expense, and the separate 5% multiplier (41.0033ms)
+✔ gathering automation funds only full units for every dt and leaves fractional reserves unused (18.8993ms)
+✔ automation preserves cement and mine priority before lumber and quarry (0.4949ms)
+✔ stopping gathering buildings disables automation only, retaining owned boosts and unlimited base jobs (4.161ms)
+✔ energy breakdown and child factors report funded gathering buildings without double expense (4.901ms)
+✔ research defaults newly powered gathering buildings off without changing worker assignments (3.1682ms)
+✔ manual gathering worker assignments remain unlimited and independent of automation power and stops (5.3177ms)
+✔ data: techs, building and ejection table follow the spec (4.4871ms)
+✔ 质量喷射器 tech needs a completed Penrose sphere; first ejector logs the new panel (2.5489ms)
+✔ allocations are capped by capacity and ejection adds ordinary and exotic mass (32.0857ms)
+✔ saves round-trip black hole state and default it for older saves (17.763ms)
+✔ 引力转化 scales the whole Penrose sphere continuously (7.2518ms)
+✔ instability logs once per crossing, unlocks both specials, and 稳定黑洞 is repeatable (9.3609ms)
+✔ 奇异失控 cannot be bought or queued directly; 黑洞重置 pays and grants all three rewards (2.0647ms)
+✔ black-hole rewards exceed escape rewards and dark energy stays in the 1-10 band (0.4898ms)
+✔ 暗能量加成 multiplies ordinary storage after the CRISPR bonuses (6.5238ms)
+✔ 证券交易所 adds +2 percentage points to each banker tax bonus (5.801ms)
+✔ legacy cash and scale registries cover every building without shared mutable scale recipes (2.3674ms)
+✔ metal refinery and cement workshop carry their extra creep in the raw registry scale (1.021ms)
+✔ refinery creep does not spill into battery stations and both scale registries agree (0.2603ms)
+✔ cement workshop carries .045 extra creep (.025 + balance .02) in its registry scale for construction resources (0.2352ms)
+✔ base creep equals the registry scale and dynamic terms only come from active effects (1.2886ms)
+✔ once-only buildings report fully built while ordinary buildings never do (0.2608ms)
+✔ the first purchase retains every raw building cost and the early nest cash exception (1.1607ms)
+✔ AI segmented construction keeps fixed costs at every count even with discounts (0.2732ms)
+✔ ordinary creep never drops below 1.005; segmented and specified scales are exempt (0.4746ms)
+✔ cost creep precedes additive CRISPR, industrialism and neutron material discounts (0.3575ms)
+✔ balance pass: 17 ground buildings carry +0.02 base creep in both registries (0.2077ms)
+✔ balance pass: 农场 +0.03, 伐木场/采石场/采矿场/煤矿/住宅楼 +0.01 base creep in both registries (0.1446ms)
+✔ stopped factories remove capacity and retract largest assignments first (3.1608ms)
+✔ ordinary buildings and nests remain purchasable at and beyond 300 (4.6956ms)
+✔ queue and batch construction cross 300 without pruning or truncation (2.0307ms)
+✔ explicit community limit reserves queued capacity and rejects invalid saves (1.2091ms)
+✔ save roundtrip preserves buildings, workers, stopped counts and queue above 300 (7.8698ms)
+✔ large factory assignments follow capacity rather than the old million cutoff (0.7918ms)
+✔ unbounded gameplay still rejects non-finite and unsafe saved building counts (2.8087ms)
+✔ 猫窝 houses 1 and 猫窝MKII houses 2 (6.0966ms)
+✔ 猫猫小屋 tech is T3 after 农业 for 750 knowledge and unlocks the building (1.5719ms)
+✔ 猫猫小屋 copies 猫窝 base values with independent data and 1.35 creep (1.6813ms)
+✔ 钢制建材 is T5 for 5k knowledge + 500 steel and cuts 猫窝/MKII creep by 0.01 (2.3959ms)
+✔ older saves without 猫猫小屋 records load at zero; the new building round-trips (6.9324ms)
+✔ challenge launch requires permanent unlock and commits an independent soft-reset state (2.5884ms)
+✔ all ordinary reset paths clear active challenges and baseline (2.3378ms)
+✔ save round trips active genes, defaults absent legacy records and rejects explicit malformed records (25.1471ms)
+✔ imbalance accelerator boosts are linear for all ordinary resources including knowledge only (0.6204ms)
+✔ challenge effects integrate with particle production, permanent storage and material reduction (1.0477ms)
+✔ industrial fracture refuses manual crafts without consuming ingredients or producing output (1.6315ms)
+✔ base creep is exactly the registry scale; dynamic terms default to empty (4.0163ms)
+✔ dynamic terms stack additively: CRISPR + government + tech each listed once (0.5621ms)
+✔ dynamic creep cannot push the scale below 1 so prices always rise (0.1972ms)
+✔ different resources of one building may use different base creeps (0.2069ms)
+✔ prices compound from base + dynamic and the first purchase stays at raw cost (0.474ms)
+✔ once-only completion detection covers max buildings and segmented cores only (0.2221ms)
+✔ new CRISPR storage tiers replace and casimir adds independently (1.5684ms)
+✔ automatic artisan upgrades multiply independently and architect doubles both lanes (2.7643ms)
+✔ CRISPR registry has exact tiers, prices and prerequisite chain (0.2532ms)
+✔ purchases require research, prerequisites, sufficient particles and uniqueness without partial mutation (1.8866ms)
+✔ material tiers immediately replace lower reductions and combine with industrialism, not ARPA (1.5504ms)
+✔ gene optimization changes remaining project investment immediately and survives resets (2.767ms)
+✔ spatial reasoning uses remaining particles on all ordinary caps with matching detail totals (34.2664ms)
+✔ soft and nuclear retain independent permanent arrays; hard resets clear them (9.2143ms)
+✔ save round trips permanent upgrades and applies caps before clamping; missing defaults empty (6.0954ms)
+✔ perks list shows only the highest owned tier of each chain with live values (0.5953ms)
+✔ earned achievements contribute perks only when they define a special effect (0.2558ms)
+✔ maintenance rebalance charges exact helium and energy per funded unit once (28.9334ms)
+✔ community center replaces production bonus with growth +10% (0.4471ms)
+✔ dimension beacon drops to T17 and era techs form the exact research chain (1.6525ms)
+✔ hyperspace buildings fund whole units, never bootstrap, and use ordinary multipliers (24.0057ms)
+✔ deuterium unlocks via gas cloud ship with port and base capacities and no containers (2.024ms)
+✔ era buildings are gated by their techs and respect region unlock chains (0.9096ms)
+✔ new era records migrate additively while malformed values reject immutably (28.1322ms)
+✔ deuterium holdings and era buildings survive a full save round trip (2.5907ms)
+✔ beacon research gates directly on field constraint theory and unlocks the new building chain (6.1232ms)
+✔ funded ports add stability before freight, and ice/base reserve whole support and maintenance exactly once (41.5126ms)
+✔ asteroid bases multiply freight capacity additively without boosting unrelated storage (13.3489ms)
+✔ new defaults migrate absent records without mutation while malformed present records reject (13.9839ms)
+✔ funded hyperspace spaceports add 16000 helium-3 storage, doubled by higher-dimensional storage (4.1617ms)
+✔ completing the space ripper logs the main-story completion exactly once on every build path (3.3289ms)
+✔ new technologies have the requested tiers, prices and prerequisites (1.3084ms)
+✔ space ripper is a 100-segment project whose fixed price never creeps (0.5078ms)
+✔ only a completed ripper adds +100 energy/s and +20% knowledge capacity (46.1617ms)
+✔ 撕裂者超频 is a T19 1M-knowledge tech after 破维先锋 that doubles ripper energy to 200/s (20.1312ms)
+✔ high-tech factory adds 2 lines and 2 cement worker slots, costing 10 energy and 0.5 deuterium (42.7495ms)
+✔ 710 research station: tech, +1 scientist slot, +50k funded knowledge cap, 25 energy and 1 deuterium (39.1227ms)
+✔ powered high-tech factories run two assigned lines each (12.4565ms)
+✔ higher-dimensional storage doubles hyperspace storage and adds spaceport water (2.4985ms)
+✔ new buildings migrate additively and the completed ripper survives a save round trip (6.6099ms)
+✔ distant-star technology chain matches the requested prerequisites and prices (1.3662ms)
+✔ OC-13 needs the full ripper, logs the black hole once, and renames nothing in saves (1.0899ms)
+✔ new buildings have the requested creep tiers and region upkeep without support (1.9466ms)
+✔ new resources: zero base caps, containers, anchor storage and unlock rules (10.1879ms)
+✔ alpha-sector miners and graphene settle like hyperspace sources with breakdown parity (16.6332ms)
+✔ stellar forge generates 25 energy/s while keeping its passive forge effects (5.519ms)
+✔ adamantite processor bonuses require whole funded running stations (10.9421ms)
+✔ star-ring bonus applies to distant ordinary resources while the old port bonus is gone (5.5952ms)
+✔ nano-alloy factory line and aerogel craft follow the shared factory and artisan pipelines (2.4879ms)
+✔ smelter slots keep legacy steel output, auto-assign steel and gain forge slots (25.5854ms)
+✔ VR, virtual training, black-hole station and Penrose effects (4.6947ms)
+✔ plasma mining upgrades the asteroid miners (0.2059ms)
+✔ new regions gate buildings behind missions and old saves load with steel slots and zero defaults (7.2276ms)
+✔ 电磁发射器 fuel discount covers only ground and space regions, never hyperspace or 遥远星际 (87.2498ms)
+✔ 完整空间撕裂者 energy row has no fake 原料供应 and its knowledge row follows 黑洞星际站 (1.4131ms)
+✔ milestone fixtures stay registry-known, additive and individually save-valid (13.4678ms)
+✔ milestone option overrides remain explicit and preserve base progression (1.7665ms)
+✔ 基因剪切 is a T1 CRISPR upgrade costing 100 particles plus 25 casimir (7.1688ms)
+✔ gene modification unlocks only with 基因剪切 and this run's 基因测序 (0.3093ms)
+✔ DNA costs 200k knowledge each, honours multipliers and stops at affordability (0.3906ms)
+✔ gene upgrades cost 10·2^level of their own base (0.3045ms)
+✔ each gene applies its exact per-level bonus (0.8812ms)
+✔ gene bonuses reach real settlement and the resource tooltip rows (47.2046ms)
+✔ gene state is run scoped and round-trips through save validation (4.6688ms)
+✔ prestige resources stay hidden until first held, then stay unlocked at 0 (6.4183ms)
+✔ 成熟加速 (C) adds 1% population growth per level on top of other growth multipliers (1.0433ms)
+✔ 超频锻造 (G) adds 2% crafted output and 1% artisan output per level without extra ingredients (36.2138ms)
+✔ 基因合成 is a T11 200k tech after 遗传学 gated by 基因测序 (0.1094ms)
+✔ 基因合成 converts 20k knowledge into 0.1 DNA per lab at 10%, rates independent and settled for real (27.1858ms)
+✔ 基因合成 needs the tech and 基因剪切; rates and fractional DNA survive saves and reset with the run (6.4782ms)
+✔ hyperspace technology tiers costs and building-gated research retain exact research payments (5.1015ms)
+✔ funded repeaters amplify only funded arrays and never amplify spaceport stability (30.2391ms)
+✔ hydrogen plants use stored water before energy maintenance and supply independent asteroid support (18.4169ms)
+✔ hydrogen research cannot be smuggled through saves without its permanent base prerequisite (15.3343ms)
+✔ icebreaking upgrades only the base water output once and new powered buildings migrate strictly (12.753ms)
+✔ hyperspace sources no longer receive a port bonus and keep breakdown parity (11.7991ms)
+✔ ice water has no port bonus but still needs port support (3.5306ms)
+✔ actual-happiness replay rederives fuel-chain units instead of trusting baseline ledger (4.3571ms)
+✔ service allocation spends two stability per relay freight and civilian with whole-unit upkeep exactly once (14.7132ms)
+✔ freight adds exactly 32000 base storage for fourteen resources only when funded without warehouse doubling (11.0963ms)
+✔ service base storage receives global particle Casimir and exchange bonuses without special-resource leakage (2.1883ms)
+✔ civilian housing and cash capacity use actually funded units and preserve supplied subsecond snapshots (4.766ms)
+✔ civilian unlock cost creep and direct queued support-shortage defaults share service gates (2.6268ms)
+✔ legacy saves default missing civilian records but reject explicit malformed records immutably (11.0148ms)
+✔ game sources and shipped pages never introduce emoji decorations (28.7418ms)
+✔ new logs and imported history strip legacy emoji without losing content (1.8277ms)
+✔ inline parser splits bold and code without producing HTML (1.0833ms)
+✔ block parser handles headings, nested lists, rules, quotes and paragraphs (0.7733ms)
+✔ game title matches the README, app header and both HTML entry pages (1.2123ms)
+✔ root updatelog.md exists and starts with a version heading (0.6693ms)
+✔ legacy queue completion logs migrate to queue while ordinary events retain their type (8.2133ms)
+✔ duplicate queued building prices reindex after middle cancellation and completion (1.5204ms)
+✔ seven replacement achievements expose exact names and em-dash conditions (0.3825ms)
+✔ new snapshot achievements trigger only on fresh completion and never duplicate (1.8441ms)
+✔ retired achievement ids load cleanly without backfilling existing new progress (6.5753ms)
+✔ nuclear and escape achievements are awarded once on successful reset with logs (1.368ms)
+✔ real ticks allocate workers before production and after new slots, but paused ticks do not (8.1748ms)
+✔ automatic workers fill only idle population by priority and respect independent limits (0.2813ms)
+✔ automatic workers reject invalid settings and exclude unlimited or locked jobs (0.2215ms)
+✔ automatic worker settings survive saves, default for older saves and clear on reset (4.3457ms)
+✔ ARPA institute description updates only after the dimension compression technology (0.1487ms)
+✔ iridium alloy warehouse doubles targeted base storage and adds bank cash percentage (0.4093ms)
+✔ research satellite adds escalating knowledge price and price lists prioritize cash then knowledge (0.26ms)
+✔ tourist stations scale at 1.18 and require both energy and discounted oil maintenance (4.7472ms)
+✔ particle accelerators require nuclear prestige and add percentage points to both production bonuses (0.3005ms)
+✔ ring bonuses affect only space sources and appear beneath each source without double counting (11.7245ms)
+✔ ARPA institutes gate technologies and scale only targeted storage and outputs (0.7206ms)
+✔ stock capacity uses live population, bonds replace stocks and exchanges scale subtotal (6.1673ms)
+✔ new ARPA projects support partial investment, completion and escalating repeat prices (1.0773ms)
+✔ Kerberos technologies require mission and upgrade smelter and lunar helium bases (7.7256ms)
+✔ planetary foundries share artisans and boost both crafting paths only while supported (4.5132ms)
+✔ Kerberos mission is independent and geothermal generation boosts only lunar iridium (4.4124ms)
+✔ space garrison increases soldiers without support and reinforced containers double current base (4.1106ms)
+✔ power switch warning follows actual support and power allocation (10.898ms)
+✔ all support-consuming buildings expose power switches and stopped Asriel units release support (0.6178ms)
+✔ waystations compound space fuel discounts and add passive capacity/support (10.1752ms)
+✔ waystation maintenance is paid once and off/unpowered units lose active effects (3.6302ms)
+✔ late space technologies use exact prices and vault base capacity additions (0.7552ms)
+✔ queue estimates handle deficits, capacity, FIFO reservations and ARPA partial funding (0.7836ms)
+✔ particle production follows a continuous decreasing-marginal-return curve (0.9577ms)
+✔ 超级集装箱 is T8 51.4k; warehouses gain 25 ordinary / 10 alloy slots and hangars 15 alloy slots (0.2932ms)
+✔ alloy containers manufacture for 10 alloy, allocate independently, save and validate strictly (1.8361ms)
+✔ alloy containers survive full JSON validation and clear on run reset (1.4972ms)
+✔ mithril rejects containers and legacy allocations return to the idle pool (0.6491ms)
+✔ cat cafes provide one artist job each without changing automatic cash output (0.2451ms)
+✔ legacy cafe artist assignments migrate once into the shared artist pool (0.6832ms)
+✔ smelter base steel is 0.5 and electrochemical steel is 1 before oxygen bonus (0.1235ms)
+✔ electrochemical smelting raises steel output without power upkeep even at zero energy (7.3358ms)
+✔ 原油精炼优化 is a T9 70k tech after 化学沉积工艺 and 石油存储 (0.2087ms)
+✔ 原油精炼优化 raises refinery base oil to 1.5/s and power to 2/s in real settlement (8.4778ms)
+✔ gene sequencing requires genetics, costs one million, and resets each run (1.1134ms)
+✔ project queue preserves partial funding, timing and unique projects (0.3638ms)
+✔ monument investment changes material only on completion (0.2333ms)
+✔ persistence writes timestamped JSON and reports storage failure (0.9465ms)
+✔ unified save entry validates current and upgrades legacy JSON independently (3.5282ms)
+✔ recent migrations preserve legacy lines and never mutate input (0.1508ms)
+✔ economy save validation preserves defaults and rejects invalid assignments (0.6919ms)
+✔ civilization save validation rejects invalid prestige and military progress (0.3216ms)
+✔ complete production ES module runs without DOM or global state (1.635ms)
+✔ typed commands reject invalid inputs and preserve gameplay gates (0.6177ms)
+✔ production finalization reports full food demand and does not modify source state (0.7605ms)
+✔ research pool reserves lunar then planetary maintenance without touching state (0.4204ms)
+✔ growth preserves food gates, population threshold and one-arrival steps (0.2292ms)
+✔ training keeps partial progress, caps soldiers and unlocks fur (0.1898ms)
+✔ state factory owns all nested mutable records (0.1729ms)
+✔ factory module imports real typed registries and returns fresh recipes (0.1631ms)
+✔ support modules are read-only and preserve prioritized whole units (1.1809ms)
+✔ technology module follows explicit tier and unknown fallback (0.142ms)
+✔ purchases keep immediate, queued and FIFO settlement behavior (0.9189ms)
+✔ research applies powered shutdown and container unlock side effects (0.3779ms)
+✔ batch building respects queue reservations and escalating prices (0.2361ms)
+✔ craft assignment respects unlocks, foundry capacity and integer steps (0.5776ms)
+✔ nuclear fill and prestige resets preserveInvalid guards (0.6401ms)
+✔ direct building purchase reports first factory unlock (0.2064ms)
+✔ decimal effects survive binary roundoff without rounding genuine stock fractions (0.1332ms)
+✔ building effect numbers retain up to four decimals without trailing zeros or compact units (0.1541ms)
+✔ resource rate display retains two decimals without negative zero or binary tails (0.0967ms)
+✔ resource display retains two decimals and suppresses binary roundoff without rounding up stock (0.1828ms)
+✔ formatting truncates stock and handles invalid and negative values (0.1036ms)
+✔ garrison training uses whole paid upkeep without shrinking the owned army ceiling (33.0535ms)
+✔ AI core pays both upkeep resources only when a whole core can run (12.9147ms)
+✔ AI power warning compares whole cores rather than construction segments (6.015ms)
+✔ regional tasks share building queue, reject duplicates and complete at live discounted price (5.1819ms)
+✔ mission force-queue cancellation and ARPA ordering preserve resource balances (1.6137ms)
+✔ alien labs require support for capacities and ring optimization uses supported labs only (0.5395ms)
+✔ AI core segments have immutable cost and grant quantum only when complete and fueled (11.2734ms)
+✔ each segmented queue project reserves one slot and requests ten percent of total construction (0.6505ms)
+✔ queued ship funding checks once per second and leaves sub-one-percent stocks untouched (0.6355ms)
+✔ quantum manufacturing multiplies factory source output only (8.9995ms)
+✔ swarm factory discounts compound and quantum swarm changes total support (11.8352ms)
+✔ ARPA and ship accept independent resource deposits without overfill and hull gates later components (1.4298ms)
+✔ escape rewards apply both softcaps and preserve permanent casimir while clearing ship (2.6749ms)
+✔ nanotube factory recipe capacity and maintained warehouse use requested base values (2.734ms)
+✔ misen multi-resource mission queues atomically and discounts only helium fuel (0.8203ms)
+✔ E-710 dedicated storage maintenance, space production and reactor settle once (7.4603ms)
+✔ drone bonus is attached to neutron source and oil extractor receives space ring bonus (1.92ms)
+✔ outer missions use discounted atomic payment and independent ordered unlock gates (0.5399ms)
+✔ swarm generation uses complete support slots and powers maintenance immediately (6.219ms)
+✔ outer sources settle maintenance once and attach independent ring bonuses (7.3973ms)
+✔ neutron unlock controls hangar capacity and excludes containers; material upgrades change costs (1.0947ms)
+✔ old saves default additive fields and explicit malformed outer fields reject (17.9532ms)
+✔ 铱合金集装箱 (T13) costs 230k knowledge + 1000 iridium, needs 月球勘探 and multiplies container capacity ×2.5 (1.5085ms)
+✔ retired overclock content is absent and older saves cleanly discard its research and queues (11.9035ms)
+✔ shared research reservations preserve the legacy morale result across timesteps and shortages with fewer inventory reads (34.1759ms)
+✔ non-quantum swarm support never reads inventory, while explicit zero and computed quantum remain supported (3.1916ms)
+✔ price context reproduces the exact legacy quote for every cost path and count (63.4538ms)
+✔ context reuse never triggers a full production or quantum solve for quoted prices (2.5021ms)
+✔ unordered duplicate buildings settle their lowest ordinal first and retain the quoted next price (4.093ms)
+✔ positive craft assignment never subtracts from a temporarily overassigned artisan pool (0.2879ms)
+✔ legacy callers without a context keep the self-computing behavior (4.1569ms)
+✔ constant reactor income does not flicker at floating-point inventory boundaries (44.4636ms)
+✔ rate rounding preserves genuine hundredths and leaves inventory truncation unchanged (0.8502ms)
+✔ upgrade persists a detached pre-v30 baseline once without touching active storage (2.5253ms)
+✔ explicit ending requests replace ending only, retaining the upgrade baseline (0.2587ms)
+✔ storage read and quota failures are contained and never clear a prior checkpoint (0.3024ms)
+✔ missing or access-denied global localStorage fails safely (0.5927ms)
+✔ malformed or mismatched envelopes are unreadable and never overwritten by upgrade (0.3003ms)
+✔ invalid source data is rejected before serialization can drop or coerce it (0.4752ms)
+✔ legacy raw records and command-like strings remain inert JSON data (0.1951ms)
+✔ freight station unlocks directly with field theory, without a project or experiment (7.27ms)
+✔ freight funds whole units after relays and charges maintenance once across step lengths (38.0201ms)
+✔ freight no longer boosts any mining output and breakdown still matches settlement (12.0039ms)
+✔ older saves default freight additions while malformed facility counts are rejected immutably (10.2261ms)
+✔ remote stories survive ordinary resets while new-run remote progress clears (2.1148ms)
+✔ retired interstellar registries and commands disappear while solar facilities and ESS remain (23.7931ms)
+✔ legacy interstellar content is scrubbed immutably without refunds and repeated imports are stable (9.3015ms)
+✔ retirement scrubs only recognized IDs and matching queue kinds, not malformed or unknown data (40.5635ms)
+✔ retired migration preserves partial solar progress and reset archives with unchanged ESS escape (4.4806ms)
+✔ retired catalog entries and fresh state disappear while ESS, E-710 and AI remain (3.2151ms)
+✔ legacy arrived save immutably retires tech, queues, raw capacity and story without refunds or replay (35.6781ms)
+✔ legacy arrived timers never generate future Tianxing story events or grant a station (40.8571ms)
+✔ legacy flying save immutably retires tech, queues, raw capacity and story without refunds or replay (25.6602ms)
+✔ legacy flying timers never generate future Tianxing story events or grant a station (28.3968ms)
+✔ legacy idle save immutably retires tech, queues, raw capacity and story without refunds or replay (10.2225ms)
+✔ legacy idle timers never generate future Tianxing story events or grant a station (18.2901ms)
+✔ retired payload is discarded before old prerequisite and malformed legacy-only field validation (1.5807ms)
+✔ retirement does not relax validation of surviving content or unknown ids (2.6401ms)
+✔ v29 startup archives original once before v30 autosave, and backup quota failure protects original (16.6816ms)
+✔ runtime achievement scan logs a newly reached condition once (18.9777ms)
+✔ runtime initializes technology prices using the existing tier rules (0.1062ms)
+✔ load clamps the candidate save and never mutates the previous state (2.9235ms)
+✔ load never settles offline time and resets the live clock (4.9789ms)
+✔ future save timestamps clamp to a slow device clock without advancing time (2.2276ms)
+✔ load is idempotent for a new game (0.4805ms)
+✔ purchase settlement runs and ARPA only advances with real elapsed time (5.8401ms)
+✔ failed persistence is visible and preserves the last successful timestamp (0.7298ms)
+✔ invalid save is protected against automatic and manual overwrite: "{broken" (38.702ms)
+✔ invalid save is protected against automatic and manual overwrite: "" (26.8101ms)
+✔ invalid save is protected against automatic and manual overwrite: "{\"version\":999}" (12.5326ms)
+✔ read failure also protects the unknown existing save (15.7606ms)
+✔ automatic saves use actual elapsed time rather than nominal interval (17.6436ms)
+✔ replacement validates atomically, persists, and clears previous clock debt (2.2107ms)
+✔ accepted import exposes persistence failure without losing imported progress (2.5216ms)
+✔ reset persists immediately and preserves only the selected reset data (1.6842ms)
+✔ store signals one revision per refresh, mutation, or partially failed mutation (1.5783ms)
+✔ save metadata rejects malformed timestamp -1 (1.4081ms)
+✔ save metadata rejects malformed timestamp NaN (1.1322ms)
+✔ save metadata rejects malformed timestamp Infinity (0.7651ms)
+✔ save metadata rejects malformed timestamp -Infinity (0.6363ms)
+✔ save metadata rejects malformed timestamp null (0.5892ms)
+✔ save metadata rejects malformed timestamp 1000 (0.4907ms)
+✔ v28 migration initializes absent additions without resetting valid present progress (4.0402ms)
+✔ v28 migration does not launder malformed or locked additions (1.996ms)
+✔ retired Asriel queued flag normalizes without dropping real queue work (5.3738ms)
+✔ absent commercial stopped counts default but explicit malformed counts reject (11.8776ms)
+✔ synthesized project tracking uses explicit-row invariants and is roundtrip idempotent (4.2709ms)
+✔ persistence itself restores timestamp on storage and serialization failures (0.3145ms)
+✔ display-only history and unknown settings stay tolerant (1.261ms)
+✔ ARPA and purchase capacities agree including explicit zero and architect (2.121ms)
+✔ ordered ARPA respects construction FIFO but not the independent research lane (1.3668ms)
+✔ every enqueue is one ten-segment project and occupies exactly one shared construction slot (0.6567ms)
+✔ partial sequential funding preserves project uid and remaining segments until all ten finish (0.7758ms)
+✔ ordered projects reserve FIFO construction and cancellation drops only unpaid remainder (0.9126ms)
+✔ direct affordable purchase remains one segment while reservations clamp final enqueue (0.4228ms)
+✔ remaining project costs and ETA use segment totals while storage requires only one segment (0.7498ms)
+✔ new project saves preserve remaining counts and reject malformed or overreserved segments (0.6249ms)
+✔ legacy individual segments coalesce contiguous same-building runs without mutating input or crossing FIFO barriers (6.7073ms)
+✔ shared settlement ledger reproduces the pre-A5 production and support previews exactly (121.6321ms)
+✔ support preview keeps its historical semantics while sharing the ledger units (228.7776ms)
+✔ production and support settle the paid facilities once per call pair (10.5816ms)
+✔ culture morale follows paid sequential upkeep, stopped units and oil at both tick sizes (15.2026ms)
+✔ hyperspace culture preview converges to the oil upkeep actually consumed (14.0994ms)
+✔ space broadcasting costs exactly 480k behind AI II and upgrades the same existing beacon (1.9752ms)
+✔ broadcast beacons grant three morale per funded whole unit with exact once-only power and unchanged lunar support (19.1907ms)
+✔ morale cap sources each contribute one while existing actual broadcast and tourist morale remain three (4.1494ms)
+✔ cat cafe cash storage uses its new 4000 base and retains the independent iridium vault addition (0.4508ms)
+✔ v30 fresh states own independent stage-four state and v29 migration is immutable (14.75ms)
+✔ soft reset preserves stage-four legacy independently while hard reset clears it (1.5152ms)
+✔ nuclear, escape and black-hole prestige retain stage-four legacy but clear the run (2.7814ms)
+✔ locked endings reject without mutation (0.5104ms)
+✔ creative ending preserves old prestige/settings/story and pays one independent new reward (1.9957ms)
+✔ destructive ending preserves old prestige/settings/story and pays one independent new reward (1.5513ms)
+✔ advanced stage-four roundtrip validates main-world prerequisites and preserves input (4.0014ms)
+✔ all 24 technologies and both endpoints reachable with zero injected local currency and finite capped main resources (74.022ms)
+✔ stage-four preview is pure and tick charges exactly once with matching net rates (35.8727ms)
+✔ local registries have substantial independent breadth (0.7379ms)
+✔ entrance checks every bridge prerequisite and charges affordable main resources once (1.2261ms)
+✔ production consumes real energy and knowledge, stays capped, rejects malicious time (2.8512ms)
+✔ allocations reject overcommit and malformed values without mutation (0.4683ms)
+✔ finite experiments pause cancel and validate explicit conditions without punishment (0.9567ms)
+✔ digital paths require ordered timed repair verification and routing (0.2971ms)
+✔ both endings playable independently with reversible identity decisions and permanent distinct rewards (9.7488ms)
+✔ permanent upgrades provide real speed capacity and consumption bonuses (0.4424ms)
+✔ strict runtime normalization rejects malformed data and impossible prerequisites (1.6139ms)
+✔ unknown actions are strict no-ops (0.4461ms)
+✔ full local storage suspends production upkeep without blocking active tasks (0.6312ms)
+✔ mid-experiment interventions have deterministic costs speed and evidence tradeoffs (2.0907ms)
+✔ observations depend on conditions and archives survive reset with named identities (4.6333ms)
+✔ subsecond quantum-funded satellite generation uses the same interval as core and stability maintenance (13.4608ms)
+✔ relay support reaches Asriel allocation housing knowledge storage and purchase defaults (5.6342ms)
+✔ quantum feedback with relays and Asriel knowledge terminates purely and charges upkeep exactly once (4.5292ms)
+✔ retired anomaly registries and purchase commands disappear, and experiment APIs are absent (3.9298ms)
+✔ old anomaly saves retire only removed records and queues without losing later progress or archived stories (8.4827ms)
+✔ anomaly retirement keeps unknown ids and wrong-kind queues invalid (7.9318ms)
+✔ retired experiment APIs and registries are absent and commands reject atomically (2.0591ms)
+✔ all old flags content and queues migrate immutably idempotently and preserve later progress (4.443ms)
+✔ migration rejects malformed retained state unknown content and wrong-kind retired queues (13.9801ms)
+✔ core activation needs a constructed core but field services need no historical array operation (6.7488ms)
+✔ reset keeps archived stories without retaining retired flags or current activation (4.2106ms)
+✔ stage three defaults false and never infers actual AI activation from old construction alone (23.3216ms)
+✔ only committed fully fueled enabled AI ticks activate third stage, not previews or paused/starved cores (17.8622ms)
+✔ mapping needs only global calibration and field theory needs mapping without an ARPA project (1.0047ms)
+✔ constraint arrays and relays fund full units with exact once-only upkeep and pure support previews (8.3463ms)
+✔ original lunar and Asriel support maintenance remains ahead of new experimental facilities (1.5211ms)
+✔ field theory directly unlocks services without experiments while stability remains enforced (0.8928ms)
+✔ normal resets clear third-stage running progress while preserving earned stories and ESS escape (0.9983ms)
+✔ complete third stage saves round trip immutably and reject incoherent activation (5.563ms)
+✔ complete third stage chain uses actual research and construction without experiments or reading (25.1794ms)
+✔ all new technology prerequisite chains are present in the registry (0.3284ms)
+✔ hyperspace opens immediately on mapping research, before stabilization or experiments (0.8647ms)
+✔ continuous zero-food shortage kills exactly one cat every ten seconds and logs an event (73.9031ms)
+✔ food recovery or nonnegative production clears the consecutive shortage timer (0.288ms)
+✔ the depletion step counts only seconds after stored food runs out (12.0677ms)
+✔ deaths immediately trim workers and craft assignments without killing unrelated soldiers (0.4242ms)
+✔ multiple deaths cannot make population negative or record nonexistent cats (0.2252ms)
+✔ starvation preserves the existing independent army and training rules (0.2963ms)
+✔ offline and live step simulation share starvation and game-day accounting (63.4505ms)
+✔ one configured game year records the same number of game days (770.0295ms)
+✔ cats above housing capacity leave at once, trimming jobs but not soldiers (1.3144ms)
+✔ fractional capacity floors and zero capacity empties population (0.3141ms)
+✔ statistics helpers support old partial states and invalid input is a no-op (2.5587ms)
+✔ old saves recover only current days and holdings plus retained CRISPR costs (13.4526ms)
+✔ statistics validation preserves fractions and rejects corrupt counters (6.7565ms)
+✔ soft/nuclear preserve lifetime only; reward counted once; hard clears all (2.2996ms)
+✔ battery concentration ring increases base energy and replaces station capacity (15.9144ms)
+✔ banking and neutron vault technologies use exact tiers, costs and sole prerequisites (0.2608ms)
+✔ neutron flat vault capacity precedes warehouse percentages and intelligent banking doubling (0.1914ms)
+✔ intelligent banking replaces rather than stacks prior population cash bonuses (1.3841ms)
+✔ neutron hangar capacity replaces ordinary and alloy caps without bypassing super containers (0.2522ms)
+✔ new banking technology ids roundtrip current saves without a schema migration (2.3588ms)
+✔ batched storage totals match per-resource details exactly across milestones (13.6597ms)
+✔ batched totals stay pure and crafted resources stay unlimited (6.7105ms)
+✔ appendix milestones unlock from independently observed technology buildings and permanent progress (5.8822ms)
+✔ first escape records only a successful reset immediately and failed launches leave no archive effects (1.864ms)
+✔ appendices backfill old saves from surviving evidence and retain independent read records across reset (7.168ms)
+✔ eight story milestones unlock independently, immediately and without logs or timers (1.878ms)
+✔ normal progression collects archives in chapter order and read flags are idempotent (0.6857ms)
+✔ old saves infer only observed milestones, validate immutably and preserve read flags on roundtrip (2.7721ms)
+✔ story validation rejects present malformed fields and read records not already unlocked (0.7907ms)
+✔ soft nuclear and escape resets preserve independent archives and synchronize pending milestones; hard reset clears (0.9672ms)
+✔ all stopped building counts reject fractional values while absent legacy counts remain compatible (2.5627ms)
+✔ population preserves overhousing integer saves but rejects unsafe or fractional population (0.5635ms)
+✔ payments reject negative nonfinite and unknown costs atomically but retain valid zero and epsilon behavior (0.9645ms)
+✔ typed queue inputs reject mismatched locked and duplicate requests without changing state (1.2666ms)
+✔ Asriel ports provide support and default enabled even when no support is available (4.5372ms)
+✔ new support consumers default off at shortage unless always-enable overrides (1.2373ms)
+✔ batch and queue construction apply the same automatic support shutdown (0.6517ms)
+✔ freshly generated power supports the Moon immediately without mutating source state (10.613ms)
+✔ Asriel support reserves lunar maintenance before allocating ports and housing (3.233ms)
+✔ research capacity and morale previews use all power plants and the production reservation order (3.7233ms)
+✔ runtime imports and loads clamp the candidate using powered lunar support and log achievement names (8.4202ms)
+✔ tree stacks tiers vertically and preserves same-tier horizontal rows (9.3084ms)
+✔ a lone dependency uses the theme stroke, with no artificial colour (0.2046ms)
+✔ UI previews are lazy and shared only within identical state revision and dt (14.5486ms)
+✔ cached previews do not mutate input or replace authoritative simulation and keep working pools independent (4.9332ms)
+✔ formatter omitting revision stays uncached for command checks while display snapshots use supplied revisions (0.6594ms)
+ℹ tests 417
+ℹ suites 0
+ℹ pass 417
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2449.7158
+PASS 科技、建筑成本倍率、支持、任务与存档字段契约
+PASS 太空港维护只扣一次，缺粮不运行
+PASS 无居住站矿井无产出；支持居民带来精确基础产出
+PASS 穹顶产粮以维护前后差额验证
+PASS 共享线路不预占，太空工厂维护只扣一次
+PASS 格纳库资源容量增加8000，容器加30
+PASS 月球观测站必须获得月球支持
+PASS 导航灯塔每座消耗2电力且仅扣一次，缺电不提供支持
+PASS 秘银首港前解锁并标记为锻造物
+PASS 星环无居民不加成，有居民仅加成太空来源
+PASS 月球与Asriel不能重复支出同一份能源
+PASS 任务只能付费完成一次
+PASS 工业化和星环科技要求首港
+PASS 新鲜存档往返及真正缺字段的v28迁移
+PASS 导航灯塔可关闭供电，星环仍常驻
+PASS 读取旧停用记录时将常驻建筑恢复运行
+PASS 支持短缺状态使用生产快照并给出准确原因
+PASS 居民岗位占用空闲人口，撤回和失去支持停止产出
+PASS 星环使用本轮支持快照：小步长可运行时仍获得加成
+PASS 支持预览扣除月球维护且不修改资源
+PASS 小步长观测站和学校容量沿用实际月球支持
+PASS 穹顶容量需要支持且沿用本轮实际运行
+PASS 人口容量小数累积后取整，明细与实际一致
+PASS 地面和太空工厂均不获得星环加成且维护与原料消耗不变
+PASS 太空界面按任务与首港切换，居民界面提供分配按钮
+PASS 太空资源明细净值与实际结算一致
+PASS 科研供电预览扣除太空港维护并与生产一致
+PASS 首港前手工秘银精确扣料，工匠自动制作且无星环倍率
+PASS 居民和秘银在JSON存档往返后保留
+PASS 行星设施连续结算后无非法资源且可重新读档
+核心回归失败数：0
+PASS v26 lunar technology exact tiers, costs, prerequisite and queue gates
+PASS exact construction prices, scales, manual and queued costs
+PASS both lunar mines require moon technology AND constructed base, including manual purchases
+PASS lunar resources unlock only from their constructed mine, remain sticky and query is pure
+PASS broad resource construction gates and technology conjunctions are pure
+PASS one paid base provides two whole supports with iridium priority
+PASS full paid maintenance units with dt, no fractional base or mine output and no duplicate consumption
+PASS supported whole mines receive normal multipliers but particle/happiness do not multiply oil input
+PASS new unsupported mines auto-stop; manual enabling preserves enabled state without output
+PASS active funded base capacity and ground/orbital storage stack correctly
+PASS breeder reactor upgrades fission to fixed 20 energy with unchanged fixed uranium input
+PASS v25 migration preserves prior resource visibility and initializes all moon fields to zero
+PASS operational status distinguishes enabled unsupported, partially supported and stopped mines
+PASS non-lunar maintenance status reflects available power, including broadcast and housing
+PASS resource unlock callback and alternate-state queries are pure
+PASS queued unsupported mines auto-stop and debit the live scaled price exactly once
+PASS live support API reports reserved whole-unit allocation and spare capacity
+PASS sticky resource flags persist, reject malformed enum values, and fresh reset clears flags
+PASS new moon save fields reject invalid counts, resources, stopped units and container assignments
+PASS space content places Moon after Eden, shows mines only after base (HTML, not visual CSS)
+Moon/resource-unlock VM regressions: 20 passed, 0 failed.
+ok 1 - six technologies: exact names, descriptions, tiers, costs and prerequisites
+ok 2 - technology purchase gating requires every parent
+ok 3 - fur base recipe and explicit synthetic technology gate
+ok 4 - visible military fur is not permission for factory fur
+ok 5 - synthetic fur plus factory unlocks without military and respects supplied state
+ok 6 - all eight upgrade combinations update all three fresh recipes
+ok 7 - recipes are immutable and state parameter is not ignored
+ok 8 - all eight combinations produce and consume correct amounts for every line
+ok 9 - factory upgrades leave unrelated production and tax multipliers alone
+ok 10 - industrialism and polymer reactor remain independent output-only factors
+ok 11 - all recipe inputs constrain output including cash; dt is respected
+ok 12 - power constraints and stopped factories limit all lines without upgrade energy inflation
+ok 13 - breakdown income, expense, net and display bases agree with production
+ok 14 - iron equipment affects soldier fur only, never synthetic production
+ok 15 - factory modal recipes stay pure and the line lock is enforced
+ok 16 - oxygen raises steel and titanium base output only with correct dt and shortages
+ok 17 - assignment respects capacity, unlock gate and invalid deltas
+ok 18 - v27 migration adds zero fur lines and reaches current version without losing existing assignments
+ok 19 - v28 save roundtrip preserves valid fur; rejects gate bypass, negatives and excess
+Factory upgrade regression suite passed: 19 groups.
+All retained regression suites passed.
+npm notice run meow-civilization@0.29.0 test:browser
+npm notice run node tests/run-browser.cjs
+PASS 同一界面版本共享生产快照
+PASS 真实状态操作后界面预览立即失效
+PASS Vue 应用仅挂载一次
+PASS 新游戏欢迎日志仅一条
+PASS 真实应用样式已加载
+PASS 布局在860px使用正确列数，无860/861小数视口断点空档
+PASS 布局在860.5px使用正确列数，无860/861小数视口断点空档
+PASS 布局在861px使用正确列数，无860/861小数视口断点空档
+PASS 队列行与可聚焦资源数量提供明确focus-visible轮廓
+PASS 初始资源 food 可见
+PASS 初始资源 wood 可见
+PASS 初始资源 stone 可见
+PASS 日志默认筛选有可见背景边框和aria-pressed，不依赖文字颜色
+PASS 同时间同文字日志不冲突，切换筛选保留各自DOM身份
+PASS 插入日志不会重用其他日志节点
+PASS 初始铁资源未解锁
+PASS 开局无集装箱上限或数量时隐藏资源管理
+PASS 已有集装箱即使无上限仍显示资源管理
+PASS 仅质量喷射解锁时隐藏集装箱且默认显示喷射页
+PASS 资源管理失去解锁条件后回退世界
+PASS 资源速率均非空且有效
+PASS 未解锁时猫窝不可见
+PASS 原建筑面板立即显示新解锁猫窝
+PASS 建筑Q键窗口失焦后清除，资源足够直接购买
+PASS 科技Q键窗口失焦后清除，资源足够直接研究
+PASS 建筑Q键页面隐藏后清除，资源足够直接购买
+PASS 科技Q键页面隐藏后清除，资源足够直接研究
+PASS 通过按钮完成基础生存研究
+PASS 同科技面板移除已研究按钮并新增后续科技
+PASS 材料不足点击建筑进入购买队列
+PASS 购买队列提供取消按钮
+PASS 队列项目显示预计完成时间或等待原因
+PASS 队列建筑悬停复用建筑按钮详情
+PASS 取消按钮实际移除队列项
+PASS 补充真实建造资源后 tick 完成队列购买
+PASS 同建筑面板更新已建数量
+PASS 剧情主标签紧邻统计右侧
+PASS 成就默认显示全部七项新成就
+PASS 已完成筛选仅显示已获成就，按钮绿色边框
+PASS 未完成筛选隐藏已获成就
+PASS 无CRISPR时特权页显示空状态
+PASS 特权页只显示覆盖链最高级并列出独立CRISPR效果
+PASS 特权卡片带边框并显示当前实际数值
+PASS 建成首座猫窝自动收录剧情并显示未读数量
+PASS 文明档案保留八章并增加第三阶段九章
+PASS 未解锁章节隐藏正文及标题
+PASS 锁定剧情使用清晰的主题弱化色，不再降低整行透明度
+PASS 展开剧情立即显示正文并标记已读
+PASS 剧情已读状态即时持久化
+PASS 五篇非线性附录独立展示且未收录内容隐藏
+PASS 猫猫分配按钮实际增加工人
+PASS 同猫猫面板立即更新工人数量
+PASS 队列901悬停按同类前序数量递增价格
+PASS 队列902悬停按同类前序数量递增价格
+PASS 队列903悬停按同类前序数量递增价格
+PASS 队列904悬停按同类前序数量递增价格
+PASS 删除第2项后第3和第4项显示编号顺延为2和3
+PASS 原第3项悬停价格顺延为原第2项价格
+PASS 自动分配默认关闭并隐藏岗位配置
+PASS 总开关打开后显示有限岗位自动设置，不显示无限岗位
+PASS 岗位自动开关立即补员至设定上限
+PASS 拖动中实时预览新排序但松手前不修改实际优先级
+PASS 自动分配按钮使用固定文字和设置页同款绿色开启边框
+PASS 拖拽优先级列表调整岗位顺序
+PASS 取消拖拽恢复已保存顺序，不改变自动分配优先级
+PASS 关闭总开关停止自动分配并隐藏配置
+PASS 游戏日期随 tick 推进更新
+PASS 点击太空实际切换世界视图
+PASS 点击地面返回采集视图
+PASS 内部管理税收和改革按钮存在
+PASS 暂停时调整税率立即持久保存，不依赖后续tick或其他操作
+PASS 军事分类可以切换
+PASS 军事UI区分拥有容量和维护支持的训练容量，不误称停机删除士兵
+PASS 五类日志独立配色且正文字号至少14px
+PASS 队列日志可独立筛选
+PASS 改革民主按钮悬停或聚焦显示体制效果
+PASS 改革军政按钮悬停或聚焦显示体制效果
+PASS 改革寡头按钮悬停或聚焦显示体制效果
+PASS 改革科技至上按钮悬停或聚焦显示体制效果
+PASS 改革工业至上按钮悬停或聚焦显示体制效果
+PASS 查看体制效果不会触发改革
+PASS 键盘聚焦打开资源储量来源tooltip
+PASS 储量tooltip不重复显示当前数量与上限
+PASS Escape关闭tooltip
+PASS 电力消耗超过15项时自动分两列
+PASS 电力消耗不超过15项时保持单列
+PASS 资源数量保留两位小数，不向上虚增库存
+PASS 产量tooltip只保留收入支出明细，无重复汇总和尾注
+PASS 建筑tooltip将超过仓储上限的价格标红
+PASS 建筑tooltip移除已建/上限行与底部说明
+PASS 建筑tooltip仅显示价格与建筑效果
+PASS 鼠标悬停时连续点击建筑保持提示框
+PASS 点击建筑后鼠标移出按钮立即隐藏提示框
+PASS 科技tooltip将超过仓储上限的价格标红
+PASS 科技tooltip保留描述、价格和前置科技，移除底部价格说明
+PASS 高级fixture通过真实runtime校验并保存
+PASS forage建筑正确显示每座产量加成
+PASS lumber建筑正确显示每座产量加成
+PASS quarry建筑正确显示每座产量加成
+PASS lumber自动化悬停显示对应工人加成和耗电
+PASS quarry自动化悬停显示对应工人加成和耗电
+PASS 高级精炼悬停显示铝8%钢1%铱0.5%和电力4/s
+PASS 研究高级精炼后金属精炼厂开放供能开关
+PASS 数据中心显示知识产量+10%
+PASS 数据中心维护费用位于所有效果最下方
+PASS 仅遗传学解锁不显示ARPA建筑并默认进入遗传学
+PASS 基因测序仍独立位于遗传学
+PASS 一次性工程移出原页且进度紧邻右侧
+PASS 进度页展示已解锁火箭平台而不混入遗传学或重复建筑
+PASS 进度条件消失时回退原页而不残留锁定工程
+PASS 同ARPA面板实时显示投入后的1%进度
+PASS Ctrl制造10个集装箱并即时更新总量
+PASS Ctrl分配10个集装箱并即时更新数量
+PASS Shift撤回受已分配数量限制且不销毁集装箱
+PASS 集装箱资源名称和按钮同一行且行高紧凑
+PASS 未研究超级集装箱时隐藏合金集装箱列表
+PASS Ctrl制造10合金集装箱消耗100合金
+PASS 合金集装箱独立分配，不影响普通集装箱
+PASS 合金配置列表位于普通列表右侧、同行且样式紧凑
+PASS 合金集装箱撤回不销毁
+PASS 质量喷射列表两列排列，窄屏单列且无横向溢出
+PASS 质量喷射双列布局仍可正常分配
+PASS 锻造物位于左栏资源面板紧后方
+PASS 猫猫页移除手动制造，仅保留工匠分工
+PASS 银行家详情同步显示证券交易所税收加成
+PASS 所有资源行名称严格等于资源名，不带emoji
+PASS 左栏锻造提供始终可用的1/10/100/max按钮
+PASS 无工匠产出时不显示锻造速率
+PASS 缺料时+1仍可点击且产出为0
+PASS +1实际消耗与产出正确，超额请求夹至可负担最大值
+PASS 缺料时+10仍可点击且产出为0
+PASS +10实际消耗与产出正确，超额请求夹至可负担最大值
+PASS 缺料时+100仍可点击且产出为0
+PASS +100实际消耗与产出正确，超额请求夹至可负担最大值
+PASS 缺料时+max仍可点击且产出为0
+PASS +max实际消耗与产出正确，超额请求夹至可负担最大值
+PASS window keydown实时显示叠乘倍率×10，max不变
+PASS 倍率×10按钮文字与实际资源消耗/产出一致
+PASS window keyup释放倍率×10后恢复标签
+PASS window keydown实时显示叠乘倍率×25，max不变
+PASS 倍率×25按钮文字与实际资源消耗/产出一致
+PASS window keyup释放倍率×25后恢复标签
+PASS window keydown实时显示叠乘倍率×100，max不变
+PASS 倍率×100按钮文字与实际资源消耗/产出一致
+PASS window keyup释放倍率×100后恢复标签
+PASS window keydown实时显示叠乘倍率×250，max不变
+PASS 倍率×250按钮文字与实际资源消耗/产出一致
+PASS window keyup释放倍率×250后恢复标签
+PASS window keydown实时显示叠乘倍率×1000，max不变
+PASS 倍率×1000按钮文字与实际资源消耗/产出一致
+PASS window keyup释放倍率×1000后恢复标签
+PASS window keydown实时显示叠乘倍率×2500，max不变
+PASS 倍率×2500按钮文字与实际资源消耗/产出一致
+PASS window keyup释放倍率×2500后恢复标签
+PASS window keydown实时显示叠乘倍率×25000，max不变
+PASS 倍率×25000按钮文字与实际资源消耗/产出一致
+PASS window keyup释放倍率×25000后恢复标签
+PASS max忽略修饰键且只制造可负担最大数量
+PASS window blur清除所有锻造倍率标签
+PASS 工匠正产出使用production.outputs速率并紧邻+1左侧，tip类型为resource
+PASS 工匠速率hover打开对应资源收入/支出tooltip
+PASS 工厂弹窗即时更新合金生产线分配
+PASS 工厂弹窗通过showModal进入原生模态层
+PASS 工厂弹窗加宽至504px且行高30px [width=504,row=30]
+PASS 工厂配方自动聚焦或键盘聚焦不弹出提示
+PASS 工厂配方浮层位于当前行下方且不移动后续行、不横向溢出
+PASS 工厂配方无悬停时保持隐藏
+PASS 工厂弹窗处理Escape对应的原生cancel事件后关闭
+PASS Asriel任务在真实氦3储量下可派遣
+PASS Asriel栏目位于月球下方
+PASS 探索任务归入Asriel栏目
+PASS 缺燃料任务加入建筑队列并防止重复排队
+PASS 任务队列悬停显示费用与完成解锁
+PASS 取消任务队列后按钮恢复且任务未完成
+PASS 派遣Asriel任务消费氦3并即时解锁太空港
+PASS Kerberos栏目位于Asriel下方
+PASS Kerberos任务扣款并解锁地热发电站
+PASS Asriel矿井显示居民铜钛效果
+PASS 太阳塔罗斯塔卫二位于Kerberos下方并依次排列
+PASS 太阳勘探任务扣除10k氦3并即时完成 [helium=40000, queue=[], logs=[]]
+PASS 塔罗斯塔卫二任务解锁采矿站和小行星带任务
+PASS 蜂群支持20限制超额卫星且开关显示短缺
+PASS 中子资源显示在氦3下方
+PASS 星系燃料库显示三种容量
+PASS E-710采矿船与容器按指定顺序位于小行星带 [iridiumMiningShip,ironMiningShip,e710MiningShip,e710Container]
+PASS E-710资源与塔卫二扫描建筑即时解锁
+PASS 米神星发现显示任务且完成前建筑不可见
+PASS 米神星任务悬停显示两种费用 [米神星任务完成米神星探索，解锁E-710仓库与E-710反应堆。当前价格氦-3 30KE-710 50完成后解锁E-710仓库与E-710反应堆状态未完成]
+PASS 米神星任务即时解锁仓库反应堆且区域位于小行星带下方 [complete=true,e710=0,helium=0,groups=eden,moon,asriel,kerberos,solar,talos,talosMoon,asteroidBelt,misen]
+PASS 分段建筑一次入队建立10段项目且只有一个队列条目
+PASS 分段队列项目完成10段后移除而非只建1段
+PASS 外星实验室蜂群工厂AI核心位于指定太空区域
+PASS 未完成100段的AI核心展示分段且不提供开关
+PASS 第100段实际建成完整AI核心并开放运行开关
+PASS 核心建满后数量显示1禁止继续建造且世界页面移除量子水平
+PASS 建成一次性建筑保持正常亮起背景和实线边框，无斜纹，且仍禁止重复购买
+PASS 桌面端建成建筑不显示额外详情按钮，不占据右侧宽度
+PASS 已达上限建筑本体可键盘聚焦打开tooltip
+PASS 已达上限建筑本体悬停详情在视口内显示
+PASS 核心按钮保留建筑名称并移除重叠的分段说明
+PASS AI超级核心悬停副标题包含world.exection(cat);
+PASS 仅建成核心和生产预览不会激活第三阶段
+PASS 第三阶段未激活时不显示超空间页面与实验面板
+PASS 核心实际供能tick即时激活第三阶段并收录校准剧情
+PASS 完整AI核心维护充足时供能按钮不显示黄色
+PASS 完整AI核心缺电时供能按钮显示黄色
+PASS 完整AI核心缺少氦3时仍正确显示黄色
+PASS 太空页不再展示第三阶段面板与专属设施
+PASS 第三阶段激活但未研究异常区域测绘时超空间仍未解锁
+PASS ARPA移除早期实验面板和两项多余工程
+PASS 全域观测校准后立即开放异常区域测绘，无工程前置
+PASS 异常区域测绘研究后立即解锁超空间
+PASS 超空间保留场约束理论研究且实验面板已完整移除
+PASS 场约束理论直接开放阵列和三类服务，无实验或远端工程
+PASS 两项信标研究直接由场约束理论开放
+PASS ARPA远端锚点验证与实验面板均已移除
+PASS 民用航路站与货运站同时开放，区域名称已更新
+PASS 接入点标题显示已用/总量，三类设施各占2
+PASS 关停民用航路站后已用稳定度从6降至4，总量不变
+PASS 接入点描述支持聚焦显示并保留换行
+PASS 退役先遣与星际实验卡片及曙光目的地均已移除
+PASS 全部实验按钮与实验稳定度说明已移除
+PASS 服务已直接解锁但没有运行阵列时仍不能消耗不存在的稳定度
+PASS ARPA进度不再包含先遣船和曙光锚点
+PASS 两项星际科技从目录和研究入口移除
+PASS 场约束理论后开放维度信标投放
+PASS 维度信标投放准确消耗700000知识
+PASS 信标研究后隐藏已完成的实验面板
+PASS hyperspaceStable新区有独立分组与区域描述
+PASS eruptingAsteroids新区有独立分组与区域描述
+PASS dimensionalBoundary新区有独立分组与区域描述
+PASS 港口冰船先开放，小行星基地需拥有冰船
+PASS 拥有冰船开放基地并占用独立小行星支持
+PASS 接入点信标准确消耗650000知识
+PASS 未建小行星基地时氢回收科技不开放
+PASS 基地建成后研究氢回收
+PASS 破冰计划研究一次消耗690000知识
+PASS 信号中继器紧随场约束阵列
+PASS 氢发电设施位于喷发小行星群
+PASS 小行星群显示已用/总量，采冰船与基地占2、氢发电后总支持3
+PASS 关闭基地后已用支持减少，总支持不变
+PASS 超空间采矿探查实际扣除700k知识与1000 E-710
+PASS 710富集区紧邻稳定区域下方、位于喷发群之前
+PASS 710区域描述和综合采矿设施实际解锁
+PASS 气体云吸积实际扣除720k知识与1000 E-710
+PASS 气体云采矿舰开放、建造前氘资源仍隐藏
+PASS 建成气体云采矿舰后氘紧邻氦-3下方显示
+PASS highTechFarmPlatform通过真实研究按钮精确扣款
+PASS fusionPower通过真实研究按钮精确扣款
+PASS largeMiningShips通过真实研究按钮精确扣款
+PASS 农场聚变金属燃料舰均位于稳定区域
+PASS 农场详情显示木材8/s与氘0.2/s维护
+PASS highTechFactory通过真实研究按钮精确扣款
+PASS dimensionPioneer通过真实研究按钮精确扣款
+PASS e710ResearchStation通过真实研究按钮精确扣款
+PASS 高科技工厂位于710富集区并提供生产线设置按钮
+PASS 空间撕裂者位于维度边界
+PASS 710研究站位于710富集区
+PASS 710研究站详情显示原文效果与科学家上限
+PASS 空间撕裂者描述只保留介绍文字，未完成时显示固定分段价格
+PASS 空间撕裂者效果列在建筑效果中
+PASS 建成后分段进度显示100/100且不再显示建造价格
+PASS 撕裂者超频后电力+200/s且描述新增一行
+PASS OverClocking-13研究后写入黑洞事件日志
+PASS 超空间更名为遥远星际且天元六alpha星区位于维度边界下方
+PASS 天元六alpha星区显示区域描述
+PASS 精金与石墨烯设施位于alpha星区，卡尔维拉与DSR-8086依次出现
+PASS 中子星与黑洞探索任务按钮出现，完成前不显示区域建筑
+PASS 黑洞探索完成后显示黑洞星际站与彭罗斯球体
+PASS 3座黑洞星际站后撕裂者详情知识容量显示+23% [分段进度100/100,电力+200/s,知识容量+23%建成完整撕裂者后生效；含3座供能黑洞星际站+3%。]
+PASS 冶炼厂详情只显示冶炼厂工位+1，不再列出资源产出与消耗 [冶炼厂工位+1冶炼厂本身不产出也不消耗资源；资源由钢冶炼工位产出和消耗，可在设置中查看配方并分配。]
+PASS 冶炼厂齿轮打开工位弹窗，默认全部分配到钢冶炼
+PASS 冶炼厂工位弹窗即时减少钢冶炼工位
+PASS 冶炼配方不因聚焦自动显示，浮层定位于当前行下方
+PASS 冶炼厂工位弹窗处理cancel后关闭
+PASS 切回太空不残留超空间设施和实验面板
+PASS 研究前原导航灯塔名称保留
+PASS 研究前导航灯塔维护仍为2电力
+PASS 太空广播精确消耗480k并保留既有灯塔
+PASS 太空广播研究后同一建筑按钮更名广播信标
+PASS 广播信标悬停同步名称3电力和3幸福效果
+PASS eden地区具有专属悬停说明
+PASS moon地区具有专属悬停说明
+PASS asriel地区具有专属悬停说明
+PASS kerberos地区具有专属悬停说明
+PASS solar地区具有专属悬停说明
+PASS talos地区具有专属悬停说明
+PASS talosMoon地区具有专属悬停说明
+PASS asteroidBelt地区具有专属悬停说明
+PASS misen地区具有专属悬停说明
+PASS 小行星带警告完整显示并保留描述换行
+PASS 船坞设置打开六组件ESS建造原生窗口
+PASS 飞船人口需求显示猫猫而非乱码
+PASS 船体完成前其他组件不可用
+PASS 船体可单独投入资金而无需其他材料同时充足
+PASS 天星9世界、飞行状态和派遣入口已移除
+PASS 天星建筑航路点和原材料不再存在
+PASS E-710资源容器反应堆和完整AI核心保留
+PASS 完成六个ESS组件后原有逃离发射仍可用
+PASS 四项天星科技已从目录和可研究界面移除
+PASS 已研究科技树无退休天星节点
+PASS 发射前显示逃离重置确认及奖励
+PASS 危险操作以加粗边框和背景区分，按钮文字仍遵循主题色
+PASS 新周目校验异常有可见反馈，保持当前周目和确认窗口且不记录成功日志
+PASS 确认发射执行逃离重置保留卡西米尔并清空本周目船坞
+PASS 卡西米尔位于威望资源列表
+PASS 真正逃离后立即收录未读附录，不受新周目主线进度限制
+PASS 独立附录支持阅读标记且跨逃离显示
+PASS 可研究科技按钮不显示价格
+PASS 已研究科技树按钮不显示价格
+PASS 已研究科技价格仍显示在悬停信息中
+PASS 已研究科技视图真实切换并显示已研究内容
+PASS Tips移除纪念碑与地面旅游专属段落
+PASS Tips其余集装箱与快捷键说明保留
+PASS CRISPR目录包含原有七项与新增九项永久升级
+PASS CRISPR科技为特殊tier -1、无科技前置、基因测序工程门槛及114514知识
+PASS CRISPR fixture使用genetics真实前置闭包并通过存档校验
+PASS 完成genetics但未完成基因测序时隐藏CRISPR研究
+PASS 研究前ARPA的CRISPR子页未开放
+PASS 完成基因测序立即解锁CRISPR研究并显示特殊层级
+PASS CRISPR实际研究价格精确为114514知识
+PASS CRISPR研究按钮实际扣除精确114514知识
+PASS 已研究科技树特殊层位于T0上方
+PASS ARPA的CRISPR提供可修饰与已完成子页
+PASS 仅显示已满足前置的T0升级，未满足前置的T1至T4隐藏
+Browser acceptance FAILED.
+PASS 材料效率购买实际扣除10粒子并记录永久升级
+PASS 购买后已完成项消失、T1立即出现且T2仍隐藏
+PASS CRISPR innovativeMaterials通过按钮购买并精确支付粒子
+PASS CRISPR structuralReinforcement通过按钮购买并精确支付粒子
+PASS CRISPR physicsLaws通过按钮购买并精确支付粒子
+PASS CRISPR halfLife3通过按钮购买并精确支付粒子
+PASS CRISPR geneOptimization通过按钮购买并精确支付粒子
+PASS CRISPR spatialReasoning通过按钮购买并精确支付粒子
+PASS CRISPR完成树包含七个节点和T0至T4层
+PASS CRISPR完成树四条真实SVG依赖线连接逐级向下的材料链
+PASS CRISPR购买后的合法状态可真实保存
+PASS CRISPR七项升级与剩余粒子经真实导出导入完整往返
+PASS CRISPR测试通过真实runtime执行软重置
+PASS 软重置立即持久保留永久升级和粒子，但清除本周目CRISPR科技
+PASS 新周目未研究CRISPR时仍保留最高材料层-0.05效果
+PASS 新周目即使保留全部永久效果，未研究crispr16仍锁定ARPA入口与购买
+PASS 无本周目CRISPR科技的永久升级存档仍可合法往返
+PASS 基因剪切fixture通过存档校验
+PASS 未购买基因剪切时遗传学页无基因修饰栏目且不显示特殊资源II
+PASS 基因剪切显示100粒子+25卡西米尔晶体价格
+PASS 基因剪切购买实际扣除粒子与卡西米尔晶体
+PASS 威望资源花到0后仍保留解锁显示
+PASS 遗传学页出现基因修饰栏目：4个制造按钮与10个基因
+PASS 基因修饰每行4列，C类3个同行留空，G类另起一行
+PASS 成熟加速归C类、超频锻造归G类并分别显示两项加成
+PASS 基因修饰卡片紧凑
+PASS 特殊资源II在普通资源下方以同一行显示DNA：C/G/A/T
+PASS Ctrl点击制造10个C并扣除200万知识
+PASS 资源栏DNA数量实时更新
+PASS 好猫基因升级消耗10个C，下一级价格翻倍为20
+PASS 未研究基因合成时生物科学实验室无配置按钮
+PASS 基因合成面板含4个独立滑块且默认0%
+PASS 拖动滑块设置G合成速率为10%且不影响其他碱基
+PASS CRISPR独立测试finally恢复合法advancedFixture，不影响后序验收
+PASS 挑战基因永久升级让新周目ARPA标签开局可见
+PASS 挑战页面包含三个栏目但不越过普通ARPA研究门槛
+PASS 点选挑战基因不会立即改变当前周目
+PASS 启动挑战执行软重置并携带组合基因与粒子基线
+PASS 挑战状态实际导出导入保留
+PASS 普通软重置退出挑战但保留永久升级
+PASS 更新日志不再是标签页，而是版本号左侧的新标签页链接
+PASS 独立更新日志页面渲染根目录 updatelog.md 的标题与列表
+PASS 所有更新标题为金色，仅版本号带同色下划线（兼容beta无空格标题）
+PASS 设置导出按钮紧邻导入按钮左侧且处于同一行
+PASS 设置移除威望段落和粒子tooltip入口
+PASS 从未获得威望资源的新存档隐藏威望资源栏目
+PASS 获得粒子后威望资源位于左侧资源区最下方，未获得的卡西米尔仍隐藏
+PASS 粒子数字悬停显示精确持有效果
+PASS 粒子数量与悬停效果实时更新
+PASS 保存按钮实际写入有效存档
+PASS 导出按钮生成存档 JSON
+PASS 有效导出→导入恢复状态并报告成功
+PASS 无效导入保留原状态和原存档并显示失败
+PASS 软重置首次点击仅要求确认
+PASS 确认软重置保留粒子并立即持久化
+PASS 确认硬重置清除威望并立即持久化
+PASS 核爆首次点击打开模态确认且不重置
+PASS 取消核爆保留本周目
+PASS 确认核爆执行重置与粒子奖励并持久化
+PASS 全部102种建筑真实悬停在242px/180px下效果列不挤压、不重叠、不溢出
+PASS 基地、中继、月球天文台与生态穹顶的长说明均以独立整行备注接受布局验证
+PASS 全建筑悬停布局夹具恢复原游戏状态
+PASS 第四阶段缺少文明前置时入口禁用
+PASS 真实点击研究超越智能并扣费进入第四阶段
+PASS 计算滑块不能超分配计算、内存或带宽
+PASS 本地研究按钮执行真实研究
+PASS 本地建设按钮执行真实建设
+PASS 实验条件选择与中途稳定干预由真实按钮执行
+PASS 有限实验推进后提交正确证明
+PASS 节点真实点击修复并推进有限进度
+PASS 节点真实点击验证并推进有限进度
+PASS 节点真实点击路由并推进有限进度
+PASS 身份选择在确认前不修改状态
+PASS 身份迁移需要真实确认
+FAIL 异常：Error: Stage-four target missing/disabled: undefined
+    at press (http://127.0.0.1:4399/tests/browser/stage-four-acceptance.js:14:76)
+    at runStageFourAcceptance (http://127.0.0.1:4399/tests/browser/stage-four-acceptance.js:93:11)
+    at async http://127.0.0.1:4399/tests/browser/acceptance.html?html-proxy&index=0.js:1166:7
+RESULT: FAIL

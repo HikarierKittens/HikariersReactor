@@ -290,7 +290,7 @@ test('higher-dimensional storage doubles hyperspace storage and adds spaceport w
   near(calculateStorageTotals(s, snap).water, water.total, 'water totals match details');
 });
 
-test('new buildings migrate additively and the completed ripper survives a save round trip', () => {
+test('missing buildings reject and the completed ripper survives a save round trip', () => {
   const s = eraState();
   s.tech.push('dimensionPioneer', 'highTechFactory', 'higherDimensionalStorage');
   s.buildings.spaceRipper = 100; s.buildings.highTechFactory = 2; s.stoppedBuildings.highTechFactory = 1;
@@ -304,7 +304,7 @@ test('new buildings migrate additively and the completed ripper survives a save 
   assert.throws(() => validateCurrentSave(bad, context));
   const raw = clone(createMilestoneState('beacon')) as unknown as Record<string, unknown>;
   for (const field of ['buildings', 'workers', 'stoppedBuildings']) for (const id of ['spaceRipper', 'highTechFactory']) delete (raw[field] as Record<string, unknown>)[id];
-  const migrated = validateCurrentSave(raw, context);
-  assert.equal(migrated.buildings.spaceRipper, 0);
-  assert.equal(migrated.buildings.highTechFactory, 0);
+  const before = clone(raw);
+  assert.throws(() => validateCurrentSave(raw, context));
+  assert.deepEqual(raw, before);
 });

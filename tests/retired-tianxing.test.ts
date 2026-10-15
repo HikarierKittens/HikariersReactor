@@ -71,7 +71,7 @@ function legacy(phase: 'arrived' | 'flying' | 'idle'): any {
 function assertRetired(state: GameState): void {
   assert.equal(Object.hasOwn(state, 'tianxing'), false);
   for (const id of retiredTech) assert.equal((state.tech as string[]).includes(id), false, id);
-  for (const id of retiredTech) assert.equal(((state.legacyTechPrerequisites ?? []) as string[]).includes(id), false, id);
+  assert.equal(Object.hasOwn(state, 'legacyTechPrerequisites'), false);
   for (const record of [state.buildings, state.workers, state.stoppedBuildings]) {
     for (const id of retiredBuildings) assert.equal(Object.hasOwn(record, id), false, id);
   }
@@ -99,61 +99,22 @@ test('retired catalog entries and fresh state disappear while ESS, E-710 and AI 
 });
 
 for (const phase of ['arrived', 'flying', 'idle'] as const) {
-  test(`legacy ${phase} save immutably retires tech, queues, raw capacity and story without refunds or replay`, () => {
-    const raw = legacy(phase), before = snapshot(raw);
-    deepFreeze(raw);
-    const restored = validateAndMigrateSave(raw, context);
-    assert.deepEqual(raw, before, 'migration must not mutate even nested frozen source records');
-    assertRetired(restored);
-    assert.deepEqual(restored.resources, completedShip().resources, 'no retired purchase/resource refunds');
-    assert.deepEqual(restored.logs, before.logs, 'preserve historic logs verbatim, do not replay arrival/grant');
-    assert.deepEqual(restored.prestige, before.prestige);
-    assert.equal(restored.buildings.aiSupercore, 100);
-    assert.equal(restored.stoppedBuildings.aiSupercore, 1);
-    assert.equal(restored.buildings.e710Container, 2);
-    assert.equal(restored.buildings.interstellarDock, 1);
-    assert.deepEqual(restored.shipComponents, before.shipComponents);
-    assert.deepEqual(restored.shipResourceProgress, before.shipResourceProgress);
-    assert.deepEqual(restored.queue, [{ uid: 8, kind: 'build', id: 'nest' }]);
-    const production = calculateProduction(restored);
-    for (const record of [production.pool, production.rates]) assert.equal(Object.hasOwn(record, 'rawMaterial'), false);
-    for (const id of retiredBuildings) assert.equal(Object.hasOwn(production.inputUnits, id), false);
-    const roundTrip = validateAndMigrateSave(snapshot(restored), context);
-    assert.deepEqual(roundTrip, restored, 'retired save must be valid and idempotent after JSON roundtrip');
-    const escape = launchEscapePrestige(restored, 60, 0);
-    assert.ok(escape, 'completed ESS can escape even after old arrival or flight');
-    assert.equal(escape.next.prestige.escapeResets, restored.prestige.escapeResets + 1);
-    assert.equal(escape.next.prestige.casimir, restored.prestige.casimir + escape.casimirReward);
-    assertRetired(escape.next);
-    assert.deepEqual(restored, roundTrip, 'escape does not mutate pre-reset save');
-  });
-  test(`legacy ${phase} timers never generate future Tianxing story events or grant a station`, () => {
-    const raw = legacy(phase); raw.queue = [];
-    const restored = validateAndMigrateSave(raw, context), logs = snapshot(restored.logs);
-    for (const dt of [.5, 20, 100, 10000]) {
-      advanceGameTick(restored, dt, { happiness: () => 100, capacity: () => 10000, event: () => { restored.eventIn = 60; }, projects: () => {}, purchases: () => settlePurchaseQueue(restored, 0), unlocks: () => {} });
-      assertRetired(restored);
-      assert.deepEqual(restored.logs, logs);
-    }
-    assert.doesNotThrow(() => validateAndMigrateSave(snapshot(restored), context));
-  });
+ test(`retired Tianxing ${phase} payload rejects without mutation`, () => {
+  const raw=legacy(phase), before=snapshot(raw);deepFreeze(raw);
+  assert.throws(()=>validateAndMigrateSave(raw,context));assert.deepEqual(raw,before);
+ });
 }
-
-test('retired payload is discarded before old prerequisite and malformed legacy-only field validation', () => {
-  const raw = snapshot(fresh());
-  raw.tech.push(...retiredTech);
-  raw.legacyTechPrerequisites = [...retiredTech];
-  raw.tianxing = { phase: 'obsolete', remaining: -1, hopelessTimer: 'old' };
-  raw.resources.rawMaterial = -1;
-  raw.containerAssignments.rawMaterial = 'obsolete';
-  raw.unlockedResources.push('rawMaterial');
-  for (const id of retiredBuildings) for (const field of ['buildings', 'workers', 'stoppedBuildings']) raw[field][id] = 'obsolete';
-  raw.queue = retiredTech.map(id => ({ kind: 'tech', id }));
-  const before = snapshot(raw), restored = validateAndMigrateSave(deepFreeze(raw), context);
-  assertRetired(restored);
-  assert.deepEqual(restored.resources, fresh().resources);
-  assert.deepEqual(restored.logs, before.logs);
-  assert.deepEqual(raw, before);
+test('current completed ESS roundtrips and escapes without retired content',()=>{
+ const raw=completedShip(), before=snapshot(raw);
+ const restored=validateAndMigrateSave(raw,context);assert.deepEqual(raw,before);
+ assertRetired(restored);assert.deepEqual(validateAndMigrateSave(snapshot(restored),context),restored);
+ const production=calculateProduction(restored);
+ for(const record of [production.pool,production.rates])assert.equal(Object.hasOwn(record,'rawMaterial'),false);
+ for(const id of retiredBuildings)assert.equal(Object.hasOwn(production.inputUnits,id),false);
+ const escape=launchEscapePrestige(restored,60,0);assert.ok(escape);
+ assert.equal(escape.next.prestige.escapeResets,restored.prestige.escapeResets+1);
+ assert.equal(escape.next.prestige.casimir,restored.prestige.casimir+escape.casimirReward);
+ assertRetired(escape.next);assert.deepEqual(restored,validateAndMigrateSave(snapshot(restored),context));
 });
 
 test('retirement does not relax validation of surviving content or unknown ids', () => {

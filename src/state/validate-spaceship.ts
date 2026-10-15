@@ -5,11 +5,11 @@ function shipRecord(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error(`${label}无效。`);
   return value as Record<string, unknown>;
 }
-/** Old saves omit these fields. Explicit malformed or contradictory paid/completed records are rejected. */
+/** Require current paid/completed records and reject contradictions. */
 export function validateSaveSpaceship(raw: Record<string, unknown>, state: GameState): void {
   state.shipResourceProgress = {};
   state.shipComponents = { hull: false, energyCore: false, computer: false, ecosystem: false, electromagneticEngine: false, fuel: false };
-  if (raw.shipResourceProgress !== undefined) {
+  {
     const projects = shipRecord(raw.shipResourceProgress, '飞船投资进度');
     for (const [id, value] of Object.entries(projects)) {
       if (!isShipComponentId(id)) throw Error('飞船组件无效。');
@@ -25,13 +25,13 @@ export function validateSaveSpaceship(raw: Record<string, unknown>, state: GameS
       state.shipResourceProgress[id] = progress;
     }
   }
-  const completed = raw.shipComponents === undefined ? {} : shipRecord(raw.shipComponents, '飞船完成状态');
+  const completed = shipRecord(raw.shipComponents, '飞船完成状态');
   for (const [id, value] of Object.entries(completed)) {
     if (!isShipComponentId(id) || typeof value !== 'boolean') throw Error('飞船完成状态无效。');
   }
   for (const id of Object.keys(SHIP_COMPONENTS) as ShipComponentId[]) {
     const derived = calculateShipComponentProgress(id, state) === 100;
-    if (Object.hasOwn(completed, id) && completed[id] !== derived) throw Error('飞船完成状态与投资进度不一致。');
+    if (completed[id] !== derived) throw Error('飞船完成状态与投资进度不一致。');
     state.shipComponents[id] = derived;
   }
   if (!state.shipComponents.hull) {

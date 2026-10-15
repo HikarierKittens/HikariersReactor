@@ -33,20 +33,8 @@ test('retired anomaly registries and purchase commands disappear, and experiment
     const before=clone(s);assert.equal(requestPurchaseModule(s,'arpa',id,0,true).status,'rejected');assert.deepEqual(s,before);
   }
 });
-test('old anomaly saves retire only removed records and queues without losing later progress or archived stories',()=>{
-  const raw=legacy(),before=clone(raw),restored=validateCurrentSave(raw,context);
-  assert.deepEqual(raw,before,'migration cannot mutate source');
-  for(const id of retiredTech){assert.equal((restored.tech as string[]).includes(id),false);assert.equal((restored.legacyTechPrerequisites as string[]|undefined)?.includes(id)??false,false);}
-  assert.equal((restored.legacyTechPrerequisites as string[]|undefined)?.includes('anomalyResponse')??false,false);
-  for(const id of retiredProjects)for(const record of [restored.arpaBuildings,restored.arpaProgress,restored.arpaResourceProgress])assert.equal(Object.hasOwn(record??{},id),false);
-  for(const id of retiredFlags)assert.equal(Object.hasOwn(restored.stageThree,id),false);
-  assert.deepEqual(restored.queue,[{uid:99,kind:'build',id:'nest'}]);
-  assert.deepEqual(restored.resources,raw.resources,'no refunds or resource loss');
-  assert.deepEqual(restored.prestige,raw.prestige);assert.deepEqual(restored.buildings,raw.buildings);
-  assert.deepEqual(restored.stageThree,createMilestoneState('beacon').stageThree);
-  assert.equal(Object.hasOwn(restored.arpaBuildings,'remoteAnchor'),false);assert.ok(restored.tech.includes('dimensionBeaconDeployment'));
-  assert.deepEqual(restored.story,raw.story);assert.ok(restored.story.unlocked.includes('anomalyResponse'));
-  assert.deepEqual(validateCurrentSave(clone(restored),context),restored,'migration is idempotent');
+test('retired payload rejects immutably instead of being cleaned up',()=>{
+ const raw=legacy(),before=clone(raw);assert.throws(()=>validateCurrentSave(raw,context));assert.deepEqual(raw,before);
 });
 test('anomaly retirement keeps unknown ids and wrong-kind queues invalid',()=>{
   for(const entry of [{uid:1,kind:'build',id:'deepSpaceLab'},{uid:1,kind:'tech',id:'deepSpaceInterferometer'},{uid:1,kind:'arpa',id:'anomalyResponse'},{uid:1,kind:'arpa',id:'unknownFutureProject'}]){

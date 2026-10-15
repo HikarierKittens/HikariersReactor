@@ -4,44 +4,37 @@ import { calculateContainerCapacity, countAssignedContainers, isContainerAssigna
 import type { BuildingId } from '../types/buildings';
 import type { ResourceId } from '../types/economy';
 import type { GameState } from '../types/state';
-import { NEW_BUILDING_STOPPED, isDefaultZeroResource } from './save-defaults';
 
 export function validateStorageAssignments(raw: { stoppedBuildings?: unknown; containers?: unknown; containerAssignments?: unknown; alloyContainers?: unknown; alloyContainerAssignments?: unknown }, state: GameState): void {
   const stopped = raw.stoppedBuildings as Record<string, unknown> | null | undefined;
-  for (const id of ['catCafe', 'touristCenter']) if (stopped?.[id] !== undefined && !Number.isInteger(stopped[id])) throw Error('商业设施停用数量无效');
+  if (!stopped || typeof stopped !== 'object' || Array.isArray(stopped) || Object.keys(stopped).some(id => !Object.hasOwn(BUILDINGS, id))) throw Error('停用建筑数据无效。');
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
     const saved = stopped?.[id];
-    const newBuilding = NEW_BUILDING_STOPPED.includes(id);
     const ownedUnits = Math.floor(state.buildings[id] / (BUILDINGS[id].segmentedRequired || 1));
-    state.stoppedBuildings[id] = Math.min(ownedUnits, validateSaveNumber(newBuilding ? (saved === undefined ? 0 : saved) : saved ?? 0, 0, ownedUnits, '停用建筑'));
+    state.stoppedBuildings[id] = validateSaveNumber(saved, 0, ownedUnits, '停用建筑');
     if (!Number.isSafeInteger(state.stoppedBuildings[id])) throw Error('停用建筑数据无效。');
   }
-  for (const id of Object.keys(BUILDINGS) as BuildingId[]) if (BUILDINGS[id].alwaysRunning) state.stoppedBuildings[id] = 0;
+  for (const id of Object.keys(BUILDINGS) as BuildingId[]) if (BUILDINGS[id].alwaysRunning && state.stoppedBuildings[id] !== 0) throw Error('常开建筑不能停用。');
   state.containers = validateSaveNumber(raw.containers, 0, calculateContainerCapacity(state), '集装箱');
   if (!Number.isSafeInteger(state.containers)) throw Error('集装箱数量无效。');
   const assignments = raw.containerAssignments;
-  if (!assignments || typeof assignments !== 'object' || Object.keys(assignments).some(id => !Object.hasOwn(RESOURCES, id))) throw Error('集装箱分配无效。');
+  if (!assignments || typeof assignments !== 'object' || Array.isArray(assignments) || Object.keys(assignments).some(id => !Object.hasOwn(RESOURCES, id))) throw Error('集装箱分配无效。');
   const values = assignments as Record<string, unknown>;
   for (const id of Object.keys(RESOURCES) as ResourceId[]) {
-    const count = validateSaveNumber(isDefaultZeroResource(id) && values[id] === undefined ? 0 : values[id], 0, state.containers, '集装箱分配');
+    const count = validateSaveNumber(values[id], 0, state.containers, '集装箱分配');
     if (!Number.isSafeInteger(count)) throw Error('集装箱分配无效。');
-    // Previously supported mithril allocations become idle containers on load.
-    if (id === 'mithril') {
-      state.containerAssignments[id] = 0;
-      continue;
-    }
     if (count && !isContainerAssignable(id, state)) throw Error('集装箱分配无效。');
     state.containerAssignments[id] = count;
   }
   if (countAssignedContainers(state) > state.containers) throw Error('已分配集装箱超过持有量。');
-  state.alloyContainers = validateSaveNumber(raw.alloyContainers === undefined ? 0 : raw.alloyContainers, 0, calculateAlloyContainerCapacity(state), '合金集装箱');
+  state.alloyContainers = validateSaveNumber(raw.alloyContainers, 0, calculateAlloyContainerCapacity(state), '合金集装箱');
   if (!Number.isSafeInteger(state.alloyContainers)) throw Error('合金集装箱数量无效。');
   const alloyAssignments = raw.alloyContainerAssignments;
-  if (alloyAssignments !== undefined && (!alloyAssignments || typeof alloyAssignments !== 'object' || Array.isArray(alloyAssignments) || Object.keys(alloyAssignments).some(id => !Object.hasOwn(RESOURCES, id)))) throw Error('合金集装箱分配无效。');
+  if (!alloyAssignments || typeof alloyAssignments !== 'object' || Array.isArray(alloyAssignments) || Object.keys(alloyAssignments).some(id => !Object.hasOwn(RESOURCES, id))) throw Error('合金集装箱分配无效。');
   const alloyValues = alloyAssignments as Record<string, unknown> | undefined;
   for (const id of Object.keys(RESOURCES) as ResourceId[]) {
-    const value = alloyValues === undefined ? 0 : alloyValues[id];
-    const count = validateSaveNumber(value === undefined && isDefaultZeroResource(id) ? 0 : value, 0, state.alloyContainers, '合金集装箱分配');
+    const value = alloyValues?.[id];
+    const count = validateSaveNumber(value, 0, state.alloyContainers, '合金集装箱分配');
     if (!Number.isSafeInteger(count) || (count > 0 && !isContainerAssignable(id, state))) throw Error('合金集装箱分配无效。');
     state.alloyContainerAssignments[id] = count;
   }

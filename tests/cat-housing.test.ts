@@ -80,12 +80,14 @@ test('钢制建材 is T5 for 5k knowledge + 500 steel and cuts 猫窝/MKII creep
   close(calculateBuildingScale('nest', 'wood', s), 1.15);
 });
 
-test('older saves without 猫猫小屋 records load at zero; the new building round-trips', () => {
+test('missing 猫猫小屋 records reject; the current building round-trips', () => {
   const s = fresh();
   s.tech.push('survival', 'tools', 'writing', 'agriculture', 'catHut');
   s.buildings.catHut = 2; s.population = 2;
   assert.equal(validateCurrentSave(clone(s), context).buildings.catHut, 2);
   const raw = clone(s) as unknown as Record<string, Record<string, unknown>>;
   for (const field of ['buildings', 'workers', 'stoppedBuildings']) delete raw[field]!.catHut;
-  assert.equal(validateCurrentSave(raw, context).buildings.catHut, 0);
+  const before = clone(raw);
+  assert.throws(() => validateCurrentSave(raw, context));
+  assert.deepEqual(raw, before);
 });

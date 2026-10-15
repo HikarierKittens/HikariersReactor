@@ -60,10 +60,10 @@ test('freight no longer boosts any mining output and breakdown still matches set
  near(on.rates.energy-off.rates.energy,-30);
 });
 
-test('older saves default freight additions while malformed facility counts are rejected immutably',()=>{
+test('missing freight additions and malformed facility counts are rejected immutably',()=>{
  const raw:any=clone(complete());for(const field of ['buildings','workers','stoppedBuildings'])delete raw[field].anchorFreightStation;
- const before=clone(raw),restored=validateCurrentSave(raw,context);assert.deepEqual(raw,before);assert.equal(restored.buildings.anchorFreightStation,0);
- for(const field of ['buildings','workers','stoppedBuildings']){const bad=clone(raw);bad[field].anchorFreightStation=null;assert.throws(()=>validateCurrentSave(bad,context));}
+ const before=clone(raw);assert.throws(()=>validateCurrentSave(raw,context));assert.deepEqual(raw,before);
+ for(const field of ['buildings','workers','stoppedBuildings']){const bad:any=clone(complete());bad[field].anchorFreightStation=null;assert.throws(()=>validateCurrentSave(bad,context));}
 });
 
 test('remote stories survive ordinary resets while new-run remote progress clears',()=>{

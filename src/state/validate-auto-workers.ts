@@ -6,10 +6,9 @@ function isAutoWorkersRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-/** Absent old-save settings default off; incomplete known job lists extend safely. */
+/** Require the complete current job list and priority permutation. */
 export function validateAutoWorkers(raw: Record<string, unknown>, state: GameState): void {
   const fresh = createAutoWorkersState();
-  if (!Object.hasOwn(raw, 'autoWorkers')) { state.autoWorkers = fresh; return; }
   const value = raw.autoWorkers;
   if (!isAutoWorkersRecord(value)
     || Object.keys(value).some(key => !['enabled', 'priority', 'jobs'].includes(key))
@@ -21,8 +20,9 @@ export function validateAutoWorkers(raw: Record<string, unknown>, state: GameSta
     if (typeof id !== 'string' || !AUTO_WORKER_JOBS.includes(id as BuildingId) || priority.includes(id as BuildingId)) throw Error('自动分配工人优先级无效。');
     priority.push(id as BuildingId);
   }
+  if (priority.length !== AUTO_WORKER_JOBS.length || AUTO_WORKER_JOBS.some(id => !Object.hasOwn(value.jobs as object, id))) throw Error('自动分配工人岗位不完整。');
   fresh.enabled = value.enabled;
-  fresh.priority = [...priority, ...AUTO_WORKER_JOBS.filter(id => !priority.includes(id))];
+  fresh.priority = priority;
   for (const [id, job] of Object.entries(value.jobs)) {
     if (!AUTO_WORKER_JOBS.includes(id as BuildingId) || !isAutoWorkersRecord(job)
       || Object.keys(job).some(key => !['enabled', 'limit'].includes(key))

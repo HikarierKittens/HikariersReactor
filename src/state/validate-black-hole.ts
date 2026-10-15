@@ -1,12 +1,11 @@
 import { calculateEjectionCapacity, createBlackHoleState, isEjectableResource } from '../simulation/black-hole';
 import type { GameState } from '../types/state';
 
-/** Run-scoped black hole; older saves without the record start from the initial mass.
+/** Run-scoped black hole.
  * Call after buildings are validated so allocations can be checked against capacity. */
 export function validateBlackHole(raw: Record<string, unknown>, state: GameState): void {
   const fresh = createBlackHoleState();
   const value = raw.blackHole;
-  if (value === undefined) { state.blackHole = fresh; return; }
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error('黑洞记录无效。');
   const source = value as Record<string, unknown>;
   if (Object.keys(source).some(key => !['mass', 'exoticMass', 'unstable', 'ejection'].includes(key))) throw Error('黑洞记录无效。');

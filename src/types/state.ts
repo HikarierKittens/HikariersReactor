@@ -110,13 +110,11 @@ export interface GameState {
   trainingProgress: number;
   nuclearProgress: number;
   arpaProgress: Record<ArpaProjectId, number>;
-  /** Independent paid percentages; absent project records migrate legacy arpaProgress lazily. */
-  arpaResourceProgress?: Partial<Record<ArpaProjectId, ResourceRecipe>>;
+  /** Independent paid percentages; project rows are sparse until investment. */
+  arpaResourceProgress: Partial<Record<ArpaProjectId, ResourceRecipe>>;
   arpaBuildings: Record<ArpaProjectId, number>;
   monumentMaterial: ResourceId;
   arpaQueueElapsed: number;
-  legacyRocketry: boolean;
-  legacyTechPrerequisites?: TechnologyId[];
   craftWorkers: Record<CraftId, number>;
   containers: number;
   containerAssignments: ResourceAmounts;
@@ -132,7 +130,6 @@ export interface GameState {
   lines: Record<FactoryLineId, number>;
   /** Idle 冶炼厂工位; every other slot (smelters + 2 × 恒星熔炉) auto-runs steel. */
   smelterIdle: number;
-  legacyPopulationCeiling: number;
   asrielMissionCompleted: boolean;
   asrielMissionQueued: boolean;
   kerberosMissionCompleted: boolean;

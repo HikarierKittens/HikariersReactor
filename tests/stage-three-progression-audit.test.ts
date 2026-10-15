@@ -29,15 +29,8 @@ test('retired experiment APIs and registries are absent and commands reject atom
  for(const id of retiredTech){assert.equal(Object.hasOwn(TECHNOLOGIES,id),false);const before=clone(s);assert.equal(requestPurchaseModule(s,'tech',id,0,true).status,'rejected');assert.deepEqual(s,before);}
  for(const id of retiredProjects){assert.equal(Object.hasOwn(ARPA_PROJECTS,id),false);const before=clone(s);assert.equal(requestPurchaseModule(s,'arpa',id,0,true).status,'rejected');assert.deepEqual(s,before);}
 });
-test('all old flags content and queues migrate immutably idempotently and preserve later progress',()=>{
- const raw=legacy(),before=clone(raw),restored=validateCurrentSave(raw,context);assert.deepEqual(raw,before);
- assert.deepEqual(restored.stageThree,{coreActivated:true});
- for(const id of retiredTech){assert.equal((restored.tech as string[]).includes(id),false);assert.equal((restored.legacyTechPrerequisites as string[]|undefined)?.includes(id)??false,false);}
- for(const id of retiredProjects)for(const record of [restored.arpaBuildings,restored.arpaProgress,restored.arpaResourceProgress])assert.equal(Object.hasOwn(record??{},id),false);
- assert.deepEqual(restored.queue,[{uid:99,kind:'build',id:'nest'}]);
- for(const field of ['resources','buildings','workers','stoppedBuildings','prestige','shipComponents','shipResourceProgress','story'] as const)assert.deepEqual(restored[field],raw[field],field);
- for(const id of ['fieldConstraintTheory','dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan'])assert.ok((restored.tech as string[]).includes(id));
- assert.deepEqual(validateCurrentSave(clone(restored),context),restored);
+test('retired payload rejects immutably instead of being cleaned up',()=>{
+ const raw=legacy(),before=clone(raw);assert.throws(()=>validateCurrentSave(raw,context));assert.deepEqual(raw,before);
 });
 test('migration rejects malformed retained state unknown content and wrong-kind retired queues',()=>{
  for(const change of [(s:any)=>s.stageThree.unknownFutureFlag=true,(s:any)=>s.stageThree.coreActivated=1,(s:any)=>s.stageThree=null,(s:any)=>s.tech.push('unknownFutureTech'),(s:any)=>s.arpaBuildings.unknownFutureProject=1,(s:any)=>s.queue=[{uid:1,kind:'build',id:'remoteAnchor'}],(s:any)=>s.queue=[{uid:1,kind:'arpa',id:'dualEndCoupling'}]]){
@@ -52,7 +45,7 @@ test('core activation needs a constructed core but field services need no histor
  const noTheory=clone(full);noTheory.tech=noTheory.tech.filter(id=>id!=='fieldConstraintTheory');assert.throws(()=>validateCurrentSave(noTheory,context));
 });
 test('reset keeps archived stories without retaining retired flags or current activation',()=>{
- const s=validateCurrentSave(legacy(),context);updateProgression(s);s.story.read=[...s.story.unlocked];
+ const s=validateCurrentSave(complete(),context);updateProgression(s);s.story.read=[...s.story.unlocked];
  const soft=resetRunState(s,'soft',60,0)!.next;assert.deepEqual(soft.stageThree,{coreActivated:false});assert.deepEqual(soft.story,s.story);
  assert.deepEqual(validateCurrentSave(soft,context).stageThree,soft.stageThree);
  s.tech.push('nuclearProgram');s.nuclearProgress=100;const nuclear=launchNuclearPrestige(s,60,0)!.next;

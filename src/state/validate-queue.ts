@@ -12,7 +12,7 @@ import type { ArpaProjectId, GameState, QueueItem } from '../types/state';
 
 /** Reconstruct only whitelisted fields from untrusted queue entries. */
 export function validateSaveQueue(value: unknown, state: GameState): QueueItem[] {
-  const pending = value === undefined ? [] : value;
+  const pending = value;
   if (!Array.isArray(pending) || pending.length > 10000) throw Error('待购队列无效。');
   const seenUID = new Set<number>(), seenTech = new Set<TechnologyId>();
   const buildCounts: Partial<Record<BuildingId, number>> = {};
@@ -54,25 +54,9 @@ export function validateSaveQueue(value: unknown, state: GameState): QueueItem[]
     if (state.buildings[id] + buildCounts[id] > (BUILDINGS[id].segmentedRequired ?? BUILDINGS[id].max ?? Infinity)) throw Error('队列超过建筑上限。');
     return { uid: q.uid, kind: 'build', id, ...(Object.hasOwn(q, 'segments') ? { segments: q.segments as number } : {}) };
   });
-  // Historical queues stored each segment as an entry. Merge adjacent legacy runs
-  // into one project (up to the old 100-segment slot), retaining their first uid.
-  const projects: QueueItem[] = [];
-  let legacyRun = false;
-  for (const item of validated) {
-    const legacy = item.kind === 'build' && !!BUILDINGS[item.id].segmentedRequired && item.segments === undefined;
-    const previous = projects.at(-1);
-    if (legacy && legacyRun && previous?.kind === 'build' && item.kind === 'build'
-      && previous.id === item.id && (previous.segments ?? 1) < 100) {
-      previous.segments = (previous.segments ?? 1) + 1;
-    } else {
-      projects.push(legacy && item.kind === 'build' ? { ...item, segments: 1 } : item);
-    }
-    legacyRun = legacy;
-  }
+  const projects = validated;
   const buildingLaneCount = buildingQueueUsage(projects);
   if (buildingLaneCount + projects.filter(item => item.kind === 'tech').length > 100) throw Error('待购队列无效。');
-  // Existing build-only queues retain their historical capacity grandfathering.
-  if (projects.some(item => item.kind === 'mission' || item.kind === 'ship')
-    && buildingLaneCount > purchaseQueueCapacity(state, 'build')) throw Error('队列超过建筑队列容量。');
+  if (buildingLaneCount > purchaseQueueCapacity(state, 'build')) throw Error('队列超过建筑队列容量。');
   return projects;
 }

@@ -52,12 +52,12 @@ test('all ordinary reset paths clear active challenges and baseline', () => {
   }
 });
 
-test('save round trips active genes, defaults absent legacy records and rejects explicit malformed records', () => {
+test('save round trips active genes, rejects missing and explicit malformed records', () => {
   const state = fresh(); state.crispr = ['challengeGene']; state.prestige.particles = 100;
   const active = launchChallenges(state, ['particleImbalance', 'industrialFracture'], 60, 0)!.next;
   assert.deepEqual(validateAndMigrateSave(JSON.parse(JSON.stringify(active)), context).challenge, active.challenge);
   const legacy = JSON.parse(JSON.stringify(fresh())); delete legacy.challenge;
-  assert.deepEqual(validateAndMigrateSave(legacy, context).challenge, fresh().challenge);
+  assert.throws(() => validateAndMigrateSave(legacy, context));
   const valid = active.challenge;
   for (const challenge of [undefined, null, [], {}, { ...valid, genes: ['unknown'] }, { ...valid, genes: ['particleImbalance', 'particleImbalance'] }, { ...valid, modes: ['unknown'] }, { ...valid, story: 'unknown' }, { ...valid, particleBaseline: -1 }, { ...valid, particleBaseline: 1.5 }, { ...valid, particleBaseline: Infinity }]) {
     assert.throws(() => validateChallenges({ challenge }, active));

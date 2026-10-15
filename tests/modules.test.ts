@@ -1,15 +1,16 @@
+import { CONFIG } from '../src/data/config';
 import assert from 'node:assert/strict';
 import { validateHistory } from '../src/state/validate-history';
 
-test('legacy queue completion logs migrate to queue while ordinary events retain their type', () => {
-  const s = createInitialState(29, 60, 0);
+test('display history preserves explicit event and queue log types', () => {
+  const s = createInitialState(CONFIG.version, 60, 0);
   const raw = { ...s, logs: [{ time: 0, text: '队列中 猫窝 已完成', type: 'event' }, { time: 1, text: '一只猫猫饿死了.....', type: 'event' }, { time: 2, text: '队列中 学校 已完成', type: 'queue' }] };
   validateHistory(raw, s);
-  assert.deepEqual(s.logs.map(log => log.type), ['queue', 'event', 'queue']);
+  assert.deepEqual(s.logs.map(log => log.type), ['event', 'event', 'queue']);
 });
 
 test('duplicate queued building prices reindex after middle cancellation and completion', () => {
-  const s = createInitialState(29, 60, 0);
+  const s = createInitialState(CONFIG.version, 60, 0);
   s.buildings.warehouse = 3;
   s.queue = [1, 2, 3, 4].map(uid => ({ uid, kind: 'build' as const, id: 'warehouse' as const }));
   const quote = () => describeQueuedPurchases(s).filter(item => item.kind === 'build');
@@ -34,7 +35,7 @@ test('seven replacement achievements expose exact names and em-dash conditions',
 });
 
 test('new snapshot achievements trigger only on fresh completion and never duplicate', () => {
-  const s = createInitialState(29, 60, 0);
+  const s = createInitialState(CONFIG.version, 60, 0);
   s.buildings.swarmSatellite = 4095;
   assert.deepEqual(updateProgression(s), []);
   s.buildings.swarmSatellite = 4096;
@@ -46,30 +47,25 @@ test('new snapshot achievements trigger only on fresh completion and never dupli
   assert.deepEqual(updateProgression(s), []);
 });
 
-test('retired achievement ids load cleanly without backfilling existing new progress', () => {
-  const s = createMilestoneState('space');
-  s.buildings.swarmSatellite = 4096;
-  const raw = JSON.parse(JSON.stringify(s));
-  raw.achievements = ['first', 'hundred', 'food', 'pioneer', 'builder', 'space'];
-  delete raw.achievementTracking;
-  const context = { now: 0, eventInterval: 60, housingCapacity: () => 1000, clampResources: () => {} };
-  const loaded = validateAndMigrateSave(raw, context);
-  assert.deepEqual(loaded.achievements, []);
-  assert.deepEqual(updateProgression(loaded), [], 'existing 4096 satellites and activated AI do not backfill');
-  loaded.buildings.swarmSatellite = 4095; updateProgression(loaded);
-  loaded.buildings.swarmSatellite = 4096;
-  assert.ok(updateProgression(loaded).includes('swarmEclipse'), 'new threshold crossing qualifies');
-  assert.throws(() => validateAndMigrateSave({ ...raw, achievements: ['unknownAchievement'] }, context));
+test('retired achievements and absent tracking reject without backfilling progress', () => {
+ const state = createMilestoneState('space'); state.buildings.swarmSatellite = 4096;
+ const context = { now: 0, eventInterval: 60, housingCapacity: () => 1000, clampResources: () => {} };
+ for (const id of ['first','hundred','food','pioneer','builder','space','unknownAchievement']) {
+  const raw = { ...structuredClone(state), achievements: [id] }, before = structuredClone(raw);
+  assert.throws(() => validateAndMigrateSave(raw, context)); assert.deepEqual(raw, before);
+ }
+ const raw = JSON.parse(JSON.stringify(state)); delete raw.achievementTracking;
+ assert.throws(() => validateAndMigrateSave(raw, context));
 });
 
 test('nuclear and escape achievements are awarded once on successful reset with logs', () => {
-  const s = createInitialState(29, 60, 0);
+  const s = createInitialState(CONFIG.version, 60, 0);
   s.tech.push('nuclearProgram'); s.nuclearProgress = 100;
   const nuclear = launchNuclearPrestige(s, 60, 0)!;
   assert.ok(nuclear.next.achievements.includes('nuclearCuriosity'));
   assert.equal(nuclear.next.logs.filter(l => l.type === 'achievement' && l.text.includes('好奇害死猫')).length, 1);
   assert.deepEqual(s.achievements, []);
-  const ship = createInitialState(29, 60, 0);
+  const ship = createInitialState(CONFIG.version, 60, 0);
   ship.buildings.interstellarDock = 1;
   for (const id of Object.keys(ship.shipComponents) as (keyof typeof ship.shipComponents)[]) ship.shipComponents[id] = true;
   const escape = launchEscapePrestige(ship, 60, 0)!;
@@ -98,7 +94,7 @@ test('real ticks allocate workers before production and after new slots, but pau
 });
 
 function automationFixture() {
-  const s = createInitialState(29, 60, 0);
+  const s = createInitialState(CONFIG.version, 60, 0);
   s.tech.push('survival', 'tools', 'writing');
   s.buildings.forage = 10; s.buildings.school = 10;
   s.population = 8;
@@ -145,7 +141,7 @@ test('automatic workers reject invalid settings and exclude unlimited or locked 
   assert.equal(s.workers.forage, calculateWorkerCapacity('forage', s));
 });
 
-test('automatic worker settings survive saves, default for older saves and clear on reset', () => {
+test('automatic worker settings survive saves, reject missing records and clear on reset', () => {
   const s = createMilestoneState('ground');
   setAutoWorkersEnabled(s, true); setAutoWorkerEnabled(s, 'school', true); setAutoWorkerLimit(s, 'school', 7);
   moveAutoWorkerPriority(s, 'school', 'forage');
@@ -156,7 +152,7 @@ test('automatic worker settings survive saves, default for older saves and clear
     assert.throws(() => validateAndMigrateSave({ ...raw, autoWorkers: malformed }, context));
   }
   delete raw.autoWorkers;
-  assert.equal(validateAndMigrateSave(raw, context).autoWorkers.enabled, false);
+  assert.throws(() => validateAndMigrateSave(raw, context));
   assert.equal(resetRunState(s, 'soft', 60, 0)!.next.autoWorkers.enabled, false);
 });
 
@@ -201,7 +197,7 @@ import { calculateSoldierCapacity } from '../src/simulation/government';
 import { isBuildingUnlocked, isTechnologyUnlocked } from '../src/simulation/unlocks';
 
 test('iridium alloy warehouse doubles targeted base storage and adds bank cash percentage', () => {
-  const s = createInitialState(29, 60, 0);
+  const s = createInitialState(CONFIG.version, 60, 0);
   assert.equal(isTechnologyUnlocked('iridiumAlloyWarehouse', s), false);
   s.tech.push('moonExploration');
   assert.equal(isTechnologyUnlocked('iridiumAlloyWarehouse', s), true);
@@ -225,7 +221,7 @@ test('iridium alloy warehouse doubles targeted base storage and adds bank cash p
 });
 
 test('research satellite adds escalating knowledge price and price lists prioritize cash then knowledge', () => {
-  const s = createInitialState(29, 60, 0);
+  const s = createInitialState(CONFIG.version, 60, 0);
   assert.equal(calculateBuildingCost('researchSatellite', 0, s).knowledge, 25000);
   // Satellite uses its raw 1.2 registry scale (no global +0.01).
   assert.equal(calculateBuildingCost('researchSatellite', 1, s).knowledge, 30000);
@@ -234,7 +230,7 @@ test('research satellite adds escalating knowledge price and price lists priorit
 });
 
 test('tourist stations scale at 1.18 and require both energy and discounted oil maintenance', () => {
-  const s = createInitialState(29, 60, 0);
+  const s = createInitialState(CONFIG.version, 60, 0);
   s.buildings.touristStation = 1; s.resources.energy = 10; s.resources.oil = 1;
   assert.deepEqual(BUILDINGS.touristStation.costScales, { metal: 1.18, alloy: 1.18, oil: 1.18, cash: 1.18 });
   let p = calculateProduction(s);
@@ -250,7 +246,7 @@ test('tourist stations scale at 1.18 and require both energy and discounted oil 
 });
 
 test('particle accelerators require nuclear prestige and add percentage points to both production bonuses', () => {
-  const s = createInitialState(29, 60, 0); s.tech.push('science');
+  const s = createInitialState(CONFIG.version, 60, 0); s.tech.push('science');
   assert.equal(isTechnologyUnlocked('particleAccelerator', s), false);
   s.prestige.softResets = 10;
   assert.equal(isTechnologyUnlocked('particleAccelerator', s), false);
@@ -279,7 +275,7 @@ test('particle accelerators require nuclear prestige and add percentage points t
 });
 
 test('ring bonuses affect only space sources and appear beneath each source without double counting', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.buildings.moonBase = 1;
   state.buildings.iridiumMine = state.buildings.helium3Mine = 1;
   state.buildings.asrielSpaceport = state.buildings.asrielResidence = state.buildings.asrielMine = 1;
@@ -306,7 +302,7 @@ test('ring bonuses affect only space sources and appear beneath each source with
 });
 
 test('ARPA institutes gate technologies and scale only targeted storage and outputs', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.tech.push('arpa', 'arpaResearchInstitute');
   assert.equal(isTechnologyUnlocked('quantumTunnelingThermalProcessing', state), false);
   state.arpaBuildings.arpaResearchInstitute = 1;
@@ -330,7 +326,7 @@ test('ARPA institutes gate technologies and scale only targeted storage and outp
 });
 
 test('stock capacity uses live population, bonds replace stocks and exchanges scale subtotal', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   const snapshot = { ...calculateProduction(state), biologyUnits: 0, dataCenterUnits: 0, moonBaseUnits: 0 };
   const initial = calculateStorageDetails('cash', state, snapshot).total;
   state.population = 10; state.tech.push('stockTrading');
@@ -344,7 +340,7 @@ test('stock capacity uses live population, bonds replace stocks and exchanges sc
 });
 
 test('new ARPA projects support partial investment, completion and escalating repeat prices', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.tech.push('stockExchange', 'arpaResearchInstitute');
   const exchange = calculateProjectCost('stockExchange', state);
   assert.deepEqual(exchange, { cash: 2000000, wood: 50000, brick: 25000, wroughtIron: 10000 });
@@ -360,7 +356,7 @@ test('new ARPA projects support partial investment, completion and escalating re
 });
 
 test('Kerberos technologies require mission and upgrade smelter and lunar helium bases', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.tech.push('planetaryExploration');
   for (const id of ['geothermalFurnace', 'helium3ExtractionOptimization'] as const) {
     assert.equal(TECHNOLOGIES[id].tier, 13);
@@ -386,7 +382,7 @@ test('Kerberos technologies require mission and upgrade smelter and lunar helium
 });
 
 test('planetary foundries share artisans and boost both crafting paths only while supported', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.tech.push('castingWorkshop', 'planetaryExploration', 'alienCasting');
   state.buildings.asrielSpaceport = 1;
   state.buildings.asrielResidence = 1;
@@ -408,7 +404,7 @@ test('planetary foundries share artisans and boost both crafting paths only whil
 });
 
 test('Kerberos mission is independent and geothermal generation boosts only lunar iridium', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.tech.push('planetaryExploration');
   assert.equal(isBuildingUnlocked('geothermalPlant', state), false);
   state.resources.helium3 = 5000;
@@ -437,7 +433,7 @@ test('Kerberos mission is independent and geothermal generation boosts only luna
 });
 
 test('space garrison increases soldiers without support and reinforced containers double current base', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.buildings.spaceGarrison = 2;
   assert.equal(calculateSoldierCapacity(state), 4);
   state.resources.oil = 10; state.resources.food = 100;
@@ -456,7 +452,7 @@ test('space garrison increases soldiers without support and reinforced container
 });
 
 test('power switch warning follows actual support and power allocation', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.buildings.asrielMine = 2;
   state.buildings.spaceWaystation = 1;
   state.resources.energy = 5;
@@ -480,7 +476,7 @@ test('power switch warning follows actual support and power allocation', () => {
 });
 
 test('all support-consuming buildings expose power switches and stopped Asriel units release support', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
     if (BUILDINGS[id].moonSupport || BUILDINGS[id].support) assert.equal(hasContinuousEnergyInput(id, state), true, id);
   }
@@ -506,7 +502,7 @@ import { TECHNOLOGIES } from '../src/data/technologies';
 import { completeAsrielMission } from '../src/simulation/commands';
 
 test('waystations compound space fuel discounts and add passive capacity/support', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.buildings.spaceWaystation = 20;
   state.resources.energy = 109;
   const factor = .95 ** 20;
@@ -515,8 +511,8 @@ test('waystations compound space fuel discounts and add passive capacity/support
   assert.equal(calculateBuildingInput('moonBase', state).oil, 2 * factor);
   assert.equal(calculateBuildingInput('asrielSpaceport', state).helium3, 2 * factor);
   assert.equal(calculateBuildingInput('spaceFactory', state).helium3, 2 * factor);
-  assert.equal(calculateBuildingInput('refinery', state).oil, calculateBuildingInput('refinery', createInitialState(29, 60, 0)).oil);
-  const baseline = createInitialState(29, 60, 0);
+  assert.equal(calculateBuildingInput('refinery', state).oil, calculateBuildingInput('refinery', createInitialState(CONFIG.version, 60, 0)).oil);
+  const baseline = createInitialState(CONFIG.version, 60, 0);
   for (const id of ['moonBase', 'asrielSpaceport', 'spaceFactory'] as const) {
     const original = calculateBuildingCost(id, 0, baseline);
     const discounted = calculateBuildingCost(id, 0, state);
@@ -544,7 +540,7 @@ test('waystations compound space fuel discounts and add passive capacity/support
 });
 
 test('waystation maintenance is paid once and off/unpowered units lose active effects', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.buildings.spaceWaystation = 2;
   state.resources.energy = 10;
   let production = calculateProduction(state);
@@ -582,7 +578,7 @@ test('late space technologies use exact prices and vault base capacity additions
   assert.equal(BUILDINGS.spaceWaystation.asrielSupport, undefined);
   assert.equal(BUILDING_GROUPS.at(-1)?.name, '公共事业部门');
   assert.deepEqual(BUILDING_GROUPS.at(-1)?.buildings, ['particleAccelerator', 'spaceWaystation']);
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   assert.deepEqual(calculateBuildingCost('spaceWaystation', 0, state), { cash: 50000, metal: 20000, alloy: 10000, iridium: 1000 });
   // SpaceWaystation uses its raw 1.25 registry scale (no global +0.01).
   assert.deepEqual(calculateBuildingCost('spaceWaystation', 1, state), { cash: 62500, metal: 25000, alloy: 12500, iridium: 1250 });
@@ -595,13 +591,11 @@ test('late space technologies use exact prices and vault base capacity additions
   assert.equal(calculateStorageBonuses('catCafe', state, null).cash, 6500);
   const raw = JSON.parse(JSON.stringify(state));
   delete raw.buildings.spaceWaystation; delete raw.workers.spaceWaystation;
-  validateEconomyRecords(raw, state);
-  assert.equal(state.buildings.spaceWaystation, 0);
-  assert.equal(state.workers.spaceWaystation, 0);
+  assert.throws(() => validateEconomyRecords(raw, state), /建筑/);
 });
 
 test('queue estimates handle deficits, capacity, FIFO reservations and ARPA partial funding', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   const rates = { ...state.resources, wood: 2, knowledge: 10 };
   const caps = Object.fromEntries(Object.keys(state.resources).map(id => [id, Infinity])) as typeof state.resources;
   assert.equal(estimateResourceWait({ wood: 10 }, state.resources, rates, caps), '预计 5 s后完成');
@@ -637,7 +631,7 @@ test('particle production follows a continuous decreasing-marginal-return curve'
   const leftSlope = (effective(400) - effective(400 - h)) / h;
   const rightSlope = (effective(400 + h) - effective(400)) / h;
   assert.ok(Math.abs(leftSlope - rightSlope) < 1e-5);
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.prestige.particles = 1000;
   assert.equal(calculateParticleMultiplier('food', state), 1 + effective(1000) * .005);
   assert.equal(calculateParticleMultiplier('plank', state), 1 + effective(1000) * .00125);
@@ -648,7 +642,7 @@ test('particle production follows a continuous decreasing-marginal-return curve'
 
 test('超级集装箱 is T8 51.4k; warehouses gain 25 ordinary / 10 alloy slots and hangars 15 alloy slots', () => {
   assert.deepEqual([TECHNOLOGIES.superContainers.tier, TECHNOLOGIES.superContainers.cost, TECHNOLOGIES.superContainers.pre], [8, { knowledge: 51400 }, ['automatedStorage']]);
-  const s = createInitialState(29, 60, 0);
+  const s = createInitialState(CONFIG.version, 60, 0);
   s.buildings.containerWarehouse = 2; s.buildings.hangar = 3;
   assert.equal(calculateContainerCapacity(s), 130);
   assert.equal(calculateAlloyContainerCapacity(s), 0);
@@ -664,7 +658,7 @@ test('超级集装箱 is T8 51.4k; warehouses gain 25 ordinary / 10 alloy slots 
 });
 
 test('alloy containers manufacture for 10 alloy, allocate independently, save and validate strictly', () => {
-  const s = createInitialState(29, 60, 0);
+  const s = createInitialState(CONFIG.version, 60, 0);
   s.buildings.containerWarehouse = 1; s.buildings.factory = 1;
   s.resources.alloy = 35;
   assert.equal(createAlloyContainers(s, 10), 0);
@@ -686,9 +680,7 @@ test('alloy containers manufacture for 10 alloy, allocate independently, save an
   assert.throws(() => validateStorageAssignments({ ...raw, alloyContainerAssignments: null }, s), /合金集装箱/);
   assert.throws(() => validateStorageAssignments({ ...raw, alloyContainerAssignments: { ...raw.alloyContainerAssignments, stone: 1 } }, s), /合金集装箱/);
   delete raw.alloyContainers; delete raw.alloyContainerAssignments;
-  validateStorageAssignments(raw, s);
-  assert.equal(s.alloyContainers, 0);
-  assert.equal(s.alloyContainerAssignments.wood, 0);
+  assert.throws(() => validateStorageAssignments(raw, s), /合金集装箱/);
 });
 
 test('alloy containers survive full JSON validation and clear on run reset', () => {
@@ -708,8 +700,8 @@ test('alloy containers survive full JSON validation and clear on run reset', () 
   assert.equal(JSON.stringify(raw), snapshot);
 });
 
-test('mithril rejects containers and legacy allocations return to the idle pool', () => {
-  const state = createInitialState(29, 60, 0);
+test('mithril rejects containers and invalid saved allocations', () => {
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.buildings.spaceFactory = 1;
   state.buildings.containerWarehouse = 1;
   state.containers = 5;
@@ -719,7 +711,7 @@ test('mithril rejects containers and legacy allocations return to the idle pool'
   assert.equal(state.containerAssignments.mithril, 0);
   const raw = JSON.parse(JSON.stringify(state));
   raw.containerAssignments.mithril = 3;
-  validateStorageAssignments(raw, state);
+  assert.throws(() => validateStorageAssignments(raw, state));
   assert.equal(state.containers, 5);
   assert.equal(state.containerAssignments.mithril, 0);
   assert.equal(countAssignedContainers(state), 0);
@@ -729,7 +721,7 @@ test('mithril rejects containers and legacy allocations return to the idle pool'
 });
 
 test('cat cafes provide one artist job each without changing automatic cash output', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.tech.push('catCafe');
   state.population = 10;
   state.buildings.catCafe = 2;
@@ -753,22 +745,17 @@ test('cat cafes provide one artist job each without changing automatic cash outp
   assert.equal(state.workers.catCafe, 0);
 });
 
-test('legacy cafe artist assignments migrate once into the shared artist pool', () => {
-  const state = createInitialState(29, 60, 0);
-  state.buildings.catCafe = 2;
-  state.buildings.theater = 1;
-  state.workers.theater = 1;
-  state.workers.catCafe = 2;
-  validateEconomyRecords(JSON.parse(JSON.stringify(state)), state);
-  assert.equal(state.workers.theater, 3);
-  assert.equal(state.workers.catCafe, 0);
-  validateEconomyRecords(JSON.parse(JSON.stringify(state)), state);
-  assert.equal(state.workers.theater, 3);
-  assert.equal(calculateWorkerCapacity('theater', state), 3);
+test('retired cafe artist assignments reject rather than merge into the shared pool', () => {
+ const state = createInitialState(CONFIG.version, 60, 0);
+ state.buildings.catCafe = 2; state.buildings.theater = 1;
+ state.workers.theater = 1; state.workers.catCafe = 2;
+ const raw = structuredClone(state), before = structuredClone(raw);
+ assert.throws(() => validateEconomyRecords(raw as unknown as Record<string, unknown>, createInitialState(CONFIG.version, 60, 0)));
+ assert.deepEqual(raw, before);
 });
 
 test('smelter base steel is 0.5 and electrochemical steel is 1 before oxygen bonus', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   assert.equal(calculateBuildingOutput('smelter', state).metal, .5);
   state.tech.push('electrochemicalSmelting');
   assert.equal(calculateBuildingOutput('smelter', state).metal, 1);
@@ -778,7 +765,7 @@ test('smelter base steel is 0.5 and electrochemical steel is 1 before oxygen bon
 
 test('electrochemical smelting raises steel output without power upkeep even at zero energy', () => {
   for (const dt of [.2, 1]) {
-    const state = createInitialState(29, 60, 0);
+    const state = createInitialState(CONFIG.version, 60, 0);
     state.tech.push('metallurgy', 'electricity'); state.buildings.smelter = 2;
     state.resources.iron = 1000; state.resources.coal = 1000; state.resources.energy = 0;
     const before = calculateProduction(state, dt);
@@ -802,7 +789,7 @@ test('原油精炼优化 is a T9 70k tech after 化学沉积工艺 and 石油存
 
 test('原油精炼优化 raises refinery base oil to 1.5/s and power to 2/s in real settlement', () => {
   for (const dt of [.2, 1]) {
-    const state = createInitialState(29, 60, 0);
+    const state = createInitialState(CONFIG.version, 60, 0);
     state.tech.push('oilTechnology'); state.buildings.refinery = 4;
     state.resources.energy = 1e6;
     assert.deepEqual([calculateBuildingOutput('refinery', state), calculateBuildingInput('refinery', state)], [{ oil: 1 }, { energy: .5 }]);
@@ -820,7 +807,7 @@ test('原油精炼优化 raises refinery base oil to 1.5/s and power to 2/s in r
 });
 
 test('gene sequencing requires genetics, costs one million, and resets each run', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.resources.knowledge = 1000000;
   assert.equal(investInProject('geneSequencing', state, 100, () => 0), 0);
   state.tech.push('genetics');
@@ -833,11 +820,11 @@ test('gene sequencing requires genetics, costs one million, and resets each run'
   assert.equal(state.resources.knowledge, 0);
   state.resources.knowledge = 1000000;
   assert.equal(investInProject('geneSequencing', state, 100, () => 0), 0);
-  assert.equal(createInitialState(29, 60, 0).arpaBuildings.geneSequencing, 0);
+  assert.equal(createInitialState(CONFIG.version, 60, 0).arpaBuildings.geneSequencing, 0);
 });
 
 test('project queue preserves partial funding, timing and unique projects', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.tech.push('arpa', 'rocketry');
   assert.equal(enqueueProject(state, 'rocketPlatform', 10), 1);
   assert.equal(enqueueProject(state, 'rocketPlatform'), 0);
@@ -855,7 +842,7 @@ test('project queue preserves partial funding, timing and unique projects', () =
 });
 
 test('monument investment changes material only on completion', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.tech.push('monument'); state.resources.stone = 100000;
   let randomCalls = 0;
   const random = () => { randomCalls++; return 0; };
@@ -867,7 +854,7 @@ test('monument investment changes material only on completion', () => {
 });
 
 test('persistence writes timestamped JSON and reports storage failure', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   const writes = new Map<string, string>();
   assert.equal(persistGame(state, { setItem: (key, value) => { writes.set(key, value); } }, 'save', 123), true);
   assert.equal(JSON.parse(writes.get('save')!).lastSaved, 123);
@@ -875,29 +862,25 @@ test('persistence writes timestamped JSON and reports storage failure', () => {
   assert.equal(state.lastSaved, 123);
   assert.equal(JSON.parse(writes.get('save')!).lastSaved, 123);
 });
-import { migrateV27, migrateV28 } from '../src/state/migrations';
 import { validateAndMigrateSave } from '../src/state/validate-save';
 
-test('unified save entry validates current and upgrades legacy JSON independently', () => {
-  const state = createInitialState(29, 60, 0);
-  const context = { now: 0, eventInterval: 60, housingCapacity: () => 1, clampResources: () => {} };
-  assert.deepEqual(validateAndMigrateSave(JSON.parse(JSON.stringify(state)), context), { ...state, legacyTechPrerequisites: [] });
-  const legacy = { ...state, version: 27, lines: { alloy: 0, polymer: 0 } };
-  const snapshot = JSON.stringify(legacy);
-  assert.equal(validateAndMigrateSave(legacy, context).version, 29);
-  assert.equal(JSON.stringify(legacy), snapshot);
-  assert.throws(() => validateAndMigrateSave({ ...state, version: 11 }, context), /版本不受支持/);
+test('strict compatibility-named entry roundtrips current saves immutably', () => {
+ const state = createInitialState(CONFIG.version, 60, 0);
+ const context = { now: 0, eventInterval: 60, housingCapacity: () => 1, clampResources: () => {} };
+ const raw = JSON.parse(JSON.stringify(state)), before = structuredClone(raw);
+ const restored = validateAndMigrateSave(raw, context);
+ assert.deepEqual(restored, state); assert.deepEqual(raw, before); assert.notEqual(restored, raw);
+ assert.deepEqual(validateAndMigrateSave(JSON.parse(JSON.stringify(restored)), context), restored);
 });
 
-test('recent migrations preserve legacy lines and never mutate input', () => {
-  const raw = { version: 27, lines: { alloy: 2, polymer: 1 }, resources: { wood: 12 } };
-  const original = JSON.stringify(raw);
-  const result = migrateV28(migrateV27(raw));
-  assert.equal(result.version, 29);
-  assert.deepEqual(result.lines, { alloy: 2, polymer: 1, fur: 0 });
-  assert.deepEqual(result.resources, { wood: 12, mithril: 0 });
-  assert.equal(result.asrielMissionCompleted, false);
-  assert.equal(JSON.stringify(raw), original);
+test('every historical save schema 12 through 30 is rejected without mutation', () => {
+ const state = createInitialState(CONFIG.version, 60, 0);
+ const context = { now: 0, eventInterval: 60, housingCapacity: () => 1, clampResources: () => {} };
+ for (const version of Array.from({ length: 19 }, (_, i) => i + 12)) {
+  const raw = { ...structuredClone(state), version }, before = structuredClone(raw);
+  assert.throws(() => validateAndMigrateSave(raw, context), /版本|兼容/);
+  assert.deepEqual(raw, before);
+ }
 });
 import { createInitialState } from '../src/state/create-state';
 import { calculateFactoryRecipe } from '../src/simulation/factory';
@@ -915,20 +898,20 @@ import { validateCivilization } from '../src/state/validate-civilization';
 import { validateFactoryAssignments, validateEconomyRecords } from '../src/state/validate-economy';
 
 test('economy save validation preserves defaults and rejects invalid assignments', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   validateEconomyRecords({ ...state }, state);
-  validateFactoryAssignments(undefined, state);
+  assert.throws(() => validateFactoryAssignments(undefined, state));
   assert.deepEqual(state.lines, { alloy: 0, polymer: 0, fur: 0, nanotubes: 0, nanoAlloy: 0 });
-  assert.throws(() => validateFactoryAssignments({ alloy: .5 }, state), /生产线分配无效/);
-  assert.throws(() => validateFactoryAssignments({ fur: 1 }, state), /生产线分配无效/);
+  assert.throws(() => validateFactoryAssignments({ ...state.lines, alloy: .5 }, state), /生产线分配无效/);
+  assert.throws(() => validateFactoryAssignments({ ...state.lines, fur: 1 }, state), /生产线分配无效/);
   assert.throws(() => validateEconomyRecords({ ...state, resources: { ...state.resources, food: '10' } }, state), /资源数据无效/);
   assert.throws(() => validateEconomyRecords({ ...state, buildings: { ...state.buildings, nest: .5 } }, state), /建筑或工作分配无效/);
 });
 
 test('civilization save validation rejects invalid prestige and military progress', () => {
-  const source = createInitialState(29, 60, 0);
+  const source = createInitialState(CONFIG.version, 60, 0);
   const raw: Record<string, unknown> = { ...source };
-  const target = createInitialState(29, 60, 0);
+  const target = createInitialState(CONFIG.version, 60, 0);
   validateCivilization(raw, target);
   assert.deepEqual(target.prestige, source.prestige);
   assert.throws(() => validateCivilization({ ...raw, prestige: { ...source.prestige, particles: .5 } }, target), /整数/);
@@ -938,7 +921,7 @@ test('civilization save validation rejects invalid prestige and military progres
 });
 
 test('complete production ES module runs without DOM or global state', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.buildings.forage = 1; state.workers.forage = 1;
   state.resources.food = 10;
   const before = JSON.stringify(state);
@@ -949,7 +932,7 @@ test('complete production ES module runs without DOM or global state', () => {
 });
 
 test('typed commands reject invalid inputs and preserve gameplay gates', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   assert.equal(changeTaxRate(state, NaN), false);
   assert.equal(changeTaxRate(state, 31), false);
   assert.equal(changeGovernment(state, 'democracy'), false);
@@ -962,7 +945,7 @@ test('typed commands reject invalid inputs and preserve gameplay gates', () => {
 });
 
 test('production finalization reports full food demand and does not modify source state', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.population = 10; state.resources.food = 2;
   const before = { ...state.resources }, pool = { ...before };
   const result = finalizeProduction(state, pool, before, 1, {
@@ -976,7 +959,7 @@ test('production finalization reports full food demand and does not modify sourc
 });
 
 test('research pool reserves lunar then planetary maintenance without touching state', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.buildings.moonBase = 1; state.buildings.asrielSpaceport = 1;
   Object.assign(state.resources, { energy: 10, oil: 2, helium3: 2, food: 25 });
   const snapshot = JSON.stringify(state);
@@ -987,7 +970,7 @@ test('research pool reserves lunar then planetary maintenance without touching s
 });
 
 test('growth preserves food gates, population threshold and one-arrival steps', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.resources.food = 10;
   advancePopulationGrowth(state, 100, 0, 10, () => 0);
   assert.equal(state.population, 1); assert.equal(state.growth, 95);
@@ -1000,7 +983,7 @@ test('growth preserves food gates, population threshold and one-arrival steps', 
 });
 
 test('training keeps partial progress, caps soldiers and unlocks fur', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.buildings.barracks = 1;
   advanceSoldierTraining(state, 30);
   assert.equal(state.soldiers, 0);
@@ -1013,20 +996,20 @@ test('training keeps partial progress, caps soldiers and unlocks fur', () => {
 });
 
 test('state factory owns all nested mutable records', () => {
-  const first = createInitialState(29, 60, 123), second = createInitialState(29, 60, 123);
+  const first = createInitialState(CONFIG.version, 60, 123), second = createInitialState(CONFIG.version, 60, 123);
   first.resources.food = 10; first.buildings.moonBase = 1; first.tech.push('moonExploration');
   assert.equal(second.resources.food, 0); assert.equal(second.buildings.moonBase, 0);
   assert.deepEqual(second.tech, []); assert.equal(second.lastSaved, 123);
 });
 test('factory module imports real typed registries and returns fresh recipes', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.tech.push('automatedEngineering', 'intelligentFactory', 'chemicalDeposition');
   assert.deepEqual(calculateFactoryRecipe('alloy', state), { input: { iron: .45, copper: .9 }, output: { alloy: 2.16 } });
   const recipe = calculateFactoryRecipe('alloy', state); recipe.input.iron = 99;
   assert.equal(calculateFactoryRecipe('alloy', state).input.iron, .45);
 });
 test('support modules are read-only and preserve prioritized whole units', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   Object.assign(state.buildings, { moonBase: 1, iridiumMine: 2, helium3Mine: 1, asrielSpaceport: 1, asrielResidence: 3, asrielMine: 3 });
   Object.assign(state.resources, { oil: 2, energy: 5, food: 25, helium3: 2 });
   const before = JSON.stringify(state);
@@ -1039,7 +1022,7 @@ test('technology module follows explicit tier and unknown fallback', () => {
   assert.equal(calculateTechnologyTier('unknown'), 0);
 });
 test('purchases keep immediate, queued and FIFO settlement behavior', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.tech.push('survival');
   assert.equal(isPurchaseAllowed(state, 'build', 'nest'), true);
   assert.equal(isPurchaseAllowed(state, 'build', 'mine'), false);
@@ -1068,7 +1051,7 @@ test('purchases keep immediate, queued and FIFO settlement behavior', () => {
 });
 
 test('research applies powered shutdown and container unlock side effects', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.tech.push('survival', 'writing', 'tools', 'mining', 'metallurgy', 'coalMining', 'science', 'electricity', 'automation');
   state.buildings.mine = 2;
   state.resources.knowledge = 1000;
@@ -1080,7 +1063,7 @@ test('research applies powered shutdown and container unlock side effects', () =
 });
 
 test('batch building respects queue reservations and escalating prices', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.tech.push('survival');
   state.resources.wood = 10000; state.resources.stone = 10000; state.resources.cash = 10000;
   state.queue.push({ uid: 7, kind: 'build', id: 'nest' });
@@ -1090,7 +1073,7 @@ test('batch building respects queue reservations and escalating prices', () => {
 });
 
 test('craft assignment respects unlocks, foundry capacity and integer steps', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.buildings.foundry = 1;
   state.workers.foundry = 1;
   state.resources.wood = 100;
@@ -1102,7 +1085,7 @@ test('craft assignment respects unlocks, foundry capacity and integer steps', ()
 });
 
 test('nuclear fill and prestige resets preserveInvalid guards', () => {
-  const funded = createInitialState(29, 60, 0);
+  const funded = createInitialState(CONFIG.version, 60, 0);
   funded.tech.push('nuclearProgram');
   Object.assign(funded.resources, { oil: 4000, alloy: 2000, uranium: 1000 });
   assert.equal(calculateNuclearAffordablePercent(funded, 25), 25);
@@ -1114,18 +1097,18 @@ test('nuclear fill and prestige resets preserveInvalid guards', () => {
   const launched = launchNuclearPrestige(funded, 60, 123);
   assert.ok(launched);
   assert.equal(launched!.reward, 20);
-  assert.equal(launched!.next.version, 29);
+  assert.equal(launched!.next.version, CONFIG.version);
   assert.equal(JSON.stringify(funded).includes('"nuclearProgress":100'), true);
-  const soft = createInitialState(29, 60, 0);
+  const soft = createInitialState(CONFIG.version, 60, 0);
   const reset = resetRunState(soft, 'soft', 60, 7);
   assert.ok(reset);
   assert.equal(reset!.next.lastSaved, 7);
   assert.equal(resetRunState(soft, 'unknown', 60, 7), null);
-  assert.equal(launchNuclearPrestige(createInitialState(29, 60, 0), 60, 0), null);
+  assert.equal(launchNuclearPrestige(createInitialState(CONFIG.version, 60, 0), 60, 0), null);
 });
 
 test('direct building purchase reports first factory unlock', () => {
-  const state = createInitialState(29, 60, 0);
+  const state = createInitialState(CONFIG.version, 60, 0);
   state.tech.push('automation');
   state.resources.cement = 1000; state.resources.titanium = 1000; state.resources.metal = 1000; state.resources.cash = 1000;
   const result = buyBuildingNow(state, 'factory', 1);

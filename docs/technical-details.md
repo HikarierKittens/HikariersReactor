@@ -10,10 +10,12 @@
 
 - 游戏所有界面、按钮、标题、提示、资源/建筑/工程/成就、时代名称及日志均不得使用emoji图标；今后新增内容同样禁止添加。
 - 唯一经用户明确批准的例外：保留工厂、冶炼厂、基因合成及飞船配置入口的齿轮按钮（U+2699），保持原紧凑尺寸及中文可访问名称。除此之外不得新增emoji、装饰图标或图标占位元素。数学符号、单位及必要文字标点可保留。
-- 图标数据字段暂保留空字符串以兼容类型及旧桥接，UI不得渲染空图标容器。新日志与旧档导入日志通过`shared/plain-text.ts`统一清理emoji，不改变原日志类型和时间。
+- 图标数据字段暂保留空字符串以兼容类型及旧桥接，UI不得渲染空图标容器。新日志与当前有效存档导入日志通过`shared/plain-text.ts`统一清理emoji，不改变原日志类型和时间。
 - `tests/markdown.test.ts`扫描全部`src`、HTML入口、发布更新日志及CSS，检测emoji即失败；不要通过Unicode转义或HTML实体绕过此规范。
 
 ## 1. 项目概览
+
+当前版本为 beta 0.6.0（2026/10/16），以恢复的 beta 0.5.19 传统玩法为基线，仅变更版本、存档契约与日志，不引入新玩法或已放弃的 0.6 原型内容。schema 31 严格断代；下文玩法机制沿用基线，旧版本兼容行为只在历史记录中保留。
 
 - 运行目录：`D:\XMaker\HikariersReactor`（Git 仓库）。
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
@@ -22,25 +24,25 @@
 ### 电力储量与电池聚能环
 
 - 电力注册基础容量10000；`batteryConcentrationRing`（T8，电子学前置，42114.514知识）在共享baseStorage中增加90000，明细和批量总量一致。
-- `calculateStorageBonuses`：太阳能卫星每座500电力容量；储能站研究前1000、研究后5000（替换而非叠加）。发电产量及现有全局储量倍率不变；旧档按科技和建筑即时重算，无需迁移。
+- `calculateStorageBonuses`：太阳能卫星每座500电力容量；储能站研究前1000、研究后5000（替换而非叠加）。发电产量及现有全局储量倍率不变；当前存档按科技和建筑即时重算。
 
 ### 智能银行与中子库储量规则
 
-- `intelligentBankingSystem`（T16）只前置AI II；`neutronVault`（T14）只前置中子建筑材料，复用注册表解锁/购买/存档校验，存档版本仍29。
+- `intelligentBankingSystem`（T16）只前置AI II；`neutronVault`（T14）只前置中子建筑材料，复用注册表解锁/购买/存档校验，存档版本为31。
 - 银行/猫咖贡献=`(原基础+已有固定加成+中子库2000/3000) × 原百分比因子 × 智能银行2`；人口资金贡献独立按智能银行1000、储蓄债券500、股票交易250的最高优先级取一项，再统一参与证券交易所等后续资金倍率。
 - 格纳库普通/合金箱容量共享containers模块动态计算，中子库为40/25；合金箱仍受superContainers门槛。总量与建筑tooltip使用相同函数。
 
 ### beta 0.5.6 审计修复约束
 
-- 广播塔/观光空间站幸福度使用结算回放得到的付费运行单位，不能用拥有量替代；太空驻军区分拥有容量（旧档与现有士兵保留）和运行训练容量（受维护/停机影响）。
+- 广播塔/观光空间站幸福度使用结算回放得到的付费运行单位，不能用拥有量替代；太空驻军区分拥有容量（现有士兵保留）和运行训练容量（受维护/停机影响）。
 - 建造与科研仍是独立队列；ARPA遵守有序建造队列前置，所有建造项目复用同一容量规则。重复建筑的乱序结算仍优先低序号，报价递增无需改变。
-- `lastSaved`只作元数据，未来时间钳制至当前时间，写盘失败回滚；迁移只补缺失的新字段，不覆盖显式有效进度。过时的Asriel排队布尔标志不再阻止任务，实际队列为准。
+- `lastSaved`只作元数据，未来时间钳制至当前时间，写盘失败回滚；不执行迁移或缺字段补全。过时的Asriel排队布尔标志不再阻止任务，实际队列为准。
 - 保留按钮统一主题文字色，用背景/边框区分禁用、危险与选中态；可用性不能只靠颜色表达。日志列表使用仅UI层稳定对象键，不扩展存档格式。
 - `BUILDING_CASH_COSTS`/`BUILDING_COST_SCALES`从建筑主数据派生，避免新建筑漏入兼容表；成本按每建筑每资源系数计算，无全局备用系数。
 
 ### 日志分类与核心副标题
 
-- `LogType` 新增 `queue`，建筑/科研/ARPA队列完成日志使用该类型。普通事件继续使用 `event`，里程碑、AI启动、黑洞进展与飞船部件完成使用 `progress`，成就使用 `achievement`，存档等诊断保留 `system`。旧存档的「队列中 … 已完成」事件日志在读取时转为queue。
+- `LogType` 新增 `queue`，建筑/科研/ARPA队列完成日志使用该类型。普通事件继续使用 `event`，里程碑、AI启动、黑洞进展与飞船部件完成使用 `progress`，成就使用 `achievement`，存档等诊断保留 `system`。不再为旧存档转换日志类别。
 - 日志正文14px、行高1.6，时间12px；队列灰蓝、普通事件暖黄、进度浅蓝、成就浅绿、系统浅红，筛选同步这些类别。
 - `TooltipPanel.vue` 的AI超级核心描述首行增加 `world.exection(cat);`，保留原分段进度和维护信息。
 
@@ -49,16 +51,16 @@
 - `TooltipPanel.vue` 根据悬停元素的稳定 `queueUid` 从 `describeQueuedPurchases(state)` 读取建筑预测价格，与队列时间预估共用顺序累计结果；普通建筑按已建数量+前序同类数量计算成本蠕变，不受其他建筑插队影响。
 - 每次revision重新计算，因此取消中间项目后后续同类价格自动前移；显示序号仍使用当前队列下标+1，uid只作身份标识而不当作序号。分段项目保持剩余分段总需求展示，并用单段价格判断储量是否不足。
 
-### 七项替换成就与不补发兼容
+### 七项成就与周目追踪
 
 - 成就字典替换为核爆、ESS逃逸、飞船完成、4096蜂群卫星、实际启动AI核心、OC-13研究和黑洞重置七项；描述包含破折号后的条件，`AchievementsPanel.vue` 默认全部，可切换未完成/已完成，选中边框为绿色。
-- 周目 `achievementTracking` 记录四项状态条件上次布尔值，只在false→true时授予（飞船完成、卫星数量、核心启动、科技）。旧存档缺失字段时取当前条件作基线，不补发；飞船基线通过完整部件验证计算，以兼容由资源进度推导完成标志的旧档。明确的旧成就ID在载入时清除，未知ID仍拒绝，版本仍为29。
+- 周目 `achievementTracking` 记录四项状态条件上次布尔值，只在false→true时授予（飞船完成、卫星数量、核心启动、科技）。当前 schema 必须提供完整追踪记录；不再推断历史基线、清理旧成就或补发历史成就。未知或退役成就ID拒绝。
 - `updateProgression` 返回新增状态成就，由runtime/App统一记录成就日志；核爆/逃逸/黑洞成就在成功重置的next状态直接授予并记录，不变更源状态。逃逸在清空周目前捕获尚未扫描的飞船等成就，避免立即发射丢失完成成就。
 - 普通重置保留已获成就，追踪基线随新周目重新置false，硬重置全部清空。历史重置次数不触发新事件成就。
 
 ### 工作自动分配
 
-- 周目字段 `autoWorkers` 保存总开关、岗位优先级和各岗位开关/人数上限（-1不限）。默认全部关闭，旧存档缺失时创建默认配置，版本仍为29；周目重置清空设置。
+- 周目字段 `autoWorkers` 保存总开关、岗位优先级和各岗位开关/人数上限（-1不限）。新游戏默认全部关闭，当前存档须提供完整配置；周目重置清空设置。
 - `simulation/auto-workers.ts` 使用规范有限岗位列表，复用 `calculateWorkerCapacity`，按优先级仅填充空闲人口，受实际岗位容量及自动人数上限共同限制；无限岗位不参与，不撤回或挪用已有工作猫。手动分配不受自动人数上限约束。
 - tick开始、生产结算前自动补员，tick末尾再处理新增人口与新建岗位。暂停游戏时不执行tick分配。UI修改配置后立即尝试补员，总开关关闭时停止并隐藏设置。
 - `CatsPanel.vue` 在原手动按钮右侧以竖线分隔自动开关与上限，右侧优先级列表支持HTML拖拽：本地 `dragPriority` 实时预览顺序，`TransitionGroup` 提供160ms位移动画；松手一次性提交完整优先级，取消拖拽恢复原序，不在悬停中触发补员。自动按钮固定显示「自动分配」，开启边框与设置页一致为 `#63b875`；尊重减少动态效果偏好。`App.vue` 通过模拟层命令更新配置。
@@ -71,7 +73,7 @@
 ### 超级集装箱与合金集装箱
 
 - `superContainers`：T8，51400知识，前置 `automatedStorage`。研究后 `calculateBuildingContainerCap` 将集装仓库普通上限改为25；`calculateBuildingAlloyContainerCap` 为集装仓库/格纳库分别返回10/15（均需科技），格纳库普通上限仍为30。
-- 新增周目字段 `alloyContainers` 与完整资源记录 `alloyContainerAssignments`。旧存档缺失时按0读取，显式非法值、超额数量/分配、不可分配资源均拒绝；存档版本仍为29。
+- 新增周目字段 `alloyContainers` 与完整资源记录 `alloyContainerAssignments`。当前存档必须提供完整记录，缺失字段、非法值、超额数量/分配、不可分配资源均拒绝；存档版本为31。
 - 合金箱每个10合金，单箱储量=`calculateContainerUnitCapacity ×4`，因此钢/强化/铱合金集装箱升级即时影响所有已分配合金箱。`storage.ts` 的明细与批量上限路径均累加两种箱子，明细独列「合金集装箱」。
 - UI在普通列表右侧使用独立同样式列，窄屏横向滚动；制造、分配及撤回沿用普通箱快捷键，撤回立即执行储量截断。软/核爆/逃逸重置通过初始状态清空箱子及分配。
 
@@ -82,7 +84,7 @@
 ### 基因合成
 
 - 科技 `geneSynthesis`（tier 11，200k知识，`pre: ['genetics']`，`arpaPre: 'geneSequencing'`）。`isGeneSynthesisUnlocked` 另需基因修饰已解锁（基因剪切+本周目基因测序）。
-- 速率存于 `geneModification.synthesis`（每碱基0–100整数百分比，互相独立，随周目重置）。旧存档缺省为0；DNA数量放宽为非负有限数以容纳小数产出。
+- 速率存于 `geneModification.synthesis`（每碱基0–100整数百分比，互相独立，随周目重置）。当前存档必须提供该字段；DNA数量放宽为非负有限数以容纳小数产出。
 - `settleGeneSynthesis` 在 `calculateProduction` 中位于全部产出之后、质量喷射之前，按供电生物实验室数（`biologyUnits`）扣除知识：每座每1%为2000知识/s→0.01碱基/s；知识不足时所有碱基按同一比例缩减。`applyGeneSynthesis` 在tick中把产出计入DNA并记入知识消耗统计。知识详情显示「基因合成消耗」行。
 - UI：`BuildingsPanel.vue` 的生物科学实验室齿轮按钮打开 `GeneSynthesisModal.vue`，滑块交互同税率。
 
@@ -178,13 +180,13 @@
 - 阵列维护50电力+0.25 E-710/s，太空港和采冰船各新增5氦-3/s；地热基准0.5氦-3/s、铱／铁采矿船2、E-710采矿船3，原有适用的燃料折扣保持。
 - 猫猫社区移除直接普通资源+25%，人口增长乘1.10；其他原有幸福度与食物需求规则保持。
 
-- 超空间视图解锁：`isHyperspaceUnlocked`=`tech.includes('anomalyMapping')`，异常区域测绘只需全域观测校准，研究后立即显示世界导航及超空间分组。场约束理论直接前置异常区域测绘；深空干涉阵列、异常区探测任务、异常响应实验科技与深空实验平台移除。整块异常研究面板及信号/转移/远端实验也已移除，双端场耦合、有限孔径稳定、异常拓扑测绘科技与远端锚点工程退役。短程通信节点、锚点货运站、民用航线站直接用场约束理论解锁并参加运行，接入点信标/维度信标投放的前置也改为场约束理论。稳定度仍按设施正常分配、维护与停机；`stageThree`只保留`coreActivated`。旧档移除全部退役科技/工程/队列/标志，保留后续进度，无退款；剧情章节ID保留并按剩余科技与建设里程碑改写。`App.vue`在超空间锁定时仍回落到地面。
+- 超空间视图解锁：`isHyperspaceUnlocked`=`tech.includes('anomalyMapping')`，异常区域测绘只需全域观测校准，研究后立即显示世界导航及超空间分组。场约束理论直接前置异常区域测绘；深空干涉阵列、异常区探测任务、异常响应实验科技与深空实验平台移除。整块异常研究面板及信号/转移/远端实验也已移除，双端场耦合、有限孔径稳定、异常拓扑测绘科技与远端锚点工程退役。短程通信节点、锚点货运站、民用航线站直接用场约束理论解锁并参加运行，接入点信标/维度信标投放的前置也改为场约束理论。稳定度仍按设施正常分配、维护与停机；`stageThree`只保留`coreActivated`。不再清理旧档退役科技/工程/队列/标志；旧 schema 或退役内容均拒绝；剧情章节ID保留并按剩余科技与建设里程碑改写。`App.vue`在超空间锁定时仍回落到地面。
 
 ### 3.4c 破维先锋与高维存储
 - 科技：高科技工厂T18（800k，前置高科技农场平台）；破维先锋T19（1M，前置超空间采矿探查+气体云吸积）；高维存储T19（1M，前置破维先锋，且`isBuildingFullyBuilt('spaceRipper')`，存档校验同样要求）。
 - 分段建筑统一规则：`calculateBuildingCost`对任何`segmentedRequired`建筑直接返回注册表价格，`calculateDynamicCreep`对其返回空列表；`countRunningBuildings`按`floor(段数/segmentedRequired)`计完整单位（替代原AI核心硬编码）。
-- 威望资源解锁：`GameState.prestigeUnlocked`（`'particles'|'casimir'`）只增不减，由`updateProgression`→`syncPrestigeUnlocks`记录当前持有>0的资源，软重置、核弹与逃离均经`keepPrestigeUnlocks`继承且不修改源状态；`isPrestigeResourceUnlocked`=记录命中或当前持有>0。缺字段旧档按持有量、CRISPR购买和核弹/逃离次数推断（`validatePrestigeUnlocks`），存档结构版本不变。
-- 基因修饰：`GameState.geneModification={dna:{C,G,A,T},levels}`为本周目状态（`createInitialState`新建，所有重置清零），缺字段旧档视为0级；校验拒绝未知键、负数、非整数与超过`MAX_GENE_LEVEL`(50)。解锁条件`isGeneModificationUnlocked`=CRISPR`geneSplicing`+本周目`arpaBuildings.geneSequencing≥1`。`craftDna`每个扣200k知识并计入`knowledgeSpent`；`upgradeGene`扣对应碱基`10×2^level`。CRISPR定义新增可选`casimirCost`，`canAffordCrisprUpgrade`统一判定，`validateStatistics`把已购升级的卡西米尔计入历史获取下限。
+- 威望资源解锁：`GameState.prestigeUnlocked`（`'particles'|'casimir'`）只增不减，由`updateProgression`→`syncPrestigeUnlocks`记录当前持有>0的资源，软重置、核弹与逃离均经`keepPrestigeUnlocks`继承且不修改源状态；`isPrestigeResourceUnlocked`=记录命中或当前持有>0。当前存档须提供完整解锁记录，不从历史持有量或重置次数补全。
+- 基因修饰：`GameState.geneModification={dna:{C,G,A,T},levels}`为本周目状态（`createInitialState`新建，所有重置清零），当前存档须提供完整记录；校验拒绝未知键、负数、非整数与超过`MAX_GENE_LEVEL`(50)。解锁条件`isGeneModificationUnlocked`=CRISPR`geneSplicing`+本周目`arpaBuildings.geneSequencing≥1`。`craftDna`每个扣200k知识并计入`knowledgeSpent`；`upgradeGene`扣对应碱基`10×2^level`。CRISPR定义新增可选`casimirCost`，`canAffordCrisprUpgrade`统一判定，`validateStatistics`把已购升级的卡西米尔计入历史获取下限。
 - 基因效果接入点：建筑基础产出类基因在`calculateBuildingOutput`中乘到单位产出（地面结算、钛副产物、收支明细同源），资源收支明细不单列基因行，加成直接计入来源的基础值；完美主义乘在`calculateFactoryRecipe.output`（不改input），生产线明细同样直接计入；泰坦之力乘`calculateCombatPower`；猫猫凝聚经`calculatePopulationPressure`与`calculateSoldierPressure`（×(1-bonus/2)）进入`calculateMorale`。
 - 空间撕裂者：`powerPlant`+`alwaysRunning`+`output.energy=100`，走普通`settlePowerPlants`路径（无燃料）；知识容量在详情与总量两条路径都于CRISPR之后乘`1+0.2×建成数`，系数在`building-effects.ts`共享。完成第100段时`constructBuildingState`写入事件日志`SPACE_RIPPER_COMPLETED_LOG`（主线完成提示），直接、批量与队列建造共用该入口，因此只触发一次。
 - 高科技工厂：`lines:2`、`jobSlots:{cementWorkshop:2}`；在`settleFactoryLines`中排在太空工厂之后按电力与氘连续比例供能，供能生产线=地面+太空+高科技×2，太空工厂秘银加成份额也按生产线计。不进入地面结算与超空间来源循环。
@@ -199,39 +201,38 @@
   - 彭罗斯球体`segmentEffects:true`：`countRunningBuildings`直接按段数计，`settlePowerPlants`每段+5电力。
   - 引力转化：`calculateRawBuildingOutput`把整座球体的加成`calculateGravityConversionEnergy`平摊到已建段数（每段`5+加成/段数`），结算、回放、明细都走同一路径。
 - 质量喷射（`src/simulation/black-hole.ts`）：
-  - 状态`state.blackHole={mass,exoticMass,unstable,ejection}`随周目重置。旧档缺失时取默认值，存档版本不变（29）。`validate-black-hole.ts`在建筑校验后检查分配不超过已建容量。
+  - 状态`state.blackHole={mass,exoticMass,unstable,ejection}`随周目重置。当前存档须提供完整记录，schema 为31。`validate-black-hole.ts`在建筑校验后检查分配不超过已建容量。
   - 质量喷射器加入`HYPERSPACE_CONSUMER_IDS`，按整座付费供能。`calculateProduction`在所有产出（含人口收入）之后、封顶之前调用`settleMassEjection`，按`min(1, 1000×付费座数/总分配)`等比缩放，并且不超过库存；结果放在`result.ejected`，收支明细显示「质量喷射消耗」。
   - `advanceGameTick`把`ejected`换算成质量（`applyMassEjection`）。奇异质量首次跨过0.025时置`unstable`并写事件日志。
   - 解锁：`isTechnologyUnlocked`要求质量喷射器科技有完整彭罗斯球体；两项特殊科技要求`unstable`。稳定黑洞在`applyResearchSideEffects`中结算后从`state.tech`移除，因此可以再次研究。
   - 奇异失控带`prestigeReset:true`，`isPurchaseAllowed`拒绝直接购买和入队；UI打开确认框，由`launchBlackHolePrestige`校验解锁和费用后生成新周目。
-- 黑洞重置：`prestige.blackHoleResets`、`prestige.darkEnergy`、`lifetime.darkEnergyEarned`。重置次数计入`prestigeResetsRequired`和威望资源解锁推断。暗能量储量加成在CRISPR粒子/卡西米尔步骤之后乘`1+0.01×暗能量`（详情行「暗能量加成」，总表同步）。
+- 黑洞重置：`prestige.blackHoleResets`、`prestige.darkEnergy`、`lifetime.darkEnergyEarned`。重置次数计入`prestigeResetsRequired`；不作旧档威望解锁推断。暗能量储量加成在CRISPR粒子/卡西米尔步骤之后乘`1+0.01×暗能量`（详情行「暗能量加成」，总表同步）。
 - 旧版VM桥：`generate-legacy-data.cjs`注册`black-hole`与`validate-black-hole`模块。
   - 区域：`spaceMissionRequired`新增`neutronStar`和`blackHole`两个任务，状态位分别为`neutronStarMissionCompleted`和`blackHoleMissionCompleted`。建筑解锁和存档校验都走通用路径。
 - 冶炼厂工位：
   - `GameState.smelterIdle`记录空闲工位数。容量`calculateSmelterSlotCapacity`=冶炼厂+2×恒星熔炉。运行工位`calculateRunningSmelterSlots`=（运行中的冶炼厂+2×熔炉）−min(空闲, 容量)。
   - 地面结算按运行工位套用原`calculateBuildingInput/Output('smelter')`配方，因此`inputUnits.smelter`=付费工位，钛副产物同源。
-  - 缺字段旧档按0读取，即全部工位炼钢；超过容量或非整数时拒绝。`changeSmelterAssignment`供⚙弹窗（`SmelterModal.vue`）调用。
+  - 新游戏空闲工位为0；当前存档缺字段、超过容量或非整数时拒绝。`changeSmelterAssignment`供⚙弹窗（`SmelterModal.vue`）调用。
 - 恒星熔炉：新增电力产出25/s，进入发电结算；原有冶炼厂工位+2/座、工匠可用数与`calculateWorkerCapacity('foundry')`各+2/座保持。`calculateStellarForgeCraftMultiplier`=`1+0.1×座数`乘入锻造倍率，收支明细列为「恒星熔炉」行。
 - VR中心：Asriel支持优先级排在末位，`allocations.vrCenter`经`vrCenterUnits`进入`calculateMorale`（每座+2.5，仍受上限）。虚拟训练：`calculateTrainingBoost`=8（原5）。
 - 新资源：
   - `graphene`、`nanoAlloy`、`adamantite`：基础容量0，可分配集装箱。锚点货运站解锁后每种+32000。
-  - `aerogel`：锻造物，缺失的`craftWorkers.aerogel`按0读取。工厂新增`nanoAlloy`生产线。
-  - 存档结构版本仍为29，所有新键都是附加键。
+  - `aerogel`：锻造物，当前存档必须包含`craftWorkers.aerogel`。工厂新增`nanoAlloy`生产线。
+  - 存档结构版本为31，当前字段必须完整提供，不再按附加键补全旧档。
 
 ### 3.5 量子计算
 - `calculateQuantumSnapshot` 在无快照时按基线迭代至多 16 轮支持预览以打破"量子↔储能↔知识容量"循环。
 - `calculateSwarmSupportCapacity` 惰性求值：未研究 `quantumSwarm` 时不读取库存、不触发求解（显式传入 level 仍有效）。
 
-## 4. 存档与迁移
+## 4. 存档断代与写入保护
 
-- 存档版本 `CONFIG.version = 29`，localStorage 键 `meow-civilization-v12`。
-- 校验入口 `src/state/validate-save.ts`：先做**只读副本**上的退休内容清理（天星、星际先遣等），再逐字段严格校验。
-- 旧档兼容原则：
-  - **缺失的增量字段默认 0**（建筑、工人、停用记录、新资源等，统一来源见 `src/state/save-defaults.ts` 的三份名单：`OPTIONAL_BUILDING_KEYS` / `NEW_BUILDING_STOPPED` / `DEFAULT_ZERO_RESOURCES`）；
-  - **显式给出的非法值一律拒绝**（小数、负数、超安全整数、null、未知 ID）；
-  - 退休内容只清理已知 ID，队列清理按 kind 匹配；畸形容器不静默修复；
-  - 退休进度**不退款**。
-
+- `CONFIG.version = 31`；页面版本 beta 0.6.0。localStorage 键仍为 `meow-civilization-v12`，用于发现已有旧数据，不通过换键静默开新档。
+- `src/state/validate-save.ts` 仅接受完整、合法的 schema 31 存档。schema 12–30 全部拒绝，包含已放弃的 0.6 原型；其他不支持版本、缺失字段与非法内容同样拒绝。
+- 已移除历史迁移、缺字段回填、退役内容剥离、旧进度豁免（grandfather）等兼容 helper。不能仅改版本号来升级旧档。
+- runtime 读取失败、无效或不兼容时记录「设置→硬重置」指引，保留原始存储内容，进入 `saveBlocked`；自动保存、手动保存与软重置不得覆盖原档。
+- 硬重置重新创建完整初始状态，清空全部周目进度、累计进度、成就、传统威望资源与永久升级，并向原键写入 schema 31 新档。只有存储写入成功才退出保护；序列化或存储写入失败仍受保护，不报告保存成功。
+- 合法的当前同 schema 存档仍可导入，需先完整校验；不把当前档导入支持称为旧档兼容，也不得用失败导入覆盖已有数据。
+- 本版验证待统一执行；下方命令是验收方式，并非本轮通过声明。
 ## 5. 构建与测试管线
 
 | 命令 | 内容 |
@@ -255,7 +256,7 @@
 ## 7. 历史决策记录（摘选）
 
 - 超空间实验曾去除稳定度/维护储备门槛；现已整体退役，改为场约束理论直接衔接设施与后续科技。
-- 星际先遣/信号/货箱支线整体退休（3任务+2科技+2ARPA+5剧情），旧档不退款、幂等清理。
+- 星际先遣/信号/货箱支线整体退休（3任务+2科技+2ARPA+5剧情），当时采用旧档不退款、幂等清理；该历史兼容路径已于 beta 0.6.0 移除。
 - 导航灯塔通过 `calculateBuildingName` 动态显示为"广播信标"（研究太空广播后），内部 ID 与存档不变。
 - 采冰船基础产量 1 → 1.25（破冰计划），只在建筑产出函数一处计算。
 - 第一批共用优化：幸福度预览复用支持预览的科研运行数；戴森支持未启用量子时跳过求解；区域数值显示统一。
@@ -265,7 +266,7 @@
 ## 更新检查清单（每次更新游戏后执行）
 
 1. `npm run check`（或至少 typecheck + test + test:browser）全绿后再收尾。
-2. 检查本文档：结算链顺序、缓存策略、存档默认/退休规则、测试命令是否有变化 → 有则更新对应章节与"历史决策记录"。
+2. 检查本文档：结算链顺序、缓存策略、存档严格校验/保护规则、测试命令是否有变化 → 有则更新对应章节与"历史决策记录"。
 3. 检查 `docs/update-log.md`：本次改动是否已按格式补一条记录（含验证结果）。
 4. 检查 `docs/glossary.md`：新增机制/术语或数值变化 → 同步对应词条。
-5. 若新增了建筑/科技/区域/资源：确认旧档默认值规则、区域数值显示组件、悬停说明来源三处是否已按现有模式接入。
+5. 若新增了建筑/科技/区域/资源：确认当前 schema 完整字段校验、区域数值显示组件、悬停说明来源三处是否已按现有模式接入。

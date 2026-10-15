@@ -66,9 +66,9 @@ test('first escape records only a successful reset immediately and failed launch
   assert.deepEqual(s, rejected);
 });
 
-test('appendices backfill old saves from surviving evidence and retain independent read records across reset', () => {
+test('current appendices retain independent read records across reset and missing archives reject', () => {
   const s = fresh(); s.prestige.escapeResets = 1; s.prestige.nuclearResets = 1; s.crispr = ['materialEfficiency'];
-  s.story = { unlocked: [...gates.map(([id]) => id)], read: ['firstShelter', 'anotherMind'] };
+  s.story = { unlocked: [...gates.map(([id]) => id), 'essPlan', 'firstEscape', 'geneRewrite', 'nuclearChoice'], read: ['firstShelter', 'anotherMind'] };
   const context = { now: 0, eventInterval: 60, housingCapacity: () => 100, clampResources: () => {} };
   const raw = JSON.parse(JSON.stringify(s)), before = structuredClone(raw);
   const loaded = validateCurrentSave(raw, context);
@@ -81,7 +81,7 @@ test('appendices backfill old saves from surviving evidence and retain independe
   markStoryRead(next, 'essPlan');
   assert.equal(loaded.story.read.includes('essPlan'), false);
   const old = JSON.parse(JSON.stringify(s)); delete old.story;
-  assert.deepEqual(validateCurrentSave(old, context).story, { unlocked: ['essPlan', 'firstEscape', 'geneRewrite', 'nuclearChoice'], read: [] });
+  assert.throws(() => validateCurrentSave(old, context));
   assert.deepEqual(resetRunState(next, 'hard', 60, 0)!.next.story, { unlocked: [], read: [] });
 });
 
@@ -117,13 +117,15 @@ test('normal progression collects archives in chapter order and read flags are i
   assert.deepEqual(s.story.read, ['anotherMind']);
 });
 
-test('old saves infer only observed milestones, validate immutably and preserve read flags on roundtrip', () => {
+test('missing archives reject immutably while current milestones preserve read flags on roundtrip', () => {
   const s = fresh(); s.tech = ['survival']; s.buildings.nest = 1;
   const raw = JSON.parse(JSON.stringify(s)); delete raw.story;
   const before = structuredClone(raw);
   const context = { now: 0, eventInterval: 60, housingCapacity: () => 100, clampResources: () => {} };
-  const restored = validateCurrentSave(raw, context);
+  assert.throws(() => validateCurrentSave(raw, context));
   assert.deepEqual(raw, before);
+  updateStoryProgress(s);
+  const restored = validateCurrentSave(JSON.parse(JSON.stringify(s)), context);
   assert.deepEqual(restored.story, { unlocked: ['firstShelter'], read: [] });
   markStoryRead(restored, 'firstShelter');
   const again = validateCurrentSave(JSON.parse(JSON.stringify(restored)), context);

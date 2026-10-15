@@ -16,8 +16,7 @@ export function validateCivilization(raw: Record<string, unknown>, state: GameSt
   if (!prestige || typeof prestige !== 'object' || Array.isArray(prestige) || Object.keys(prestige).some(key => !['particles', 'casimir', 'darkEnergy', 'nuclearResets', 'escapeResets', 'blackHoleResets', 'softResets'].includes(key))) throw Error('粒子数据无效。');
   for (const key of ['particles', 'casimir', 'darkEnergy', 'nuclearResets', 'escapeResets', 'blackHoleResets', 'softResets'] as const) {
     const value = (prestige as Record<string, unknown>)[key];
-    // Only absent new fields migrate to zero; explicit null remains invalid.
-    state.prestige[key] = validateSaveNumber(value === undefined && (key === 'casimir' || key === 'escapeResets' || key === 'darkEnergy' || key === 'blackHoleResets') ? 0 : value, 0, Number.MAX_SAFE_INTEGER, '粒子记录');
+    state.prestige[key] = validateSaveNumber(value, 0, Number.MAX_SAFE_INTEGER, '粒子记录');
     if (!Number.isSafeInteger(state.prestige[key])) throw Error('粒子记录必须为整数。');
   }
   for (const id of state.tech) if (state.prestige.nuclearResets + state.prestige.escapeResets + state.prestige.blackHoleResets < (TECHNOLOGIES[id].prestigeResetsRequired || 0)) throw Error('科技需要威望重置；软重置不计入。');
@@ -27,11 +26,11 @@ export function validateCivilization(raw: Record<string, unknown>, state: GameSt
   if (state.trainingProgress >= 30 || (state.trainingProgress > 0 && (!state.tech.includes('military') || state.soldiers >= calculateSoldierCapacity(state)))) throw Error('训练进度无效。');
   state.nuclearProgress = validateSaveNumber(raw.nuclearProgress, 0, 100, '核弹进度');
   if (!Number.isInteger(state.nuclearProgress) || (state.nuclearProgress > 0 && !state.tech.includes('nuclearProgram'))) throw Error('核弹工程数据无效。');
-  // The old queued flag is advisory only; validateSaveQueue restores actual work.
-  if (typeof raw.asrielMissionCompleted !== 'boolean' || typeof raw.asrielMissionQueued !== 'boolean') throw Error('Asriel任务状态无效。');
+  // Pending missions are represented exclusively by the purchase queue.
+  if (typeof raw.asrielMissionCompleted !== 'boolean' || raw.asrielMissionQueued !== false) throw Error('Asriel任务状态无效。');
   state.asrielMissionCompleted = raw.asrielMissionCompleted;
   state.asrielMissionQueued = false;
-  const kerberosMissionCompleted = raw.kerberosMissionCompleted === undefined ? false : raw.kerberosMissionCompleted;
+  const kerberosMissionCompleted = raw.kerberosMissionCompleted;
   if (typeof kerberosMissionCompleted !== 'boolean' || (kerberosMissionCompleted && !state.tech.includes('planetaryExploration'))) throw Error('Kerberos任务状态无效。');
   state.kerberosMissionCompleted = kerberosMissionCompleted;
   validateSpaceMissionRecords(raw, state);

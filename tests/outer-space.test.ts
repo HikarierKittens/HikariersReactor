@@ -1,10 +1,11 @@
+import { CONFIG } from '../src/data/config';
 import assert from 'node:assert/strict';
 import { advanceSoldierTraining } from '../src/simulation/military';
 import { calculateSoldierCapacity, calculateOperationalSoldierCapacity } from '../src/simulation/government';
 
 test('garrison training uses whole paid upkeep without shrinking the owned army ceiling', () => {
   for (const dt of [.2, 1]) {
-    const s = createInitialState(29, 60, 0); s.tech.push('military');
+    const s = createInitialState(CONFIG.version, 60, 0); s.tech.push('military');
     s.buildings.spaceGarrison = 2; s.stoppedBuildings.spaceGarrison = 1;
     s.resources.food = 10 * dt; s.resources.oil = .5 * dt;
     const paid = calculateProduction(s, dt).inputUnits.spaceGarrison || 0;
@@ -21,7 +22,7 @@ test('garrison training uses whole paid upkeep without shrinking the owned army 
 
 test('AI core pays both upkeep resources only when a whole core can run', () => {
   for (const dt of [.2, 1]) {
-    const s = createInitialState(29, 60, 0); s.tech.push('artificialIntelligenceII'); s.buildings.aiSupercore = 100;
+    const s = createInitialState(CONFIG.version, 60, 0); s.tech.push('artificialIntelligenceII'); s.buildings.aiSupercore = 100;
     s.resources.helium3 = 25 * dt; s.resources.energy = 100 * dt;
     let p = calculateProduction(s, dt);
     assert.equal(p.inputUnits.aiSupercore, 1);
@@ -40,7 +41,7 @@ test('AI core pays both upkeep resources only when a whole core can run', () => 
 });
 
 test('AI power warning compares whole cores rather than construction segments', () => {
-  const s = createInitialState(29, 60, 0);
+  const s = createInitialState(CONFIG.version, 60, 0);
   s.tech.push('artificialIntelligenceII');
   s.buildings.aiSupercore = 100;
   s.resources.helium3 = 25; s.resources.energy = 100;
@@ -131,7 +132,7 @@ test('mission force-queue cancellation and ARPA ordering preserve resource balan
   assert.equal(s.kerberosMissionCompleted, true);
 });
 
-const fresh = () => createInitialState(29, 60, 0);
+const fresh = () => createInitialState(CONFIG.version, 60, 0);
 test('alien labs require support for capacities and ring optimization uses supported labs only', () => {
   const s = fresh(); s.buildings.asrielSpaceport = 2; s.buildings.asrielResidence = 1;
   s.buildings.alienMaterialLab = 8; s.buildings.starRingStation = 1;
@@ -411,7 +412,7 @@ test('neutron unlock controls hangar capacity and excludes containers; material 
   s.arpaBuildings.arpaResearchInstitute = 1;
   assert.equal(isTechnologyUnlocked('laser', s), true);
 });
-test('old saves default additive fields and explicit malformed outer fields reject', () => {
+test('missing additive fields reject and explicit malformed outer fields reject', () => {
   const context = { now: 0, eventInterval: 60, housingCapacity: () => 10000, clampResources: () => {} };
   const raw = JSON.parse(JSON.stringify(fresh()));
   for (const id of ['swarmControlStation','swarmSatellite','atmosphericCollector','galacticFuelDepot','talosMoonMiningStation','iridiumMiningShip','ironMiningShip']) for (const field of ['buildings','workers','stoppedBuildings']) delete raw[field][id];
@@ -419,9 +420,7 @@ test('old saves default additive fields and explicit malformed outer fields reje
   delete raw.resources.e710; delete raw.containerAssignments.e710; delete raw.misenMissionCompleted;
   for (const id of ['e710Container','e710MiningShip','e710Warehouse','e710Reactor','miningDrone','oilExtractor']) for (const field of ['buildings','workers','stoppedBuildings']) delete raw[field][id];
   for (const key of ['solarMissionCompleted','talosMissionCompleted','talosMoonMissionCompleted','asteroidBeltMissionCompleted']) delete raw[key];
-  const loaded = validateAndMigrateSave(raw, context);
-  assert.equal(loaded.resources.neutron, 0); assert.equal(loaded.solarMissionCompleted, false);
-  assert.equal(loaded.resources.e710, 0); assert.equal(loaded.misenMissionCompleted, false);
+  assert.throws(() => validateAndMigrateSave(raw, context));
   assert.throws(() => validateAndMigrateSave({ ...raw, misenMissionCompleted: null }, context));
   for (const mutate of [(s:any)=>s.solarMissionCompleted=null, (s:any)=>s.resources.neutron=-1, (s:any)=>s.containerAssignments.neutron=1, (s:any)=>s.stoppedBuildings.swarmSatellite=null]) {
     const bad = JSON.parse(JSON.stringify(fresh())); mutate(bad); assert.throws(() => validateAndMigrateSave(bad, context));
@@ -438,7 +437,7 @@ test('old saves default additive fields and explicit malformed outer fields reje
   for (const id of ['alienMaterialLab', 'aiSupercore', 'swarmFactory']) {
     const legacy = JSON.parse(JSON.stringify(fresh()));
     for (const field of ['buildings', 'workers', 'stoppedBuildings']) delete legacy[field][id];
-    assert.equal(validateAndMigrateSave(legacy, context).buildings[id as keyof typeof full.buildings], 0);
+    assert.throws(() => validateAndMigrateSave(legacy, context));
     legacy.buildings[id] = null; assert.throws(() => validateAndMigrateSave(legacy, context));
   }
 });

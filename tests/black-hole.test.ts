@@ -97,7 +97,7 @@ test('allocations are capped by capacity and ejection adds ordinary and exotic m
   assert.equal(calculateProduction(dark, 1).ejected.stone || 0, 0, 'stopped ejector');
 });
 
-test('saves round-trip black hole state and default it for older saves', () => {
+test('saves round-trip black hole state and reject missing records', () => {
   const s = stage(1); changeEjectionAllocation(s, 'iron', 400); s.blackHole.mass = 12.5; s.blackHole.exoticMass = .01;
   const target = fresh(); target.buildings.massEjector = 1;
   const raw = JSON.parse(JSON.stringify(s));
@@ -107,14 +107,15 @@ test('saves round-trip black hole state and default it for older saves', () => {
   raw.blackHole.ejection = { cash: 1 }; assert.throws(() => validateBlackHole(raw, target));
   raw.blackHole = { mass: -1, exoticMass: 0, unstable: false, ejection: {} }; assert.throws(() => validateBlackHole(raw, target));
   const roundTrip = fresh(); roundTrip.blackHole.mass = 11.25; roundTrip.prestige.darkEnergy = 3; roundTrip.prestige.blackHoleResets = 1;
+  roundTrip.prestigeUnlocked = ['darkEnergy'];
   const reloaded = validateCurrentSave(JSON.parse(JSON.stringify(roundTrip)), ctx);
   assert.equal(reloaded.blackHole.mass, 11.25); assert.equal(reloaded.prestige.darkEnergy, 3);
   assert.ok(reloaded.prestigeUnlocked.includes('darkEnergy'));
   const old = JSON.parse(JSON.stringify(fresh())); delete old.blackHole;
   delete old.prestige.darkEnergy; delete old.prestige.blackHoleResets; delete old.statistics.lifetime.darkEnergyEarned;
-  const migrated = validateCurrentSave(old, ctx);
-  assert.deepEqual(migrated.blackHole, { mass: 10, exoticMass: 0, unstable: false, ejection: {} });
-  assert.equal(migrated.prestige.darkEnergy, 0); assert.equal(migrated.prestige.blackHoleResets, 0);
+  const before = structuredClone(old);
+  assert.throws(() => validateCurrentSave(old, ctx));
+  assert.deepEqual(old, before);
 });
 
 test('引力转化 scales the whole Penrose sphere continuously', () => {

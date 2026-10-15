@@ -18,16 +18,17 @@ test('statistics helpers support old partial states and invalid input is a no-op
   assert.equal(JSON.stringify(state), before);
 });
 
-test('old saves recover only current days and holdings plus retained CRISPR costs', () => {
+test('missing statistics reject without deriving counters from holdings or CRISPR', () => {
   const raw = JSON.parse(JSON.stringify(fresh()));
   delete raw.statistics; delete raw.starvationElapsed;
   raw.time = 2005; raw.prestige.particles = 7; raw.crispr = ['materialEfficiency', 'innovativeMaterials'];
-  const state = validateAndMigrateSave(raw, context);
-  assert.equal(state.statistics.run.days, 401); assert.equal(state.statistics.lifetime.days, 401);
-  assert.equal(state.statistics.lifetime.particlesEarned, 42);
-  assert.equal(state.statistics.lifetime.knowledgeSpent, 0); assert.equal(state.statistics.lifetime.starved, 0);
-  assert.equal(state.starvationElapsed, 0);
-  assert.deepEqual(validateAndMigrateSave(JSON.parse(JSON.stringify(state)), context).statistics, state.statistics);
+  const before = structuredClone(raw);
+  assert.throws(() => validateAndMigrateSave(raw, context));
+  assert.deepEqual(raw, before);
+  for (const field of ['statistics', 'starvationElapsed']) {
+    const missing = JSON.parse(JSON.stringify(fresh())); delete missing[field];
+    assert.throws(() => validateAndMigrateSave(missing, context), field);
+  }
 });
 
 test('statistics validation preserves fractions and rejects corrupt counters', () => {

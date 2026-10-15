@@ -14,15 +14,12 @@ export function validateProjectRecords(raw: Record<string, unknown>, state: Game
     if (!record || typeof record !== 'object' || Array.isArray(record)
       || Object.keys(record).some(id => !Object.hasOwn(ARPA_PROJECTS, id))) throw Error('工程数据无效');
   }
-  if (tracking !== undefined && (!tracking || typeof tracking !== 'object' || Array.isArray(tracking)
-    || Object.keys(tracking).some(id => !Object.hasOwn(ARPA_PROJECTS, id)))) throw Error('工程投入数据无效');
+  if (!tracking || typeof tracking !== 'object' || Array.isArray(tracking)
+    || Object.keys(tracking).some(id => !Object.hasOwn(ARPA_PROJECTS, id))) throw Error('工程投入数据无效');
   for (const id of Object.keys(ARPA_PROJECTS) as ArpaProjectId[]) {
-    const addedProject = ['stockExchange', 'arpaResearchInstitute'].includes(id);
-    const missingProgress = addedProject && !Object.hasOwn(progress || {}, id);
-    const missingBuildings = addedProject && !Object.hasOwn(buildings || {}, id);
-    state.arpaProgress[id] = validateSaveNumber(missingProgress || (id === 'geneSequencing' && progress?.[id] === undefined) ? 0 : progress?.[id], 0, tracking === undefined ? 99 : 100, '工程进度');
-    state.arpaBuildings[id] = validateSaveNumber(missingBuildings || (id === 'geneSequencing' && buildings?.[id] === undefined) ? 0 : buildings?.[id], 0, ARPA_PROJECTS[id].repeatable ? Number.MAX_SAFE_INTEGER : 1, '工程数量');
-    if ((tracking === undefined && !Number.isInteger(state.arpaProgress[id])) || !Number.isInteger(state.arpaBuildings[id])) throw Error('工程数据无效');
+    state.arpaProgress[id] = validateSaveNumber(progress?.[id], 0, 100, '工程进度');
+    state.arpaBuildings[id] = validateSaveNumber(buildings?.[id], 0, ARPA_PROJECTS[id].repeatable ? Number.MAX_SAFE_INTEGER : 1, '工程数量');
+    if (!Number.isInteger(state.arpaBuildings[id])) throw Error('工程数据无效');
     if ((state.arpaProgress[id] || state.arpaBuildings[id]) && !isProjectUnlocked(id, state)) throw Error('工程尚未解锁');
   }
   if (state.tech.includes('crispr16') && state.arpaBuildings.geneSequencing !== 1) throw Error('CRISPR需要完成基因测序');
@@ -32,11 +29,7 @@ export function validateProjectRecords(raw: Record<string, unknown>, state: Game
   state.arpaResourceProgress = {};
   for (const id of Object.keys(ARPA_PROJECTS) as ArpaProjectId[]) {
     const cost = calculateProjectCost(id, state);
-    // Legacy scalar progress must pass exactly the same funding consistency
-    // checks as an explicit tracking row, including on the first import.
-    const entry = (tracking as Record<string, unknown> | undefined)?.[id];
-    const saved = entry === undefined && state.arpaProgress[id]
-      ? Object.fromEntries(Object.keys(cost).map(resource => [resource, state.arpaProgress[id]])) : entry;
+    const saved = (tracking as Record<string, unknown>)[id];
     const paid: ResourceRecipe = {};
     if (saved !== undefined) {
       if (!saved || typeof saved !== 'object' || Array.isArray(saved)
@@ -48,14 +41,14 @@ export function validateProjectRecords(raw: Record<string, unknown>, state: Game
       const completion = resourceCompletionPercent(cost, paid);
       if (completion === 100 || ((Object.values(paid).some(value => value > 0))
         && (!isProjectUnlocked(id, state) || (!ARPA_PROJECTS[id].repeatable && state.arpaBuildings[id] > 0)))) throw Error('工程投入数据无效');
-      state.arpaProgress[id] = completion;
+      if (Math.abs(state.arpaProgress[id] - completion) > 1e-9) throw Error('工程进度与投入不一致。');
       state.arpaResourceProgress[id] = paid;
-    }
+    } else if (state.arpaProgress[id] !== 0) throw Error('工程投入记录缺失。');
   }
   if (state.tech.includes('tourismIndustry') && state.arpaBuildings.monument < 1) throw Error('旅游业需要纪念碑');
   for (const id of state.tech) {
     const technology = TECHNOLOGIES[id];
     if (technology.arpaPre && technology.arpaRequiredCount !== undefined && state.arpaBuildings[technology.arpaPre] < technology.arpaRequiredCount) throw Error('科技需要完成所需工程');
   }
-  state.arpaQueueElapsed = validateSaveNumber(raw.arpaQueueElapsed ?? 0, 0, 1, '工程计时');
+  state.arpaQueueElapsed = validateSaveNumber(raw.arpaQueueElapsed, 0, 1, '工程计时');
 }

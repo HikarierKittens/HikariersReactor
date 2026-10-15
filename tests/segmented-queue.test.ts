@@ -137,11 +137,12 @@ test('new project saves preserve remaining counts and reject malformed or overre
   assert.throws(() => validateSaveQueue([{ ...raw[0], segments: 11 }], s));
 });
 
-test('legacy individual segments coalesce contiguous same-building runs without mutating input or crossing FIFO barriers', () => {
+test('oversized individual segment queues reject while explicit segments settle and FIFO entries remain intact', () => {
   const s = fresh();
   const raw = Array.from({ length: 100 }, (_, i) => ({ uid: i + 1, kind: 'build', id: 'aiSupercore' }));
   const original = structuredClone(raw);
-  const restored = validateSaveQueue(raw, s);
+  assert.throws(() => validateSaveQueue(raw, s));
+  const restored = validateSaveQueue([{ uid: 1, kind: 'build', id: 'aiSupercore', segments: 100 }], s);
   assert.deepEqual(raw, original);
   assert.equal(restored.length, 1);
   const first = restored[0]; assert.ok(first && first.kind === 'build');
@@ -149,11 +150,11 @@ test('legacy individual segments coalesce contiguous same-building runs without 
   assert.equal(buildingQueueUsage(restored), 1);
   fund(s, 100); s.queue = restored; settlePurchaseQueue(s, 0);
   assert.equal(s.buildings.aiSupercore, 100); assert.equal(s.queue.length, 0);
-  const separate = fresh(); separate.tech.push('survival');
+  const separate = fresh(); separate.tech.push('survival'); separate.crispr.push('architect');
   const interleaved = validateSaveQueue([{ uid: 1, kind: 'build', id: 'aiSupercore' }, { uid: 2, kind: 'build', id: 'nest' }, { uid: 3, kind: 'build', id: 'aiSupercore' }], separate);
   assert.deepEqual(interleaved.map(q => q.id), ['aiSupercore', 'nest', 'aiSupercore']);
   const beforeBarrier = interleaved[0], afterBarrier = interleaved[2];
   assert.ok(beforeBarrier && beforeBarrier.kind === 'build');
   assert.ok(afterBarrier && afterBarrier.kind === 'build');
-  assert.equal(beforeBarrier.segments, 1); assert.equal(afterBarrier.segments, 1);
+  assert.equal(Object.hasOwn(beforeBarrier, 'segments'), false); assert.equal(Object.hasOwn(afterBarrier, 'segments'), false);
 });

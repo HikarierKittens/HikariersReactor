@@ -114,18 +114,16 @@ test('waystation and lunar maintenance precede port and tower power allocation',
   assert.deepEqual(preview.asriel, calculateProduction(state).asriel);
 });
 
-test('additive tower save records default missing counts to zero and reject malformed present values', () => {
+test('tower save records reject missing counts and malformed present values', () => {
   const raw = fresh();
   for (const field of ['buildings', 'workers', 'stoppedBuildings'] as const) Reflect.deleteProperty(raw[field], 'asrielControlTower');
-  const loaded = fresh();
-  validateEconomyRecords(raw as unknown as Record<string, unknown>, loaded);
-  validateStorageAssignments(raw, loaded);
-  assert.equal(loaded.buildings.asrielControlTower, 0);
-  assert.equal(loaded.workers.asrielControlTower, 0);
-  assert.equal(loaded.stoppedBuildings.asrielControlTower, 0);
+  const before = structuredClone(raw);
+  assert.throws(() => validateEconomyRecords(raw as unknown as Record<string, unknown>, fresh()));
+  assert.throws(() => validateStorageAssignments(raw, fresh()));
+  assert.deepEqual(raw, before);
   for (const field of ['buildings', 'workers', 'stoppedBuildings'] as const) {
     for (const bad of [null, '0', -1, .5, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
-      const malformed = structuredClone(raw);
+      const malformed = fresh();
       (malformed[field] as Record<string, unknown>).asrielControlTower = bad;
       assert.throws(() => {
         const state = fresh();

@@ -123,7 +123,7 @@ export function createRuntime(): Runtime {
       state = validate(JSON.parse(raw));
     } catch {
       saveFailed = saveBlocked = true;
-      addLog(state, '存档校验失败，当前为临时新游戏，已暂停保存。', 'system');
+      addLog(state, '检测到不兼容或损坏的存档。新版 beta 0.6.0 不支持过去版本存档，当前已进入保护模式，原存档不会被自动覆盖。请前往「设置」执行「硬重置」并确认：这会完全清空游戏存档，重新开始；新档保存成功后退出保护模式。', 'system');
       return;
     }
     // No offline catch-up: time while the page was closed is never settled.
@@ -169,6 +169,10 @@ export function createRuntime(): Runtime {
   }
 
   function reset(kind: 'soft' | 'hard'): boolean {
+    if (saveBlocked && kind !== 'hard') {
+      addLog(state, '保护模式下无法软重置。请前往「设置」执行「硬重置」并确认清空存档。', 'system');
+      return false;
+    }
     const next = resetRunState(state, kind, sampleEventInterval(Math.random), Date.now());
     if (!next) return false;
     state = next.next;
@@ -176,7 +180,11 @@ export function createRuntime(): Runtime {
     saveBlocked = false;
     resetClock();
     scanAchievements();
-    save();
+    if (!save()) {
+      saveBlocked = true;
+      addLog(state, '新存档写入失败，保护模式仍然开启。请检查浏览器存储权限或空间，然后在设置中重试硬重置。', 'system');
+      return false;
+    }
     return true;
   }
 

@@ -1,9 +1,8 @@
 import { CHALLENGE_GENE_IDS, canLaunchChallenges } from '../simulation/challenges';
 import type { ChallengeGeneId, GameState } from '../types/state';
 
-/** Only an absent legacy record receives defaults; explicit malformed records reject. */
+/** Require the current challenge record. */
 export function validateChallenges(raw: Record<string, unknown>, state: GameState): void {
-  if (!Object.hasOwn(raw, 'challenge')) return;
   const value = raw.challenge;
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error('挑战记录无效。');
   const record = value as Record<string, unknown>;

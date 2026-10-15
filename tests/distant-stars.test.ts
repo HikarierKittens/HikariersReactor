@@ -217,7 +217,7 @@ test('plasma mining upgrades the asteroid miners', () => {
   near(calculateBuildingOutput('e710MiningShip', s).e710!, .012);
 });
 
-test('new regions gate buildings behind missions and old saves load with steel slots and zero defaults', () => {
+test('new regions gate buildings behind missions and missing save records reject without backfill', () => {
   const s = fresh(); s.tech.push('energyShield', 'stellarForge', 'penroseTheory');
   assert.equal(isBuildingUnlocked('stellarForge', s), false); assert.equal(isBuildingUnlocked('blackHoleStation', s), false);
   s.neutronStarMissionCompleted = true; assert.equal(isBuildingUnlocked('stellarForge', s), true);
@@ -227,11 +227,9 @@ test('new regions gate buildings behind missions and old saves load with steel s
   delete old.smelterIdle; delete old.neutronStarMissionCompleted; delete old.blackHoleMissionCompleted; delete old.lines.nanoAlloy; delete old.craftWorkers.aerogel;
   for (const id of ['graphene', 'nanoAlloy', 'adamantite', 'aerogel']) { delete old.resources[id]; delete old.containerAssignments[id]; }
   for (const field of ['buildings', 'workers', 'stoppedBuildings']) for (const id of ['adamantiteMiningShip', 'vrCenter', 'penroseSphere']) delete old[field][id];
-  const before = clone(old), loaded = validateCurrentSave(old, ctx); assert.deepEqual(old, before);
-  assert.equal(loaded.smelterIdle, 0); assert.equal(countSteelSmelterSlots(loaded), 4);
-  assert.equal(loaded.neutronStarMissionCompleted, false); assert.equal(loaded.craftWorkers.aerogel, 0); assert.equal(loaded.resources.adamantite, 0);
-  assert.throws(() => validateCurrentSave({ ...before, smelterIdle: 5 }, ctx));
-  assert.throws(() => validateCurrentSave({ ...before, smelterIdle: 1.5 }, ctx));
+  const before = clone(old); assert.throws(() => validateCurrentSave(old, ctx)); assert.deepEqual(old, before);
+  assert.throws(() => validateCurrentSave({ ...fresh(), smelterIdle: 5 }, ctx));
+  assert.throws(() => validateCurrentSave({ ...fresh(), smelterIdle: 1.5 }, ctx));
   const bad = clone(fresh()) as unknown as Record<string, any>; bad.buildings.stellarForge = 1; bad.tech.push('stellarForge');
   assert.throws(() => validateCurrentSave(bad, ctx));
 });

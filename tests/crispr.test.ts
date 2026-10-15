@@ -119,13 +119,13 @@ test('soft and nuclear retain independent permanent arrays; hard resets clear th
   assert.deepEqual(resetRunState(state, 'hard', 60, 0)!.next.crispr, []);
 });
 
-test('save round trips permanent upgrades and applies caps before clamping; missing defaults empty', () => {
+test('save round trips permanent upgrades and applies caps before clamping; missing records reject', () => {
   const state = fresh(); state.crispr = [...materials, 'spatialReasoning', 'geneOptimization']; state.prestige.particles = 1000;
   state.resources.wood = 280;
   const loaded = validateAndMigrateSave(JSON.parse(JSON.stringify(state)), context);
   assert.deepEqual(loaded.crispr, state.crispr); assert.equal(loaded.resources.wood, 280);
   const raw = JSON.parse(JSON.stringify(fresh())); delete raw.crispr;
-  assert.deepEqual(validateAndMigrateSave(raw, context).crispr, []);
+  assert.throws(() => validateAndMigrateSave(raw, context));
   for (const crispr of [null, {}, 'materialEfficiency', ['unknown'], ['materialEfficiency', 'materialEfficiency'], ['halfLife3'], ['materialEfficiency', 1]]) {
     assert.throws(() => validateAndMigrateSave({ ...fresh(), crispr }, context), /CRISPR/);
   }

@@ -99,14 +99,14 @@ function requestReset(kind: 'soft' | 'hard'): void {
     showStatus('正在请求重置…');
     emit('reset', kind, success => {
       pending.value = false;
-      showStatus(success ? (kind === 'soft' ? '已软重置。' : '已硬重置，回到第一只猫猫。') : '重置未完成，请检查状态并先导出备份。', success ? 'positive' : 'negative');
+      showStatus(success ? (kind === 'soft' ? '已软重置。' : '已完全清空旧存档并保存新游戏，已退出保护模式。') : '重置未完成，请检查状态并先导出备份。', success ? 'positive' : 'negative');
     });
     return;
   }
   confirmReset.value = kind;
   showStatus(kind === 'soft'
     ? '再次点击确认软重置：保留威望与成就，清空本周目。'
-    : '再次点击确认硬重置：清空一切，包括成就与威望。');
+    : '再次点击确认硬重置：完全清空存档，包括成就与威望。保存新游戏成功后退出保护模式，此操作不可撤销。');
 }
 
 function toggleGameSetting(key: keyof typeof GAME_SETTING_LABELS): void {

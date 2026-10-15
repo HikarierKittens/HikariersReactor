@@ -52,14 +52,13 @@ test('asteroid bases multiply freight capacity additively without boosting unrel
  assert.equal(isContainerAssignable('water',s),false);
  s.buildings.iceMiningShip=3;const p=calculateProduction(s);assert.equal(p.inputUnits.iceMiningShip,3);assert.equal(p.inputUnits.asteroidBase,1);near(p.rates.water,3);
 });
-test('new defaults migrate absent records without mutation while malformed present records reject',()=>{
+test('missing and malformed beacon records reject without mutation',()=>{
  const s=fresh(),raw=clone(s) as unknown as Record<string,unknown>;const ids=['hyperspaceSpaceport','iceMiningShip','asteroidBase'];
  for(const field of ['buildings','workers','stoppedBuildings'])for(const id of ids)delete (raw[field] as Record<string,unknown>)[id];
  delete (raw.resources as Record<string,unknown>).water;delete (raw.containerAssignments as Record<string,unknown>).water;
- const before=clone(raw),ctx={now:0,eventInterval:60,housingCapacity:()=>1000,clampResources:()=>{}};const restored=validateCurrentSave(raw,ctx);assert.deepEqual(raw,before);assert.equal(restored.resources.water,0);
- for(const id of ids)assert.equal((restored.buildings as Record<string,number>)[id],0);
- for(const field of ['buildings','workers','stoppedBuildings'])for(const id of ids)for(const value of [null,.5]){const bad=clone(raw);(bad[field] as Record<string,unknown>)[id]=value;assert.throws(()=>validateCurrentSave(bad,ctx));}
- const bad=clone(raw);(bad.resources as Record<string,unknown>).water=null;assert.throws(()=>validateCurrentSave(bad,ctx));
+ const before=clone(raw),ctx={now:0,eventInterval:60,housingCapacity:()=>1000,clampResources:()=>{}};assert.throws(()=>validateCurrentSave(raw,ctx));assert.deepEqual(raw,before);
+ for(const field of ['buildings','workers','stoppedBuildings'])for(const id of ids)for(const value of [null,.5]){const bad=clone(s) as unknown as Record<string,unknown>;(bad[field] as Record<string,unknown>)[id]=value;assert.throws(()=>validateCurrentSave(bad,ctx));}
+ const bad=clone(s);(bad.resources as Record<string,unknown>).water=null;assert.throws(()=>validateCurrentSave(bad,ctx));
  assert.equal(BUILDINGS.hyperspaceSpaceport.input?.energy,30);
 });
 test('funded hyperspace spaceports add 16000 helium-3 storage, doubled by higher-dimensional storage',()=>{

@@ -40,11 +40,12 @@ test('基因剪切 is a T1 CRISPR upgrade costing 100 particles plus 25 casimir'
   s.prestige.particles = 100; s.prestige.casimir = 24;
   assert.equal(purchaseCrisprUpgrade(s, 'geneSplicing'), false, 'casimir short');
   assert.equal(s.prestige.particles, 100);
-  s.prestige.casimir = 25;
+  s.prestige.casimir = 25; s.statistics.lifetime.casimirEarned = 25;
   assert.equal(purchaseCrisprUpgrade(s, 'geneSplicing'), true);
   assert.deepEqual([s.prestige.particles, s.prestige.casimir], [0, 0]);
-  // Lifetime casimir lower bound includes the spent crystals on load.
-  assert.equal(validateCurrentSave(clone({ ...s, statistics: undefined }), context).statistics.lifetime.casimirEarned, 25);
+  // Current saves must retain their explicit lifetime statistics.
+  assert.equal(validateCurrentSave(clone(s), context).statistics.lifetime.casimirEarned, 25);
+  assert.throws(() => validateCurrentSave(clone({ ...s, statistics: undefined }), context));
 });
 
 test('gene modification unlocks only with 基因剪切 and this run\'s 基因测序', () => {
@@ -141,7 +142,7 @@ test('gene state is run scoped and round-trips through save validation', () => {
   assert.deepEqual(restored.geneModification, s.geneModification);
   const legacy = clone(s) as unknown as Record<string, unknown>;
   delete legacy.geneModification;
-  assert.equal(validateCurrentSave(legacy, context).geneModification.levels.titanPower, 0, 'older saves start at level 0');
+  assert.throws(() => validateCurrentSave(legacy, context));
   for (const bad of [{ dna: { C: -1 } }, { dna: { X: 1 } }, { levels: { goodCat: 1.5 } }, { levels: { goodCat: MAX_GENE_LEVEL + 1 } }, { extra: 1 }]) {
     assert.throws(() => validateCurrentSave({ ...clone(s), geneModification: bad }, context), JSON.stringify(bad));
   }
@@ -172,14 +173,14 @@ test('prestige resources stay hidden until first held, then stay unlocked at 0',
   nuclear.tech.push('nuclearProgram'); nuclear.nuclearProgress = 100;
   assert.deepEqual(launchNuclearPrestige(nuclear, 60, 0)!.next.prestigeUnlocked, ['particles']);
   assert.deepEqual(nuclear.prestigeUnlocked, [], 'source state is not mutated');
-  // Older saves infer unlocks from holdings and permanent history.
+  // Missing unlock records are rejected, not inferred from permanent history.
   const legacy = clone(soft) as unknown as Record<string, unknown>;
   delete legacy.prestigeUnlocked;
-  assert.deepEqual(validateCurrentSave(legacy, context).prestigeUnlocked, [], 'soft reset alone does not imply particles');
+  assert.throws(() => validateCurrentSave(legacy, context));
   const escaped = clone(soft) as unknown as GameState & Record<string, unknown>;
   delete (escaped as Record<string, unknown>).prestigeUnlocked;
   escaped.prestige.escapeResets = 1;
-  assert.deepEqual(validateCurrentSave(escaped, context).prestigeUnlocked, ['particles', 'casimir']);
+  assert.throws(() => validateCurrentSave(escaped, context));
   assert.throws(() => validateCurrentSave({ ...clone(soft), prestigeUnlocked: ['mithril'] }, context));
 });
 
@@ -276,7 +277,7 @@ test('基因合成 needs the tech and 基因剪切; rates and fractional DNA sur
   assert.equal(restored.geneModification.dna.A, 1.25);
   const legacy = clone(s) as unknown as { geneModification: Record<string, unknown> };
   delete legacy.geneModification.synthesis;
-  assert.deepEqual(validateCurrentSave(legacy, context).geneModification.synthesis, { C: 0, G: 0, A: 0, T: 0 }, 'older saves default to 0%');
+  assert.throws(() => validateCurrentSave(legacy, context));
   for (const synthesis of [{ C: 101 }, { C: 1.5 }, { C: -1 }, { X: 1 }]) {
     assert.throws(() => validateCurrentSave({ ...clone(s), geneModification: { ...clone(s.geneModification), synthesis } }, context), JSON.stringify(synthesis));
   }
