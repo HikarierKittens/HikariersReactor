@@ -1,11 +1,20 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { BUILDINGS, BUILDING_COST_SCALES } from '../src/data/buildings';
+import { BUILDINGS, BUILDING_CASH_COSTS, BUILDING_COST_SCALES } from '../src/data/buildings';
 import { CONFIG } from '../src/data/config';
 import { createInitialState } from '../src/state/create-state';
 import { MIN_BUILDING_SCALE, calculateBuildingCost, calculateBuildingScale, isBuildingFullyBuilt } from '../src/simulation/costs';
 import type { BuildingId } from '../src/types/buildings';
 import type { ResourceId } from '../src/types/economy';
+
+test('legacy cash and scale registries cover every building without shared mutable scale recipes', () => {
+  for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
+    const definition = BUILDINGS[id];
+    assert.equal(BUILDING_CASH_COSTS[id], definition.cost.cash, `${id}: cash parity`);
+    assert.deepEqual(BUILDING_COST_SCALES[id], definition.costScales, `${id}: scale parity`);
+    if (definition.costScales) assert.notEqual(BUILDING_COST_SCALES[id], definition.costScales);
+  }
+});
 
 test('metal refinery and cement workshop carry their extra creep in the raw registry scale', () => {
   const state = fresh();

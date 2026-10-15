@@ -4,7 +4,7 @@ import type { ResourceRecipe } from '../types/economy';
 export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   signalRepeater: { name: '信号中继', icon: '⌁', tech: 'accessPointBeacon', slots: 0, toggleable: true, input: { energy: 10 }, desc: '为接入点附近提供通信保障，每座运行中的信号中继使每座运行场约束阵列的稳定度增加0.25，电力-10/s。', cost: { cash: 1200000, alloy: 20000, copper: 30000, nanotubes: 15000, e710: 80 }, costScales: { cash: 1.21, alloy: 1.21, copper: 1.21, nanotubes: 1.21, e710: 1.21 } },
   hydrogenPowerPlant: { name: '氢气发电站', icon: '⚡', tech: 'hydrogenRecovery', slots: 0, toggleable: true, powerPlant: true, input: { water: 2 }, output: { energy: 35 }, desc: '利用本地资源发电，还能补给基地用电，水-2/s，电力+35/s，喷发小行星群支持+1。只在完整支付水消耗时运行，不占用小行星群支持。', cost: { cash: 1800000, alloy: 35000, iridium: 8000, nanotubes: 20000, e710: 120 }, costScales: { cash: 1.21, alloy: 1.21, iridium: 1.21, nanotubes: 1.21, e710: 1.21 } },
-  hyperspaceSpaceport: { name: '超空间太空港', icon: '⌖', tech: 'dimensionBeaconDeployment', slots: 0, toggleable: true, input: { energy: 30, helium3: 5 }, desc: '在异常空间里建立第一个永久性定居点，空间异常·接入点区域稳定度+4，喷发小行星群区域支持+2，氦-3容量+16k，电力-30/s、氦-3-5/s。完整支付维护时生效。', cost: { cash: 2000000, alloy: 40000, iridium: 10000, nanotubes: 30000, e710: 200 }, costScales: { cash: 1.21, alloy: 1.21, iridium: 1.21, nanotubes: 1.21, e710: 1.21 } },
+  hyperspaceSpaceport: { name: '超空间太空港', icon: '⌖', tech: 'dimensionBeaconDeployment', slots: 0, toggleable: true, input: { energy: 30, helium3: 5 }, desc: '在异常空间里建立第一个永久性定居点，空间异常·接入点区域稳定度+4，喷发小行星群区域支持+2，氦-3容量+16k、氘容量+8k（解锁氘后），电力-30/s、氦-3-5/s。完整支付维护时生效。', cost: { cash: 2000000, alloy: 40000, iridium: 10000, nanotubes: 30000, e710: 200 }, costScales: { cash: 1.21, alloy: 1.21, iridium: 1.21, nanotubes: 1.21, e710: 1.21 } },
   iceMiningShip: { name: '采冰船', icon: '❄', tech: 'dimensionBeaconDeployment', slots: 0, toggleable: true, input: { energy: 5, helium3: 5 }, output: { water: 1 }, desc: '采集冰喷发物获取水，水产量+1/s，水容量+100，电力-5/s、氦-3-5/s，喷发小行星群支持-1。获得供电和支持时生效。', cost: { cash: 800000, alloy: 15000, iridium: 3000, nanotubes: 8000, e710: 50 }, costScales: { cash: 1.19, alloy: 1.19, iridium: 1.19, nanotubes: 1.19, e710: 1.19 } },
   asteroidBase: { name: '小行星基地', icon: '◉', tech: 'dimensionBeaconDeployment', buildingRequired: 'iceMiningShip', slots: 0, toggleable: true, input: { energy: 10 }, desc: '在异常小行星群建立小型基地，水容量+8k、氘容量+2k（解锁氘后），锚点货运站的资源容量+5%，电力-10/s，喷发小行星群支持-1。获得供电和支持时生效，容量加成按运行基地数量累加。', cost: { cash: 1500000, alloy: 30000, iridium: 8000, nanotubes: 20000, e710: 100 }, costScales: { cash: 1.21, alloy: 1.21, iridium: 1.21, nanotubes: 1.21, e710: 1.21 } },
   comprehensiveMiningFacility: { name: '综合采矿设施', icon: '⛏️', tech: 'hyperspaceMiningSurvey', slots: 0, toggleable: true, desc: '采掘小天体获取矿物，E-710 +0.05/s，中子+0.25/s，铀+0.1/s，电力-20/s，氦-3-10/s。', input: { energy: 20, helium3: 10 }, output: { e710: .05, neutron: .25, uranium: .1 }, cost: { cash: 3000000, alloy: 50000, iridium: 12000, nanotubes: 40000, e710: 300 }, costScales: { cash: 1.23, alloy: 1.23, iridium: 1.23, nanotubes: 1.23, e710: 1.23 } },
@@ -37,7 +37,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   },
   alienMaterialLab: {
     name: '外星材料实验室', icon: '🔬', tech: 'alienScienceResearch', slots: 0, toggleable: true,
-    desc: '每Asriel居民使知识上限+250，E-710容量+25，Asriel支持-1。', support: 1, asrielSupport: 1,
+    desc: '每座受Asriel支持的实验室按受支持的Asriel居民数提供知识上限（每位+250），另固定提供E-710容量+25，并占用1点Asriel支持。', support: 1, asrielSupport: 1,
     cost: { cash: 200000, metal: 30000, mithril: 300, e710: 10 },
     costScales: { cash: 1.25, metal: 1.25, mithril: 1.25, e710: 1.25 },
   },
@@ -159,7 +159,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   },
   geothermalPlant: {
     name: '地热发电站', icon: '⚡',
-    desc: '完成Kerberos任务后可建造；每秒消耗0.5氦-3，产出10电力。',
+    desc: '完成Kerberos任务后可建造；每秒消耗0.5氦-3，产出10电力；每座运行中的地热发电站使月球铱矿产量+5%，同类加成相加。',
     cost: { cash: 50000, metal: 10000, polymer: 2500 },
     costScales: { cash: 1.2, metal: 1.2, polymer: 1.2 },
     tech: 'planetaryExploration', slots: 0, powerPlant: true, toggleable: true,
@@ -352,7 +352,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   "bank": {
     "name": "银行",
     "icon": "🏦",
-    "desc": "每座基础增加1000现金储量；金库扩容与钢制保险箱各使基础容量+750（两项相加后基础2500）。提供1个银行家岗位，每位银行家使猫猫税收增加5%（每个证券交易所+2%），加成相加；银行不直接生产现金。",
+    "desc": "每座基础增加1000现金储量；金库扩容与钢制保险箱各使基础容量+750（两项相加后基础2500）；铱钢金库再使基础容量+1500（三项齐备后基础4000）。提供1个银行家岗位，每位银行家使猫猫税收增加5%（每个证券交易所+2%），加成相加；银行不直接生产现金。",
     "cost": {
       "wood": 40,
       "stone": 20,
@@ -452,7 +452,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   "fuelDepot": {
     "name": "燃料库",
     "icon": "🛢️",
-    "desc": "每座提供1000石油储量；研究铀存储后额外提供250铀储量。",
+    "desc": "每座提供1000石油储量；研究铀存储后额外提供250铀储量，研究氦-3存储后额外提供500氦-3储量。",
     "cost": {
       "iron": 150,
       "metal": 80,
@@ -1290,7 +1290,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   "catCafe": {
     "name": "猫咖",
     "icon": "🐈",
-    "desc": "按照5 + (猫口数量/10) × 5；提供$。资金基础容量+4000（铱钢金库后+6500），幸福度上限+1。",
+    "desc": "基础现金产量为5 + floor(猫口数量/10) × 5 $/s，消耗3电力/s。资金基础容量+4000（铱钢金库后+6500），幸福度上限+1。",
     "moraleCap": 1,
     "cost": {
       "cash": 50000,
@@ -1318,7 +1318,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   "touristCenter": {
     "name": "游客中心",
     "icon": "🧳",
-    "desc": "基础资金产量：每座剧场+2$/s，每座运行中的猫咖+5$/s，每座纪念碑+4$/s。", 
+    "desc": "基础资金产量：每座剧场+2$/s，每座运行中的猫咖+5$/s，每座纪念碑+4$/s；消耗50猫粮/s。",
     "cost": {
       "cash": 50000,
       "fur": 10000,
@@ -1342,400 +1342,19 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   }
 };
 
-export const BUILDING_CASH_COSTS: Partial<Record<BuildingId, number>> = {
-  alienMaterialLab: 200000, aiSupercore: 100000, swarmFactory: 75000,
-  e710Container: 100000, e710MiningShip: 150000, e710Warehouse: 200000, e710Reactor: 300000, miningDrone: 75000, oilExtractor: 200000,
-  particleAccelerator: 1000,
-  swarmControlStation: 50000, swarmSatellite: 5000, atmosphericCollector: 200000,
-  galacticFuelDepot: 150000, talosMoonMiningStation: 300000, iridiumMiningShip: 200000, ironMiningShip: 200000,
-  planetaryFoundry: 50000,
-  spaceGarrison: 50000,
-  geothermalPlant: 50000,
-  "moonBase": 10000,
-  "iridiumMine": 10000,
-  "helium3Mine": 10000,
-  "navigationBeacon": 15000,
-  "orbitalFuelDepot": 10000,
-  "solarSatellite": 2000,
-  "researchSatellite": 4000,
-  "granary": 100,
-  "biologyLab": 2000,
-  "forage": 5,
-  "nest": 10,
-  "catHut": 10,
-  "lumber": 8,
-  "quarry": 8,
-  "school": 15,
-  "bank": 25,
-  "mine": 15,
-  "warehouse": 20,
-  "foundry": 40,
-  "coalMine": 40,
-  "cementWorkshop": 35,
-  "theater": 25,
-  "library": 40,
-  "nestMKII": 80,
-  "communityCenter": 80,
-  "smelter": 100,
-  "refinery": 180,
-  "lab": 120,
-  "generator": 120,
-  "apartment": 140,
-  "factory": 300,
-  "moonObservatory": 50000,
-  "asrielSpaceport": 40000,
-  "asrielResidence": 30000,
-  "asrielMine": 40000,
-  "ecologicalDome": 40000,
-  "hangar": 25000,
-  "spaceFactory": 50000,
-  "starRingStation": 300000,
-  "spaceWaystation": 50000,
-  "storageHub": 300,
-  "metalRefinery": 100,
-  "batteryStation": 80,
-  "containerWarehouse": 100,
-  "fuelDepot": 100,
-  "broadcast": 160,
-  "oilGenerator": 250,
-  "fissionGenerator": 500,
-  "observatory": 3000,
-  "touristStation": 600,
-  "barracks": 20,
-  "trainingCamp": 120
-};
+// Compatibility exports for legacy callers and registry-parity tests. Derive from
+// BUILDINGS so every building is covered without duplicating balance data; omit
+// absent cash costs/scales rather than inventing a fallback. Keep Partial types
+// because those fields are optional in BuildingDefinition.
+export const BUILDING_CASH_COSTS: Partial<Record<BuildingId, number>> = Object.fromEntries(
+  Object.entries(BUILDINGS).flatMap(([id, building]) =>
+    building.cost.cash === undefined ? [] : [[id, building.cost.cash]]),
+);
 
-export const BUILDING_COST_SCALES: Partial<Record<BuildingId, ResourceRecipe>> = {
-  alienMaterialLab: { cash: 1.25, metal: 1.25, mithril: 1.25, e710: 1.25 },
-  aiSupercore: { cash: 1, metal: 1, alloy: 1, e710: 1, nanotubes: 1 },
-  massEjector: { cash: 1.28, adamantite: 1.28, nanoAlloy: 1.28, mithril: 1.28, aerogel: 1.28 },
-  swarmFactory: { cash: 1.28, iron: 1.28, neutron: 1.28, brick: 1.28, mithril: 1.28 },
-  e710Container: { cash: 1.25, uranium: 1.25, titanium: 1.25, alloy: 1.25, mithril: 1.25 },
-  e710MiningShip: { cash: 1.25, uranium: 1.25, titanium: 1.25, mithril: 1.25, helium3: 1.25 },
-  e710Warehouse: { cash: 1.3, metal: 1.3, alloy: 1.3, iridium: 1.3 },
-  e710Reactor: { cash: 1.25, metal: 1.25, neutron: 1.25, mithril: 1.25 },
-  miningDrone: { cash: 1.2, metal: 1.2, neutron: 1.2, helium3: 1.2, e710: 1.2 },
-  oilExtractor: { cash: 1.2, polymer: 1.2, helium3: 1.2, wroughtIron: 1.2 },
-  particleAccelerator: { cash: 1.33, copper: 1.33, iron: 1.33, metal: 1.33 },
-  swarmControlStation: { cash: 1.275, knowledge: 1.275, alloy: 1.275, helium3: 1.275, mithril: 1.275 },
-  swarmSatellite: { cash: 1.15, copper: 1.15, iridium: 1.15, helium3: 1.15 },
-  atmosphericCollector: { cash: 1.22, uranium: 1.22, alloy: 1.22, helium3: 1.22, mithril: 1.22 },
-  galacticFuelDepot: { cash: 1.275, iridium: 1.275, metalPlate: 1.275, helium3: 1.275 },
-  talosMoonMiningStation: { cash: 1.265, titanium: 1.265, iridium: 1.265, helium3: 1.265, mithril: 1.265 },
-  iridiumMiningShip: { cash: 1.2, uranium: 1.2, alloy: 1.2, iridium: 1.2, helium3: 1.2 },
-  ironMiningShip: { cash: 1.2, metal: 1.2, aluminum: 1.2, polymer: 1.2, helium3: 1.2 },
-  planetaryFoundry: { cash: 1.235, copper: 1.235, cement: 1.235, wroughtIron: 1.235 },
-  spaceGarrison: { cash: 1.3, alloy: 1.3, iridium: 1.3, wroughtIron: 1.3 },
-  geothermalPlant: { cash: 1.2, metal: 1.2, polymer: 1.2 },
-  "moonBase": {
-    "cash": 1.18,
-    "metal": 1.18,
-    "titanium": 1.18,
-    "polymer": 1.18,
-    "oil": 1.18
-  },
-  "iridiumMine": {
-    "cash": 1.2,
-    "titanium": 1.2,
-    "alloy": 1.2
-  },
-  "helium3Mine": {
-    "cash": 1.18,
-    "aluminum": 1.18,
-    "metal": 1.18,
-    "alloy": 1.18
-  },
-  "navigationBeacon": {
-    "cash": 1.18,
-    "copper": 1.18,
-    "aluminum": 1.18,
-    "oil": 1.18,
-    "iridium": 1.18
-  },
-  "orbitalFuelDepot": {
-    "cash": 1.18,
-    "oil": 1.18,
-    "metal": 1.18
-  },
-  "solarSatellite": {
-    "cash": 1.18,
-    "alloy": 1.18,
-    "polymer": 1.18
-  },
-  "researchSatellite": {
-    "knowledge": 1.2,
-    "cash": 1.2,
-    "alloy": 1.2,
-    "polymer": 1.2
-  },
-  "granary": {
-    "wood": 1.25,
-    "stone": 1.25,
-    "cash": 1.25
-  },
-  "biologyLab": {
-    "cash": 1.19,
-    "knowledge": 1.19,
-    "metal": 1.19,
-    "alloy": 1.19
-  },
-  "bank": {
-    "wood": 1.27,
-    "stone": 1.27,
-    "cash": 1.27
-  },
-  "barracks": {
-    "wood": 1.25,
-    "stone": 1.25,
-    "cash": 1.25
-  },
-  "trainingCamp": {
-    "wood": 1.19,
-    "cement": 1.19,
-    "metalPlate": 1.19,
-    "cash": 1.19
-  },
-  "metalRefinery": {
-    "stone": 1.195,
-    "iron": 1.195,
-    "metal": 1.195,
-    "cash": 1.195
-  },
-  "cementWorkshop": {
-    "wood": 1.215,
-    "stone": 1.215,
-    "cash": 1.215
-  },
-  "fuelDepot": {
-    "iron": 1.17,
-    "metal": 1.17,
-    "cash": 1.17
-  },
-  "batteryStation": {
-    "stone": 1.17,
-    "iron": 1.17,
-    "metal": 1.17,
-    "cash": 1.17
-  },
-  "containerWarehouse": {
-    "cement": 1.17,
-    "metalPlate": 1.17,
-    "cash": 1.17
-  },
-  "communityCenter": {
-    "wood": 1.17,
-    "stone": 1.17,
-    "cash": 1.17
-  },
-  "coalMine": {
-    "wood": 1.18,
-    "wroughtIron": 1.18,
-    "cash": 1.18
-  },
-  "mine": {
-    "wood": 1.18,
-    "stone": 1.18,
-    "cash": 1.18
-  },
-  "nestMKII": {
-    "stone": 1.17,
-    "plank": 1.17,
-    "brick": 1.17,
-    "cash": 1.17
-  },
-  "apartment": {
-    "cement": 1.18,
-    "copper": 1.18,
-    "metal": 1.18,
-    "fur": 1.18,
-    "cash": 1.18
-  },
-  "warehouse": {
-    "wood": 1.25,
-    "stone": 1.25,
-    "cash": 1.25
-  },
-  "storageHub": {
-    "cement": 1.25,
-    "metal": 1.25,
-    "alloy": 1.25,
-    "cash": 1.25
-  },
-  "nest": {
-    "wood": 1.17,
-    "stone": 1.17,
-    "cash": 1.17
-  },
-  "catHut": {
-    "wood": 1.35,
-    "stone": 1.35,
-    "cash": 1.35
-  },
-  "forage": {
-    "wood": 1.2,
-    "stone": 1.2,
-    "cash": 1.2
-  },
-  "lumber": {
-    "wood": 1.18,
-    "stone": 1.18,
-    "cash": 1.18
-  },
-  "quarry": {
-    "stone": 1.18,
-    "wood": 1.18,
-    "cash": 1.18
-  },
-  "theater": {
-    "food": 1.19,
-    "wood": 1.19,
-    "stone": 1.19,
-    "cash": 1.19
-  },
-  "broadcast": {
-    "iron": 1.19,
-    "copper": 1.19,
-    "metal": 1.19,
-    "cash": 1.19
-  },
-  "touristStation": {
-    "metal": 1.18,
-    "alloy": 1.18,
-    "oil": 1.18,
-    "cash": 1.18
-  },
-  "foundry": {
-    "wood": 1.19,
-    "stone": 1.19,
-    "iron": 1.19,
-    "cash": 1.19
-  },
-  "library": {
-    "plank": 1.19,
-    "brick": 1.19,
-    "fur": 1.19,
-    "cash": 1.19
-  },
-  "school": {
-    "wood": 1.19,
-    "stone": 1.19,
-    "cash": 1.19
-  },
-  "generator": {
-    "cement": 1.19,
-    "iron": 1.19,
-    "metal": 1.19,
-    "cash": 1.19
-  },
-  "oilGenerator": {
-    "cement": 1.19,
-    "iron": 1.19,
-    "copper": 1.19,
-    "metal": 1.19,
-    "cash": 1.19
-  },
-  "fissionGenerator": {
-    "cement": 1.19,
-    "iron": 1.19,
-    "copper": 1.19,
-    "metal": 1.19,
-    "alloy": 1.19,
-    "cash": 1.19
-  },
-  "smelter": {
-    "stone": 1.19,
-    "iron": 1.19,
-    "cash": 1.19
-  },
-  "lab": {
-    "knowledge": 1.17,
-    "copper": 1.19,
-    "cement": 1.19,
-    "metalPlate": 1.19,
-    "cash": 1.19
-  },
-  "refinery": {
-    "metal": 1.19,
-    "copper": 1.19,
-    "cash": 1.19
-  },
-  "observatory": {
-    "cash": 1.19,
-    "knowledge": 1.19,
-    "metal": 1.19,
-    "titanium": 1.19,
-    "alloy": 1.19
-  },
-  "factory": {
-    "cement": 1.19,
-    "titanium": 1.19,
-    "metal": 1.19,
-    "cash": 1.19
-  },
-  "catCafe": {
-    "cash": 1.25,
-    "fur": 1.25,
-    "wood": 1.25,
-    "brick": 1.25
-  },
-  "touristCenter": {
-    "cash": 1.18,
-    "fur": 1.18,
-    "plank": 1.18,
-    "stone": 1.18
-  },
-  "moonObservatory": {
-    "cash": 1.18,
-    "knowledge": 1.18,
-    "stone": 1.18,
-    "iron": 1.18,
-    "iridium": 1.18
-  },
-  "asrielSpaceport": {
-    "cash": 1.25,
-    "iridium": 1.25,
-    "mithril": 1.25,
-    "titanium": 1.25
-  },
-  "asrielResidence": {
-    "cash": 1.2,
-    "metal": 1.2,
-    "polymer": 1.2
-  },
-  "asrielMine": {
-    "cash": 1.25,
-    "iron": 1.25
-  },
-  "ecologicalDome": {
-    "cash": 1.2,
-    "wood": 1.2,
-    "brick": 1.2
-  },
-  "hangar": {
-    "cash": 1.2,
-    "iron": 1.2,
-    "brick": 1.2,
-    "metalPlate": 1.2
-  },
-  "spaceFactory": {
-    "cash": 1.2035,
-    "brick": 1.2035,
-    "coal": 1.2035,
-    "mithril": 1.2035
-  },
-  "spaceWaystation": {
-    "cash": 1.25,
-    "metal": 1.25,
-    "alloy": 1.25,
-    "iridium": 1.25
-  },
-  "starRingStation": {
-    "cash": 1.25,
-    "stone": 1.25,
-    "aluminum": 1.25,
-    "mithril": 1.25
-  }
-};
+export const BUILDING_COST_SCALES: Partial<Record<BuildingId, ResourceRecipe>> = Object.fromEntries(
+  Object.entries(BUILDINGS).flatMap(([id, building]) =>
+    building.costScales === undefined ? [] : [[id, { ...building.costScales }]]),
+);
 
 export const BUILDING_GROUPS: { id: string; name: string; buildings: BuildingId[] }[] = [
   {

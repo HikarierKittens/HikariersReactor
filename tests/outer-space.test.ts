@@ -1,4 +1,23 @@
 import assert from 'node:assert/strict';
+import { advanceSoldierTraining } from '../src/simulation/military';
+import { calculateSoldierCapacity, calculateOperationalSoldierCapacity } from '../src/simulation/government';
+
+test('garrison training uses whole paid upkeep without shrinking the owned army ceiling', () => {
+  for (const dt of [.2, 1]) {
+    const s = createInitialState(29, 60, 0); s.tech.push('military');
+    s.buildings.spaceGarrison = 2; s.stoppedBuildings.spaceGarrison = 1;
+    s.resources.food = 10 * dt; s.resources.oil = .5 * dt;
+    const paid = calculateProduction(s, dt).inputUnits.spaceGarrison || 0;
+    assert.equal(paid, 1); assert.equal(calculateOperationalSoldierCapacity(s, paid), 2);
+    s.trainingProgress = 30 - dt; advanceSoldierTraining(s, dt);
+    assert.equal(s.soldiers, 1);
+    s.resources.oil = 0; s.trainingProgress = 30 - dt;
+    advanceSoldierTraining(s, dt); assert.equal(s.soldiers, 1); assert.equal(s.trainingProgress, 0);
+    s.soldiers = 4; s.stoppedBuildings.spaceGarrison = 2;
+    advanceSoldierTraining(s, dt); assert.equal(s.soldiers, 4); assert.equal(calculateSoldierCapacity(s), 4);
+    assert.equal(calculateOperationalSoldierCapacity(s, .5), 0);
+  }
+});
 
 test('AI core pays both upkeep resources only when a whole core can run', () => {
   for (const dt of [.2, 1]) {

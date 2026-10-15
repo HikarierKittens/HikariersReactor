@@ -8,6 +8,13 @@ import { CONFIG } from '../src/data/config';
 import { TECHNOLOGIES } from '../src/data/technologies';
 import { enqueueProject } from '../src/simulation/project-queue';
 import { requestPurchaseModule } from '../src/simulation/purchases';
+import { migrateV28 } from '../src/state/migrations';
+import { validateAndMigrateSave } from '../src/state/validate-save';
+import { validateProjectRecords } from '../src/state/validate-projects';
+import { validateCivilization } from '../src/state/validate-civilization';
+import { persistGame } from '../src/state/persistence';
+import { settlePurchaseQueue } from '../src/simulation/purchases';
+import { createMilestoneState } from './fixtures/milestones';
 
 function environment(t: TestContext) {
   const writes = new Map<string, string>();
@@ -90,14 +97,16 @@ test('load never settles offline time and resets the live clock', t => {
   assert.equal(runtime.state.time, 40.2);
 });
 
-test('future save timestamps load without advancing time', t => {
+test('future save timestamps clamp to a slow device clock without advancing time', t => {
   const env = environment(t);
   const saved = env.state();
-  saved.lastSaved += 1000;
+  saved.lastSaved += 7 * 86400000; // Importing on a device over 24 hours behind.
   env.writes.set(CONFIG.saveKey, JSON.stringify(saved));
   const runtime = createRuntime();
   runtime.load();
   assert.equal(runtime.state.time, 0);
+  assert.equal(runtime.state.lastSaved, Date.now());
+  assert.equal(runtime.saveBlocked, false);
 });
 
 test('load is idempotent for a new game', t => {
@@ -257,4 +266,130 @@ test('store signals one revision per refresh, mutation, or partially failed muta
   assert.equal(renders, 4);
   assert.equal(store.state().clicks, 2);
   stop(watcher);
+});
+
+const saveContext = { now: 1000, eventInterval: 60, housingCapacity: () => 1, clampResources: () => {} };
+
+for (const timestamp of [-1, NaN, Infinity, -Infinity, null, '1000']) {
+  test(`save metadata rejects malformed timestamp ${String(timestamp)}`, () => {
+    const raw = { ...createInitialState(CONFIG.version, 60, 0), lastSaved: timestamp };
+    assert.throws(() => validateAndMigrateSave(raw, saveContext), /存档时间/);
+  });
+}
+
+test('v28 migration initializes absent additions without resetting valid present progress', () => {
+  const raw = createMilestoneState('moon', { buildings: { asrielSpaceport: 2 } });
+  raw.version = 28;
+  raw.resources.mithril = 42;
+  raw.stoppedBuildings.asrielSpaceport = 1;
+  const snapshot = JSON.stringify(raw);
+  const migrated = migrateV28(raw as unknown as Record<string, unknown>);
+  assert.equal((migrated.resources as typeof raw.resources).mithril, 42);
+  assert.equal((migrated.buildings as typeof raw.buildings).asrielSpaceport, 2);
+  assert.equal(migrated.asrielMissionCompleted, true);
+  const restored = validateAndMigrateSave(raw, saveContext);
+  assert.equal(restored.resources.mithril, 42);
+  assert.equal(restored.buildings.asrielSpaceport, 2);
+  assert.equal(restored.stoppedBuildings.asrielSpaceport, 1);
+  assert.equal(restored.asrielMissionCompleted, true);
+  assert.equal(JSON.stringify(raw), snapshot);
+  const absent = structuredClone(raw) as unknown as Record<string, unknown>;
+  for (const field of ['resources', 'containerAssignments', 'craftWorkers']) delete (absent[field] as Record<string, unknown>).mithril;
+  for (const field of ['buildings', 'workers', 'stoppedBuildings']) {
+    for (const id of ['moonObservatory', 'asrielSpaceport', 'asrielResidence', 'asrielMine', 'ecologicalDome', 'hangar', 'spaceFactory', 'starRingStation']) delete (absent[field] as Record<string, unknown>)[id];
+  }
+  delete absent.asrielMissionCompleted; delete absent.asrielMissionQueued;
+  const initialized = migrateV28(absent);
+  assert.equal((initialized.resources as typeof raw.resources).mithril, 0);
+  assert.equal((initialized.buildings as typeof raw.buildings).asrielSpaceport, 0);
+  assert.equal(initialized.asrielMissionCompleted, false);
+});
+
+test('v28 migration does not launder malformed or locked additions', () => {
+  for (const value of [null, [], 'bad', 4]) {
+    assert.throws(() => migrateV28({ version: 28, resources: value }), /旧存档字段/);
+  }
+  const raw = createInitialState(28, 60, 0);
+  assert.throws(() => validateAndMigrateSave({ ...raw, resources: { ...raw.resources, mithril: -1 } }, saveContext), /资源/);
+  assert.throws(() => validateAndMigrateSave({ ...raw, buildings: { ...raw.buildings, asrielSpaceport: 1 } }, saveContext), /解锁/);
+  assert.throws(() => validateAndMigrateSave({ ...raw, asrielMissionCompleted: null }, saveContext), /Asriel/);
+});
+
+test('retired Asriel queued flag normalizes without dropping real queue work', () => {
+  const raw = createMilestoneState('moon');
+  raw.asrielMissionCompleted = false;
+  raw.asrielMissionQueued = true;
+  raw.queue = [{ uid: 1, kind: 'mission', id: 'asriel' }];
+  const restored = validateAndMigrateSave(raw, saveContext);
+  assert.equal(restored.asrielMissionQueued, false);
+  assert.deepEqual(restored.queue, raw.queue);
+  restored.resources.helium3 = 10000;
+  settlePurchaseQueue(restored, () => 1);
+  assert.equal(restored.asrielMissionCompleted, true);
+  assert.deepEqual(restored.queue, []);
+  const stale = { ...raw, queue: [], asrielMissionCompleted: true };
+  const normalized = validateAndMigrateSave(stale, saveContext);
+  assert.equal(normalized.asrielMissionQueued, false);
+  const standalone = createInitialState(CONFIG.version, 60, 0);
+  standalone.tech = raw.tech;
+  validateCivilization(stale, standalone);
+  assert.equal(standalone.asrielMissionQueued, false);
+  const locked = createInitialState(CONFIG.version, 60, 0);
+  assert.throws(() => validateAndMigrateSave({ ...locked, asrielMissionQueued: true, queue: raw.queue }, saveContext), /队列任务/);
+  assert.throws(() => validateAndMigrateSave({ ...raw, asrielMissionQueued: null }, saveContext), /Asriel/);
+});
+
+test('absent commercial stopped counts default but explicit malformed counts reject', () => {
+  const raw = createInitialState(CONFIG.version, 60, 0);
+  const stopped = { ...raw.stoppedBuildings };
+  Reflect.deleteProperty(stopped, 'catCafe'); Reflect.deleteProperty(stopped, 'touristCenter');
+  const restored = validateAndMigrateSave({ ...raw, stoppedBuildings: stopped }, saveContext);
+  assert.equal(restored.stoppedBuildings.catCafe, 0);
+  assert.equal(restored.stoppedBuildings.touristCenter, 0);
+  for (const id of ['catCafe', 'touristCenter']) for (const value of [null, -1, .5, 1, '0', NaN, Infinity]) {
+    assert.throws(() => validateAndMigrateSave({ ...raw, stoppedBuildings: { ...stopped, [id]: value } }, saveContext));
+  }
+});
+
+test('synthesized project tracking uses explicit-row invariants and is roundtrip idempotent', () => {
+  const fullSave = createMilestoneState('moon');
+  fullSave.arpaProgress.monument = 37.5;
+  const firstLoad = validateAndMigrateSave(fullSave, saveContext);
+  const secondLoad = validateAndMigrateSave(JSON.parse(JSON.stringify(firstLoad)), saveContext);
+  assert.deepEqual(secondLoad, firstLoad);
+  const raw = createInitialState(CONFIG.version, 60, 0);
+  raw.tech = ['arpa', 'rocketry'];
+  raw.arpaProgress.rocketPlatform = 37.5;
+  const restored = createInitialState(CONFIG.version, 60, 0); restored.tech = raw.tech;
+  validateProjectRecords(raw as unknown as Record<string, unknown>, restored);
+  assert.deepEqual(restored.arpaResourceProgress?.rocketPlatform, { metal: 37.5, alloy: 37.5 });
+  const second = createInitialState(CONFIG.version, 60, 0); second.tech = raw.tech;
+  validateProjectRecords(restored as unknown as Record<string, unknown>, second);
+  assert.deepEqual(second.arpaResourceProgress, restored.arpaResourceProgress);
+  assert.deepEqual(second.arpaProgress, restored.arpaProgress);
+  for (const tracking of [{}, undefined]) {
+    const legacy = { ...raw, arpaResourceProgress: tracking, arpaProgress: { ...raw.arpaProgress, rocketPlatform: 37 } };
+    const target = createInitialState(CONFIG.version, 60, 0); target.tech = raw.tech;
+    assert.throws(() => validateProjectRecords({ ...legacy, arpaBuildings: { ...raw.arpaBuildings, rocketPlatform: 1 } }, target), /工程投入/);
+  }
+  raw.arpaProgress.rocketPlatform = 100;
+  assert.throws(() => validateProjectRecords(raw as unknown as Record<string, unknown>, restored), /工程投入/);
+  raw.arpaResourceProgress = { rocketPlatform: null as never };
+  assert.throws(() => validateProjectRecords(raw as unknown as Record<string, unknown>, restored), /工程投入/);
+});
+
+test('persistence itself restores timestamp on storage and serialization failures', () => {
+  const state = createInitialState(CONFIG.version, 60, 123);
+  assert.equal(persistGame(state, { setItem() { throw Error('quota'); } }, 'save', 456), false);
+  assert.equal(state.lastSaved, 123);
+  Object.defineProperty(state, 'toJSON', { configurable: true, value() { throw Error('serialization'); } });
+  assert.equal(persistGame(state, { setItem() { assert.fail('must not write'); } }, 'save', 789), false);
+  assert.equal(state.lastSaved, 123);
+});
+
+test('display-only history and unknown settings stay tolerant', () => {
+  const state = createInitialState(CONFIG.version, 60, 0);
+  const restored = validateAndMigrateSave({ ...state, settings: { ...state.settings, futureOption: { enabled: true } }, logs: [null, { text: 1, time: 0 }, { text: 'retained', time: 0, type: 'futureType' }] }, saveContext);
+  assert.deepEqual(restored.settings, state.settings);
+  assert.deepEqual(restored.logs, [{ text: 'retained', time: 0, type: 'progress' }]);
 });

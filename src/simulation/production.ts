@@ -3,6 +3,7 @@ import { settlePowerPlants } from './power';
 import { calculateQuantumSnapshot } from './quantum';
 import { calculateSpaceFuelMultiplier } from './space-fuel';
 import { calculateMorale } from './morale';
+import { HYPERSPACE_SOURCE_IDS } from './hyperspace-output';
 import { allocateMoonSupport } from './moon';
 import { settleAutomationPower } from './power-consumers';
 import { settleFactoryLines } from './factory-settlement';
@@ -27,15 +28,33 @@ export function previewMorale(state: GameState, dt = 1) {
   const moonPool = { ...state.resources };
   settlePowerPlants(moonPool, dt, state);
   const support = buildSettlementLedger(state, dt);
-  return calculateMorale(state, dt, {
-    waystationUnits: support.waystations,
-    navigationBeaconUnits: support.moon.beaconUnits || 0,
-    vrCenterUnits: support.asriel.allocations.vrCenter || 0,
-    generatorSpeed: (Object.keys(BUILDINGS) as BuildingId[]).filter(isPowerProducer).reduce((sum, id) => sum + countRunningBuildings(id, state), 0),
-    generatorEnergy: plants.energy, coalRatio: coalSpeed ? (plants.outputs.generator || 0) / coalSpeed : 1,
-    moonBaseUnits: allocateMoonSupport(state, moonPool, dt).baseUnits,
-    biologyUnits: support.biologyUnits, dataCenterUnits: support.dataCenterUnits,
-  });
+  const derive = (happiness: number) => {
+    const paid = replaySettledPool(state, support, dt, happiness).inputUnits;
+    return calculateMorale(state, dt, {
+      broadcastUnits: paid.broadcast || 0,
+      touristStationUnits: paid.touristStation || 0,
+      waystationUnits: support.waystations,
+      navigationBeaconUnits: support.moon.beaconUnits || 0,
+      vrCenterUnits: support.asriel.allocations.vrCenter || 0,
+      generatorSpeed: (Object.keys(BUILDINGS) as BuildingId[]).filter(isPowerProducer).reduce((sum, id) => sum + countRunningBuildings(id, state), 0),
+      generatorEnergy: plants.energy, coalRatio: coalSpeed ? (plants.outputs.generator || 0) / coalSpeed : 1,
+      moonBaseUnits: allocateMoonSupport(state, moonPool, dt).baseUnits,
+      biologyUnits: support.biologyUnits, dataCenterUnits: support.dataCenterUnits,
+    });
+  };
+  let morale = derive(state.happiness);
+  // Only hyperspace sources can make later culture fuel happiness-sensitive.
+  // Iterate this narrow, bounded preview to the same paid allocation production uses.
+  if ((countRunningBuildings('broadcast', state) > 0 || countRunningBuildings('touristStation', state) > 0)
+    && HYPERSPACE_SOURCE_IDS.some(id => state.buildings[id] > 0)) {
+    for (let i = 0; i < 32; i++) {
+      const next = derive(morale.happiness);
+      const converged = Math.abs(next.happiness - morale.happiness) < 1e-10;
+      morale = next;
+      if (converged) break;
+    }
+  }
+  return morale;
 }
 
 /**

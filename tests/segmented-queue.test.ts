@@ -10,6 +10,35 @@ import { estimateQueueTimes } from '../src/vue/queue-estimates';
 import type { GameState, QueueItem } from '../src/types/state';
 import type { ResourceId, ResourceAmounts } from '../src/types/economy';
 
+import { buildingQueueCapacity, researchQueueCapacity } from '../src/simulation/queue-settings';
+import { purchaseQueueCapacity } from '../src/simulation/purchases';
+import { enqueueProject, advanceProjectQueue } from '../src/simulation/project-queue';
+
+test('ARPA and purchase capacities agree including explicit zero and architect', () => {
+  for (const capacity of [0, 1, 3]) for (const architect of [false, true]) {
+    const s = fresh() as GameState & { queueCapacity: { build: number; tech: number } };
+    s.queueCapacity = { build: capacity, tech: capacity }; s.tech.push('monument');
+    if (architect) s.crispr.push('architect');
+    assert.equal(buildingQueueCapacity(s), purchaseQueueCapacity(s, 'build'));
+    assert.equal(researchQueueCapacity(s), purchaseQueueCapacity(s, 'tech'));
+    assert.equal(enqueueProject(s, 'monument', 10), capacity * (architect ? 2 : 1));
+  }
+});
+test('ordered ARPA respects construction FIFO but not the independent research lane', () => {
+  const s = fresh(); s.tech.push('monument', 'metallurgy'); s.resources.stone = 100000;
+  s.queue = [{ uid: 1, kind: 'build', id: 'nest' }, { uid: 2, kind: 'arpa', id: 'monument' }];
+  advanceProjectQueue(s, 1, () => 0);
+  assert.equal(s.arpaProgress.monument, 0);
+  s.queue[0] = { uid: 1, kind: 'tech', id: 'science' };
+  advanceProjectQueue(s, 1, () => 0);
+  assert.equal(s.arpaBuildings.monument, 1);
+  assert.equal(s.queue[0]?.kind, 'tech');
+  s.queue = [{ uid: 3, kind: 'build', id: 'nest' }, { uid: 4, kind: 'arpa', id: 'monument' }];
+  s.settings.unorderedBuildingQueue = true; s.resources.aluminum = 1e9;
+  advanceProjectQueue(s, 1, () => 0);
+  assert.equal(s.arpaBuildings.monument, 2);
+});
+
 function fresh() {
   const s = createInitialState(CONFIG.version, 60, 0);
   s.tech.push('artificialIntelligenceII');

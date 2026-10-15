@@ -1,9 +1,11 @@
-import { calculateSoldierCapacity, calculateTrainingDuration } from './government';
+import { calculateOperationalSoldierCapacity, calculateTrainingDuration } from './government';
+import { calculateProduction } from './production';
 import type { GameState } from '../types/state';
 
 /** Advances training only; resources, logging and rendering are owned by the caller. */
-export function advanceSoldierTraining(state: GameState, dt: number): void {
-  const capacity = calculateSoldierCapacity(state);
+export function advanceSoldierTraining(state: GameState, dt: number, paidGarrisonUnits?: number): void {
+  const paid = paidGarrisonUnits ?? (state.buildings.spaceGarrison ? calculateProduction(state, dt).inputUnits.spaceGarrison || 0 : 0);
+  const capacity = calculateOperationalSoldierCapacity(state, paid);
   if (!state.tech.includes('military') || state.soldiers >= capacity) {
     state.trainingProgress = 0;
     return;

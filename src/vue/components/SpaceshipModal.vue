@@ -28,7 +28,7 @@ const rows = computed(() => {
     });
     if (definition.population) {
       const funded = Math.max(0, Math.min(100, state.shipResourceProgress?.[id]?.population || 0));
-      resources.push({ id: 'population', name: '鐚尗', total: definition.population, funded, paid: definition.population * funded / 100 });
+      resources.push({ id: 'population', name: '猫猫', total: definition.population, funded, paid: definition.population * funded / 100 });
     }
     const canInvest = Object.entries(remaining).some(([resource, amount]) => (amount || 0) > 0 && (resource === 'population' ? state.population >= 1 : state.resources[resource as ResourceId] > 0));
     return { id, name: labels[id], icon: definition.icon, description: definition.desc, progress, complete, unlocked, hullLocked, pending, resources, canInvest,

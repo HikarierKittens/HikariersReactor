@@ -32,7 +32,11 @@ export function validateProjectRecords(raw: Record<string, unknown>, state: Game
   state.arpaResourceProgress = {};
   for (const id of Object.keys(ARPA_PROJECTS) as ArpaProjectId[]) {
     const cost = calculateProjectCost(id, state);
-    const saved = (tracking as Record<string, unknown> | undefined)?.[id];
+    // Legacy scalar progress must pass exactly the same funding consistency
+    // checks as an explicit tracking row, including on the first import.
+    const entry = (tracking as Record<string, unknown> | undefined)?.[id];
+    const saved = entry === undefined && state.arpaProgress[id]
+      ? Object.fromEntries(Object.keys(cost).map(resource => [resource, state.arpaProgress[id]])) : entry;
     const paid: ResourceRecipe = {};
     if (saved !== undefined) {
       if (!saved || typeof saved !== 'object' || Array.isArray(saved)
@@ -46,8 +50,6 @@ export function validateProjectRecords(raw: Record<string, unknown>, state: Game
         && (!isProjectUnlocked(id, state) || (!ARPA_PROJECTS[id].repeatable && state.arpaBuildings[id] > 0)))) throw Error('工程投入数据无效');
       state.arpaProgress[id] = completion;
       state.arpaResourceProgress[id] = paid;
-    } else if (state.arpaProgress[id]) {
-      state.arpaResourceProgress[id] = Object.fromEntries(Object.keys(cost).map(resource => [resource, state.arpaProgress[id]]));
     }
   }
   if (state.tech.includes('tourismIndustry') && state.arpaBuildings.monument < 1) throw Error('旅游业需要纪念碑');

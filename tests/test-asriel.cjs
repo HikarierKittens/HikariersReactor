@@ -28,6 +28,7 @@ run('gameState.resources.helium3=4999');assert.equal(run('launchAsrielMission()'
 run('gameState.resources.helium3=5000');assert.equal(run('launchAsrielMission()'),true);assert.equal(run('buildingUnlocked("asrielSpaceport")'),true);
 for(const id of ['asrielResidence','asrielMine','ecologicalDome','hangar','spaceFactory','starRingStation'])assert.equal(run(`buildingUnlocked('${id}')`),false);
 run('gameState.buildings.asrielSpaceport=1');for(const id of Object.keys(buildings))assert.equal(run(`buildingUnlocked('${id}')`),true);
-for(const [field,value]of [['asrielMissionCompleted','1'],['asrielMissionQueued','true'],['resources.helium3','NaN'],['buildings.asrielSpaceport','-.5']]){run(`gameState=freshState();gameState.${field}=${value}`);assert.throws(()=>run('validateSave(gameState)'),field);}
+for(const [field,value]of [['asrielMissionCompleted','1'],['asrielMissionQueued','1'],['resources.helium3','NaN'],['buildings.asrielSpaceport','-.5']]){run(`gameState=freshState();gameState.${field}=${value}`);assert.throws(()=>run('validateSave(gameState)'),field);}
+run('gameState=freshState();gameState.asrielMissionQueued=true');assert.equal(run('validateSave(gameState).asrielMissionQueued'),false,'旧版排队标志归一化，实际队列才代表待办任务');
 console.log('PASS 科技、建筑成本倍率、支持、任务与存档字段契约');
 require('./test-asriel-core.cjs');

@@ -95,6 +95,26 @@ const techView = ref('available');
 const logFilter = ref('all');
 const logFilters = [{ id: 'all', name: '全部' }, { id: 'queue', name: '队列' }, { id: 'event', name: '普通事件' }, { id: 'progress', name: '进度事件' }, { id: 'achievement', name: '成就' }, { id: 'system', name: '系统' }];
 const visibleLogs = computed(() => { props.store.revision(); return state.value.logs.filter(log => logFilter.value === 'all' || log.type === logFilter.value); });
+// UI-only identity survives filtering/prepending, including identical time/text logs.
+// Weak keys do not retain discarded logs and never change the save schema.
+const logKeys = new WeakMap<GameState['logs'][number], number>();
+let nextLogKey = 0;
+function logKey(log: GameState['logs'][number]): number {
+  let key = logKeys.get(log);
+  if (key === undefined) { key = nextLogKey++; logKeys.set(log, key); }
+  return key;
+}
+const actionError = ref('');
+function replaceRun(next: GameState): boolean {
+  try {
+    props.store.runtime.replaceState(next);
+    actionError.value = '';
+    return true;
+  } catch {
+    actionError.value = '操作失败：新周目数据未通过校验，当前周目未替换。请导出备份后重试。';
+    return false;
+  }
+}
 const saveStatus = computed(() => { props.store.revision(); return props.store.runtime.saveBlocked ? '存档读取失败，已保护原存档' : props.store.runtime.saveFailed ? '本地保存失败，请导出备份' : '本地存档 · 自动保存已启用'; });
 
 function afterAction(): void {
@@ -236,14 +256,16 @@ function saveNow(done?: (success: boolean) => void): void {
 function startChallenges(genes: ChallengeGeneId[]): void {
   const result = launchChallenges(props.store.state(), genes, sampleEventInterval(Math.random), Date.now());
   if (!result) return;
-  props.store.runtime.replaceState(result.next);
+  if (!replaceRun(result.next)) return;
   props.store.mutate(s => addLog(s, '挑战已启动，所选挑战基因在本周目生效。可通过设置中的软重置退出。', 'system'));
   worldView.value = 'home'; techView.value = 'available';
   props.store.refresh();
 }
 
 function resetRun(kind: 'soft' | 'hard', done?: (success: boolean) => void): void {
-  const success = props.store.runtime.reset(kind);
+  let success = false;
+  try { success = props.store.runtime.reset(kind); actionError.value = ''; }
+  catch { actionError.value = '重置失败，请导出备份后重试。'; }
   if (success) { worldView.value = 'home'; techView.value = 'available'; factoryOpen.value = false; smelterOpen.value = false; synthesisOpen.value = false; shipModal.value = false; escapeConfirm.value = false; }
   props.store.refresh();
   done?.(success && !props.store.runtime.saveFailed);
@@ -321,6 +343,7 @@ function queueProject(id: string, count: number): void {
 
 function setTax(rate: number): void {
   props.store.mutate(s => { s.taxRate = Math.max(0, Math.min(30, Math.round(rate))); });
+  afterAction();
 }
 
 function fillNuclear(percent: number): void {
@@ -340,7 +363,7 @@ function launchShip(): void {
 function confirmEscape(): void {
   const result = launchEscapePrestige(props.store.state(), sampleEventInterval(Math.random), Date.now());
   if (!result) return;
-  props.store.runtime.replaceState(result.next);
+  if (!replaceRun(result.next)) return;
   props.store.mutate(s => addLog(s, `🚀 ESS-喵星号已离开太阳系，获得 ${result.reward} 粒子与 ${result.casimirReward} 卡西米尔晶体。新的文明开始了。`, 'system'));
   escapeConfirm.value = false;
   shipModal.value = false;
@@ -361,7 +384,7 @@ watch(blackHoleConfirm, async open => { if (open) { await nextTick(); blackHoleD
 function confirmBlackHole(): void {
   const result = launchBlackHolePrestige(props.store.state(), sampleEventInterval(Math.random), Date.now());
   if (!result) return;
-  props.store.runtime.replaceState(result.next);
+  if (!replaceRun(result.next)) return;
   props.store.mutate(s => addLog(s, `🕳️ 奇异失控引发了黑洞爆炸，一切归于虚无。获得 ${result.reward} 粒子、${result.casimirReward} 卡西米尔晶体与 ${result.darkEnergyReward} 暗能量。新的文明开始了。`, 'system'));
   blackHoleConfirm.value = false;
   shipModal.value = false;
@@ -385,7 +408,7 @@ function launchNuclear(): void {
 function confirmNuclear(): void {
   const result = launchNuclearPrestige(props.store.state(), sampleEventInterval(Math.random), Date.now());
   if (!result) return;
-  props.store.runtime.replaceState(result.next);
+  if (!replaceRun(result.next)) return;
   props.store.mutate(s => addLog(s, `☢️ 核弹已发射，获得 ${result.reward} 粒子。新的文明开始了。`, 'system'));
   nuclearConfirm.value = false;
   worldView.value = 'home';
@@ -485,9 +508,10 @@ onUnmounted(() => {
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.5.5</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.5.8</span>
     </header>
 
+    <p v-if="actionError && !escapeConfirm && !blackHoleConfirm && !nuclearConfirm" class="action-error" role="alert">{{ actionError }}</p>
     <div class="layout">
       <aside class="col-left">
         <CivilizationPanel :state="state" :revision="store.revision()" />
@@ -662,9 +686,9 @@ onUnmounted(() => {
         </section>
         <section class="panel">
           <div class="panel-head"><h2>日志记录</h2><div class="log-tools"><button id="clearLogs" @click="store.mutate(s => { s.logs = []; })">清空</button></div></div>
-          <nav class="log-filters" aria-label="日志筛选"><button v-for="filter in logFilters" :key="filter.id" :class="{ active: logFilter === filter.id }" :data-log-filter="filter.id" @click="logFilter = filter.id">{{ filter.name }}</button></nav>
+          <nav class="log-filters" aria-label="日志筛选"><button v-for="filter in logFilters" :key="filter.id" :class="{ active: logFilter === filter.id }" :data-log-filter="filter.id" :aria-pressed="logFilter === filter.id" @click="logFilter = filter.id">{{ filter.name }}</button></nav>
           <div class="logs">
-            <div v-for="(log, i) in visibleLogs" :key="i" class="log-line" :class="`t-${log.type}`">
+            <div v-for="log in visibleLogs" :key="logKey(log)" class="log-line" :class="`t-${log.type}`">
               <time>{{ Math.floor(log.time / 60).toString().padStart(2, '0') }}:{{ Math.floor(log.time % 60).toString().padStart(2, '0') }}</time>
               {{ log.text }}
             </div>
@@ -680,6 +704,7 @@ onUnmounted(() => {
       <h2 id="escapeConfirmTitle">确认发射ESS-喵星号</h2>
       <p>离开太阳系将结束本周目，保留威望资源、CRISPR修饰、成就与重置记录，重新开始文明。</p>
       <p>预计获得：<strong>{{ escapeReward }} 粒子</strong> · <strong>{{ casimirReward }} 卡西米尔晶体</strong></p>
+      <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
       <div class="actions"><button @click="escapeConfirm = false">取消</button><button id="confirmEscapeLaunch" class="danger" @click="confirmEscape">确认发射</button></div>
     </dialog>
     <dialog v-if="blackHoleConfirm" ref="blackHoleDialog" id="blackHoleConfirm" aria-labelledby="blackHoleConfirmTitle" @cancel="blackHoleConfirm = false">
@@ -688,10 +713,12 @@ onUnmounted(() => {
       <p class="danger">警告：这可能会导致无法预料的爆炸，毁灭一切，无限，永恒</p>
       <p>预计获得：<strong>{{ blackHoleRewards.reward }} 粒子</strong> · <strong>{{ blackHoleRewards.casimirReward }} 卡西米尔晶体</strong> · <strong>{{ blackHoleRewards.darkEnergyReward }} 暗能量</strong></p>
       <p v-if="!canAffordRunaway" class="small subtle">资源不足，无法支付奇异失控的研究费用。</p>
+      <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
       <div class="actions"><button @click="blackHoleConfirm = false">取消</button><button id="confirmBlackHoleReset" class="danger" :disabled="!canAffordRunaway" @click="confirmBlackHole">确认研究</button></div>
     </dialog>
     <dialog v-if="nuclearConfirm" ref="nuclearDialog" id="nuclearConfirm" @cancel="nuclearConfirm = false">
       <h2>确认发射核弹</h2><p>发射会结束本周目，保留粒子、成就与重置记录。</p>
+      <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
       <div class="actions"><button @click="nuclearConfirm = false">取消</button><button id="confirmNuclearLaunch" class="danger" @click="confirmNuclear">确认发射</button></div>
     </dialog>
     <dialog v-if="shipModal" ref="shipDialog" id="spaceshipModal" class="factory-modal spaceship-modal" aria-labelledby="spaceshipTitle" @cancel="shipModal = false" @click="dismissShipBackdrop">

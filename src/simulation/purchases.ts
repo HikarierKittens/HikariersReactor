@@ -1,4 +1,5 @@
-import { buildingQueueUsage, queuedBuildingSegments, segmentedQueueBatchSize } from './queue-settings';
+import { buildingQueueUsage, queuedBuildingSegments, segmentedQueueBatchSize, purchaseQueueCapacity } from './queue-settings';
+export { purchaseQueueCapacity } from './queue-settings';
 import { calculateSupportPreview } from './support-preview';
 import { countRunningBuildings } from './housing';
 import { calculateSwarmSupportCapacity } from './quantum';
@@ -29,30 +30,6 @@ export type PurchaseKind = 'build' | 'tech' | 'arpa' | 'mission' | 'ship';
 function setting(state: GameState, key: string, fallback = false): boolean {
   const settings = (state as GameState & { settings?: Record<string, unknown> }).settings;
   return typeof settings?.[key] === 'boolean' ? settings[key] as boolean : fallback;
-}
-
-/** Initial queue capacity is two per lane. Data agents may expose an explicit
- * `queueCapacity` effect; the aliases below also support the older tech naming. */
-export function purchaseQueueCapacity(state: GameState, kind: 'build' | 'tech'): number {
-  const explicit = (state as GameState & { queueCapacity?: { build?: number; tech?: number } }).queueCapacity?.[kind];
-  if (Number.isFinite(explicit)) return Math.max(0, Math.floor(explicit as number)) * (state.crispr?.includes('architect') ? 2 : 1);
-  const defs = TECHNOLOGIES as unknown as Record<string, Record<string, unknown>>;
-  const aliases = kind === 'build'
-    ? ['buildingQueueCapacity', 'constructionQueueCapacity', 'buildingQueue']
-    : ['researchQueueCapacity', 'technologyQueueCapacity', 'researchQueue'];
-  let extra = 0;
-  for (const id of state.tech) {
-    const def = defs[id];
-    const effect = def?.queueCapacity;
-    const directBonus = kind === 'build' ? def?.buildingQueueBonus : def?.researchQueueBonus;
-    if (typeof directBonus === 'number' && Number.isFinite(directBonus)) extra += directBonus;
-    if (effect && typeof effect === 'object') {
-      const value = (effect as Record<string, unknown>)[kind];
-      if (typeof value === 'number' && Number.isFinite(value)) extra += value;
-    }
-    for (const alias of aliases) if (id === alias) extra++;
-  }
-  return Math.max(2, Math.floor(2 + extra)) * (state.crispr?.includes('architect') ? 2 : 1);
 }
 
 export function queueLength(state: GameState, kind: 'build' | 'tech'): number {

@@ -23,7 +23,14 @@ export function reformCooldown(state: Pick<GameState, 'lastReformTime' | 'time'>
 export function calculateTechCost(id: TechnologyId, state: Pick<GameState, 'government'>): ResourceRecipe {
   return Object.fromEntries(Object.entries(TECHNOLOGIES[id].cost).map(([r, v]) => [r, r === 'knowledge' && state.government === 'technocracy' ? Math.ceil(v * .92) : v]));
 }
+/** Owned ceiling for save validation and existing capacity-based army pressure.
+ * Stopping or starving a garrison never deletes already trained soldiers. */
 export function calculateSoldierCapacity(state: Pick<GameState, 'buildings'>): number { return ((state.buildings.barracks || 0) + (state.buildings.spaceGarrison || 0)) * 2; }
+/** Only whole paid garrisons can open new training places. */
+export function calculateOperationalSoldierCapacity(state: Pick<GameState, 'buildings' | 'stoppedBuildings'>, paidGarrisonUnits: number): number {
+  const running = Math.max(0, (state.buildings.spaceGarrison || 0) - (state.stoppedBuildings?.spaceGarrison || 0));
+  return (state.buildings.barracks || 0) * 2 + Math.floor(Math.min(running, Math.max(0, paidGarrisonUnits)) + 1e-9) * 2;
+}
 export function calculateCombatPower(state: Pick<GameState, 'tech' | 'government'> & Partial<Pick<GameState, 'geneModification'>>): number { return (state.tech.includes('ironEquipment') ? 2 : 1) * (state.government === 'militaryRule' ? 1.2 : 1) * (1 + geneBonus(state, 'titanPower')); }
 /** 猫猫凝聚 scales soldier-capacity pressure by half its population rate. */
 export function calculateSoldierPressure(state: Pick<GameState, 'buildings' | 'government'> & Partial<Pick<GameState, 'geneModification'>>): number { return calculateSoldierCapacity(state) * (state.government === 'militaryRule' ? 1.5 : 1) * Math.max(0, 1 - geneBonus(state, 'catCohesion') / 2); }

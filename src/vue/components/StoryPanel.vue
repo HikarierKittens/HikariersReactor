@@ -59,7 +59,7 @@ function open(id: StoryChapterId) {
 .story-chapter { margin: 10px 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .story-heading { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px; border: 0; border-radius: 0; text-align: left; }
 .story-unread { color: #e6c777; font-size: 12px; flex-shrink: 0; }
-.story-locked { padding: 14px; margin: 0; opacity: .55; }
+.story-locked { padding: 14px; margin: 0; color: var(--muted); }
 .story-text { padding: 0 20px 12px; line-height: 1.95; }
 .story-text p { margin: 14px 0; }
 </style>

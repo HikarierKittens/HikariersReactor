@@ -20,8 +20,20 @@ import { fmt, buildingUnlocked, orderedCostEntries, moonSnapshot, clickMultiplie
 const qHeld = ref(false);
 function onKeyDown(event: KeyboardEvent): void { if (event.key.toLowerCase() === 'q') qHeld.value = true; }
 function onKeyUp(event: KeyboardEvent): void { if (event.key.toLowerCase() === 'q') qHeld.value = false; }
-onMounted(() => { window.addEventListener('keydown', onKeyDown); window.addEventListener('keyup', onKeyUp); });
-onUnmounted(() => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); });
+function resetQueueHotkey(): void { qHeld.value = false; }
+function onVisibilityChange(): void { if (document.hidden) resetQueueHotkey(); }
+onMounted(() => {
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
+  window.addEventListener('blur', resetQueueHotkey);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+});
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeyDown);
+  window.removeEventListener('keyup', onKeyUp);
+  window.removeEventListener('blur', resetQueueHotkey);
+  document.removeEventListener('visibilitychange', onVisibilityChange);
+});
 
 const props = defineProps<{ state: GameState; revision: number; worldView: string }>();
 const emit = defineEmits<{
@@ -251,12 +263,12 @@ function canGather(id: string): boolean {
       <div v-for="id in section.list" :key="id" class="building-control">
         <button
           class="building-button"
-          :class="affordable(id) && !atLimit(id) ? 'is-affordable' : 'is-unaffordable'"
+          :class="{ 'is-complete': isBuildingFullyBuilt(id, state), 'is-affordable': isBuildingFullyBuilt(id, state) || (affordable(id) && !atLimit(id)), 'is-unaffordable': !isBuildingFullyBuilt(id, state) && (!affordable(id) || atLimit(id)) }"
           :data-buy="id"
           :data-building-tip="id" data-tip-kind="building"
-          :disabled="atLimit(id)"
+          :aria-disabled="atLimit(id)"
           :aria-label="`${calculateBuildingName(id, state)}，${BUILDINGS[id].segmentedRequired ? countLabel(id) : `已有 ${buildingCount(id)} 座`}`"
-          @click="emit('buy', id, clickMultiplier($event), !!(state.settings.queueHotkeys && (qHeld || ($event as MouseEvent).shiftKey)))"
+          @click="!atLimit(id) && emit('buy', id, clickMultiplier($event), !!(state.settings.queueHotkeys && (qHeld || ($event as MouseEvent).shiftKey)))"
         >
           <span class="building-name">{{ calculateBuildingName(id, state) }}</span>
           <span class="building-count" aria-hidden="true">{{ countLabel(id) }}</span>

@@ -5,6 +5,9 @@ import { CONFIG } from '../src/data/config';
 import { TECHNOLOGIES } from '../src/data/technologies';
 import { calculateBuildingCost, buildPriceContext } from '../src/simulation/costs';
 import { calculateProduction } from '../src/simulation/production';
+import { changeCraftAssignment } from '../src/simulation/crafting';
+import { describeQueuedPurchases, settlePurchaseQueue } from '../src/simulation/purchases';
+import type { ResourceId } from '../src/types/economy';
 import type { GameState } from '../src/types/state';
 
 /** Late-game state with the swarm discount chain active and mining ships funded. */
@@ -63,6 +66,36 @@ test('context reuse never triggers a full production or quantum solve for quoted
   }
   // Satellite discount is derived purely from the supplied quantum level.
   calculateBuildingCost('swarmSatellite', 3, guarded, context);
+});
+
+test('unordered duplicate buildings settle their lowest ordinal first and retain the quoted next price', () => {
+  const state = createInitialState(CONFIG.version, 60, 0);
+  state.tech.push('survival');
+  state.settings.unorderedBuildingQueue = true;
+  state.queue = [
+    { uid: 1, kind: 'build', id: 'nest' },
+    { uid: 2, kind: 'build', id: 'nest' },
+  ];
+  const [first, second] = describeQueuedPurchases(state);
+  assert.ok(first && second);
+  for (const [resource, amount] of Object.entries(first.cost)) {
+    state.resources[resource as ResourceId] = amount;
+    assert.ok((second.cost[resource as ResourceId] || 0) >= amount);
+  }
+  const settled = settlePurchaseQueue(state, 0);
+  assert.deepEqual(settled.entries.filter(entry => entry.completed).map(entry => entry.uid), [1]);
+  assert.equal(state.buildings.nest, 1);
+  assert.equal(state.queue[0]?.uid, 2);
+  assert.deepEqual(describeQueuedPurchases(state)[0]?.cost, second.cost);
+});
+
+test('positive craft assignment never subtracts from a temporarily overassigned artisan pool', () => {
+  const state = createInitialState(CONFIG.version, 60, 0);
+  state.buildings.foundry = 1;
+  state.workers.foundry = 1;
+  state.craftWorkers.plank = 2;
+  assert.equal(changeCraftAssignment(state, 'plank', 1), 0);
+  assert.equal(state.craftWorkers.plank, 2);
 });
 
 test('legacy callers without a context keep the self-computing behavior', () => {

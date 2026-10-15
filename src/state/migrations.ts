@@ -158,10 +158,18 @@ export function migrateV27(raw: MigrationRecord): MigrationRecord {
 export function migrateV28(raw: MigrationRecord): MigrationRecord {
   const state = cloneMigrationRecord(raw);
   state.version = 29;
-  for (const field of ['resources', 'containerAssignments', 'craftWorkers']) state[field] = { ...spreadMigrationField(state[field]), mithril: 0 };
+  // Historical v28 semantics are unavailable. Treat these as additive fields:
+  // initialize absent keys, preserve present values for current validation, and
+  // never turn malformed legacy records into apparently valid empty records.
+  const initialize = (field: string, defaults: MigrationRecord): void => {
+    const saved = state[field];
+    if (saved !== undefined && (!saved || typeof saved !== 'object' || Array.isArray(saved))) throw Error('旧存档字段无效。');
+    state[field] = { ...defaults, ...(saved as MigrationRecord | undefined) };
+  };
+  for (const field of ['resources', 'containerAssignments', 'craftWorkers']) initialize(field, { mithril: 0 });
   const additions = { moonObservatory: 0, asrielSpaceport: 0, asrielResidence: 0, asrielMine: 0, ecologicalDome: 0, hangar: 0, spaceFactory: 0, starRingStation: 0 };
-  for (const field of ['buildings', 'workers', 'stoppedBuildings']) state[field] = { ...spreadMigrationField(state[field]), ...additions };
-  state.asrielMissionCompleted = false;
-  state.asrielMissionQueued = false;
+  for (const field of ['buildings', 'workers', 'stoppedBuildings']) initialize(field, additions);
+  if (!Object.hasOwn(state, 'asrielMissionCompleted')) state.asrielMissionCompleted = false;
+  if (!Object.hasOwn(state, 'asrielMissionQueued')) state.asrielMissionQueued = false;
   return state;
 }

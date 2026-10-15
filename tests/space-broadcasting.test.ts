@@ -11,6 +11,39 @@ import { calculateResourceBreakdown } from '../src/simulation/resource-breakdown
 import { isTechnologyUnlocked } from '../src/simulation/unlocks';
 import { requestPurchaseModule } from '../src/simulation/purchases';
 import { moraleSnapshot } from '../src/vue/format';
+import { previewMorale } from '../src/simulation/production';
+
+test('culture morale follows paid sequential upkeep, stopped units and oil at both tick sizes', () => {
+  for (const dt of [.2, 1]) {
+   const s = createInitialState(CONFIG.version, 60, 0);
+   s.buildings.broadcast = 2; s.buildings.touristStation = 2;
+   s.stoppedBuildings.broadcast = 1; s.stoppedBuildings.touristStation = 1;
+   s.buildings.e710Warehouse = 1;
+   s.resources.energy = 11.5 * dt; s.resources.oil = 100;
+   const p = calculateProduction(s, dt), m = previewMorale(s, dt);
+   near(p.inputUnits.broadcast || 0, 1); near(p.inputUnits.touristStation || 0, .5);
+   near(m.broadcast, 3); near(m.station, 1.5); near(m.powerUsed, 4.5);
+   near(m.broadcastCap, 1); near(m.stationCap, .5);
+   near(p.morale.broadcast, m.broadcast); near(p.morale.station, m.station);
+   s.resources.oil = 0;
+   near(previewMorale(s, dt).station, 0);
+   s.stoppedBuildings.broadcast = 2; s.stoppedBuildings.touristStation = 2;
+   near(previewMorale(s, dt).broadcast, 0); near(previewMorale(s, dt).station, 0);
+  }
+ });
+test('hyperspace culture preview converges to the oil upkeep actually consumed', () => {
+ for (const dt of [.2, 1]) {
+  const s = createInitialState(CONFIG.version, 60, 0);
+  s.population = 100; s.happiness = 100; s.buildings.theater = 100;
+  s.buildings.fuelMiningShip = 1; s.buildings.touristStation = 10;
+  s.resources.deuterium = 100; s.resources.energy = 1000;
+  const p = calculateProduction(s, dt), m = previewMorale(s, dt);
+  near(m.happiness, p.morale.happiness);
+  near(m.station / 3, p.inputUnits.touristStation || 0);
+  near(m.stationCap, p.inputUnits.touristStation || 0);
+  near(calculateResourceBreakdown('oil', s, p).net, p.rates.oil);
+ }
+});
 const fresh=()=>createInitialState(CONFIG.version,60,0);
 const clone=<T>(x:T):T=>JSON.parse(JSON.stringify(x));
 const near=(a:number,b:number)=>assert.ok(Math.abs(a-b)<1e-7,`${a} != ${b}`);

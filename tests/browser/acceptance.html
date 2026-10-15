@@ -52,7 +52,31 @@ try {
   log($('#app').hasAttribute('data-v-app') && $$('.app').length === 1, 'Vue 应用仅挂载一次');
   log(S().logs.filter(row => row.text.includes('第一只猫猫登陆')).length === 1, '新游戏欢迎日志仅一条');
   log([...document.styleSheets].some(sheet => sheet.href?.endsWith('/assets/css/style.css') && sheet.cssRules.length > 0), '真实应用样式已加载');
+  const responsiveFrame = document.createElement('iframe');
+  responsiveFrame.style.cssText = 'position:fixed;left:-10000px;height:200px;border:0';
+  responsiveFrame.srcdoc = '<link rel="stylesheet" href="/assets/css/style.css"><div class="layout"><div></div><div></div><div class="col-right"></div></div>';
+  const responsiveLoaded = new Promise(resolve => { responsiveFrame.onload = resolve; });
+  document.body.append(responsiveFrame); await responsiveLoaded;
+  for (const width of [860, 860.5, 861]) {
+    responsiveFrame.style.width = `${width}px`; await flush();
+    const columns = responsiveFrame.contentWindow.getComputedStyle(responsiveFrame.contentDocument.querySelector('.layout')).gridTemplateColumns.split(' ').length;
+    log(columns === (width <= 860 ? 1 : 2), `布局在${width}px使用正确列数，无860/861小数视口断点空档`);
+  }
+  responsiveFrame.remove();
+  const uiCss = [...document.styleSheets].find(sheet => sheet.href?.endsWith('/assets/css/style.css'));
+  log([...uiCss.cssRules].some(rule => rule.selectorText?.includes('.q-row:focus-visible') && rule.selectorText.includes('.res-amount[tabindex]:focus-visible') && rule.style.outlineStyle === 'solid'), '队列行与可聚焦资源数量提供明确focus-visible轮廓');
   for (const id of ['food', 'wood', 'stone']) log(visible($(`[data-resource-id="${id}"]`)), `初始资源 ${id} 可见`);
+  const allLogsButton = $('[data-log-filter="all"]');
+  const idleLogStyle = getComputedStyle($('[data-log-filter="system"]'));
+  log(allLogsButton.getAttribute('aria-pressed') === 'true' && getComputedStyle(allLogsButton).backgroundColor !== idleLogStyle.backgroundColor && getComputedStyle(allLogsButton).borderBottomStyle === 'solid', '日志默认筛选有可见背景边框和aria-pressed，不依赖文字颜色');
+  const logSnapshot = S().logs.slice();
+  store.mutate(state => { state.logs = [{ time: 1, text: '重复日志', type: 'system' }, { time: 1, text: '重复日志', type: 'system' }]; }); await flush();
+  const duplicateNodes = $$('.log-line');
+  click($('[data-log-filter="system"]')); await flush();
+  log($$('.log-line').length === 2 && duplicateNodes.every((node, index) => node === $$('.log-line')[index]) && $('[data-log-filter="system"]').getAttribute('aria-pressed') === 'true', '同时间同文字日志不冲突，切换筛选保留各自DOM身份');
+  store.mutate(state => { state.logs.unshift({ time: 2, text: '较新日志', type: 'system' }); }); await flush();
+  log(duplicateNodes.every((node, index) => node === $$('.log-line')[index + 1]), '插入日志不会重用其他日志节点');
+  store.mutate(state => { state.logs = logSnapshot; }); click(allLogsButton); await flush();
   log(!$('[data-resource-id="iron"]'), '初始铁资源未解锁');
   log(!visible($('[data-tab="resourceManagement"]')), '开局无集装箱上限或数量时隐藏资源管理');
   store.mutate(state => { state.containers = 1; }); await flush();
@@ -69,6 +93,28 @@ try {
   store.mutate(state => { state.tech.push('survival'); });
   await flush();
   log(!!$('[data-buy="nest"]'), '原建筑面板立即显示新解锁猫窝');
+  const hotkeySnapshot = JSON.parse(JSON.stringify(S()));
+  const loseQueueKey = async (panel, visibility) => {
+    click($(`[data-tab="${panel}"]`)); await flush();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'q' }));
+    if (visibility) {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+      delete document.hidden;
+    } else window.dispatchEvent(new Event('blur'));
+    await flush();
+  };
+  for (const visibility of [false, true]) {
+    store.mutate(state => { Object.assign(state, JSON.parse(JSON.stringify(hotkeySnapshot))); state.settings.paused = true; state.settings.queueHotkeys = true; Object.assign(state.resources, { wood: 100, stone: 100, cash: 100, knowledge: 100, food: 100 }); });
+    await loseQueueKey('buildings', visibility);
+    click($('[data-buy="nest"]')); await flush();
+    log(S().buildings.nest === 1 && !S().queue.length, `建筑Q键${visibility ? '页面隐藏' : '窗口失焦'}后清除，资源足够直接购买`);
+    await loseQueueKey('tech', visibility);
+    click($('[data-research="tools"]')); await flush();
+    log(S().tech.includes('tools') && !S().queue.length, `科技Q键${visibility ? '页面隐藏' : '窗口失焦'}后清除，资源足够直接研究`);
+  }
+  store.mutate(state => { Object.assign(state, hotkeySnapshot); }); await flush();
+  click($('[data-tab="buildings"]')); await flush();
   store.mutate(state => { state.tech = []; state.resources.food = 10; });
   await flush();
   click($('[data-tab="tech"]')); await flush();
@@ -116,6 +162,7 @@ try {
   click($('[data-tab="story"]')); await flush();
   log($$('[data-story-phase]').length === 3 && $$('[data-story-chapter]').length === 17, '文明档案保留八章并增加第三阶段九章');
   log(!$('[data-story-open="anotherMind"]') && !$('#app').textContent.includes('AI超级核心的最后一段结构'), '未解锁章节隐藏正文及标题');
+  log(getComputedStyle($('.story-locked')).opacity === '1' && getComputedStyle($('.story-locked')).color === 'rgb(170, 165, 143)', '锁定剧情使用清晰的主题弱化色，不再降低整行透明度');
   click($('[data-story-open="firstShelter"]')); await flush();
   log($('[data-story-text="firstShelter"]').textContent.includes('第一座猫窝没有名字') && S().story.read.includes('firstShelter'), '展开剧情立即显示正文并标记已读');
   log(JSON.parse(localStorage.getItem(CONFIG.saveKey)).story.read.includes('firstShelter'), '剧情已读状态即时持久化');
@@ -199,8 +246,14 @@ try {
 
   click($('[data-tab="internal"]')); await flush();
   log(!!$('#taxRateInput') && !!$('#openGovernmentReform'), '内部管理税收和改革按钮存在');
+  const taxPausedBefore = S().settings.paused, taxRateBefore = S().taxRate;
+  store.mutate(state => { state.settings.paused = true; });
+  $('#taxRateInput').value = '21'; $('#taxRateInput').dispatchEvent(new Event('input', { bubbles: true })); await flush();
+  log(S().taxRate === 21 && JSON.parse(localStorage.getItem(saveKey)).taxRate === 21, '暂停时调整税率立即持久保存，不依赖后续tick或其他操作');
+  store.mutate(state => { state.taxRate = taxRateBefore; state.settings.paused = taxPausedBefore; }); await flush();
   click($('[data-internal-view="military"]')); await flush();
   log(document.body.textContent.includes('士兵管理'), '军事分类可以切换');
+  log($('[data-soldier-training-cap]')?.textContent.includes('完整支付维护') && $('[data-soldier-training-cap]')?.textContent.includes('停机不移除已有士兵'), '军事UI区分拥有容量和维护支持的训练容量，不误称停机删除士兵');
 
   const showTip = async (selector, focus = false) => {
     const element = $(selector);
@@ -431,6 +484,23 @@ try {
     const box = $('#factoryModal').getBoundingClientRect(), row = $('#factoryModal .factory-row').getBoundingClientRect();
     log(Math.abs(box.width - Math.min(504, innerWidth - 32)) < 1 && row.height >= 30 - .5, `工厂弹窗加宽至504px且行高30px [width=${box.width},row=${row.height}]`);
   }
+  {
+    const dialog = $('#factoryModal'), recipe = $('#factoryModal .factory-name');
+    const originalWidth = dialog.style.width;
+    // showModal autofocuses the first focusable recipe; establish a genuinely
+    // collapsed baseline rather than measuring that already expanded autofocus state.
+    const otherControl = dialog.querySelector('button:not(:disabled)');
+    otherControl.focus();
+    dialog.style.width = 'min(340px, calc(100vw - 32px))'; await flush();
+    const closedHeight = recipe.getBoundingClientRect().height;
+    recipe.focus(); await flush();
+    const recipeBox = recipe.getBoundingClientRect(), dialogBox = dialog.getBoundingClientRect();
+    const detailStyle = getComputedStyle(recipe, '::after');
+    log(document.activeElement === recipe && detailStyle.display === 'block' && detailStyle.position === 'static' && detailStyle.whiteSpace === 'normal' && recipeBox.height > closedHeight && recipeBox.left >= dialogBox.left && recipeBox.right <= dialogBox.right && dialog.scrollWidth <= dialog.clientWidth + 1, `窄工厂弹窗键盘展开配方参与正常流并换行，无横向裁剪 [focus=${document.activeElement === recipe},display=${detailStyle.display},position=${detailStyle.position},whiteSpace=${detailStyle.whiteSpace},closed=${closedHeight},open=${recipeBox.height},left=${recipeBox.left},right=${recipeBox.right},dialogLeft=${dialogBox.left},dialogRight=${dialogBox.right},scroll=${dialog.scrollWidth},client=${dialog.clientWidth}]`);
+    recipe.blur(); await flush();
+    log(getComputedStyle(recipe, '::after').display === 'none' && recipe.getBoundingClientRect().height === closedHeight, '工厂配方失焦后折叠并恢复行高');
+    dialog.style.width = originalWidth; await flush();
+  }
   $('#factoryModal').dispatchEvent(new Event('cancel', { cancelable: true })); await flush();
   log(!$('#factoryModal'), '工厂弹窗处理Escape对应的原生cancel事件后关闭');
   click($('[data-world-view="space"]')); await flush();
@@ -501,7 +571,23 @@ try {
   store.mutate(state => { Object.assign(state.resources,{cash:100000,metal:10000,alloy:5000,e710:10,nanotubes:50000,helium3:1000}); }); await flush();
   click($('[data-buy="aiSupercore"]')); await flush();
   log(S().buildings.aiSupercore === 100 && !!$('[data-buy="aiSupercore"]').closest('.building-control').querySelector('.building-toggle'), '第100段实际建成完整AI核心并开放运行开关');
-  log($('[data-buy="aiSupercore"]').disabled && $('[data-buy="aiSupercore"] .building-count').textContent === '1' && !$('[id="quantumLevel"]'), '核心建满后数量显示1禁止继续建造且世界页面移除量子水平');
+  log($('[data-buy="aiSupercore"]').getAttribute('aria-disabled') === 'true' && $('[data-buy="aiSupercore"] .building-count').textContent === '1' && !$('[id="quantumLevel"]'), '核心建满后数量显示1禁止继续建造且世界页面移除量子水平');
+  const maxCore = $('[data-buy="aiSupercore"]');
+  const maxCoreInfo = maxCore.closest('.building-control').querySelector('.building-info');
+  const coreBeforeDisabledClick = S().buildings.aiSupercore;
+  // Completed purchases retain focus/hover details without an extra desktop info column.
+  maxCore.focus(); await flush();
+  maxCore.click(); maxCore.focus(); await flush();
+  const disabledCoreStyle = getComputedStyle(maxCore);
+  log(S().buildings.aiSupercore === coreBeforeDisabledClick && document.activeElement === maxCore && maxCore.classList.contains('is-complete') && disabledCoreStyle.borderTopStyle === 'solid' && disabledCoreStyle.backgroundImage === 'none' && disabledCoreStyle.backgroundColor === 'rgb(81, 76, 71)', '建成一次性建筑保持正常亮起背景和实线边框，无斜纹，且仍禁止重复购买');
+  log(!visible(maxCoreInfo), '桌面端建成建筑不显示额外详情按钮，不占据右侧宽度');
+  maxCore.focus(); await flush();
+  log(document.activeElement === maxCore && $('#gameTooltip')?.textContent.includes('AI超级核心'), '已达上限建筑本体可键盘聚焦打开tooltip');
+  await escapeTip();
+  await showTip('[data-buy="aiSupercore"]');
+  const maxTipBox = $('#gameTooltip')?.getBoundingClientRect();
+  log(!!maxTipBox && maxTipBox.left >= 0 && maxTipBox.top >= 0 && maxTipBox.right <= innerWidth && maxTipBox.bottom <= innerHeight, '已达上限建筑本体悬停详情在视口内显示');
+  await escapeTip();
   log(!$('[data-buy="aiSupercore"] .building-segment-requirement') && $('[data-buy="aiSupercore"] .building-name').textContent === 'AI超级核心', '核心按钮保留建筑名称并移除重叠的分段说明');
   await showTip('.building-info[data-building-tip="aiSupercore"]');
   log($('#gameTooltip .tip-description')?.textContent.includes('world.exection(cat);') || $('#gameTooltip').textContent.includes('world.exection(cat);'), 'AI超级核心悬停副标题包含world.exection(cat);');
@@ -713,6 +799,7 @@ try {
   store.mutate(state => { state.tech.push('escapePlan','carbonNanotubes'); state.buildings.interstellarDock = 1; state.buildings.hangar = 1; state.resources.cash = 1000000; }); await flush();
   click($('[data-ship-settings]')); await flush();
   log(!!$('#spaceshipModal')?.open && $$('[data-ship-component]').length === 6, '船坞设置打开六组件ESS建造原生窗口');
+  log($$('[data-ship-resource="population"] .ship-resource-label').length > 0 && $$('[data-ship-resource="population"] .ship-resource-label').every(row => row.textContent.includes('猫猫') && !row.textContent.includes('鐚')), '飞船人口需求显示猫猫而非乱码');
   log($('[data-ship-invest="computer"]').disabled && $('[data-ship-component="computer"]').textContent.includes('构建船体之前不可用'), '船体完成前其他组件不可用');
   click($('[data-ship-invest="hull"][data-percent="max"]')); await flush();
   log(S().shipResourceProgress.hull.cash === 100 && !S().shipComponents.hull, '船体可单独投入资金而无需其他材料同时充足');
@@ -731,6 +818,13 @@ try {
   click($('[data-ship-settings]')); await flush();
   click($('#launchSpaceship')); await flush();
   log(!!$('#escapeConfirm')?.open && !S().prestige.escapeResets, '发射前显示逃离重置确认及奖励');
+  log(getComputedStyle($('#confirmEscapeLaunch')).borderTopWidth === '2px' && getComputedStyle($('#confirmEscapeLaunch')).backgroundColor !== getComputedStyle($('#escapeConfirm .actions button')).backgroundColor, '危险操作以加粗边框和背景区分，按钮文字仍遵循主题色');
+  const replaceStateBeforeFailure = store.runtime.replaceState;
+  const stateBeforeRejectedEscape = S(), logsBeforeRejectedEscape = S().logs.length;
+  store.runtime.replaceState = () => { throw new Error('acceptance validation rejection'); };
+  try { click($('#confirmEscapeLaunch')); await flush(); }
+  finally { store.runtime.replaceState = replaceStateBeforeFailure; }
+  log(S() === stateBeforeRejectedEscape && S().logs.length === logsBeforeRejectedEscape && !S().prestige.escapeResets && $('#escapeConfirm')?.open && $('[role="alert"]')?.textContent.includes('未通过校验'), '新周目校验异常有可见反馈，保持当前周目和确认窗口且不记录成功日志');
   click($('#confirmEscapeLaunch')); await flush();
   log(S().prestige.escapeResets === 1 && S().prestige.casimir >= 13 && !S().buildings.interstellarDock && !$('#spaceshipModal'), '确认发射执行逃离重置保留卡西米尔并清空本周目船坞');
   log(!!$('[data-building-tip="casimir"][data-tip-kind="prestige"]'), '卡西米尔位于威望资源列表');

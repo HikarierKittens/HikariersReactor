@@ -12,8 +12,20 @@ import { KEY_TECHNOLOGIES, layoutTechTree } from '../tech-tree';
 const qHeld = ref(false);
 function onKeyDown(event: KeyboardEvent): void { if (event.key.toLowerCase() === 'q') qHeld.value = true; }
 function onKeyUp(event: KeyboardEvent): void { if (event.key.toLowerCase() === 'q') qHeld.value = false; }
-onMounted(() => { window.addEventListener('keydown', onKeyDown); window.addEventListener('keyup', onKeyUp); });
-onUnmounted(() => { window.removeEventListener('keydown', onKeyDown); window.removeEventListener('keyup', onKeyUp); });
+function resetQueueHotkey(): void { qHeld.value = false; }
+function onVisibilityChange(): void { if (document.hidden) resetQueueHotkey(); }
+onMounted(() => {
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
+  window.addEventListener('blur', resetQueueHotkey);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+});
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeyDown);
+  window.removeEventListener('keyup', onKeyUp);
+  window.removeEventListener('blur', resetQueueHotkey);
+  document.removeEventListener('visibilitychange', onVisibilityChange);
+});
 
 const props = defineProps<{ state: GameState; revision: number; techView: string }>();
 const emit = defineEmits<{ research: [id: TechnologyId, forceQueue: boolean]; techView: [view: string] }>();

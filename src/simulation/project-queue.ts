@@ -32,7 +32,7 @@ export function advanceProjectQueue(state: GameState, dt: number, random: () => 
     const index = state.queue.findIndex(q => q.kind === 'arpa');
     if (index < 0) break;
     if (!isQueueSettingEnabled(state, 'unorderedBuildingQueue')
-      && state.queue.slice(0, index).some(q => q.kind === 'mission' || q.kind === 'ship')) break;
+      && state.queue.slice(0, index).some(q => q.kind !== 'tech')) break;
     const entry = state.queue[index];
     if (!entry || entry.kind !== 'arpa' || !Object.hasOwn(ARPA_PROJECTS, entry.id)) break;
     const before = state.arpaBuildings[entry.id];

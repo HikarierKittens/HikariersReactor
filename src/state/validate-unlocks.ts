@@ -54,7 +54,9 @@ export function validateUnlockRecords(raw: Record<string, unknown>, state: GameS
     state.achievementTracking = { ...tracking } as GameState['achievementTracking'];
   }
   state.legacyRocketry = raw.legacyRocketry === true;
-  if (typeof raw.asrielMissionCompleted !== 'boolean' || typeof raw.asrielMissionQueued !== 'boolean' || raw.asrielMissionQueued) throw Error('Asriel任务状态无效。');
+  // Retired advisory flag: only the validated purchase queue represents pending work.
+  // Accept historical booleans, but clear stale true values so missions remain available.
+  if (typeof raw.asrielMissionCompleted !== 'boolean' || typeof raw.asrielMissionQueued !== 'boolean') throw Error('Asriel任务状态无效。');
   state.asrielMissionCompleted = raw.asrielMissionCompleted; state.asrielMissionQueued = false;
   const kerberosMissionCompleted = raw.kerberosMissionCompleted === undefined ? false : raw.kerberosMissionCompleted;
   if (typeof kerberosMissionCompleted !== 'boolean' || (kerberosMissionCompleted && !state.tech.includes('planetaryExploration'))) throw Error('Kerberos任务状态无效。');

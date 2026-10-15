@@ -34,13 +34,13 @@ export function settleAutomationPower(state: GameState, pool: ResourceAmounts, d
   let mixerUnits = 0, miningUnits = 0, coalMiningUnits = 0, lumberUnits = 0, quarryUnits = 0;
   if (state.tech.includes('cementMixer')) {
     mixerUnits = Math.min(countRunningBuildings('cementWorkshop', state), Math.max(0, pool.energy) / (2 * dt));
-    pool.energy -= mixerUnits * 2 * dt;
+    pool.energy = Math.max(0, pool.energy - mixerUnits * 2 * dt);
   }
   if (state.tech.includes('automatedMining')) {
     miningUnits = Math.min(countRunningBuildings('mine', state), Math.max(0, pool.energy) / dt);
-    pool.energy -= miningUnits * dt;
+    pool.energy = Math.max(0, pool.energy - miningUnits * dt);
     coalMiningUnits = Math.min(countRunningBuildings('coalMine', state), Math.max(0, pool.energy) / dt);
-    pool.energy -= coalMiningUnits * dt;
+    pool.energy = Math.max(0, pool.energy - coalMiningUnits * dt);
     // Gathering automation funds whole buildings only, after existing mining upgrades.
     lumberUnits = Math.min(countRunningBuildings('lumber', state), Math.floor((Math.max(0, pool.energy) + 1e-8) / dt));
     pool.energy = Math.max(0, pool.energy - lumberUnits * dt);

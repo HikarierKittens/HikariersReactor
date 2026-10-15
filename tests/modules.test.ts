@@ -577,7 +577,7 @@ test('late space technologies use exact prices and vault base capacity additions
   assert.deepEqual(TECHNOLOGIES.spaceTransitStation.cost, { knowledge: 210000, metal: 1000, alloy: 1000 });
   assert.equal(TECHNOLOGIES.spaceTransitStation.tier, 13);
   assert.equal(TECHNOLOGIES.spaceTransitStation.name, '电磁弹射系统');
-  assert.equal(TECHNOLOGIES.spaceTransitStation.desc, '研究电磁发射系统来节约燃料');
+  assert.equal(TECHNOLOGIES.spaceTransitStation.desc, '研究电磁弹射系统，解锁电磁发射器以节约太空区域的燃料。');
   assert.equal(BUILDINGS.spaceWaystation.name, '电磁发射器');
   assert.equal(BUILDINGS.spaceWaystation.asrielSupport, undefined);
   assert.equal(BUILDING_GROUPS.at(-1)?.name, '公共事业部门');
@@ -872,7 +872,7 @@ test('persistence writes timestamped JSON and reports storage failure', () => {
   assert.equal(persistGame(state, { setItem: (key, value) => { writes.set(key, value); } }, 'save', 123), true);
   assert.equal(JSON.parse(writes.get('save')!).lastSaved, 123);
   assert.equal(persistGame(state, { setItem: () => { throw Error('quota'); } }, 'save', 456), false);
-  assert.equal(state.lastSaved, 456);
+  assert.equal(state.lastSaved, 123);
   assert.equal(JSON.parse(writes.get('save')!).lastSaved, 123);
 });
 import { migrateV27, migrateV28 } from '../src/state/migrations';

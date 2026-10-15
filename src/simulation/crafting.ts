@@ -57,7 +57,7 @@ export function changeCraftAssignment(state: GameState, id: string, delta: numbe
   if (!Object.hasOwn(CRAFT_RECIPES, id) || !isResourceUnlocked(id, state) || !Number.isSafeInteger(delta) || !delta) return 0;
   const craft = id as CraftId;
   const amount = delta > 0
-    ? Math.min(delta, state.workers.foundry - countCraftWorkers(state))
+    ? Math.min(delta, Math.max(0, state.workers.foundry - countCraftWorkers(state)))
     : -Math.min(-delta, state.craftWorkers[craft]);
   if (!amount) return 0;
   state.craftWorkers[craft] += amount;

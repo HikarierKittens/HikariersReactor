@@ -14,6 +14,8 @@ export function validateHistory(raw: Record<string, unknown>, state: GameState):
   }
   // Legacy mice effects are checked but intentionally not restored.
   state.effects = [];
+  // Logs are non-authoritative display history: discard malformed rows instead
+  // of rejecting otherwise valid progress, and sanitize unknown types below.
   state.logs = [];
   if (!Array.isArray(raw.logs)) return;
   for (const entry of raw.logs.slice(0, 80) as unknown[]) {

@@ -8,7 +8,7 @@ import { NEW_BUILDING_STOPPED, isDefaultZeroResource } from './save-defaults';
 
 export function validateStorageAssignments(raw: { stoppedBuildings?: unknown; containers?: unknown; containerAssignments?: unknown; alloyContainers?: unknown; alloyContainerAssignments?: unknown }, state: GameState): void {
   const stopped = raw.stoppedBuildings as Record<string, unknown> | null | undefined;
-  for (const id of ['catCafe', 'touristCenter']) if (!Number.isInteger(stopped?.[id])) throw Error('商业设施停用数量无效');
+  for (const id of ['catCafe', 'touristCenter']) if (stopped?.[id] !== undefined && !Number.isInteger(stopped[id])) throw Error('商业设施停用数量无效');
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
     const saved = stopped?.[id];
     const newBuilding = NEW_BUILDING_STOPPED.includes(id);

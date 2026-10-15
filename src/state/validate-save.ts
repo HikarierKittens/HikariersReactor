@@ -90,6 +90,7 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
   state.furUnlocked = raw.furUnlocked || Number(raw.soldiers) > 0;
   const savedSettings = raw.settings;
   if (savedSettings !== undefined && (!savedSettings || typeof savedSettings !== 'object' || Array.isArray(savedSettings))) throw Error('游戏设置无效。');
+  // Unknown settings are intentionally ignored for additive save compatibility.
   const settings: GameSettings = { ...DEFAULT_GAME_SETTINGS };
   for (const key of Object.keys(DEFAULT_GAME_SETTINGS) as QueueSettingKey[]) {
     if (savedSettings !== undefined && Object.hasOwn(savedSettings as object, key)) {

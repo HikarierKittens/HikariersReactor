@@ -8,9 +8,17 @@
 
 ## 1. 项目概览
 
-- 运行目录：`D:\XMaker\HikariersReactor`（非 Git 仓库）。
+- 运行目录：`D:\XMaker\HikariersReactor`（Git 仓库）。
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
 - 包管理：npm；生成式桥接脚本见 `scripts/generate-legacy-data.cjs`。
+
+### beta 0.5.6 审计修复约束
+
+- 广播塔/观光空间站幸福度使用结算回放得到的付费运行单位，不能用拥有量替代；太空驻军区分拥有容量（旧档与现有士兵保留）和运行训练容量（受维护/停机影响）。
+- 建造与科研仍是独立队列；ARPA遵守有序建造队列前置，所有建造项目复用同一容量规则。重复建筑的乱序结算仍优先低序号，报价递增无需改变。
+- `lastSaved`只作元数据，未来时间钳制至当前时间，写盘失败回滚；迁移只补缺失的新字段，不覆盖显式有效进度。过时的Asriel排队布尔标志不再阻止任务，实际队列为准。
+- 保留按钮统一主题文字色，用背景/边框区分禁用、危险与选中态；可用性不能只靠颜色表达。日志列表使用仅UI层稳定对象键，不扩展存档格式。
+- `BUILDING_CASH_COSTS`/`BUILDING_COST_SCALES`从建筑主数据派生，避免新建筑漏入兼容表；成本按每建筑每资源系数计算，无全局备用系数。
 
 ### 日志分类与核心副标题
 
@@ -142,7 +150,7 @@
 - `calculateStorageTotals(state, snapshot)`（`src/simulation/storage.ts`）是**全资源容量的批量来源**：与 `calculateStorageDetails` 共用单遍结算核心（`accumulateStorageRows`），现金与 E-710 按明细语义单独回放；`finalizeProduction` 与 `clampResourcesToCaps` 已改用它。
 - CRISPR 双加成语义统一为"两个加成都作用于同一税前小计"（明细与批量一致）。
 - `buildPriceContext(state, dt)`（`src/simulation/costs.ts`）为显示端提供报价数据 `{ quantumLevel?, ironMiningShips? }`；`calculateBuildingCost` 可选接收，未传时自算（购买路径语义不变）。`SupportPreview.ironMiningShips` 是铁采矿船付费运行数的权威来源（与生产结算的 inputs 相同，不依赖幸福度）。
-- **结算账本（A5 完成态）**：`buildSettlementLedger(state, dt, quantumLevel)`（`src/simulation/support-preview.ts`）一次结算派生全部付费设施运行数（含原始 `plants`/`space` 记录）；`calculateSupportPreview` 是其薄封装。`calculateProduction` 通过 `replaySettledPool`（`src/simulation/pool-replay.ts`）按历史顺序消费账本单位——运行数只决定一次，池轨迹与旧链逐字节一致（oracle：`tests/settlement-ledger.test.ts`、`tests/pool-replay.test.ts`；设计文档：`docs/a5-pool-replay-design.md`）。`previewMorale` 保留历史双池结构。新增氘时代设施拥有“气体云产氘/氦 → 后续设施消费”的同一步资源链，其运行数会受实际幸福度影响，因此拥有这些设施时，仅太空及后续科研段使用实际幸福度重新分配；不能把100%幸福度的支持预览直接用于真实扣款。旧设施路径仍保留账本回放优化。
+- **结算账本（A5 完成态）**：`buildSettlementLedger(state, dt, quantumLevel)`（`src/simulation/support-preview.ts`）一次结算派生全部付费设施运行数（含原始 `plants`/`space` 记录）；`calculateSupportPreview` 是其薄封装。`calculateProduction` 通过 `replaySettledPool`（`src/simulation/pool-replay.ts`）按历史顺序消费账本单位——运行数只决定一次，池轨迹与旧链逐字节一致（oracle：`tests/settlement-ledger.test.ts`、`tests/pool-replay.test.ts`；设计文档：`docs/a5-pool-replay-design.md`）。`previewMorale` 保留历史双池结构，并从结算回放提取文化设施实际付费单位；仅在运行文化设施且拥有超空间来源时，以最多32次、幸福度差小于1e-10的有界迭代处理上游燃料产出反馈。新增氘时代设施拥有“气体云产氘/氦 → 后续设施消费”的同一步资源链，其运行数会受实际幸福度影响，因此拥有这些设施时，仅太空及后续科研段使用实际幸福度重新分配；不能把100%幸福度的支持预览直接用于真实扣款。旧设施路径仍保留账本回放优化。
 
 ### 3.4b 氘时代超空间设施
 - 科技：维度信标投放T17；超空间采矿探查T18（700k知识+1000 E-710）→ 气体云吸积T18（720k知识+1000 E-710）→ 高科技农场平台T18／核聚变发电T19／大型采矿舰T19。

@@ -27,9 +27,10 @@ export function validateCivilization(raw: Record<string, unknown>, state: GameSt
   if (state.trainingProgress >= 30 || (state.trainingProgress > 0 && (!state.tech.includes('military') || state.soldiers >= calculateSoldierCapacity(state)))) throw Error('训练进度无效。');
   state.nuclearProgress = validateSaveNumber(raw.nuclearProgress, 0, 100, '核弹进度');
   if (!Number.isInteger(state.nuclearProgress) || (state.nuclearProgress > 0 && !state.tech.includes('nuclearProgram'))) throw Error('核弹工程数据无效。');
-  if (typeof raw.asrielMissionCompleted !== 'boolean' || typeof raw.asrielMissionQueued !== 'boolean' || (raw.asrielMissionQueued && raw.asrielMissionCompleted)) throw Error('Asriel任务状态无效。');
+  // The old queued flag is advisory only; validateSaveQueue restores actual work.
+  if (typeof raw.asrielMissionCompleted !== 'boolean' || typeof raw.asrielMissionQueued !== 'boolean') throw Error('Asriel任务状态无效。');
   state.asrielMissionCompleted = raw.asrielMissionCompleted;
-  state.asrielMissionQueued = raw.asrielMissionQueued;
+  state.asrielMissionQueued = false;
   const kerberosMissionCompleted = raw.kerberosMissionCompleted === undefined ? false : raw.kerberosMissionCompleted;
   if (typeof kerberosMissionCompleted !== 'boolean' || (kerberosMissionCompleted && !state.tech.includes('planetaryExploration'))) throw Error('Kerberos任务状态无效。');
   state.kerberosMissionCompleted = kerberosMissionCompleted;

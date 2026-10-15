@@ -28,6 +28,7 @@ export interface Runtime {
   readonly saveBlocked: boolean;
   /** Validates before replacing; returns whether the accepted state was persisted. */
   replaceState: (value: unknown) => boolean;
+  /** Parsing/validation errors throw for callers to display; false means persistence failed. */
   importSave: (text: string) => boolean;
   exportSave: () => string;
   save: () => boolean;

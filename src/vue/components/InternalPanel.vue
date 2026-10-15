@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { GameState, GovernmentId } from '../../types/state';
-import { GOVERNMENTS, reformCooldown, calculateSoldierCapacity, calculateCombatPower, calculateSoldierPressure, calculateTrainingDuration, calculatePrestigeReward, calculateTrainingBoost, calculateBankerTaxRate } from '../../simulation/government';
+import { GOVERNMENTS, reformCooldown, calculateSoldierCapacity, calculateOperationalSoldierCapacity, calculateCombatPower, calculateSoldierPressure, calculateTrainingDuration, calculatePrestigeReward, calculateTrainingBoost, calculateBankerTaxRate } from '../../simulation/government';
 import { NUCLEAR_PROJECT, calculateNuclearAffordablePercent } from '../../simulation/prestige';
 import { RESOURCES } from '../../data/resources';
 import { fmt, percent, storageCap, orderedCostEntries } from '../format';
+import { uiPreview } from '../preview-cache';
 
 const props = defineProps<{ state: GameState; revision: number }>();
 const emit = defineEmits<{
@@ -27,6 +28,11 @@ const alternatives = computed(() => {
 const bankerRate = computed(() => { props.revision; return Number((calculateBankerTaxRate(props.state) * 100).toFixed(2)); });
 const cashCap = computed(() => { props.revision; return storageCap('cash', props.state, props.revision); });
 const soldierCap = computed(() => { props.revision; return calculateSoldierCapacity(props.state); });
+const trainingCap = computed(() => {
+  props.revision;
+  const paid = props.state.buildings.spaceGarrison ? uiPreview.production(props.state, props.revision).inputUnits.spaceGarrison || 0 : 0;
+  return calculateOperationalSoldierCapacity(props.state, paid);
+});
 const soldierPower = computed(() => { props.revision; return calculateCombatPower(props.state); });
 const soldierPenalty = computed(() => { props.revision; return calculateSoldierPressure(props.state); });
 const trainDuration = computed(() => { props.revision; return calculateTrainingDuration(props.state); });
@@ -38,7 +44,8 @@ const trainingStatus = computed(() => {
   props.revision;
   if (!props.state.tech.includes('military')) return '研究军事后解锁自动训练。';
   if (!soldierCap.value) return '建造军营后开始自动训练，每座提供2个士兵名额。';
-  if (props.state.soldiers >= soldierCap.value) return '士兵已达到上限，建造更多军营可继续自动训练。';
+  if (props.state.soldiers >= soldierCap.value) return '士兵已达到拥有容量，建造更多军营可继续自动训练。';
+  if (props.state.soldiers >= trainingCap.value) return '训练暂停：当前可训练容量不足。太空驻军营需要运行并完整支付维护资源；已有士兵不会因此移除。';
   return `自动训练中，约 ${fmt(Math.max(0, trainDuration.value - props.state.trainingProgress))} 秒后增加一位士兵。`;
 });
 const nuclearProgress = computed(() => { props.revision; return props.state.nuclearProgress || 0; });
@@ -122,7 +129,8 @@ function setTax(event: Event): void {
 
     <section>
       <h3>士兵管理</h3>
-      <p>士兵：{{ state.soldiers }} / {{ soldierCap }}</p>
+      <p>士兵：{{ state.soldiers }} / {{ soldierCap }}（拥有容量）</p>
+      <p data-soldier-training-cap>当前可训练容量：{{ trainingCap }}。太空驻军营仅按完整支付维护的运行座数计入；停机不移除已有士兵。</p>
       <p>{{ trainingStatus }}</p>
       <div class="q-bar" role="progressbar" aria-label="士兵自动训练进度" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="trainingRatio">
         <i :style="{ width: `${trainingRatio}%` }"></i>

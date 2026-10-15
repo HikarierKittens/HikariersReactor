@@ -10,6 +10,18 @@ import { changeWorkerAssignment } from '../src/simulation/commands';
 import { applyResearchSideEffects } from '../src/simulation/purchases';
 import { isBuildingUnderworking } from '../src/vue/building-status';
 
+test('fractional automation payments never leave negative floating energy', () => {
+  for (const id of ['cementWorkshop', 'mine', 'coalMine'] as const) {
+    const s = createInitialState(CONFIG.version, 60, 0);
+    s.tech.push('cementMixer', 'automatedMining'); s.buildings[id] = 1;
+    for (const dt of [.2, .3, .7, 1]) for (const energy of [.1, .29, .57, .99]) {
+      const pool = { ...s.resources, energy };
+      settleAutomationPower(s, pool, dt);
+      assert.ok(pool.energy >= 0, `${id}: ${pool.energy}`);
+    }
+  }
+});
+
 function gatheringState() {
   const state = createInitialState(CONFIG.version, 60, 0);
   state.tech.push('tools');
