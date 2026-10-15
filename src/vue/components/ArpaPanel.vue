@@ -95,7 +95,7 @@ const projects = computed(() => {
     <p class="desc">{{ project.description }}</p>
     <p>已建 {{ fmt(project.completed) }}<span v-if="!project.definition.repeatable"> / {{ fmt(project.limit) }}</span><span v-if="project.pending"> · 队列 {{ project.pending }}</span></p>
     <template v-if="!project.atLimit">
-      <p class="arpa-progress-summary">当前建设进度：{{ project.progress }}%</p>
+      <p class="arpa-progress-summary">当前建设进度：{{ Number(project.progress.toFixed(2)) }}%</p>
       <div class="q-bar arpa-progress" role="progressbar" :aria-label="`${project.definition.name}建设进度`" :aria-valuenow="project.progress" aria-valuemin="0" aria-valuemax="100">
         <i :style="{ width: `${project.progress}%` }"></i>
       </div>
@@ -105,9 +105,8 @@ const projects = computed(() => {
       <p class="small subtle">剩余需求：{{ project.remainingText || '无' }}</p>
       <div class="actions">
         <button v-for="n in [1, 25, 50, 75, 100]" :key="n" :data-arpa-invest="project.id" :data-percent="n" :disabled="project.affordable <= 0" :title="`每项资源最多投入 ${n}%，各自按库存投入`" @click="emit('invest', project.id, n)">建设 {{ n }}%</button>
-        <button :data-arpa-queue="project.id" :disabled="project.queueDisabled" @click="emit('queue', project.id, clickMultiplier($event))">加入队列</button>
+        <button :data-arpa-queue="project.id" title="加入队列；Ctrl ×10、Shift ×25、Alt ×100" :disabled="project.queueDisabled" @click="emit('queue', project.id, clickMultiplier($event))">加入队列</button>
       </div>
-      <p class="small subtle">各项资源独立投入，最多填满当前级别；全部资源齐备后完成建设。队列按钮支持 Ctrl ×10、Shift ×25、Alt ×100。</p>
     </template>
     <p v-else class="subtle">已达到本周目上限。</p>
   </article>

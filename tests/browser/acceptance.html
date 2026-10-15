@@ -403,9 +403,14 @@ try {
   log(S().alloyContainerAssignments.wood === 0 && S().alloyContainers === 10, '合金集装箱撤回不销毁');
   store.mutate(state => { state.buildings.massEjector = 1; }); await flush();
   click($('[data-resource-view="massEjection"]')); await flush();
-  log(inlineRow($('[data-eject-row="wood"]')) && getComputedStyle($('[data-eject-row="wood"]')).whiteSpace === 'nowrap', '质量喷射名称说明和按钮紧凑单行显示');
+  {
+    const list = $('.ejection-list'), rows = [...list.querySelectorAll('[data-eject-row]')];
+    const columns = getComputedStyle(list).gridTemplateColumns.split(' ').length;
+    const first = rows[0].getBoundingClientRect(), second = rows[1].getBoundingClientRect();
+    log(columns === (innerWidth > 900 ? 2 : 1) && (columns === 1 || (second.left > first.right && Math.abs(second.top - first.top) < 2)) && list.scrollWidth <= list.clientWidth + 1, '质量喷射列表两列排列，窄屏单列且无横向溢出');
+  }
   click($('[data-eject-resource="wood"][data-delta="1"]')); await flush();
-  log(S().blackHole.ejection.wood === 10, '质量喷射单行布局仍可正常分配');
+  log(S().blackHole.ejection.wood === 10, '质量喷射双列布局仍可正常分配');
   store.mutate(state => { state.buildings.massEjector = 0; state.blackHole.ejection = {}; }); await flush();
   click($('[data-tab="cats"]')); await flush();
   const craftButton = count => $(`[data-crafted-resource="plank"] [data-craft="plank"][data-craft-count="${count}"]`);
@@ -1029,6 +1034,13 @@ try {
     for (let i = 0; i < 100 && !(page = frame.contentDocument?.querySelector('[data-update-log]'))?.querySelector('li'); i++) await sleep(50);
     log(!!page && !!page.querySelector('h3') && page.querySelectorAll('li').length > 0 && !page.textContent.includes('##') && frame.contentDocument.title.includes('更新日志'),
       '独立更新日志页面渲染根目录 updatelog.md 的标题与列表');
+    const headings = [...page.querySelectorAll('h3')];
+    log(headings.length > 0 && headings.every(heading => {
+      const version = heading.querySelector('.update-log-version');
+      const titleStyle = frame.contentWindow.getComputedStyle(heading);
+      const versionStyle = version && frame.contentWindow.getComputedStyle(version);
+      return titleStyle.color === 'rgb(224, 183, 85)' && versionStyle?.textDecorationLine === 'underline' && versionStyle.textDecorationColor === titleStyle.color && !version.textContent.includes('2026/');
+    }), '所有更新标题为金色，仅版本号带同色下划线（兼容beta无空格标题）');
     frame.remove();
   }
   click($('[data-tab="settings"]')); await flush();

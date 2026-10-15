@@ -89,7 +89,7 @@ const alloyRows = computed(() => {
         <p class="small subtle">每单位喷射容量每秒喷射1单位资源。质量喷射器需完整供电；电力不足时按供电比例减少喷射，库存不足时只喷射现有库存。分配支持 Ctrl ×10、Shift ×25、Alt ×100。</p>
       </section>
     </div>
-    <div class="management-list">
+    <div class="management-list ejection-list">
       <article v-for="row in ejectionRows" :key="row.id" class="management-row" :data-eject-row="row.id">
         <h3 class="management-name">{{ row.definition.name }}</h3>
         <span class="management-note small subtle">每单位{{ row.exotic ? '奇异质量' : '质量' }} {{ mass(row.mass) }}</span>
@@ -208,6 +208,13 @@ const alloyRows = computed(() => {
 }
 .management-controls strong { min-width: 48px; text-align: center; }
 .management-controls > span { min-width: 105px; }
+.ejection-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
+.ejection-list .management-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; width: auto; min-width: 0; white-space: normal; }
+.ejection-list .management-name { overflow-wrap: anywhere; }
+.ejection-list .management-note { grid-column: 1; min-width: 0; overflow-wrap: anywhere; }
+.ejection-list .management-controls { grid-column: 2; grid-row: 1 / 3; flex-wrap: wrap; max-width: 230px; }
+.ejection-list .management-controls > span { min-width: 0; }
+@media (max-width: 900px) { .ejection-list { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 600px) {
   .management-row { gap: 6px; }
   .management-name { flex-basis: 80px; }
