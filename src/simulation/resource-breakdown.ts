@@ -7,7 +7,7 @@ import { calculateBuildingName, calculateBuildingInput, calculateBuildingOutput,
 import { calculateFactoryRecipe, calculateSmelterSlotCapacity, calculateRunningSmelterSlots } from './factory';
 import { calculateProductionMultiplier, calculateAluminumMultiplier, calculateKnowledgeMultiplier, calculateFactoryOutputMultiplier } from './multipliers';
 import { calculateSpaceMultiplier, isSpaceResourceSource } from './asriel';
-import { calculateParticleMultiplier } from './crafting';
+import { calculateParticleMultiplier, calculateGlobalOutputMultiplier, calculateMasteryMultiplier } from './crafting';
 import { calculateChallengeAcceleratorMultiplier } from './multipliers';
 import { calculateFoodPerCat } from './population';
 import { isPowerProducer } from './power';
@@ -82,7 +82,7 @@ export function calculateResourceBreakdown(
         id, kind: 'income', name: `${id === 'smelter' ? '钢冶炼工位' : id === 'catCafe' && resource === 'cash' ? calculateBuildingName(id, state) : b.workerName || calculateBuildingName(id, state)}产出`,
         value: base * speed
           * (resource === 'aluminum' && !HYPERSPACE_SOURCE_IDS.includes(id) ? calculateAluminumMultiplier(state) : 1)
-          * calculateParticleMultiplier(resource, state),
+          * calculateGlobalOutputMultiplier(resource, state),
         note: notes.join(' · '),
       });
     }
@@ -224,7 +224,7 @@ export function calculateResourceFactorRows(
       continue;
     }
     if (e.id === 'titaniumByproduct') {
-      add(e.name, signedRate(e.value / (calculateProductionMultiplier('titanium', happiness, state) * calculateParticleMultiplier(resource, state))));
+      add(e.name, signedRate(e.value / (calculateProductionMultiplier('titanium', happiness, state) * calculateGlobalOutputMultiplier(resource, state))));
       continue;
     }
     if (e.id.startsWith('craft:')) {
@@ -265,7 +265,7 @@ export function calculateResourceFactorRows(
     }
     const globalFactor = (resource === 'energy' ? 1 : calculateProductionMultiplier(resource, happiness, state))
       * (resource === 'knowledge' ? calculateKnowledgeMultiplier(state, result.inputUnits.observatory || 0) : 1)
-      * calculateParticleMultiplier(resource, state);
+      * calculateGlobalOutputMultiplier(resource, state);
     const sourceValue = (globalFactor > 0 ? e.value / globalFactor : e.value)
       / (id === 'cementWorkshop' ? 1 + (result.inputUnits.cementMixer || 0) * .05 : 1)
       / (id === 'lumber' || id === 'quarry' ? 1 + (result.inputUnits[id === 'lumber' ? 'automatedLumber' : 'automatedQuarry'] || 0) * .05 : 1)
@@ -281,7 +281,7 @@ export function calculateResourceFactorRows(
     let local = 1;
     if (id === 'adamantiteMiningShip') {
       const factor = calculateHyperspaceLocalMultiplier(id, state, result.inputUnits.adamantiteProcessor || 0);
-      pct('精金加工站', factor, true); local *= factor;
+      pct(calculateBuildingName('adamantiteProcessor', state), factor, true); local *= factor;
     }
     if (id === 'iridiumMine' && resource === 'iridium') {
       const factor = 1 + .05 * (result.inputUnits.geothermalPlant || 0);
@@ -332,6 +332,7 @@ export function calculateResourceFactorRows(
   // Independent multipliers do not depend on a production source existing today.
   if (resource === 'knowledge') pct('科技至上', calculateGovernmentMultiplier(resource, state));
   pct('粒子', calculateParticleMultiplier(resource, state));
+  pct('精通', calculateMasteryMultiplier(resource, state));
   pct('粒子加速器', calculateChallengeAcceleratorMultiplier(resource, state));
   if (RESOURCES[resource].crafted) {
     pct('锻造工具升级', calculateFoundryMultiplier(state));

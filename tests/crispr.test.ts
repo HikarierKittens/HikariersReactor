@@ -134,10 +134,10 @@ test('save round trips permanent upgrades and applies caps before clamping; miss
 
 test('perks list shows only the highest owned tier of each chain with live values', () => {
   const state = fresh();
-  assert.deepEqual(listActivePerks(state), []);
+  assert.equal(listActivePerks(state).length, 1); assert.equal(listActivePerks(state)[0]!.id, 'mastery');
   state.crispr = ['materialEfficiency', 'innovativeMaterials', 'spatialReasoning', 'dimensionCompression', 'architect'];
   state.prestige.particles = 100;
-  const perks = listActivePerks(state);
+  const perks = listActivePerks(state).filter(perk => perk.id !== 'mastery');
   assert.deepEqual(perks.map(perk => perk.id), ['innovativeMaterials', 'dimensionCompression', 'architect']);
   assert.ok(perks.every(perk => perk.source === 'crispr'));
   assert.ok(perks[0]!.lines.at(-1)!.includes('0.02'));
@@ -152,12 +152,14 @@ test('perks list shows only the highest owned tier of each chain with live value
 test('earned achievements contribute perks only when they define a special effect', () => {
   const state = fresh();
   state.achievements = ['nuclearCuriosity'];
-  assert.deepEqual(listActivePerks(state), []);
-  const definition = ACHIEVEMENTS.nuclearCuriosity as { perk?: string };
-  definition.perk = '测试特权';
+  assert.equal(listActivePerks(state).length, 1); assert.equal(listActivePerks(state)[0]!.id, 'mastery');
+  const definition = ACHIEVEMENTS.nuclearCuriosity;
+  state.achievementLevels = { nuclearCuriosity: 3 };
+  definition.perk = level => `测试特权 +${level + 1}%`;
   try {
-    assert.deepEqual(listActivePerks(state), [{ id: 'nuclearCuriosity', source: 'achievement', name: ACHIEVEMENTS.nuclearCuriosity.name, lines: ['测试特权'] }]);
+    assert.deepEqual(listActivePerks(state).filter(perk => perk.id !== 'mastery'), [{ id: 'nuclearCuriosity', source: 'achievement', name: `${ACHIEVEMENTS.nuclearCuriosity.name} · 等级 3`, lines: ['测试特权 +4%'] }]);
+    assert.ok(listActivePerks(state).find(perk => perk.id === 'mastery')!.lines[0]!.includes('+1%'));
     state.achievements = [];
-    assert.deepEqual(listActivePerks(state), []);
+    assert.equal(listActivePerks(state).length, 1); assert.equal(listActivePerks(state)[0]!.id, 'mastery');
   } finally { delete definition.perk; }
 });

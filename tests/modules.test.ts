@@ -1150,13 +1150,13 @@ test('decimal effects survive binary roundoff without rounding genuine stock fra
   assert.equal(formatNumber(.29), '0.29');
   assert.equal(formatNumber(1.9999), '1.99');
   assert.equal(formatNumber(.04999), '0.04');
-  assert.equal(formatNumber(12000 * 1.17), '14.04K');
+  assert.equal(formatNumber(12000 * 1.17), '14.04k');
 });
 
-test('building effect numbers retain up to four decimals without trailing zeros or compact units', () => {
+test('building effect numbers retain up to four decimals without trailing zeros and compact large values', () => {
   assert.equal(formatEffectNumber(2.05), '2.05');
   assert.equal(formatEffectNumber(.123456), '0.1235');
-  assert.equal(formatEffectNumber(12345.6789), '12345.6789');
+  assert.equal(formatEffectNumber(12345.6789), '12.3457k');
   assert.equal(formatEffectNumber(10), '10');
   assert.equal(formatEffectNumber(.0001), '0.0001');
   assert.equal(formatEffectNumber(.00000001), '0');
@@ -1183,12 +1183,12 @@ test('resource display retains two decimals and suppresses binary roundoff witho
   assert.equal(formatResourceNumber(1.23 - Number.EPSILON), '1.23');
   assert.equal(formatResourceNumber(-1.234567), '−1.23');
   assert.equal(formatResourceNumber(-1e-12), '0');
-  assert.equal(formatResourceNumber(12345.6789), '12.34K');
+  assert.equal(formatResourceNumber(12345.6789), '12.34k');
   assert.equal(formatResourceNumber(Infinity), '∞');
 });
 
 test('formatting truncates stock and handles invalid and negative values', () => {
   assert.equal(formatNumber(NaN), '0'); assert.equal(formatNumber(Infinity), '0');
-  assert.equal(formatNumber(12345), '12.34K'); assert.equal(formatNumber(-12.39), '−12.3');
-  assert.equal(formatNumber(9999.99), '9999'); assert.equal(formatNumber(1e6), '1M');
+  assert.equal(formatNumber(12345), '12.34k'); assert.equal(formatNumber(-12.39), '−12.3');
+  assert.equal(formatNumber(9999.99), '9999'); assert.equal(formatNumber(1e6), '1000k');
 });

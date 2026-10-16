@@ -36,7 +36,7 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
   if (!value || typeof value !== 'object' || (value as Record<string, unknown>).version !== CONFIG.version) throw Error('存档版本不受支持。');
   const raw = value as Record<string, unknown>;
   const state = createInitialState(CONFIG.version, context.eventInterval, context.now);
-  if (Object.keys(raw).some(key => !Object.hasOwn(state, key)) || Object.keys(state).some(key => !Object.hasOwn(raw, key))) throw Error('存档字段无效。');
+  if (Object.keys(raw).some(key => !Object.hasOwn(state, key)) || Object.keys(state).some(key => key !== 'achievementLevels' && !Object.hasOwn(raw, key))) throw Error('存档字段无效。');
   if (typeof raw.furUnlocked !== 'boolean') throw Error('毛皮解锁状态无效。');
   state.furUnlocked = raw.furUnlocked;
   state.happiness = validateSaveNumber(raw.happiness, 0, Number.MAX_SAFE_INTEGER, '幸福度');

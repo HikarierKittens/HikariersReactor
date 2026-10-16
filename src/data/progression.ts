@@ -7,9 +7,11 @@ export interface AchievementDefinition {
   icon: string;
   desc: string;
   /** Optional permanent special effect, listed on the 统计-特权 page once earned. */
-  perk?: string;
+  perk?: string | ((level: number) => string);
   test: (state: GameState) => boolean;
 }
+/** Base mastery and each grade step contribute this fraction, highest grade only. */
+export const ACHIEVEMENT_MASTERY_PER_GRADE = .0025;
 export const ACHIEVEMENTS: Record<AchievementId, AchievementDefinition> = {
   nuclearCuriosity: { name: '好奇害死猫', icon: '', desc: '这是什么？按一下喵～ ——发射核弹毁灭自己', test: s => s.prestige.nuclearResets > 0 },
   escapeRun: { name: '跑路了跑路了', icon: '', desc: '呼呼呼～飞船飞走喽～——乘坐ESS喵星号离开', test: s => s.prestige.escapeResets > 0 },

@@ -6,7 +6,7 @@ import { calculatePoweredWaystations, calculateSpaceFuelMultiplier } from './spa
 import { calculateBuildingInput, calculateBuildingOutput } from './building-production';
 import { isPowerProducer } from './power';
 import { calculateProductionMultiplier } from './multipliers';
-import { calculateParticleMultiplier } from './crafting';
+import { calculateGlobalOutputMultiplier } from './crafting';
 import { calculateSpaceMultiplier, countAsrielResidents } from './asriel';
 import type { ResourceAmounts, ResourceId } from '../types/economy';
 import type { BuildingId } from '../types/buildings';
@@ -195,7 +195,7 @@ function replaySpaceDebits(
     for (const [resource, amount] of Object.entries(BUILDINGS[id].output || {}) as [ResourceId, number][]) {
       const speed = actual * calculateHyperspaceOutputFactor(resource, state, happiness, stageThree.ports) * calculateHyperspaceLocalMultiplier(id, state, spaceUnits.adamantiteProcessor || 0);
       outputs[id] = actual;
-      credit(pool, resource, amount * speed * calculateParticleMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt);
+      credit(pool, resource, amount * speed * calculateGlobalOutputMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt);
     }
   }
 
@@ -220,7 +220,7 @@ function replaySpaceDebits(
 
   // Outputs at the actual happiness, credited exactly like the historical chain.
   outputs.iceMiningShip = stageThree.iceShips * calculateHyperspaceOutputFactor('water', state, happiness, stageThree.ports);
-  credit(pool, 'water', (calculateBuildingOutput('iceMiningShip', state).water || 0) * outputs.iceMiningShip * calculateParticleMultiplier('water', state) * calculateSpaceMultiplier('iceMiningShip', state, asriel) * dt);
+  credit(pool, 'water', (calculateBuildingOutput('iceMiningShip', state).water || 0) * outputs.iceMiningShip * calculateGlobalOutputMultiplier('water', state) * calculateSpaceMultiplier('iceMiningShip', state, asriel) * dt);
   outputs.asrielSpaceport = asriel.ports;
   outputs.asrielControlTower = asriel.towers;
   outputs.signalRepeater = stageThree.repeaters;
@@ -245,7 +245,7 @@ function replaySpaceDebits(
     outputs[id] = units;
     const out = id === 'ecologicalDome' ? { food: .25 } : BUILDINGS[id].output!;
     for (const [resource, value] of Object.entries(out) as [ResourceId, number][]) {
-      credit(pool, resource, value * units * calculateProductionMultiplier(resource, happiness, state) * calculateParticleMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt);
+      credit(pool, resource, value * units * calculateProductionMultiplier(resource, happiness, state) * calculateGlobalOutputMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt);
     }
   }
   for (const id of ['iridiumMine', 'helium3Mine'] as const) {
@@ -255,7 +255,7 @@ function replaySpaceDebits(
     outputs[id] = units * calculateProductionMultiplier(Object.keys(out)[0] ?? '', happiness, state)
       * (id === 'iridiumMine' ? 1 + .05 * (ledger.plants.inputUnits.geothermalPlant || 0) : 1);
     for (const [resource, value] of Object.entries(out) as [ResourceId, number][]) {
-      credit(pool, resource, value * outputs[id] * calculateParticleMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt);
+      credit(pool, resource, value * outputs[id] * calculateGlobalOutputMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt);
     }
   }
   for (const id of ['atmosphericCollector', 'talosMoonMiningStation', 'iridiumMiningShip', 'ironMiningShip', 'e710MiningShip', 'oilExtractor'] as const) {
@@ -265,7 +265,7 @@ function replaySpaceDebits(
     const speed = actual * calculateProductionMultiplier(Object.keys(out)[0] ?? '', happiness, state);
     outputs[id] = speed;
     for (const [resource, amount] of Object.entries(out) as [ResourceId, number][]) {
-      credit(pool, resource, amount * speed * calculateParticleMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt);
+      credit(pool, resource, amount * speed * calculateGlobalOutputMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt);
     }
   }
   return outputs;

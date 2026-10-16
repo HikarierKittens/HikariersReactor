@@ -11,7 +11,7 @@ export type TechnologyId =
   | 'fusionPower' | 'largeMiningShips'
   | 'dimensionPioneer' | 'highTechFactory' | 'higherDimensionalStorage' | 'e710ResearchStation' | 'ripperOverclock'
   | 'overclocking13' | 'superMetal' | 'grapheneProcessing' | 'nanoAlloy' | 'virtualReality' | 'virtualTraining'
-  | 'virtualEntertainment' | 'aerogel' | 'plasmaResearch' | 'plasmaMining' | 'energyShield' | 'stellarForge' | 'penroseTheory'
+  | 'virtualEntertainment' | 'aerogel' | 'plasmaResearch' | 'plasmaMining' | 'energyShield' | 'stellarForge' | 'hazardousMaterialStorage' | 'penroseTheory'
   | 'globalObservationCalibration' | 'anomalyMapping' | 'fieldConstraintTheory'
   | 'advancedMetalRefining'
   | 'spaceControlTower'

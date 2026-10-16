@@ -48,7 +48,7 @@ test('asteroid bases multiply freight capacity additively without boosting unrel
  const s=setup();s.buildings.hyperspaceSpaceport=2;s.buildings.iceMiningShip=1;s.buildings.asteroidBase=2;s.buildings.anchorFreightStation=1;s.resources.energy=1000;s.resources.helium3=1e4;
  const off=clone(s);off.stoppedBuildings.asteroidBase=2;
  for(const id of ordinary)near(calculateStorageDetails(id,s,snap(s)).total-calculateStorageDetails(id,off,snap(off)).total,3200);
- for(const id of ['food','cash','knowledge','e710','energy','helium3'] as ResourceId[])near(calculateStorageDetails(id,s,snap(s)).total,calculateStorageDetails(id,off,snap(off)).total);
+ for(const id of ['food','cash','knowledge','e710','energy'] as ResourceId[])near(calculateStorageDetails(id,s,snap(s)).total,calculateStorageDetails(id,off,snap(off)).total);
  assert.equal(isContainerAssignable('water',s),false);
  s.buildings.iceMiningShip=3;const p=calculateProduction(s);assert.equal(p.inputUnits.iceMiningShip,3);assert.equal(p.inputUnits.asteroidBase,1);near(p.rates.water,3);
 });

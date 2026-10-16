@@ -33,6 +33,11 @@ export function validateUnlockRecords(raw: Record<string, unknown>, state: GameS
   state.unlockedResources = validateSaveIds(raw.unlockedResources, RESOURCES);
   state.tech = validateSaveIds(raw.tech, TECHNOLOGIES);
   state.achievements = validateSaveIds(raw.achievements, ACHIEVEMENTS);
+  const levels = raw.achievementLevels;
+  if (Object.hasOwn(raw, 'achievementLevels') && (!levels || typeof levels !== 'object' || Array.isArray(levels)
+    || Object.entries(levels).some(([id, level]) => !state.achievements.includes(id as GameState['achievements'][number])
+      || !Number.isInteger(level) || (level as number) < 0 || (level as number) > 3))) throw Error('成就等级无效。');
+  state.achievementLevels = { ...levels as GameState['achievementLevels'] };
   const tracking = raw.achievementTracking;
   {
     if (!tracking || typeof tracking !== 'object' || Array.isArray(tracking)
@@ -57,8 +62,8 @@ export function validateUnlockRecords(raw: Record<string, unknown>, state: GameS
     const mission = TECHNOLOGIES[tech].spaceMissionRequired;
     if (mission && !isRegionalMissionCompleted(state, mission)) throw Error('科技需要完成太空任务。');
     if (TECHNOLOGIES[tech].kerberosMissionRequired && !state.kerberosMissionCompleted) throw Error('科技需要完成Kerberos任务。');
-    // 高维存储 requires the completed 空间撕裂者, not merely one segment.
-    if ((tech === 'higherDimensionalStorage' || tech === 'overclocking13') && !isBuildingFullyBuilt('spaceRipper', state)) throw Error('科技需要完成空间撕裂者。');
+    // Ripper technologies require the completed 空间撕裂者, not merely one segment.
+    if ((tech === 'higherDimensionalStorage' || tech === 'ripperOverclock' || tech === 'overclocking13') && !isBuildingFullyBuilt('spaceRipper', state)) throw Error('科技需要完成空间撕裂者。');
     if (!TECHNOLOGIES[tech].pre.every(parent => state.tech.includes(parent))) throw Error('科技前置关系无效。');
   }
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) if ((state.buildings[id] || state.workers[id]) && !isBuildingUnlocked(id, state)) throw Error('建筑尚未解锁。');

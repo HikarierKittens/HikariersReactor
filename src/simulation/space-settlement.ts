@@ -8,7 +8,7 @@ import { calculateBuildingInput, calculateBuildingOutput } from './building-prod
 import { allocateMoonSupport } from './moon';
 import { allocateAsrielSupport, countAsrielResidents, calculateSpaceMultiplier } from './asriel';
 import { calculateProductionMultiplier } from './multipliers';
-import { calculateParticleMultiplier } from './crafting';
+import { calculateGlobalOutputMultiplier } from './crafting';
 import type { ResourceAmounts, ResourceId } from '../types/economy';
 import type { GameState } from '../types/state';
 
@@ -45,7 +45,7 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
   asriel.used = asriel.capacity - asriel.available;
   asriel.support = asriel.capacity;
   // Ice-ship water is a 遥远星际 resource, so it also receives the star-ring bonus.
-  pool.water += (calculateBuildingOutput('iceMiningShip', state).water || 0) * outputs.iceMiningShip * calculateParticleMultiplier('water', state) * calculateSpaceMultiplier('iceMiningShip', state, asriel) * dt;
+  pool.water += (calculateBuildingOutput('iceMiningShip', state).water || 0) * outputs.iceMiningShip * calculateGlobalOutputMultiplier('water', state) * calculateSpaceMultiplier('iceMiningShip', state, asriel) * dt;
   const metalRefineryUnits = settleMetalRefining(state, pool, dt);
   inputs.metalRefinery = outputs.metalRefinery = metalRefineryUnits;
   return withPoweredMetalRefining(state, metalRefineryUnits, state => {
@@ -58,7 +58,7 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
     const units = asriel.allocations[id] * residents;
     inputs[id] = asriel.allocations[id]; outputs[id] = units;
     const out = id === 'ecologicalDome' ? { food: .25 } : BUILDINGS[id].output!;
-    for (const [resource, value] of Object.entries(out) as [ResourceId, number][]) pool[resource] = (pool[resource] || 0) + value * units * calculateProductionMultiplier(resource, happiness, state) * calculateParticleMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt;
+    for (const [resource, value] of Object.entries(out) as [ResourceId, number][]) pool[resource] = (pool[resource] || 0) + value * units * calculateProductionMultiplier(resource, happiness, state) * calculateGlobalOutputMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt;
   }
   inputs.navigationBeacon = outputs.navigationBeacon = moon.beaconUnits || 0;
   inputs.moonBase = outputs.moonBase = moon.baseUnits;
@@ -68,7 +68,7 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
     inputs[id] = moon.allocations[id];
     outputs[id] = moon.allocations[id] * calculateProductionMultiplier(Object.keys(out)[0] ?? '', happiness, state)
       * (id === 'iridiumMine' ? 1 + .05 * geothermalUnits : 1);
-    for (const [resource, value] of Object.entries(out) as [ResourceId, number][]) pool[resource] += value * outputs[id] * calculateParticleMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt;
+    for (const [resource, value] of Object.entries(out) as [ResourceId, number][]) pool[resource] += value * outputs[id] * calculateGlobalOutputMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt;
   }
   const e710ContainerUnits = calculateE710ContainerUnits(state, pool, dt, fuelMultiplier);
   inputs.e710Container = outputs.e710Container = e710ContainerUnits;
@@ -80,7 +80,7 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
   const fundedProcessors = Math.min(processorRunning, Math.floor((Math.max(0, pool.energy) + 1e-8) / (10 * dt)));
   inputs.adamantiteProcessor = outputs.adamantiteProcessor = fundedProcessors;
   pool.energy = Math.max(0, pool.energy - fundedProcessors * 10 * dt);
-  // 天元六alpha星区 producers share this loop; 精金加工站 boosts the adamantite miners.
+  // 天元六alpha星区 producers share this loop; 精金精炼站 boosts the adamantite miners.
   for (const id of HYPERSPACE_SOURCE_IDS) {
     const running = Math.max(0, (state.buildings[id] || 0) - (state.stoppedBuildings[id] || 0));
     if (!running) continue;
@@ -98,7 +98,7 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
     for (const [resource, amount] of Object.entries(out) as [ResourceId, number][]) {
       const speed = actual * calculateHyperspaceOutputFactor(resource, state, happiness, stageThree.ports) * calculateHyperspaceLocalMultiplier(id, state, fundedProcessors);
       pool[resource] = (pool[resource] || 0)
-        + amount * speed * calculateParticleMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt;
+        + amount * speed * calculateGlobalOutputMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt;
     }
   }
   // Pure hyperspace consumers run after the sources so same-step deuterium is visible.
@@ -130,7 +130,7 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
     outputs[id] = speed;
     for (const [resource, amount] of Object.entries(recipe) as [ResourceId, number][]) pool[resource] = Math.max(0, pool[resource] - amount * actual * dt);
     for (const [resource, amount] of Object.entries(out) as [ResourceId, number][]) pool[resource] = (pool[resource] || 0)
-      + amount * speed * calculateParticleMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt;
+      + amount * speed * calculateGlobalOutputMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt;
   }
   return { inputs, outputs, moon, asriel, e710ContainerUnits, metalRefineryUnits, stageThree };
   });

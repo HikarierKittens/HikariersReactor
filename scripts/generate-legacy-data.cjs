@@ -16,6 +16,7 @@ const registry = [
   ['gene-data', 'data/genes'],
   ['genes', 'simulation/genes'],
   ['auto-workers', 'simulation/auto-workers'],
+  // Central grade/mastery/award helpers must be global before state, production and reset consumers.
   ['achievement-tracking', 'simulation/achievement-tracking'],
   ['state', 'state/create-state'],
   ['challenges', 'simulation/challenges'],

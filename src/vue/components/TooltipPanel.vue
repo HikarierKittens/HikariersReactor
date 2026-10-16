@@ -237,7 +237,7 @@ const content = computed<TipContent | null>(() => {
     if (building.lines) add('生产线容量', `+${number(building.lines)}`);
     if (id === 'smelter') add('冶炼厂工位', '+1', false, '冶炼厂本身不产出也不消耗资源；资源由钢冶炼工位产出和消耗，可在设置中查看配方并分配。');
     if (id === 'stellarForge') { add('冶炼厂工位', '+2'); add('工匠上限', '+2'); add('锻造物产量', '+10%'); }
-    if (id === 'adamantiteProcessor') add('精金采矿船产量', '+10%');
+    if (id === 'adamantiteProcessor') add('精金采矿船产量', '+20%');
     if (id === 'vrCenter') add('幸福度', '+2.5%', false, '获得Asriel支持时生效，仍受幸福度上限限制。');
     if (id === 'blackHoleStation') add('空间撕裂者知识容量效果', '+1%', false, '完整支付电力维护后生效。');
     const containerCap = calculateBuildingContainerCap(id, state);

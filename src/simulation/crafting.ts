@@ -1,3 +1,4 @@
+import { getAchievementMasteryBonus } from './achievement-tracking';
 import { CONFIG } from '../data/config';
 import { CRAFT_RECIPES, RESOURCES } from '../data/resources';
 import { isResourceUnlocked } from './unlocks';
@@ -27,6 +28,14 @@ export function calculateParticleMultiplier(id: ResourceId, state: Pick<GameStat
   const acceleratorBonus = isChallengeGeneActive(state, 'particleImbalance') ? 0 : originalBonus * .1 * (state.buildings?.particleAccelerator || 0);
   return id === 'energy' ? 1 : 1 + originalBonus + acceleratorBonus;
 }
+/** Independent output-only mastery; never modifies stocks, costs or energy. */
+export function calculateMasteryMultiplier(id: ResourceId, state: Pick<GameState, 'prestige'> & Partial<GameState>): number {
+  return id === 'energy' ? 1 : 1 + getAchievementMasteryBonus(state);
+}
+/** Shared final resource factor, applied once at each production credit boundary. */
+export function calculateGlobalOutputMultiplier(id: ResourceId, state: Pick<GameState, 'prestige'> & Partial<GameState>): number {
+  return calculateParticleMultiplier(id, state) * calculateMasteryMultiplier(id, state);
+}
 export function calculateFoundryMultiplier(state: Pick<GameState, 'tech' | 'buildings'>): number {
   return state.tech.includes('castingToolUpgrade') ? 1 + (state.buildings.foundry || 0) * .03 : 1;
 }
@@ -42,7 +51,7 @@ export function calculateCraftingMultiplier(id: ResourceId, state: GameState, su
   }
   const accelerator = isChallengeGeneActive(state, 'particleImbalance') && RESOURCES[id]?.crafted
     ? 1 + .0125 * (state.buildings.particleAccelerator || 0) : 1;
-  return calculateParticleMultiplier(id, state) * calculateFoundryMultiplier(state) * planetary * accelerator * calculateStellarForgeCraftMultiplier(state)
+  return calculateGlobalOutputMultiplier(id, state) * calculateFoundryMultiplier(state) * planetary * accelerator * calculateStellarForgeCraftMultiplier(state)
     * calculateOverclockCraftMultiplier(state);
 }
 /** 超频锻造: +2% crafted output per level, for manual forging and artisans alike. */

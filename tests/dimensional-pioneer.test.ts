@@ -140,6 +140,23 @@ test('only a completed ripper adds +100 energy/s and +20% knowledge capacity', (
   }
 });
 
+test('ripperOverclock requires all 100 spaceRipper segments for research and save validation', () => {
+  assert.equal(TECHNOLOGIES.ripperOverclock.buildingRequired, 'spaceRipper');
+  const s = eraState(); s.tech.push('dimensionPioneer');
+  s.resources.knowledge = 1000000;
+  s.buildings.spaceRipper = 99;
+  assert.equal(isTechnologyUnlocked('ripperOverclock', s), false);
+  assert.equal(requestPurchaseModule(s, 'tech', 'ripperOverclock', 0).status, 'rejected');
+  assert.equal(s.tech.includes('ripperOverclock'), false);
+  const invalid = clone(s); invalid.tech.push('ripperOverclock');
+  assert.throws(() => validateCurrentSave(invalid, context), /科技需要完成空间撕裂者/);
+  s.buildings.spaceRipper = 100;
+  assert.equal(isTechnologyUnlocked('ripperOverclock', s), true);
+  assert.equal(requestPurchaseModule(s, 'tech', 'ripperOverclock', 0).status, 'buy-now');
+  assert.equal(s.tech.includes('ripperOverclock'), true);
+  assert.equal(validateCurrentSave(clone(s), context).tech.includes('ripperOverclock'), true);
+});
+
 test('撕裂者超频 is a T19 1M-knowledge tech after 破维先锋 that doubles ripper energy to 200/s', () => {
   const tech = TECHNOLOGIES.ripperOverclock;
   assert.equal(tech.tier, 19);
@@ -274,7 +291,7 @@ test('higher-dimensional storage doubles hyperspace storage and adds spaceport w
   assert.deepEqual(before.port, { helium3: 16000, deuterium: 8000 });
   s.tech.push('higherDimensionalStorage');
   assert.deepEqual(calculateStorageBonuses('hyperspaceSpaceport', s, null, null), { helium3: 32000, water: 16000, deuterium: 16000 });
-  assert.deepEqual(calculateStorageBonuses('asteroidBase', s, null, null), { water: 16000, deuterium: 4000 });
+  assert.deepEqual(calculateStorageBonuses('asteroidBase', s, null, null), { water: 16000, helium3: 8000, neutron: 16000, deuterium: 4000 });
   assert.deepEqual(calculateStorageBonuses('civilianRouteStation', s, null, null), { cash: 64000, food: 64000 });
   // Funded freight stations: 32000 × (1 + 5% per running base + 100%).
 

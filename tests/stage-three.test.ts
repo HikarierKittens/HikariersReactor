@@ -112,7 +112,7 @@ test('normal resets clear third-stage running progress while preserving earned s
 });
 
 test('complete third stage saves round trip immutably and reject incoherent activation',()=>{
-  const s=fresh(); s.tech=Object.keys(TECHNOLOGIES).filter(id=>!['spaceControlTower','hydrogenRecovery','icebreakingPlan','higherDimensionalStorage','overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];
+  const s=fresh(); s.tech=Object.keys(TECHNOLOGIES).filter(id=>!['spaceControlTower','hydrogenRecovery','icebreakingPlan','higherDimensionalStorage','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','hazardousMaterialStorage','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];
   s.prestige.nuclearResets=1;
   s.asrielMissionCompleted=s.kerberosMissionCompleted=s.solarMissionCompleted=s.talosMissionCompleted=s.talosMoonMissionCompleted=s.asteroidBeltMissionCompleted=s.misenMissionCompleted=true;
   s.arpaBuildings.rocketPlatform=s.arpaBuildings.monument=s.arpaBuildings.geneSequencing=1;s.arpaBuildings.arpaResearchInstitute=2;
@@ -127,7 +127,7 @@ test('complete third stage saves round trip immutably and reject incoherent acti
 
 test('complete third stage chain uses actual research and construction without experiments or reading',()=>{
   const s=fresh();const chain=['globalObservationCalibration','anomalyMapping','fieldConstraintTheory','accessPointBeacon','dimensionBeaconDeployment'];
-  const later=['hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'];
+  const later=['hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','hazardousMaterialStorage','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'];
   s.tech=Object.keys(TECHNOLOGIES).filter(id=>id!=='spaceControlTower'&&!chain.includes(id)&&!later.includes(id)) as TechnologyId[];
   s.prestige.nuclearResets=1;s.asrielMissionCompleted=s.kerberosMissionCompleted=s.solarMissionCompleted=s.talosMissionCompleted=s.talosMoonMissionCompleted=s.asteroidBeltMissionCompleted=s.misenMissionCompleted=true;
   s.arpaBuildings.rocketPlatform=s.arpaBuildings.monument=s.arpaBuildings.geneSequencing=1;s.arpaBuildings.arpaResearchInstitute=2;s.buildings.aiSupercore=100;

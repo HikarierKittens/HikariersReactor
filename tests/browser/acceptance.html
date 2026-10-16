@@ -151,7 +151,13 @@ try {
   log($$('[data-achievement]').length === 6 && !$('[data-achievement="nuclearCuriosity"]'), '未完成筛选隐藏已获成就');
   store.mutate(state => { state.achievements = []; }); await flush();
   click($('[data-statistics-view="perks"]')); await flush();
-  log(!!$('.perk-list .empty') && !$('[data-perk]'), '无CRISPR时特权页显示空状态');
+  log($('[data-perk="mastery"]')?.textContent.includes('+0%'), '无成就时特权页显示精通0%');
+  store.mutate(state => { state.achievements = ['nuclearCuriosity']; state.achievementLevels = { nuclearCuriosity: 3 }; }); await flush();
+  log($('[data-perk="mastery"]')?.textContent.includes('+1%'), '等级3精通为1%而不是等级累加');
+  click(achievementTab); await flush(); click($('[data-achievement-filter="all"]')); await flush();
+  log($('[data-achievement="nuclearCuriosity"] [data-achievement-level="3"]')?.textContent.includes('1%') && $('.achievement-tips')?.textContent.includes('不按等级累加'), '成就显示最高等级与精通，顶部Tips说明覆盖规则');
+  store.mutate(state => { state.achievements = []; state.achievementLevels = {}; }); await flush();
+  click($('[data-statistics-view="perks"]')); await flush();
   const perkSnapshot = JSON.parse(JSON.stringify(S().crispr));
   store.mutate(state => { state.crispr = ['materialEfficiency', 'innovativeMaterials', 'architect']; }); await flush();
   log(!$('[data-perk="materialEfficiency"]') && !!$('[data-perk="innovativeMaterials"]') && $('[data-perk="architect"] .perk-name').textContent.includes('建筑师'), '特权页只显示覆盖链最高级并列出独立CRISPR效果');
@@ -200,7 +206,7 @@ try {
 
   // Automation UI is independent of manual assignments and uses only idle cats.
   const autoSnapshot = JSON.parse(JSON.stringify(S()));
-  store.mutate(state => { state.population = 5; state.buildings.forage = 10; state.buildings.school = 10; if (!state.tech.includes('writing')) state.tech.push('writing'); }); await flush();
+  store.mutate(state => { state.settings.paused = true; state.population = 5; state.buildings.forage = 10; state.buildings.school = 10; if (!state.tech.includes('writing')) state.tech.push('writing'); }); await flush();
   log(!$('[data-auto-worker="forage"]'), '自动分配默认关闭并隐藏岗位配置');
   click($('[data-auto-workers-toggle]')); await flush();
   log(!!$('[data-auto-worker="forage"]') && !$('[data-auto-worker="lumber"]'), '总开关打开后显示有限岗位自动设置，不显示无限岗位');
@@ -568,7 +574,7 @@ try {
   log(!!$('[data-resource-id="e710"]') && !!$('[data-buy="miningDrone"]') && !!$('[data-buy="oilExtractor"]'), 'E-710资源与塔卫二扫描建筑即时解锁');
   log(!!$('#launchMisenMission') && ! $('[data-buy="e710Warehouse"]'), '米神星发现显示任务且完成前建筑不可见');
   await showTip('#launchMisenMission');
-  log($('#gameTooltip').textContent.includes('30K') && $('#gameTooltip').textContent.includes('E-710'), `米神星任务悬停显示两种费用 [${$('#gameTooltip').textContent}]`);
+  log($('#gameTooltip').textContent.includes('30k') && $('#gameTooltip').textContent.includes('E-710'), `米神星任务悬停显示两种费用 [${$('#gameTooltip').textContent}]`);
   await escapeTip();
   click($('#launchMisenMission')); await flush();
   const misenGroups = $$('[data-building-group]').map(group => group.dataset.buildingGroup);
@@ -764,6 +770,14 @@ try {
     const groups=$$('[data-building-group]').map(group=>group.dataset.buildingGroup);
     log(['adamantiteMiningShip','adamantiteProcessor','grapheneFactory'].every(id=>!!$(`[data-building-group="alphaSector"] [data-buy="${id}"]`))&&groups.indexOf('neutronStar')>groups.indexOf('alphaSector')&&groups.indexOf('blackHole')>groups.indexOf('neutronStar'),'精金与石墨烯设施位于alpha星区，卡尔维拉与DSR-8086依次出现');
     log(!!$('[data-building-group="neutronStar"] #launchNeutronStarMission')&&!!$('[data-building-group="blackHole"] #launchBlackHoleMission')&&!$('[data-buy="stellarForge"]')&&!$('[data-buy="blackHoleStation"]'),'中子星与黑洞探索任务按钮出现，完成前不显示区域建筑');
+  }
+  {
+    const snapshot=structuredClone(S());
+    store.mutate(state=>{state.neutronStarMissionCompleted=true;state.tech.push('stellarForge','hazardousMaterialStorage');});await flush();
+    log(!!$('[data-building-group="neutronStar"] [data-buy="hazardousMaterialStorage"]'),'危险物质库研究后显示于卡尔维拉');
+    await showTip('[data-buy="hazardousMaterialStorage"]');
+    log($('#gameTooltip').textContent.includes('32k') && $('#gameTooltip').textContent.includes('500'),'危险物质库悬停容量使用公制显示');await escapeTip();
+    store.mutate(state=>Object.assign(state,snapshot));await flush();
   }
   store.mutate(state=>{state.blackHoleMissionCompleted=true;state.tech.push('penroseTheory');});await flush();
   log(!$('#launchBlackHoleMission')&&!!$('[data-building-group="blackHole"] [data-buy="blackHoleStation"]')&&!!$('[data-building-group="blackHole"] [data-buy="penroseSphere"]'),'黑洞探索完成后显示黑洞星际站与彭罗斯球体');

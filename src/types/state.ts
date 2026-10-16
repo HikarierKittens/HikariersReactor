@@ -147,6 +147,8 @@ export interface GameState {
   growth: number;
   starvation: number;
   achievements: AchievementId[];
+  /** Permanent best grades; omitted entries on earned achievements mean grade zero. */
+  achievementLevels?: Partial<Record<AchievementId, number>>;
   achievementTracking: AchievementTracking;
   effects: { id: 'mice'; left: number }[];
   eventIn: number;

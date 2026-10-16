@@ -2,7 +2,7 @@ import { calculateRefiningMultiplier } from './refining';
 import { BUILDINGS } from '../data/buildings';
 import { RESOURCES } from '../data/resources';
 import { calculateGovernmentMultiplier } from './government';
-import { calculateParticleMultiplier } from './crafting';
+import { calculateGlobalOutputMultiplier } from './crafting';
 import { isChallengeGeneActive } from './challenges';
 import type { BuildingId } from '../types/buildings';
 import type { ResourceId } from '../types/economy';
@@ -28,6 +28,6 @@ export function calculateProductionMultiplier(id: string, happiness: number, sta
 }
 export function calculateFactoryOutputMultiplier(id: ResourceId, happiness: number, state: GameState, knowledge: number): number {
   return (RESOURCES[id].crafted || id === 'energy' ? 1 : calculateProductionMultiplier(id, happiness, state) * (id === 'knowledge' ? knowledge : 1))
-    * calculateParticleMultiplier(id, state) * (RESOURCES[id].crafted ? calculateChallengeAcceleratorMultiplier(id, state) : 1) * (state.government === 'industrialism' ? 1.25 : 1)
+    * calculateGlobalOutputMultiplier(id, state) * (RESOURCES[id].crafted ? calculateChallengeAcceleratorMultiplier(id, state) : 1) * (state.government === 'industrialism' ? 1.25 : 1)
     * (id === 'polymer' && state.tech.includes('titaniumAlloyReactor') ? 1.5 : 1);
 }

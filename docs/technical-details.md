@@ -21,6 +21,19 @@
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
 - 包管理：npm；生成式桥接脚本见 `scripts/generate-legacy-data.cjs`。
 
+### 危险物质库与精金平衡（beta 0.6.5）
+
+hazardousMaterialStorage为T21/pre stellarForge/knowledgeCost1750000+nanoAlloy25000；建筑在卡尔维拉，neutronStar任务完成后可见，cost adamantite10000+nanoAlloy10000，scale1.265，storage e710500/neutron32000。asteroidBase新增helium34000/neutron8000，使用原有实际供电支持份额并享受higherDimensionalStorage双倍。
+
+adamantiteMiningShip基础.25/s，adamantiteProcessor显示名精金精炼站，本地倍率每座实际运行站+.2；保留旧ID。ripperOverclock解锁与存档校验要求spaceRipper100段。format共享公制单位以当前单位超过10000才晋级，顺序k/M/G/T/P/E/Z/Y/R/Q，库存仍截断不虚增，速率和效果按各自精度显示。dimensionCompression说明改用格纳库。
+
+### 成就等级与精通（beta 0.6.4）
+
+- achievementLevels可选稀疏映射，键必须为已完成成就、值为整数0～3。未分级的当前schema31成就按0级计算，未完成成就不产生精通；旧schema12～30仍拒绝，其他必填字段规则不变。
+- awardAchievement只保存最高等级，等级取完成时challenge.genes数并封顶3；快照类必须false→true再次完成，重置事件以重置前挑战状态授予。各普通/威望重置保留并结算最后快照，硬重置清空，来源状态不被修改。
+- 精通=sum((最高等级+1)*0.0025)，不是每级累加；与粒子等倍率独立相乘。calculateGlobalOutputMultiplier汇合粒子与精通，普通/工厂/太空产出、税收副产物以及手动和工匠锻造均在产出入口应用一次，电力排除，投入成本不变。收支明细单列精通。
+- 特权列表始终展示精通总量；成就perk可为字符串或(level)=>string，只使用最高等级一次。本次现有成就没有新设专属特权。
+
 ### 幸福度详情（beta 0.6.3）
 
 calculateMorale.raw为max(0,各项幸福度贡献之和)，无上限；happiness仍为max(40,min(cap,raw))，结算使用happiness因此不改变已有生产效果。TooltipPanel采用独立morale-columns：左列有效/实际/上限，右列有符号贡献，广播塔与观光站分开，不含容量来源或供能比例独立行。沿用实际供能预览，窄屏回退单列。

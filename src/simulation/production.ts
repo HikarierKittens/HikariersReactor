@@ -8,7 +8,7 @@ import { allocateMoonSupport } from './moon';
 import { settleAutomationPower } from './power-consumers';
 import { settleFactoryLines } from './factory-settlement';
 import { settleGroundProduction } from './ground-settlement';
-import { settleAutomaticCrafting, calculateParticleMultiplier } from './crafting';
+import { settleAutomaticCrafting, calculateGlobalOutputMultiplier } from './crafting';
 import { settlePopulationIncome, finalizeProduction } from './production-finalize';
 import { calculateBuildingOutput } from './building-production';
 import { calculateProductionMultiplier } from './multipliers';
@@ -89,7 +89,7 @@ export function calculateProduction(state: GameState, dt = 1) {
     Object.assign(inputUnits, automation.inputs);
     settleGroundProduction(state, pool, dt, morale.happiness, inputUnits, outputs, { ...automation, dataUnits });
     if (state.tech.includes('titaniumSmelting')) {
-      const titanium = (calculateBuildingOutput('smelter', state).metal || 0) * .1 * (inputUnits.smelter || 0) * calculateProductionMultiplier('titanium', morale.happiness, state) * calculateParticleMultiplier('titanium', state);
+      const titanium = (calculateBuildingOutput('smelter', state).metal || 0) * .1 * (inputUnits.smelter || 0) * calculateProductionMultiplier('titanium', morale.happiness, state) * calculateGlobalOutputMultiplier('titanium', state);
       pool.titanium += titanium * dt; outputs.titaniumByproduct = titanium;
     }
     const crafting = settleAutomaticCrafting(state, pool, dt, asriel);

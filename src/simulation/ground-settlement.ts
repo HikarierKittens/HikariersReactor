@@ -2,7 +2,7 @@ import { BUILDINGS } from '../data/buildings';
 import { CONFIG } from '../data/config';
 import { calculateBuildingInput, calculateBuildingOutput, calculateToolMultiplier, calculateGrantedJobSlots } from './building-production';
 import { calculateProductionMultiplier, calculateKnowledgeMultiplier, calculateAluminumMultiplier } from './multipliers';
-import { calculateParticleMultiplier } from './crafting';
+import { calculateGlobalOutputMultiplier } from './crafting';
 import { isPowerProducer } from './power';
 import { calculateSmelterSlotCapacity, calculateRunningSmelterSlots } from './factory';
 import type { GameState } from '../types/state';
@@ -39,7 +39,7 @@ export function settleGroundProduction(state: GameState, pool: ResourceAmounts, 
     for (const [r, v] of inputs) ratio = Math.min(ratio, pool[r] / (v * units * dt || 1));
     ratio = Math.max(0, ratio); speed *= ratio; inputUnits[id] = units * ratio;
     for (const [r, v] of inputs) pool[r] = Math.max(0, pool[r] - v * inputUnits[id] * dt);
-    for (const [r, v] of entries(out)) pool[r] += (b.workerOutput ? (calculateBuildingOutput(id, state)[r] || 0) * calculateToolMultiplier(id, state) : v) * speed * (r === 'aluminum' ? calculateAluminumMultiplier(state) : 1) * calculateParticleMultiplier(r, state) * dt;
+    for (const [r, v] of entries(out)) pool[r] += (b.workerOutput ? (calculateBuildingOutput(id, state)[r] || 0) * calculateToolMultiplier(id, state) : v) * speed * (r === 'aluminum' ? calculateAluminumMultiplier(state) : 1) * calculateGlobalOutputMultiplier(r, state) * dt;
     outputs[id] = speed;
   }
 }

@@ -28,7 +28,13 @@ export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: 
     ...(isResourceUnlocked('deuterium', state) ? { deuterium: 8000 * dimensional } : {}),
   };
   if (id === 'iceMiningShip') return { water: 100 };
-  if (id === 'asteroidBase') return isResourceUnlocked('deuterium', state) ? { water: 8000 * dimensional, deuterium: 2000 * dimensional } : { water: 8000 * dimensional };
+  if (id === 'asteroidBase') return {
+    water: 8000 * dimensional,
+    helium3: 4000 * dimensional,
+    neutron: 8000 * dimensional,
+    ...(isResourceUnlocked('deuterium', state) ? { deuterium: 2000 * dimensional } : {}),
+  };
+  if (id === 'hazardousMaterialStorage') return { e710: 500, neutron: 32000 };
   if (id === 'civilianRouteStation') return { cash: 32000 * dimensional, food: 32000 * dimensional };
   if (id === 'e710Container') return { e710: 50 };
   if (id === 'e710Warehouse') return { e710: 200 };

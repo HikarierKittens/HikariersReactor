@@ -8,7 +8,7 @@ export type BuildingId =
   | 'fusionPowerPlant' | 'metalMiningShip' | 'fuelMiningShip'
   | 'spaceRipper' | 'highTechFactory' | 'e710ResearchStation'
   | 'adamantiteMiningShip' | 'adamantiteProcessor' | 'grapheneFactory' | 'vrCenter'
-  | 'stellarForge' | 'blackHoleStation' | 'penroseSphere' | 'massEjector'
+  | 'stellarForge' | 'hazardousMaterialStorage' | 'blackHoleStation' | 'penroseSphere' | 'massEjector'
   | 'constraintArray' | 'shortRangeRelay' | 'anchorFreightStation' | 'civilianRouteStation'
   | 'asrielControlTower'
   | 'alienMaterialLab' | 'aiSupercore' | 'swarmFactory'
