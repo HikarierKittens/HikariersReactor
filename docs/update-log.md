@@ -20,6 +20,11 @@
 
 ---
 
+## 2026/10/16 beta 0.6.2 人口增长提速
+
+- CONFIG.populationGrowthRate=1.5，calculateGrowthMultiplier先应用基础倍率，再叠加原有科技、建筑、CRISPR及基因；保留已积累进度与抽样目标，界面ETA复用同函数。食物/住房与单步最多新增一猫规则不变。
+- 验证：npm run check通过397项测试、旧VM、浏览器、类型检查与生产构建；新增人口20前后基础速度及叠乘回归。
+
 ## 2026/10/16 beta 0.6.1 合金工具与硅酸盐水泥
 
 - 添加alloyDrill/alloyChainsaw：T8、automation+合金资源解锁、知识44000/合金500；指定岗位工具倍率2替换steelTools1.5，非叠加。农民不受影响。

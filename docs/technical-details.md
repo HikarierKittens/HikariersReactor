@@ -21,6 +21,10 @@
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
 - 包管理：npm；生成式桥接脚本见 `scripts/generate-legacy-data.cjs`。
 
+### 人口基础增长（beta 0.6.2）
+
+CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5乘原有科技/社区中心/CRISPR/基因倍率，推进与界面ETA使用同一值。抽样目标5–10/10–20及存档进度单位不变，无需迁移；无其他加成时实际等待约3.33–6.67秒/6.67–13.33秒，食物与住房条件不变。
+
 ### 保护模式原档导出
 
 - Runtime.exportProtectedSave仅在saveBlocked时可用。载入校验失败缓存原始字符串，不解析、格式化或迁移；原始读取失败时，导出操作可重试读取同一localStorage键。读取仍失败则报错，不能以临时新游戏冒充原档。

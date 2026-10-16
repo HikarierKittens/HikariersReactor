@@ -63,9 +63,9 @@ test('maintenance rebalance charges exact helium and energy per funded unit once
 
 test('community center replaces production bonus with growth +10%', () => {
   const s = createInitialState(CONFIG.version, 60, 0);
-  assert.equal(calculateGrowthMultiplier(s), 1);
+  assert.equal(calculateGrowthMultiplier(s), 1.5);
   s.buildings.communityCenter = 1;
-  assert.equal(calculateGrowthMultiplier(s), 1.1);
+  assert.equal(calculateGrowthMultiplier(s), 1.5 * 1.1);
   // The old resource-production +25% hook is gone; production multipliers are
   // identical at the same happiness whether or not the center exists.
   const without = createInitialState(CONFIG.version, 60, 0);

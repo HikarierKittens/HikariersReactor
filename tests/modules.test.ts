@@ -969,11 +969,24 @@ test('research pool reserves lunar then planetary maintenance without touching s
   assert.equal(JSON.stringify(state), snapshot);
 });
 
+test('base population growth advances 1.5 progress per second on both sides of the population threshold', () => {
+  for (const population of [1, 20]) {
+    const state = createInitialState(CONFIG.version, 60, 0);
+    state.population = population; state.resources.food = 10; state.growthTarget = 10;
+    advancePopulationGrowth(state, 2, 0, 100);
+    assert.equal(state.growth, 3); assert.equal(state.population, population);
+    state.tech.push('scientificBreeding'); state.crispr.push('coreReplication'); state.buildings.communityCenter = 1;
+    const before = state.growth;
+    advancePopulationGrowth(state, 1, 0, 100);
+    assert.ok(Math.abs(state.growth - before - 1.5 * 1.25 * 1.15 * 1.1) < 1e-10);
+  }
+});
+
 test('growth preserves food gates, population threshold and one-arrival steps', () => {
   const state = createInitialState(CONFIG.version, 60, 0);
   state.resources.food = 10;
   advancePopulationGrowth(state, 100, 0, 10, () => 0);
-  assert.equal(state.population, 1); assert.equal(state.growth, 95);
+  assert.equal(state.population, 1); assert.equal(state.growth, 145);
   advancePopulationGrowth(state, 1, -1, 10);
   assert.equal(state.growth, 0); assert.equal(state.growthTarget, 0);
   state.population = 20;

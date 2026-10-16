@@ -47,7 +47,7 @@ export function calculateFoodPerCat(state: Pick<GameState, 'buildings'>): number
   return CONFIG.foodPerCat * (state.buildings.communityCenter ? .9 : 1);
 }
 export function calculateGrowthMultiplier(state: Pick<GameState, 'tech' | 'buildings'> & Partial<Pick<GameState, 'crispr' | 'geneModification'>>): number {
-  return (state.tech.includes('scientificBreeding') ? 1.25 : 1) * (state.crispr?.includes('coreReplication') ? 1.15 : 1)
+  return CONFIG.populationGrowthRate * (state.tech.includes('scientificBreeding') ? 1.25 : 1) * (state.crispr?.includes('coreReplication') ? 1.15 : 1)
     * (state.buildings.communityCenter ? 1.1 : 1) * (1 + geneBonus(state, 'maturationAcceleration'));
 }
 /** Cats above the current housing capacity leave immediately; the independent army is untouched. */
