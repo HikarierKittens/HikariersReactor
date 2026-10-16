@@ -181,7 +181,7 @@ const content = computed<TipContent | null>(() => {
     // 冶炼厂 only grants 冶炼厂工位; the slot recipe lives in the smelter settings modal.
     if (!building.workerOutput && !building.asrielSource && id !== 'smelter') {
       for (const [resource, amount] of orderedCostEntries(calculateBuildingOutput(id, state))) {
-        add(RESOURCES[resource as ResourceId].name, `+${number(amount)}/s`);
+        add(RESOURCES[resource as ResourceId].name, `+${resource === 'bytes' ? formatByteNumber(amount) : number(amount)}/s`);
       }
     }
     if ((building.workerOutput || building.artistSlots || building.craftSlots) && !building.unlimited) {
@@ -271,15 +271,22 @@ const content = computed<TipContent | null>(() => {
     const mixerPowered = id === 'cementWorkshop' && state.tech.includes('cementMixer');
     if (miningPowered) add(id === 'mine' ? '每座供电矿井：矿工产量' : '每座供电煤矿：煤矿工人产量', '+5%');
     if (mixerPowered) add('每座供电水泥工坊：水泥工人产量', '+5%');
+    if (building.cpuCompute) add('CPU算力', `+${number(building.cpuCompute)}`);
+    if (id === 'dataCompression') {
+      add('锚点货运站容量', '+20%', false, '获得CPU算力时生效，按有效运行数量累加。');
+      add('量子存储器容量', '+25%', false, '获得CPU算力时生效，按有效运行数量累加。');
+    }
+    if (id === 'cpuDecoder') add('量化压缩模块知识容量', '+10%', false, '获得带宽和CPU算力时生效，按有效运行数量累加。');
     if (id === 'gatewayRouter') add('数据带宽', '+5');
-    if (id === 'quantumStorage') add('字节容量', '+10KB');
+    if (id === 'quantumStorage') add('字节容量', `+${formatByteNumber(building.bytesCap! * (1 + .25 * (snapshot.digital?.dataCompressionUnits ?? 0)))}`, false, '获得带宽时生效；包含有效运行数据压缩的加成。');
     if (id === 'downloadCache') add('字节产量', '+10%');
     if (id === 'downloadExecutable') add('数据下载', '1k知识/s → 10B/s', false, '配置0%～100%的实际知识产出用于下载；不主动消耗知识库存。');
-    if (['downloadExecutable', 'quantumStorage', 'downloadCache'].includes(id)) add('数据带宽', '−1', true);
-    const storage = calculateStorageBonuses(id, state, snapshot.moon, snapshot.asriel);
+    if (building.bandwidthUse) add('数据带宽', `−${number(building.bandwidthUse)}`, true);
+    if (building.cpuComputeUse) add('CPU算力', `−${number(building.cpuComputeUse)}`, true);
+    const storage = calculateStorageBonuses(id, state, snapshot.moon, snapshot.asriel, snapshot.digital);
     for (const [resource, amount] of orderedCostEntries(storage)) {
-      const effectiveAmount = id === 'anchorFreightStation' ? amount * calculateFreightCapacityMultiplier(state, snapshot.stageThree?.asteroidBases || 0) : amount;
-      add(`${RESOURCES[resource as ResourceId].name}容量`, `+${number(effectiveAmount)}`);
+      const effectiveAmount = id === 'anchorFreightStation' ? amount * calculateFreightCapacityMultiplier(state, snapshot.stageThree?.asteroidBases || 0, (snapshot.digital?.dataCompressionUnits ?? 0)) : amount;
+      add(`${RESOURCES[resource as ResourceId].name}容量`, `+${number(effectiveAmount)}`, false, id === 'quantizedCompressionModule' ? '当前每座容量，包含有效运行CPU解码器加成；获得CPU算力时生效。' : undefined);
     }
     // Worker recipe ingredients are not per-building maintenance.
     // Maintenance always follows all benefits and capacity effects.

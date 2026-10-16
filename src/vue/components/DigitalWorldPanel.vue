@@ -16,7 +16,11 @@ const sections = computed(() => {
   props.revision;
   return [
     { id: 'ethernet', name: 'Ethernet', description: '这里是数字世界之间的连接', list: ['gatewayRouter', 'downloadExecutable'] as BuildingId[] },
-    ...(props.state.tech.includes('binaryWorld') ? [{ id: 'interface', name: 'Interface', description: '连接万物的交互接口', list: ['quantumStorage', 'downloadCache'] as BuildingId[] }] : []),
+    ...(props.state.tech.includes('binaryWorld') ? [{ id: 'interface', name: 'Interface', description: '连接万物的交互接口', list: ['quantumStorage', 'downloadCache', 'subcomputeNode'] as BuildingId[] }] : []),
+    ...(props.state.tech.includes('downwardProbe') ? [
+      { id: 'qssd', name: 'QSSD', description: 'AI超级核心的量子存储阵列，让我们深入搜索....', list: ['dataCompression'] as BuildingId[] },
+      { id: 'cpu', name: 'CPU', description: '无数的量子数据流在此穿行', list: ['quantizedCompressionModule', 'cpuDecoder'] as BuildingId[] },
+    ] : []),
   ].map(section => ({ ...section, list: section.list.filter(id => buildingUnlocked(id, props.state)) }));
 });
 const qHeld = ref(false);
@@ -32,7 +36,17 @@ function affordable(id: BuildingId): boolean { return canPayCost(props.state.res
 function running(id: BuildingId): number { return countRunningBuildings(id, props.state); }
 function effective(id: BuildingId): number {
   const snapshot = digital.value;
-  return id === 'gatewayRouter' ? snapshot.gatewayUnits : id === 'downloadExecutable' ? snapshot.downloadUnits : id === 'quantumStorage' ? snapshot.quantumStorageUnits : snapshot.cacheUnits;
+  switch (id) {
+    case 'gatewayRouter': return snapshot.gatewayUnits;
+    case 'downloadExecutable': return snapshot.downloadUnits;
+    case 'quantumStorage': return snapshot.quantumStorageUnits;
+    case 'downloadCache': return snapshot.cacheUnits;
+    case 'subcomputeNode': return snapshot.subcomputeUnits;
+    case 'quantizedCompressionModule': return snapshot.compressionUnits;
+    case 'dataCompression': return snapshot.dataCompressionUnits;
+    case 'cpuDecoder': return snapshot.decoderUnits;
+    default: return 0;
+  }
 }
 function toggle(id: BuildingId, event: MouseEvent, start: boolean): void {
   const available = start ? props.state.buildings[id] - running(id) : running(id);
@@ -45,6 +59,7 @@ function toggle(id: BuildingId, event: MouseEvent, start: boolean): void {
     <h3 class="building-group-title">
       <span class="region-name" tabindex="0" :data-region-description="section.id" :aria-describedby="`digital-region-tip-${section.id}`">{{ section.name }}<span :id="`digital-region-tip-${section.id}`" class="region-description" role="tooltip">{{ section.description }}</span></span>
       <span v-if="section.id === 'ethernet'" class="digital-bandwidth" data-digital-bandwidth :aria-label="`带宽使用 ${fmt(digital.used)} / ${fmt(digital.capacity)}`">{{ fmt(digital.used) }} / {{ fmt(digital.capacity) }}</span>
+      <span v-if="section.id === 'cpu'" class="digital-bandwidth" data-digital-cpu :aria-label="`CPU算力使用 ${fmt(digital.cpuUsed)} / ${fmt(digital.cpuCapacity)}`">{{ fmt(digital.cpuUsed) }} / {{ fmt(digital.cpuCapacity) }}</span>
     </h3>
     <div class="building-grid">
       <div v-for="id in section.list" :key="id" class="building-control">

@@ -59,6 +59,7 @@ function accumulateStorageRows(
       : id === 'e710Container' ? (detailResource === 'e710' ? snapshot.e710ContainerUnits ?? calculateSupportPreview(state).e710ContainerUnits : 0)
       : id === 'e710Warehouse' ? (detailResource === 'e710' ? snapshot.e710WarehouseUnits ?? calculateSupportPreview(state).e710WarehouseUnits : 0)
       : id === 'moonBase' ? snapshot.moonBaseUnits
+      : id === 'quantizedCompressionModule' ? (state.buildings[id] ? (snapshot.digital ?? calculateSupportPreview(state).digital).compressionUnits : 0)
       : id === 'biologyLab' ? snapshot.biologyUnits
       : id === 'observatory' ? snapshot.dataCenterUnits
       : id === 'moonObservatory' ? snapshot.moon.allocations.moonObservatory || 0
@@ -67,8 +68,8 @@ function accumulateStorageRows(
       : id === 'hyperspaceSpaceport' ? (state.buildings[id] ? snapshot.stageThree?.ports ?? calculateSupportPreview(state).stageThree.ports : 0)
       : id === 'e710ResearchStation' ? (state.buildings[id] ? snapshot.researchStationUnits ?? calculateSupportPreview(state).researchStationUnits : 0) : state.buildings[id];
     const freightMultiplier = id === 'anchorFreightStation' && count > 0
-      ? calculateFreightCapacityMultiplier(state, snapshot.stageThree?.asteroidBases ?? (state.buildings.asteroidBase ? calculateSupportPreview(state).stageThree.asteroidBases : 0)) : 1;
-    const bonuses = calculateStorageBonuses(id, state, snapshot.moon, snapshot.asriel);
+      ? calculateFreightCapacityMultiplier(state, snapshot.stageThree?.asteroidBases ?? (state.buildings.asteroidBase ? calculateSupportPreview(state).stageThree.asteroidBases : 0), (snapshot.digital ?? calculateSupportPreview(state).digital).dataCompressionUnits) : 1;
+    const bonuses = calculateStorageBonuses(id, state, snapshot.moon, snapshot.asriel, snapshot.digital);
     const record = (resource: ResourceId, value: number) => {
       if (!value) return;
       // Batched replay passes record only the replayed resource's bonuses; every
@@ -169,7 +170,7 @@ export function calculateStorageDetails(resource: ResourceId, state: GameState, 
   if (resource === 'bytes') {
     const digital = snapshot.digital ?? calculateSupportPreview(state).digital;
     const rows = [{ name: '基础储量', value: 10000 }];
-    if (digital.quantumStorageUnits) rows.push({ name: '量子存储器 ×' + formatNumber(digital.quantumStorageUnits), value: digital.quantumStorageUnits * 10000 });
+    if (digital.quantumStorageUnits) rows.push({ name: '量子存储器 ×' + formatNumber(digital.quantumStorageUnits), value: digital.quantumStorageUnits * 10000 * (1 + .25 * digital.dataCompressionUnits) });
     return { rows, total: calculateDigitalByteCapacity(digital) };
   }
   if (RESOURCES[resource].crafted) return { rows: [], total: Infinity };

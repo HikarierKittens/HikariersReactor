@@ -76,7 +76,7 @@ export const HIGHER_DIMENSIONAL_STORAGE_BONUS = 1;
 export const SPACEPORT_HIGHER_DIMENSIONAL_WATER = 16000;
 
 /** Additive freight capacity percentages: asteroid bases +5% each, 高维存储 +100%. */
-export function calculateFreightCapacityMultiplier(state: Pick<GameState, 'tech'>, asteroidBases: number): number {
+export function calculateFreightCapacityMultiplier(state: Pick<GameState, 'tech'>, asteroidBases: number, dataCompressionUnits = 0): number {
   return calculateAsteroidFreightMultiplier(asteroidBases)
-    + (state.tech.includes('higherDimensionalStorage') ? HIGHER_DIMENSIONAL_STORAGE_BONUS : 0);
+    + (state.tech.includes('higherDimensionalStorage') ? HIGHER_DIMENSIONAL_STORAGE_BONUS : 0) + .2 * dataCompressionUnits;
 }

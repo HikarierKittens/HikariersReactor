@@ -1251,6 +1251,30 @@ try {
       byteCostAnchor.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' })); await flush();
       log(/KB/.test($('#gameTooltip')?.textContent || ''), '数字建筑字节成本使用KB单位');
       await escapeTip();
+      log(!$('[data-building-group="qssd"]') && !$('[data-building-group="cpu"]'), '向下探测前隐藏QSSD和CPU');
+      store.mutate(state => { state.tech.push('downwardProbe'); }); await flush();
+      log($$('[data-building-group]').map(el => el.dataset.buildingGroup).join(',') === 'ethernet,interface,qssd,cpu', '向下探测按Interface、QSSD、CPU顺序解锁区域');
+      log($('[data-region-description="qssd"]').textContent.includes('AI超级核心的量子存储阵列，让我们深入搜索....') && $('[data-region-description="cpu"]').textContent.includes('无数的量子数据流在此穿行'), 'QSSD与CPU区域说明正确');
+      log(!$('[data-buy="subcomputeNode"]') && !$('[data-buy="quantizedCompressionModule"]'), '新区域不提前解锁建筑');
+      store.mutate(state => {
+        state.tech.push('subcomputeNode', 'quantizedCompression');
+        state.buildings.subcomputeNode = 1; state.buildings.quantizedCompressionModule = 1;
+      }); await flush();
+      log($('[data-building-group="interface"]').contains($('[data-buy="subcomputeNode"]')) && $('[data-building-group="cpu"]').contains($('[data-buy="quantizedCompressionModule"]')), '子算力节点位于Interface，量化压缩模块位于CPU');
+      log($('[data-digital-cpu]').textContent.includes('1 / 2'), 'CPU区域显示算力使用与支持容量');
+      store.mutate(state => {
+        state.tech.push('dataCompressor', 'cpuDecoding');
+        state.buildings.gatewayRouter = 3; state.buildings.subcomputeNode = 2;
+        state.buildings.dataCompression = 1; state.buildings.cpuDecoder = 1;
+      }); await flush();
+      log($('[data-building-group="qssd"]').contains($('[data-buy="dataCompression"]')) && $('[data-building-group="cpu"]').contains($('[data-buy="cpuDecoder"]')), '数据压缩位于QSSD，CPU解码器位于CPU');
+      $('[data-buy="quantizedCompressionModule"]').dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' })); await flush();
+      const compressionTip = $('#gameTooltip').textContent;
+      log((compressionTip.match(/知识容量/g) || []).length === 1 && compressionTip.includes('110k'), '量化压缩提示只显示一次知识容量并包含有效解码器加成');
+      await escapeTip();
+      const gear = $('[data-download-settings]'); const building = $('[data-buy="downloadExecutable"]');
+      const gearRect = gear.getBoundingClientRect(); const buildingRect = building.getBoundingClientRect();
+      log(gear.textContent === '⚙' && gear.classList.contains('building-gear') && Math.abs(gearRect.left - buildingRect.left) < 5 && Math.abs(gearRect.top - buildingRect.top) < 5, 'dl.exe复用工厂齿轮图标并位于建筑按钮左上角');
     } finally {
       if ($('#downloadModal [aria-label="关闭下载配置"]')) click($('#downloadModal [aria-label="关闭下载配置"]'));
       await escapeTip();

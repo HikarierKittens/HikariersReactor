@@ -67,6 +67,11 @@ export function replaySettledPool(
   if (state.buildings.downloadExecutable) inputUnits.downloadExecutable = outputs.downloadExecutable = ledger.digital.downloadUnits;
   if (state.buildings.quantumStorage) inputUnits.quantumStorage = outputs.quantumStorage = ledger.digital.quantumStorageUnits;
   if (state.buildings.downloadCache) inputUnits.downloadCache = outputs.downloadCache = ledger.digital.cacheUnits;
+  if (state.buildings.subcomputeNode) inputUnits.subcomputeNode = outputs.subcomputeNode = ledger.digital.subcomputeUnits;
+  if (state.buildings.quantizedCompressionModule) inputUnits.quantizedCompressionModule = outputs.quantizedCompressionModule = ledger.digital.compressionUnits;
+
+  if (state.buildings.dataCompression) inputUnits.dataCompression = outputs.dataCompression = ledger.digital.dataCompressionUnits;
+  if (state.buildings.cpuDecoder) inputUnits.cpuDecoder = outputs.cpuDecoder = ledger.digital.decoderUnits;
 
   // 3. Space chain debits (waystations, moon, asriel, stage three, containers,
   //    mining ships) replayed from the ledger units; outputs recomputed at the

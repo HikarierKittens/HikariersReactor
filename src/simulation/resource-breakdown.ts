@@ -51,6 +51,7 @@ export function calculateResourceBreakdown(
     Math.max(0, (state.buildings[id] || 0) - (state.stoppedBuildings?.[id] || 0));
 
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
+    if (id === 'cpuDecoder') continue; // Fixed digital output is accounted separately, without global multipliers.
     const b = BUILDINGS[id];
     const n = id === 'smelter' ? calculateSmelterSlotCapacity(state) : state.buildings[id];
     if (!n && !b.unlimited) continue;
@@ -168,6 +169,7 @@ export function calculateResourceBreakdown(
   if (resource === 'energy' && (result.inputUnits.automatedQuarry || 0) > 0) {
     entries.push({ id: 'automatedQuarry', kind: 'expense', name: '自动化采石场消耗', value: -(result.inputUnits.automatedQuarry ?? 0), note: '每座实际供能采石场消耗 1 电力/s' });
   }
+  if (resource === 'bytes' && result.digital.decoderProduction) entries.push({ id: 'cpuDecoder', kind: 'income', name: 'CPU解码器', value: result.digital.decoderProduction, note: '100B/s × 获得带宽和CPU支持的数量' });
   if (resource === 'bytes') entries.push({ id: 'digitalDownload', kind: 'income', name: 'dl.exe 下载', value: result.digital.byteProduction, note: '实际知识产出 × 分配比例 × 0.01 × 精通 × 下载缓存器' });
   if (resource === 'knowledge' && result.digital.divertedKnowledge > 0) entries.push({ id: 'digitalDownload', kind: 'expense', name: 'dl.exe 下载消耗', value: -result.digital.divertedKnowledge, note: '仅分配本次实际正向知识产出，不转换库存或负收入' });
   const synthesisRate = resource === 'knowledge' ? result.geneSynthesis?.knowledge || 0 : 0;
@@ -214,6 +216,7 @@ export function calculateResourceFactorRows(
     add('dl.exe 下载', '+' + formatByteNumber(result.digital.divertedKnowledge * .01, true) + '/s');
     pct('精通', calculateMasteryMultiplier('bytes', state));
     pct('下载缓存器', 1 + .1 * result.digital.cacheUnits);
+    if (result.digital.decoderProduction) add('CPU解码器', '+' + formatByteNumber(result.digital.decoderProduction, true) + '/s');
     return { rows };
   }
   const data = calculateResourceBreakdown(resource, state, result);

@@ -16,10 +16,15 @@ test('game sources and shipped pages never introduce emoji decorations', () => {
       if (entry.isDirectory()) scan(path);
       else {
         let source = readFileSync(path, 'utf8');
-        // User-approved exception: only the four configuration entrance buttons.
+        // User-approved exceptions: factory-style configuration entrance buttons.
         if (path.pathname.endsWith('/src/vue/components/BuildingsPanel.vue')) {
           const gears = source.match(/>\u2699<\/button>/g) || [];
           assert.equal(gears.length, 4, 'retain exactly the four approved gear entrances');
+          source = source.replace(/>\u2699<\/button>/g, '></button>');
+        }
+        if (path.pathname.endsWith('/src/vue/components/DigitalWorldPanel.vue')) {
+          const gears = source.match(/>\u2699<\/button>/g) || [];
+          assert.equal(gears.length, 1, 'retain exactly the approved download configuration gear');
           source = source.replace(/>\u2699<\/button>/g, '></button>');
         }
         assert.equal(forbidden.test(source), false, path.pathname);

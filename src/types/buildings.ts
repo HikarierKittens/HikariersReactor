@@ -3,6 +3,7 @@ import type { TechnologyId } from './technologies';
 
 export type BuildingId =
   | 'gatewayRouter' | 'downloadExecutable' | 'quantumStorage' | 'downloadCache'
+  | 'subcomputeNode' | 'quantizedCompressionModule' | 'dataCompression' | 'cpuDecoder'
   | 'signalRepeater' | 'hydrogenPowerPlant'
   | 'hyperspaceSpaceport' | 'iceMiningShip' | 'asteroidBase'
   | 'comprehensiveMiningFacility' | 'gasCloudMiningShip' | 'highTechFarmPlatform'
@@ -61,6 +62,9 @@ export interface BuildingDefinition {
   /** Digital-world bandwidth supplied / required while running. */
   bandwidth?: number;
   bandwidthUse?: number;
+  /** Digital-world CPU compute supplied / required while running. */
+  cpuCompute?: number;
+  cpuComputeUse?: number;
   bytesCap?: number;
   downloadBoost?: number;
   knowledgeCap?: number;

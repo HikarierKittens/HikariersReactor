@@ -8,9 +8,9 @@ export function normalizeSchema31Save(raw: Record<string, unknown>): Record<stri
   if (raw.version !== 31) return raw;
   const normalized = { ...raw };
   const defaults: Record<string, readonly string[]> = {
-    buildings: ['hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache'],
-    workers: ['hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache'],
-    stoppedBuildings: ['hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache'],
+    buildings: ['hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder'],
+    workers: ['hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder'],
+    stoppedBuildings: ['hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder'],
     resources: ['bytes'], containerAssignments: ['bytes'], alloyContainerAssignments: ['bytes'],
   };
   for (const [field, keys] of Object.entries(defaults)) {

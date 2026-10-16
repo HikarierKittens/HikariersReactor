@@ -3,7 +3,8 @@ import type { ArpaProjectId } from './state';
 import type { ResourceId, ResourceRecipe } from './economy';
 
 export type TechnologyId =
-  | 'aiCoreCalibration' | 'binaryWorld'
+  | 'aiCoreCalibration' | 'binaryWorld' | 'downwardProbe' | 'subcomputeNode' | 'quantizedCompression'
+  | 'dataCompressor' | 'cpuDecoding'
   | 'stationScienceFacilities' | 'knowledgeInheritance'
   | 'batteryConcentrationRing'
   | 'spaceBroadcasting'

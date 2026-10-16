@@ -1,4 +1,6 @@
 import { isResourceUnlocked } from './unlocks';
+import { calculateSupportPreview } from './support-preview';
+import type { DigitalSupport } from './digital-world';
 import { BUILDINGS } from '../data/buildings';
 import type { BuildingId } from '../types/buildings';
 import { countAsrielResidents } from './asriel';
@@ -10,7 +12,7 @@ export const WAREHOUSE_RESOURCES: ResourceId[] = ['wood', 'stone', 'fur', 'coppe
 export const ADVANCED_STORAGE_RESOURCES: ResourceId[] = [...WAREHOUSE_RESOURCES, 'titanium', 'alloy'];
 
 /** The caller supplies a support snapshot so sub-second simulation and UI agree. */
-export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: MoonSupport | null, asriel?: AsrielSupport | null): ResourceRecipe {
+export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: MoonSupport | null, asriel?: AsrielSupport | null, digital?: DigitalSupport): ResourceRecipe {
   const upgraded = state.tech.includes('warehouseUpgrade');
   const instituteMultiplier = 1 + .04 * (state.arpaBuildings?.arpaResearchInstitute || 0);
   const warehouseMultiplier = (state.tech.includes('dimensionCompression') ? instituteMultiplier : 1)
@@ -56,6 +58,7 @@ export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: 
     return { cash: base * multiplier };
   }
   if (id === 'warehouse') return Object.fromEntries((upgraded ? ADVANCED_STORAGE_RESOURCES : WAREHOUSE_RESOURCES).map(r => [r, (upgraded ? 500 : 250) * warehouseMultiplier]));
+  if (id === 'quantizedCompressionModule') return { knowledge: 100000 * (1 + .1 * (digital ?? calculateSupportPreview(state).digital).decoderUnits) };
   if (id === 'biologyLab') return { knowledge: 3000 };
   if (id === 'e710ResearchStation') return { knowledge: 50000 };
   if (id === 'library') return { knowledge: (state.tech.includes('internet') ? 150 : 100)
