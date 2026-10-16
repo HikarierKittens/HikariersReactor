@@ -21,6 +21,10 @@
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
 - 包管理：npm；生成式桥接脚本见 `scripts/generate-legacy-data.cjs`。
 
+### 幸福度详情（beta 0.6.3）
+
+calculateMorale.raw为max(0,各项幸福度贡献之和)，无上限；happiness仍为max(40,min(cap,raw))，结算使用happiness因此不改变已有生产效果。TooltipPanel采用独立morale-columns：左列有效/实际/上限，右列有符号贡献，广播塔与观光站分开，不含容量来源或供能比例独立行。沿用实际供能预览，窄屏回退单列。
+
 ### 人口基础增长（beta 0.6.2）
 
 CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5乘原有科技/社区中心/CRISPR/基因倍率，推进与界面ETA使用同一值。抽样目标5–10/10–20及存档进度单位不变，无需迁移；无其他加成时实际等待约3.33–6.67秒/6.67–13.33秒，食物与住房条件不变。

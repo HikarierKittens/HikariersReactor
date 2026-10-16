@@ -169,6 +169,20 @@ import { orderedCostEntries } from '../src/vue/format';
 import { test } from 'node:test';
 import { calculateBuildingOutput, calculateWorkerCapacity, hasContinuousEnergyInput, countUsedWorkers } from '../src/simulation/building-production';
 import { calculateArtistEffect, calculateMorale } from '../src/simulation/morale';
+
+test('morale actual value has a zero floor and no ceiling while effective value respects both bounds', () => {
+  const state = createInitialState(CONFIG.version, 60, 0);
+  const power = { generatorSpeed: 0, generatorEnergy: 0, coalRatio: 0, moonBaseUnits: 0, biologyUnits: 0, dataCenterUnits: 0 };
+  state.workers.theater = 300;
+  let morale = calculateMorale(state, 1, power);
+  assert.ok(morale.raw > morale.cap); assert.equal(morale.happiness, morale.cap);
+  state.workers.theater = 0; state.taxRate = 90;
+  morale = calculateMorale(state, 1, power);
+  assert.equal(morale.raw, 30); assert.equal(morale.happiness, 40);
+  state.population = 10000;
+  morale = calculateMorale(state, 1, power);
+  assert.equal(morale.raw, 0); assert.equal(morale.happiness, 40);
+});
 import { changeWorkerAssignment, changeContainerAssignment } from '../src/simulation/commands';
 import { isContainerAssignable, countAssignedContainers, calculateContainerCapacity, calculateAlloyContainerCapacity, calculateAlloyContainerUnitCapacity } from '../src/simulation/containers';
 import { createAlloyContainers, changeAlloyContainerAssignment } from '../src/simulation/commands';

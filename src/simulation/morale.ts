@@ -45,9 +45,10 @@ export function calculateMorale(state: GameState, dt: number, power: MoralePower
   const broadcast = broadcastUnits * 3, station = stationUnits * 3;
   const powerUsed = broadcastUnits * 2 + stationUnits * 5;
   const paidRatio = demand ? powerUsed / demand : 1;
-  const happiness = Math.max(40, Math.min(cap, base + community - populationPenalty - soldierPenalty - taxPenalty - governmentPenalty + artists + broadcast + station + beacon + vr));
+  const raw = Math.max(0, base + community - populationPenalty - soldierPenalty - taxPenalty - governmentPenalty + artists + broadcast + station + beacon + vr);
+  const happiness = Math.max(40, Math.min(cap, raw));
   return { base, community, populationPenalty, soldierPenalty, taxPenalty, governmentPenalty, artists, artistCount, artistEffect,
     theaterCap, broadcastCap, stationCap, catCafeCap, monumentCap, beacon, vr, cap, demand, powerUsed, ratio: paidRatio, broadcast, station,
-    raw: base + community - populationPenalty - soldierPenalty - taxPenalty - governmentPenalty + artists + broadcast + station + beacon + vr,
+    raw,
     happiness, generatorSpeed: power.generatorSpeed, generatorEnergy: power.generatorEnergy, coalRatio: power.coalRatio };
 }

@@ -1170,6 +1170,16 @@ try {
     await flush();
   }
   log(JSON.stringify(S()) === JSON.stringify(tooltipState), '全建筑悬停布局夹具恢复原游戏状态');
+  {
+    const anchor = document.createElement('button'); anchor.dataset.tipKind='morale'; anchor.dataset.buildingTip='morale'; document.body.append(anchor);
+    try {
+      store.mutate(state=>{state.population=1;state.taxRate=20;state.workers.theater=300;});
+      anchor.dispatchEvent(new PointerEvent('pointerover',{bubbles:true,pointerType:'mouse'})); await flush();
+      const summary=$('[data-morale-summary]'), influences=$('[data-morale-influences]');
+      log(!!summary && !!influences && summary.textContent.includes('当前有效值') && summary.textContent.includes('当前实际值') && summary.textContent.includes('当前上限'), '幸福度左列显示有效值实际值及上限');
+      log(!!influences && influences.textContent.includes('艺术家') && !influences.textContent.includes('上限') && summary.getBoundingClientRect().right <= influences.getBoundingClientRect().left, '幸福度影响来源独立右列且不混入上限加成');
+    } finally { await escapeTip(); anchor.remove();store.mutate(state=>Object.assign(state,tooltipState));await flush(); }
+  }
   store.mutate(state => { state.settings.paused = false; });
   log($$('.app').length === 1, '主游戏验收在同一次应用挂载中完成');
   {

@@ -395,21 +395,24 @@ const content = computed<TipContent | null>(() => {
   } else if (target.kind === 'morale') {
     const morale = moraleSnapshot(state, 1, props.revision);
     tip.title = '幸福度';
-    add('最终幸福度 / 上限', `${percent(morale.happiness)}% / ${percent(morale.cap)}%`);
-    add('基准', `${percent(morale.base)}%`);
-    if (morale.community !== 0) add('社区', `+${percent(morale.community)}%`);
-    if (morale.populationPenalty !== 0) add('猫口压力', `−${percent(morale.populationPenalty)}%`, true);
-    if (morale.soldierPenalty !== 0) add('士兵名额压力', `−${percent(morale.soldierPenalty)}%`, true);
-    if (morale.taxPenalty !== 0) add('税率影响', `${morale.taxPenalty > 0 ? '−' : '+'}${percent(Math.abs(morale.taxPenalty))}%`, morale.taxPenalty > 0);
-    if (morale.governmentPenalty !== 0) add('体制压力', `−${percent(morale.governmentPenalty)}%`, morale.governmentPenalty > 0);
-    if (morale.artists !== 0) add(`艺术家 ×${number(morale.artistCount)}`, `+${percent(morale.artists)}%`);
-    if (morale.broadcast + morale.station !== 0) {
-      add('广播塔与观光站供能率', `${percent(morale.ratio * 100)}%`);
-      add('供能设施士气', `+${percent(morale.broadcast + morale.station)}%`);
-    }
-    if (morale.beacon !== 0) add('广播信标', `+${percent(morale.beacon)}%`);
-    if (morale.vr) add('VR中心', `+${percent(morale.vr)}%`);
-    tip.footnote = '幸福度下限40%；上限由剧场、广播塔、猫咖、观光空间站和纪念碑增加。士兵压力按军营提供的名额计算，不按当前士兵人数。';
+    add('当前有效值', `${percent(morale.happiness)}%`);
+    add('当前实际值', `${percent(morale.raw)}%`);
+    add('当前上限', `${percent(morale.cap)}%`);
+    const influence = (name: string, value: number) => {
+      if (value !== 0) tip.income.push({ name, value: `${value < 0 ? '−' : '+'}${percent(Math.abs(value))}%`, negative: value < 0 });
+    };
+    influence('基准', morale.base);
+    influence('社区', morale.community);
+    influence('猫口压力', -morale.populationPenalty);
+    influence('士兵名额压力', -morale.soldierPenalty);
+    influence('税率影响', -morale.taxPenalty);
+    influence('体制压力', -morale.governmentPenalty);
+    influence(`艺术家 ×${number(morale.artistCount)}`, morale.artists);
+    influence('广播塔', morale.broadcast);
+    influence('观光空间站', morale.station);
+    influence('广播信标', morale.beacon);
+    influence('VR中心', morale.vr);
+    tip.footnote = '实际值最低为0%，不受上限限制；有效值限制在40%至当前上限之间。';
   } else if (target.kind === 'housing') {
     const housing = calculateHousingDetails(state, snapshot.asriel, snapshot.stageThree);
     tip.title = '猫口容量';
@@ -553,7 +556,7 @@ onUnmounted(() => {
 
 <template>
   <Teleport :to="anchor?.closest('dialog') || 'body'">
-    <div v-if="content" ref="panel" id="gameTooltip" class="building-tooltip" :class="{ 'resource-detail': selected?.kind === 'resource', 'energy-expense-split': splitEnergyExpense }" role="tooltip" :style="position">
+    <div v-if="content" ref="panel" id="gameTooltip" class="building-tooltip" :class="{ 'resource-detail': selected?.kind === 'resource', 'morale-detail': selected?.kind === 'morale', 'energy-expense-split': splitEnergyExpense }" role="tooltip" :style="position">
       <h3>{{ content.title }}</h3>
       <p v-if="content.description" class="tip-desc" :style="selected?.kind === 'building' && ['aiSupercore', 'spaceRipper', 'penroseSphere'].includes(selected.id) ? { whiteSpace: 'pre-line' } : undefined">{{ content.description }}</p>
       <p v-if="content.warning" class="tip-desc danger" data-tech-warning>{{ content.warning }}</p>
@@ -563,9 +566,21 @@ onUnmounted(() => {
         <hr>
       </template>
       <p v-if="selected?.kind === 'building' && content.rows.length" class="tip-label">建筑效果</p>
-      <div v-for="(row, index) in content.rows" :key="index" class="resource-factor" :class="{ child: row.child }">
-        <span>{{ row.name }}</span><span class="resource-factor-value" :class="{ 'is-negative': row.negative }">{{ row.value }}</span>
-        <span v-if="row.note" class="rate-note">{{ row.note }}</span>
+      <template v-if="selected?.kind !== 'morale'">
+        <div v-for="(row, index) in content.rows" :key="index" class="resource-factor" :class="{ child: row.child }">
+          <span>{{ row.name }}</span><span class="resource-factor-value" :class="{ 'is-negative': row.negative }">{{ row.value }}</span>
+          <span v-if="row.note" class="rate-note">{{ row.note }}</span>
+        </div>
+      </template>
+      <div v-if="selected?.kind === 'morale'" class="morale-columns">
+        <div class="resource-column" data-morale-summary>
+          <div class="resource-column-title">幸福度</div>
+          <div v-for="(row, index) in content.rows" :key="index" class="resource-factor"><span>{{ row.name }}</span><span class="resource-factor-value">{{ row.value }}</span></div>
+        </div>
+        <div class="resource-column" data-morale-influences>
+          <div class="resource-column-title">当前影响</div>
+          <div v-for="(row, index) in content.income" :key="index" class="resource-factor"><span>{{ row.name }}</span><span class="resource-factor-value" :class="{ 'is-negative': row.negative }">{{ row.value }}</span></div>
+        </div>
       </div>
       <div v-if="selected?.kind === 'resource'" class="resource-columns">
         <div class="resource-column">
@@ -589,6 +604,12 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.building-tooltip.morale-detail { width: 480px; max-width: calc(100vw - 16px); box-sizing: border-box; }
+.morale-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 10px; margin-top: 6px; }
+@media (max-width: 380px) {
+  .morale-columns { grid-template-columns: minmax(0, 1fr); }
+  .morale-columns > .resource-column + .resource-column { border-left: 0; padding-left: 0; border-top: 1px solid #68604e; padding-top: 6px; }
+}
 .building-tooltip.resource-detail.energy-expense-split { width: 620px; }
 .energy-expense-split .resource-columns { grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr); }
 .expense-list-split { column-count: 2; column-gap: 16px; }
