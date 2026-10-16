@@ -11,6 +11,7 @@ import { ARPA_PROJECTS } from '../../data/projects';
 import { RESOURCES } from '../../data/resources';
 import { calculateProjectDescription, calculateProjectCost, calculateProjectRemainingCost, calculateAffordableProjectPercent, isProjectAtLimit, isProjectUnlocked } from '../../simulation/projects';
 import { clickMultiplier, fmt, orderedCostEntries } from '../format';
+import { formatCostNumber } from '../../shared/format';
 
 const props = defineProps<{ state: GameState; revision: number }>();
 const emit = defineEmits<{ invest: [id: ArpaProjectId, percent: number]; queue: [id: ArpaProjectId, count: number]; crisprPurchase: [id: CrisprUpgradeId]; challengeLaunch: [genes: ChallengeGeneId[]]; dnaCraft: [id: DnaId, count: number]; geneUpgrade: [id: GeneId] }>();
@@ -70,7 +71,7 @@ const projects = computed(() => {
           missing: props.state.resources[resource as ResourceId] + 1e-8 < (remaining[resource as ResourceId] || 0),
         })),
         remainingText: orderedCostEntries(remaining).map(([resource, amount]) =>
-          `${RESOURCES[resource as ResourceId].name} ${fmt(amount)}`).join(' · '),
+          `${RESOURCES[resource as ResourceId].name} ${formatCostNumber(amount)}`).join(' · '),
         affordable: calculateAffordableProjectPercent(id, props.state, 100),
       };
     });
@@ -100,7 +101,7 @@ const projects = computed(() => {
         <i :style="{ width: `${project.progress}%` }"></i>
       </div>
       <p class="cost">
-        <span v-for="row in project.costRows" :key="row.resource" :data-cost="row.resource" :data-amount="row.amount" :class="{ negative: row.missing }">{{ row.name }} 已投入 {{ fmt(row.paid) }} / {{ fmt(row.amount) }}</span>
+        <span v-for="row in project.costRows" :key="row.resource" :data-cost="row.resource" :data-amount="row.amount" :class="{ negative: row.missing }">{{ row.name }} 已投入 {{ formatCostNumber(row.paid) }} / {{ formatCostNumber(row.amount) }}</span>
       </p>
       <p class="small subtle">剩余需求：{{ project.remainingText || '无' }}</p>
       <div class="actions">

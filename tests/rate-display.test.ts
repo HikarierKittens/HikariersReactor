@@ -7,7 +7,7 @@ import { signedRate } from '../src/simulation/resource-breakdown';
 import { formatResourceNumber, formatEffectNumber, formatNumber, formatRateNumber } from '../src/shared/format';
 
 test('metric notation promotes only above ten thousand of each unit', () => {
-  for (const format of [formatResourceNumber, formatEffectNumber, formatNumber, formatRateNumber]) {
+  for (const format of [formatEffectNumber, formatNumber, formatRateNumber]) {
     for (const [value, text] of [[10000, '10000'], [32000, '32k'], [1e6, '1000k'], [1e7, '10000k'], [12e6, '12M'], [1e10, '10000M'], [12e9, '12G'], [12e12, '12T'], [12e18, '12E']] as const) {
       assert.equal(format(value), text); assert.equal(format(-value), `−${text}`);
     }

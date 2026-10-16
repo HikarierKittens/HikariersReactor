@@ -14,6 +14,7 @@ import { validateCivilization } from '../src/state/validate-civilization';
 import { persistGame } from '../src/state/persistence';
 import { settlePurchaseQueue } from '../src/simulation/purchases';
 import { createMilestoneState } from './fixtures/milestones';
+import { readFileSync } from 'node:fs';
 
 function environment(t: TestContext) {
   const writes = new Map<string, string>();
@@ -45,6 +46,34 @@ function environment(t: TestContext) {
     get saves() { return saves; },
   };
 }
+
+test('pre-beta0.6.5 load, import and protected-save recovery preserve earned progress', t => {
+  const env = environment(t);
+  const json = readFileSync(new URL('./fixtures/pre-beta0.6.5-schema31.json', import.meta.url), 'utf8');
+  const original = JSON.parse(json);
+  env.writes.set(CONFIG.saveKey, json);
+  const runtime = createRuntime(); runtime.load();
+  assert.equal(runtime.saveBlocked, false);
+  const check = (state: typeof runtime.state) => {
+    for (const field of ['buildings', 'workers', 'stoppedBuildings'] as const) assert.equal(state[field].hazardousMaterialStorage, 0);
+    for (const field of ['tech', 'queue', 'logs', 'prestige', 'achievements', 'stageThree', 'statistics', 'story'] as const) assert.deepEqual(state[field], original[field]);
+    assert.equal(state.time, original.time);
+    assert.equal(state.clicks, original.clicks);
+    assert.equal(state.buildings.spaceRipper, 99);
+  };
+  check(runtime.state);
+  assert.equal(runtime.save(), true);
+  const reloaded = createRuntime(); reloaded.load(); check(reloaded.state);
+  env.writes.set(CONFIG.saveKey, '{broken');
+  const protectedRuntime = createRuntime(); protectedRuntime.load();
+  assert.equal(protectedRuntime.saveBlocked, true);
+  assert.equal(protectedRuntime.save(), false);
+  assert.equal(env.writes.get(CONFIG.saveKey), '{broken');
+  assert.equal(protectedRuntime.importSave(json), true);
+  assert.equal(protectedRuntime.saveBlocked, false);
+  check(protectedRuntime.state);
+  const recovered = createRuntime(); recovered.load(); check(recovered.state);
+});
 
 test('runtime achievement scan logs a newly reached condition once', t => {
   const env = environment(t);
@@ -360,12 +389,12 @@ test('protected export preserves malformed raw bytes and can retry a failed stor
  assert.equal(env.writes.get(CONFIG.saveKey),text);
 });
 
-for(const version of [12,29,30])test(`incompatible v${version} guides hard reset and protects original until successful persistence`,t=>{
+for(const version of [12,29,30])test(`incompatible v${version} guides backup before optional hard reset and protects original until successful persistence`,t=>{
  const env=environment(t),raw=JSON.stringify({...env.state(),version});env.writes.set(CONFIG.saveKey,raw);
  const runtime=createRuntime();runtime.load();
  assert.equal(runtime.saveBlocked,true);assert.equal(runtime.saveFailed,true);
  const guidance=runtime.state.logs.map(row=>row.text).join(' ');
- for(const text of ['beta 0.6.0','设置','硬重置','完全清空','导出不兼容的旧版本存档'])assert.ok(guidance.includes(text),text);
+ for(const text of ['备份原档','更新后重载或导入备份','schema12～30仍不支持','只有决定放弃原进度','设置','硬重置','完全清空','导出不兼容的旧版本存档'])assert.ok(guidance.includes(text),text);
  env.advance(20);runtime.tick(.2);assert.equal(runtime.save(),false);assert.equal(runtime.reset('soft'),false);
  assert.equal(env.saves,0);assert.equal(env.writes.get(CONFIG.saveKey),raw);
  assert.equal(runtime.exportProtectedSave(),raw);assert.equal(runtime.saveBlocked,true);assert.equal(env.saves,0);

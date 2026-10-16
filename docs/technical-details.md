@@ -21,6 +21,16 @@
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
 - 包管理：npm；生成式桥接脚本见 `scripts/generate-legacy-data.cjs`。
 
+### 成本与库存格式（beta 0.6.7）
+
+危险物质库cost增加cash2000000/alloy50000，与已有adamantite10000/nanoAlloy10000均使用1.265递增。formatCostNumber用于悬停费用、建筑成本及ARPA工程投入/需求，formatResourceNumber用于库存/储量，两者达到1000就切换下一SI单位；formatRateNumber/formatEffectNumber保持原10000阈值。只影响显示，实际计费与库存精度不变，无存档字段变化且升级兼容逻辑保留。
+
+### 同分支存档兼容政策（beta 0.6.6）
+
+今后默认兼容现有支持分支的旧版本存档，除非用户明确要求不兼容。新注册项必须提供精确升级默认值及上一版JSON载入/导入/往返测试，不得靠调整新状态测试掩盖真实升级问题。schema12～30维持此前明确退役政策。
+
+本次针对schema31缺失的hazardousMaterialStorage建筑/工人/停用计数补0，不覆盖已有值或掩盖畸形数据，不修改原始输入。存档对已研究ripperOverclock不再追溯要求完成撕裂者；新研究仍按100段门槛，旧科技前置链验证保留。保护模式原档可在更新后重载或重新导入恢复，无需硬重置。历史排队中的撕裂者超频允许载入（其他科技前置照常校验）；若未满足新100段门槛，后续按原队列规则取消，不扣资源，完成条件后可重新入队。
+
 ### 危险物质库与精金平衡（beta 0.6.5）
 
 hazardousMaterialStorage为T21/pre stellarForge/knowledgeCost1750000+nanoAlloy25000；建筑在卡尔维拉，neutronStar任务完成后可见，cost adamantite10000+nanoAlloy10000，scale1.265，storage e710500/neutron32000。asteroidBase新增helium34000/neutron8000，使用原有实际供电支持份额并享受higherDimensionalStorage双倍。

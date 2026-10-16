@@ -127,7 +127,7 @@ export function createRuntime(): Runtime {
     } catch {
       saveFailed = saveBlocked = true;
       protectedSaveText = raw;
-      addLog(state, '检测到不兼容或损坏的存档。新版 beta 0.6.0_refresh 不支持过去版本存档，已进入保护模式，原存档不会被自动覆盖。请先前往「设置」点击「导出不兼容的旧版本存档」备份原档；再执行「硬重置」并确认：这会完全清空游戏存档，重新开始；新档保存成功后退出保护模式。', 'system');
+      addLog(state, '检测到暂时无法载入的存档，已进入保护模式，原存档不会被自动覆盖。请先前往「设置」点击「导出不兼容的旧版本存档」备份原档；当前分支默认兼容此前版本，请优先更新后重载或导入备份，并报告载入问题。明确退役的schema12～30仍不支持。只有决定放弃原进度时才执行「硬重置」并确认：这会完全清空游戏存档，重新开始；新档保存成功后退出保护模式。', 'system');
       return;
     }
     // No offline catch-up: time while the page was closed is never settled.

@@ -84,6 +84,7 @@ const registry = [
   ['validate-unlocks', 'state/validate-unlocks'],
   ['validate-population', 'state/validate-population'],
   ['validate-auto-workers', 'state/validate-auto-workers'],
+  ['save-compatibility', 'state/save-compatibility'],
   ['validate-save', 'state/validate-save'],
   ['persistence', 'state/persistence'],
   ['project-queue', 'simulation/project-queue'],

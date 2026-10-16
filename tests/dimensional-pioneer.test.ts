@@ -140,7 +140,7 @@ test('only a completed ripper adds +100 energy/s and +20% knowledge capacity', (
   }
 });
 
-test('ripperOverclock requires all 100 spaceRipper segments for research and save validation', () => {
+test('ripperOverclock requires 100 segments for new research but preserves historical research', () => {
   assert.equal(TECHNOLOGIES.ripperOverclock.buildingRequired, 'spaceRipper');
   const s = eraState(); s.tech.push('dimensionPioneer');
   s.resources.knowledge = 1000000;
@@ -148,8 +148,8 @@ test('ripperOverclock requires all 100 spaceRipper segments for research and sav
   assert.equal(isTechnologyUnlocked('ripperOverclock', s), false);
   assert.equal(requestPurchaseModule(s, 'tech', 'ripperOverclock', 0).status, 'rejected');
   assert.equal(s.tech.includes('ripperOverclock'), false);
-  const invalid = clone(s); invalid.tech.push('ripperOverclock');
-  assert.throws(() => validateCurrentSave(invalid, context), /科技需要完成空间撕裂者/);
+  const historical = clone(s); historical.tech.push('ripperOverclock');
+  assert.ok(validateCurrentSave(historical, context).tech.includes('ripperOverclock'));
   s.buildings.spaceRipper = 100;
   assert.equal(isTechnologyUnlocked('ripperOverclock', s), true);
   assert.equal(requestPurchaseModule(s, 'tech', 'ripperOverclock', 0).status, 'buy-now');

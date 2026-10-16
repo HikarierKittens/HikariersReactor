@@ -12,7 +12,7 @@ import { ARPA_PROJECTS } from '../../data/projects';
 import { calculateProjectDescription, calculateProjectCost } from '../../simulation/projects';
 import { SHIP_COMPONENTS, calculateShipComponentRemainingCost, calculateShipComponentProgress, isShipComponentUnlocked, type ShipComponentId } from '../../simulation/spaceship';
 import { CONFIG } from '../../data/config';
-import { floorWithPrecision, formatEffectNumber, formatResourceNumber } from '../../shared/format';
+import { floorWithPrecision, formatEffectNumber, formatResourceNumber, formatCostNumber } from '../../shared/format';
 import { calculateFoodPerCat } from '../../simulation/population';
 import { calculateBuildingCost, isBuildingFullyBuilt } from '../../simulation/costs';
 import { describeQueuedPurchases } from '../../simulation/purchases';
@@ -562,7 +562,7 @@ onUnmounted(() => {
       <p v-if="content.warning" class="tip-desc danger" data-tech-warning>{{ content.warning }}</p>
       <template v-if="content.costs.length">
         <p class="tip-label">{{ selected?.kind === 'arpa' || selected?.kind === 'ship' || anchor?.dataset.queueUid ? '剩余资源需求' : selected?.kind === 'building' && BUILDINGS[selected.id as BuildingId]?.segmentedRequired ? '每段固定价格' : '当前价格' }}</p>
-        <div v-for="cost in content.costs" :key="cost.id" class="tip-cost" :class="{ 'is-cap-blocked': cost.blocked, 'is-missing': !cost.blocked && cost.missing }">{{ cost.name }} {{ selected?.kind === 'building' && ['swarmSatellite', 'swarmFactory'].includes(selected.id) && cost.amount < 1 ? '0' : number(cost.amount) }}</div>
+        <div v-for="cost in content.costs" :key="cost.id" class="tip-cost" :class="{ 'is-cap-blocked': cost.blocked, 'is-missing': !cost.blocked && cost.missing }">{{ cost.name }} {{ selected?.kind === 'building' && ['swarmSatellite', 'swarmFactory'].includes(selected.id) && cost.amount < 1 ? '0' : formatCostNumber(cost.amount) }}</div>
         <hr>
       </template>
       <p v-if="selected?.kind === 'building' && content.rows.length" class="tip-label">建筑效果</p>

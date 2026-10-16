@@ -40,7 +40,12 @@ export function validateSaveQueue(value: unknown, state: GameState): QueueItem[]
     }
     if (q.kind === 'tech') {
       const id = q.id as TechnologyId;
-      if (!Object.hasOwn(TECHNOLOGIES, id) || state.tech.includes(id) || seenTech.has(id) || !isTechnologyUnlocked(id, state)) throw Error('队列科技无效。');
+      // Historical pending overclock research was legal before the ripper gate.
+      // Preserve its queue entry on import; live settlement still uses the full
+      // current gate. All other technology prerequisites remain enforced.
+      const researchState = id === 'ripperOverclock'
+        ? { ...state, buildings: { ...state.buildings, spaceRipper: 100 } } : state;
+      if (!Object.hasOwn(TECHNOLOGIES, id) || state.tech.includes(id) || seenTech.has(id) || !isTechnologyUnlocked(id, researchState)) throw Error('队列科技无效。');
       seenTech.add(id);
       return { uid: q.uid, kind: 'tech', id };
     }

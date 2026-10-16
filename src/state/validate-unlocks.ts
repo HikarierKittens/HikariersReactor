@@ -62,8 +62,10 @@ export function validateUnlockRecords(raw: Record<string, unknown>, state: GameS
     const mission = TECHNOLOGIES[tech].spaceMissionRequired;
     if (mission && !isRegionalMissionCompleted(state, mission)) throw Error('科技需要完成太空任务。');
     if (TECHNOLOGIES[tech].kerberosMissionRequired && !state.kerberosMissionCompleted) throw Error('科技需要完成Kerberos任务。');
-    // Ripper technologies require the completed 空间撕裂者, not merely one segment.
-    if ((tech === 'higherDimensionalStorage' || tech === 'ripperOverclock' || tech === 'overclocking13') && !isBuildingFullyBuilt('spaceRipper', state)) throw Error('科技需要完成空间撕裂者。');
+    // ripperOverclock historically required only its tech prerequisites. Its new
+    // buildingRequired/full-ripper purchase gate must not revoke earned research.
+    // Do not reuse isTechnologyUnlocked here: it governs future research.
+    if ((tech === 'higherDimensionalStorage' || tech === 'overclocking13') && !isBuildingFullyBuilt('spaceRipper', state)) throw Error('科技需要完成空间撕裂者。');
     if (!TECHNOLOGIES[tech].pre.every(parent => state.tech.includes(parent))) throw Error('科技前置关系无效。');
   }
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) if ((state.buildings[id] || state.workers[id]) && !isBuildingUnlocked(id, state)) throw Error('建筑尚未解锁。');

@@ -7,10 +7,20 @@ export function floorWithPrecision(value: number): number {
 
 const METRIC_UNITS = ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y', 'R', 'Q'] as const;
 /** Promote only above 10000 of the current unit, as requested by the resource UI. */
-function metricUnit(magnitude: number): readonly [number, string] {
+function metricUnit(magnitude: number, stock = false): readonly [number, string] {
   let scale = 1, index = 0;
-  while (index < METRIC_UNITS.length - 1 && magnitude / scale > 10000) { scale *= 1000; index++; }
+  while (index < METRIC_UNITS.length - 1 && (stock ? magnitude / scale >= 1000 : magnitude / scale > 10000)) { scale *= 1000; index++; }
   return [scale, METRIC_UNITS[index]!];
+}
+
+/** Purchase quotes use strict thousand-based SI units, independently of inventory/effects. */
+export function formatCostNumber(value: number): string {
+  if (!Number.isFinite(value)) return value === Infinity ? '∞' : '0';
+  let magnitude = Math.abs(value), index = 0;
+  while (magnitude >= 1000 && index < METRIC_UNITS.length - 1) { magnitude /= 1000; index++; }
+  const amount = floorWithPrecision(magnitude * 100) / 100;
+  const text = amount.toFixed(2).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
+  return (value < 0 && amount !== 0 ? '−' : '') + text + METRIC_UNITS[index];
 }
 
 /** Effect values are not spendable stock: display up to four decimals without padding. */
@@ -36,7 +46,7 @@ export function formatRateNumber(value: number): string {
 export function formatResourceNumber(value: number): string {
   if (!Number.isFinite(value)) return value === Infinity ? '∞' : '0';
   const magnitude = Math.abs(value);
-  const [scale, suffix] = metricUnit(magnitude);
+  const [scale, suffix] = metricUnit(magnitude, true);
   const scaled = magnitude / scale * 100;
   // Scaling enormous values must not overflow or introduce an unsafe integer conversion.
   const displayed = Number.isSafeInteger(Math.floor(scaled)) ? floorWithPrecision(scaled) / 100 : magnitude / scale;

@@ -34,8 +34,8 @@ test('hazardous storage research follows stellar forge and gates the regional bu
   s.neutronStarMissionCompleted = true;
   assert.equal(isBuildingUnlocked('hazardousMaterialStorage', s), true);
   assert.equal(s.buildings.hazardousMaterialStorage, 0);
-  assert.deepEqual(BUILDINGS.hazardousMaterialStorage.cost, { adamantite: 10000, nanoAlloy: 10000 });
-  for (const resource of ['adamantite', 'nanoAlloy'] as const) {
+  assert.deepEqual(BUILDINGS.hazardousMaterialStorage.cost, { cash: 2000000, alloy: 50000, adamantite: 10000, nanoAlloy: 10000 });
+  for (const resource of ['cash', 'alloy', 'adamantite', 'nanoAlloy'] as const) {
     assert.equal(calculateBuildingScale('hazardousMaterialStorage', resource, s), 1.265);
   }
 });

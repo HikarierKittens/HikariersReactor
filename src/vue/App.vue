@@ -115,7 +115,7 @@ function replaceRun(next: GameState): boolean {
     return false;
   }
 }
-const saveStatus = computed(() => { props.store.revision(); return props.store.runtime.saveBlocked ? '保护模式 · 请到设置进行硬重置' : props.store.runtime.saveFailed ? '本地保存失败，请导出备份' : '本地存档 · 自动保存已启用'; });
+const saveStatus = computed(() => { props.store.revision(); return props.store.runtime.saveBlocked ? '保护模式 · 请先到设置导出原档备份' : props.store.runtime.saveFailed ? '本地保存失败，请导出备份' : '本地存档 · 自动保存已启用'; });
 
 function afterAction(): void {
   props.store.mutate(s => { for (const id of updateProgression(s)) addLog(s, `成就达成：${ACHIEVEMENTS[id].name}`, 'achievement'); });
@@ -508,7 +508,7 @@ onUnmounted(() => {
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.6.5</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.6.7</span>
     </header>
 
     <p v-if="actionError && !escapeConfirm && !blackHoleConfirm && !nuclearConfirm" class="action-error" role="alert">{{ actionError }}</p>

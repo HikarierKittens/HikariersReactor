@@ -9,7 +9,7 @@ import { calculateBuildingCost, canPayCost, isBuildingFullyBuilt } from '../../s
 import { hasContinuousEnergyInput, calculateBuildingName } from '../../simulation/building-production';
 import { countRunningBuildings } from '../../simulation/housing';
 import { calculateQuantumLevel, calculateSwarmSupportCapacity } from '../../simulation/quantum';
-import { floorWithPrecision } from '../../shared/format';
+import { floorWithPrecision, formatCostNumber } from '../../shared/format';
 import { REGIONAL_MISSIONS, calculateRegionalMissionCost, isRegionalMissionAvailable, isRegionalMissionCompleted, type RegionalMissionId, type SpaceMissionId } from '../../simulation/space-missions';
 import { uiPreview } from '../preview-cache';
 import { isHyperspaceUnlocked } from '../../simulation/stage-three';
@@ -335,7 +335,7 @@ function canGather(id: string): boolean {
             :data-cost="row.id"
             :data-amount="row.amount"
             :class="row.enough ? 'positive' : 'subtle'"
-          >{{ row.name }} {{ ['swarmSatellite', 'swarmFactory'].includes(id) && row.amount < 1 ? '0' : fmt(row.amount) }}</span>
+          >{{ row.name }} {{ ['swarmSatellite', 'swarmFactory'].includes(id) && row.amount < 1 ? '0' : formatCostNumber(row.amount) }}</span>
         </span>
       </div>
     </div>

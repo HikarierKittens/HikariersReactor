@@ -901,7 +901,7 @@ import { calculateFactoryRecipe } from '../src/simulation/factory';
 import { allocateMoonSupport } from '../src/simulation/moon';
 import { allocateAsrielSupport } from '../src/simulation/asriel';
 import { calculateTechnologyTier } from '../src/simulation/technology';
-import { formatNumber, formatEffectNumber, formatResourceNumber } from '../src/shared/format';
+import { formatNumber, formatEffectNumber, formatResourceNumber, formatCostNumber, formatRateNumber } from '../src/shared/format';
 import { advanceSoldierTraining } from '../src/simulation/military';
 import { advancePopulationGrowth, sampleGrowthTarget } from '../src/simulation/population';
 import { finalizeProduction, settlePopulationIncome } from '../src/simulation/production-finalize';
@@ -1151,6 +1151,15 @@ test('decimal effects survive binary roundoff without rounding genuine stock fra
   assert.equal(formatNumber(1.9999), '1.99');
   assert.equal(formatNumber(.04999), '0.04');
   assert.equal(formatNumber(12000 * 1.17), '14.04k');
+});
+
+test('costs and inventory switch at thousands independently of production rates', () => {
+  for (const format of [formatCostNumber, formatResourceNumber]) {
+    for (const [value, expected] of [[999, '999'], [1000, '1k'], [2100, '2.1k'], [1000000, '1M'], [2100000, '2.1M'], [1e9, '1G']] as const) assert.equal(format(value), expected);
+  }
+  assert.equal(formatRateNumber(2100), '2100');
+  assert.equal(formatRateNumber(2100000), '2100k');
+  assert.equal(formatEffectNumber(2100000), '2100k');
 });
 
 test('building effect numbers retain up to four decimals without trailing zeros and compact large values', () => {
