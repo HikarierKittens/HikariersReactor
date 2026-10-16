@@ -52,7 +52,7 @@ function toggle(id: BuildingId, event: MouseEvent, start: boolean): void {
           <span class="building-name">{{ BUILDINGS[id].name }}</span><span class="building-count" aria-hidden="true">{{ state.buildings[id] }}</span><span v-if="queued(id)" class="building-pending">预约 {{ queued(id) }}</span>
         </button>
         <button class="building-info" :data-building-tip="id" data-tip-kind="building" :aria-label="`查看${BUILDINGS[id].name}详情`">ⓘ</button>
-        <button v-if="id === 'downloadExecutable' && state.buildings[id] > 0" class="download-config" data-download-settings aria-label="配置 dl.exe 下载分配" @click="emit('configure')">配置</button>
+        <button v-if="id === 'downloadExecutable' && state.buildings[id] > 0" class="building-gear" data-download-settings aria-label="配置 dl.exe 下载分配" title="下载分配设置" @click="emit('configure')">⚙</button>
         <template v-if="state.buildings[id] > 0 && hasContinuousEnergyInput(id, state)">
           <button class="building-toggle stop" :aria-label="`关停一座${BUILDINGS[id].name}`" :disabled="running(id) === 0" @click="toggle(id, $event, false)">{{ state.buildings[id] - running(id) }}</button>
           <button class="building-toggle start" :class="{ 'is-shortage': effective(id) + 1e-9 < running(id) }" :aria-label="`启动一座${BUILDINGS[id].name}`" :disabled="running(id) === state.buildings[id]" @click="toggle(id, $event, true)">{{ running(id) }}</button>
@@ -68,5 +68,4 @@ function toggle(id: BuildingId, event: MouseEvent, start: boolean): void {
 .region-name:hover .region-description, .region-name:focus .region-description { display: block; }
 .region-name:focus-visible { outline: 1px solid var(--gold); outline-offset: 3px; }
 .digital-bandwidth { color: var(--green); font-variant-numeric: tabular-nums; margin-left: auto; }
-.download-config { padding: 0 8px; font-size: 12px; }
 </style>
