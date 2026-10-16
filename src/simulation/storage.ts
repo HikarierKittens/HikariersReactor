@@ -1,4 +1,5 @@
 import { calculateSupportPreview } from './support-preview';
+import { calculateDigitalByteCapacity, type DigitalSupport } from './digital-world';
 import { BUILDINGS } from '../data/buildings';
 import { RESOURCES } from '../data/resources';
 import { calculateStorageBonuses } from './storage-bonuses';
@@ -14,6 +15,7 @@ import type { MoonSupport } from './moon';
 import type { GameState } from '../types/state';
 
 export interface StorageSnapshot {
+  digital?: DigitalSupport;
   stageThree?: { repeaters?: number; ports?: number; freight: number; civilian: number; iceShips?: number; asteroidBases?: number };
   e710ContainerUnits?: number;
   e710WarehouseUnits?: number;
@@ -164,6 +166,12 @@ export function calculateRipperKnowledgeBonus(state: GameState, snapshot: Pick<S
 }
 
 export function calculateStorageDetails(resource: ResourceId, state: GameState, snapshot: StorageSnapshot): StorageDetails {
+  if (resource === 'bytes') {
+    const digital = snapshot.digital ?? calculateSupportPreview(state).digital;
+    const rows = [{ name: '基础储量', value: 10000 }];
+    if (digital.quantumStorageUnits) rows.push({ name: '量子存储器 ×' + formatNumber(digital.quantumStorageUnits), value: digital.quantumStorageUnits * 10000 });
+    return { rows, total: calculateDigitalByteCapacity(digital) };
+  }
   if (RESOURCES[resource].crafted) return { rows: [], total: Infinity };
   const rows: StorageDetails['rows'] = [{ name: '基础储量', value: baseStorage(resource, state) }];
   const totals: Partial<Record<ResourceId, number>> = { [resource]: baseStorage(resource, state) };
@@ -225,6 +233,7 @@ export function calculateStorageTotals(state: GameState, snapshot: StorageSnapsh
   // Same post-CRISPR subtotal as the detail row, so both paths agree exactly.
   const ripperCores = countRunningBuildings('spaceRipper', state);
   if (ripperCores) totals.knowledge = (totals.knowledge || 0) * (1 + calculateRipperKnowledgeBonus(state, snapshot) * ripperCores);
+  totals.bytes = calculateDigitalByteCapacity(snapshot.digital ?? calculateSupportPreview(state).digital);
   return totals as Record<ResourceId, number>;
 }
 /** Drop only what a lowered cap can no longer hold, reporting whether anything was lost. */

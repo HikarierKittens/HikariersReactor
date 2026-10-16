@@ -38,8 +38,8 @@ export function replaySettledPool(
   ledger: SettlementLedger,
   dt: number,
   happiness: number,
+  pool: ResourceAmounts = { ...state.resources },
 ): SettledPoolReplay {
-  const pool: ResourceAmounts = { ...state.resources };
   const inputUnits: Record<string, number> = {};
   const outputs: Record<string, number> = {};
 
@@ -62,6 +62,11 @@ export function replaySettledPool(
     outputs[id] = (outputs[id] || 0) + (actual || 0);
   }
   replayPlantDebits(state, ledger, dt, pool);
+  charge(pool, 'energy', ledger.digital.gatewayUnits * 25 * dt);
+  if (state.buildings.gatewayRouter) inputUnits.gatewayRouter = outputs.gatewayRouter = ledger.digital.gatewayUnits;
+  if (state.buildings.downloadExecutable) inputUnits.downloadExecutable = outputs.downloadExecutable = ledger.digital.downloadUnits;
+  if (state.buildings.quantumStorage) inputUnits.quantumStorage = outputs.quantumStorage = ledger.digital.quantumStorageUnits;
+  if (state.buildings.downloadCache) inputUnits.downloadCache = outputs.downloadCache = ledger.digital.cacheUnits;
 
   // 3. Space chain debits (waystations, moon, asriel, stage three, containers,
   //    mining ships) replayed from the ledger units; outputs recomputed at the

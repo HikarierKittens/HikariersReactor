@@ -23,6 +23,50 @@ function snapshotOf(state: GameState, units: Partial<StorageSnapshot> = {}): Sto
     moon: support.moon, asriel: support.asriel, ...units };
 }
 
+test('knowledge inheritance requires both technologies and scales only library capacity', () => {
+  const s = createInitialState(CONFIG.version, 60, 0);
+  assert.equal(TECHNOLOGIES.knowledgeInheritance.tier, 6);
+  assert.deepEqual(TECHNOLOGIES.knowledgeInheritance.cost, { knowledge: 15000 });
+  assert.deepEqual(TECHNOLOGIES.knowledgeInheritance.pre, ['particleAccelerator', 'knowledgeContainer']);
+  assert.equal(isTechnologyUnlocked('knowledgeInheritance', s), false);
+  s.tech.push('particleAccelerator');
+  assert.equal(isTechnologyUnlocked('knowledgeInheritance', s), false);
+  s.tech.push('knowledgeContainer');
+  assert.equal(isTechnologyUnlocked('knowledgeInheritance', s), true);
+  s.buildings.particleAccelerator = 3;
+  assert.equal(calculateStorageBonuses('library', s, null).knowledge, 100);
+  s.tech.push('knowledgeInheritance');
+  assert.equal(calculateStorageBonuses('library', s, null).knowledge, 130);
+  s.tech.push('internet');
+  assert.equal(calculateStorageBonuses('library', s, null).knowledge, 195);
+  assert.equal(calculateStorageBonuses('lab', s, null).knowledge, 2000);
+  s.buildings.library = 4;
+  const snapshot = snapshotOf(s);
+  assert.equal(calculateStorageDetails('knowledge', s, snapshot).total, calculateStorageTotals(s, snapshot).knowledge);
+});
+
+test('station science facilities scale only alien laboratory knowledge capacity', () => {
+  const s = createInitialState(CONFIG.version, 60, 0);
+  assert.equal(TECHNOLOGIES.stationScienceFacilities.tier, 16);
+  assert.deepEqual(TECHNOLOGIES.stationScienceFacilities.cost, { knowledge: 420000 });
+  assert.deepEqual(TECHNOLOGIES.stationScienceFacilities.pre, ['alienScienceResearch']);
+  assert.equal(isTechnologyUnlocked('stationScienceFacilities', s), false);
+  s.tech.push('alienScienceResearch');
+  assert.equal(isTechnologyUnlocked('stationScienceFacilities', s), true);
+  s.buildings.starRingStation = 4;
+  s.population = 4;
+  s.workers.asrielResidence = 4;
+  const support = snapshotOf(s).asriel;
+  support.allocations.asrielResidence = 2;
+  const before = calculateStorageBonuses('alienMaterialLab', s, null, support);
+  s.tech.push('stationScienceFacilities');
+  const after = calculateStorageBonuses('alienMaterialLab', s, null, support);
+  assert.equal(before.knowledge, 1000);
+  assert.equal(after.knowledge, 1200);
+  assert.equal(after.e710, 25);
+  assert.equal(calculateStorageBonuses('library', s, null).knowledge, 100);
+});
+
 test('battery concentration ring increases base energy and replaces station capacity', () => {
   const state = createInitialState(CONFIG.version, 60, 0);
   assert.equal(TECHNOLOGIES.batteryConcentrationRing.tier, 8);

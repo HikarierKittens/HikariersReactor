@@ -55,6 +55,8 @@ import PerksPanel from './components/PerksPanel.vue';
 import ResourceManagementPanel from './components/ResourceManagementPanel.vue';
 import TipsPanel from './components/TipsPanel.vue';
 import FactoryModal from './components/FactoryModal.vue';
+import DownloadModal from './components/DownloadModal.vue';
+import { changeDownloadAllocation } from '../simulation/download-command';
 import SmelterModal from './components/SmelterModal.vue';
 import GeneSynthesisModal from './components/GeneSynthesisModal.vue';
 import { changeGeneSynthesisRate } from '../simulation/genes';
@@ -89,6 +91,7 @@ const worldView = ref('home');
 // A locked 超空间 (before 异常区域测绘, e.g. after loading another save) falls back to 地面.
 const currentWorldView = computed(() => {
   props.store.revision();
+  if (worldView.value === 'world_execution' && !props.store.state().tech.includes('aiCoreCalibration')) return 'home';
   return worldView.value === 'hyperspace' && !isHyperspaceUnlocked(props.store.state()) ? 'home' : worldView.value;
 });
 const techView = ref('available');
@@ -485,6 +488,21 @@ function setSynthesisRate(id: DnaId, value: number): void {
   afterAction();
 }
 
+const downloadOpen = ref(false);
+const downloadDialog = ref<HTMLDialogElement | null>(null);
+watch(downloadOpen, async open => { if (open) { await nextTick(); downloadDialog.value?.showModal(); } });
+watch(() => { props.store.revision(); return props.store.state().buildings.downloadExecutable > 0 && props.store.state().tech.includes('aiCoreCalibration'); }, available => { if (!available) downloadOpen.value = false; });
+function dismissDownloadBackdrop(event: MouseEvent): void {
+  const dialog = downloadDialog.value;
+  if (!dialog || event.target !== dialog) return;
+  const bounds = dialog.getBoundingClientRect();
+  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) downloadOpen.value = false;
+}
+function setDownloadAllocation(value: number): void {
+  props.store.mutate(s => changeDownloadAllocation(s, value));
+  afterAction();
+}
+
 let timer: number | undefined;
 
 onMounted(() => {
@@ -508,7 +526,7 @@ onUnmounted(() => {
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.6.7</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.6.10</span>
     </header>
 
     <p v-if="actionError && !escapeConfirm && !blackHoleConfirm && !nuclearConfirm" class="action-error" role="alert">{{ actionError }}</p>
@@ -562,6 +580,7 @@ onUnmounted(() => {
               @smelter-settings="smelterOpen = true"
               @synthesis-settings="synthesisOpen = true"
               @ship-settings="shipModal = true"
+               @download-settings="downloadOpen = true"
               @world-view="worldView = $event"
               @mission="mission"
             />
@@ -726,6 +745,10 @@ onUnmounted(() => {
     <dialog v-if="shipModal" ref="shipDialog" id="spaceshipModal" class="factory-modal spaceship-modal" aria-labelledby="spaceshipTitle" @cancel="shipModal = false" @click="dismissShipBackdrop">
       <div class="panel-head"><h2 id="spaceshipTitle">ESS-喵星号</h2><button aria-label="关闭飞船建造设置" @click="shipModal = false">关闭</button></div>
       <SpaceshipModal :state="state" :revision="store.revision()" @invest="investShip" @queue="queueShip" @launch="launchShip" />
+    </dialog>
+    <dialog v-if="downloadOpen" ref="downloadDialog" id="downloadModal" class="factory-modal" aria-labelledby="downloadTitle" @cancel="downloadOpen = false" @click="dismissDownloadBackdrop">
+      <div class="panel-head"><h2 id="downloadTitle">dl.exe 配置</h2><button aria-label="关闭下载配置" @click="downloadOpen = false">关闭</button></div>
+      <DownloadModal :state="state" :revision="store.revision()" @allocation="setDownloadAllocation" />
     </dialog>
     <dialog v-if="factoryOpen" ref="factoryDialog" id="factoryModal" class="factory-modal" @cancel="factoryOpen = false" @click="dismissFactoryBackdrop">
       <h2>工厂</h2>

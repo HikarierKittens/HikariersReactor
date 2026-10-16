@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { regionBalanceBind, regionBalanceText } from './region-balance';
+import DigitalWorldPanel from './DigitalWorldPanel.vue';
 import type { GameState } from '../../types/state';
 import type { BuildingId } from '../../types/buildings';
 import { BUILDINGS, BUILDING_GROUPS } from '../../data/buildings';
@@ -44,6 +45,7 @@ const emit = defineEmits<{
   smelterSettings: [];
   synthesisSettings: [];
   shipSettings: [];
+  downloadSettings: [];
   worldView: [view: string];
   mission: [id: RegionalMissionId, forceQueue: boolean];
 }>();
@@ -77,6 +79,7 @@ function missionAffordable(id: RegionalMissionId): boolean {
 const hyperspaceUnlocked = computed(() => { props.revision; return isHyperspaceUnlocked(props.state); });
 const sections = computed(() => {
   props.revision;
+  if (props.worldView === 'world_execution') return [];
   if (props.worldView === 'hyperspace') {
     if (!hyperspaceUnlocked.value) return [];
     const regions: { id: string; name: string; list: BuildingId[] }[] = [{ id: 'anomaly', name: '空间异常·接入点', list: (['constraintArray', 'signalRepeater', 'shortRangeRelay', 'anchorFreightStation', 'civilianRouteStation'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) }];
@@ -211,7 +214,9 @@ function canGather(id: string): boolean {
     <button data-world-view="home" :class="{ active: worldView === 'home' }" @click="emit('worldView', 'home')">地面</button>
     <button v-if="state.tech.includes('spaceflight')" data-world-view="space" :class="{ active: worldView === 'space' }" @click="emit('worldView', 'space')">太空</button>
     <button v-if="hyperspaceUnlocked" data-world-view="hyperspace" :class="{ active: worldView === 'hyperspace' }" @click="emit('worldView', 'hyperspace')">{{ state.tech.includes('overclocking13') ? '遥远星际' : '超空间' }}</button>
+    <button v-if="state.tech.includes('aiCoreCalibration')" data-world-view="world_execution" :class="{ active: worldView === 'world_execution' }" @click="emit('worldView', 'world_execution')">world_execution</button>
   </nav>
+  <DigitalWorldPanel v-if="worldView === 'world_execution' && state.tech.includes('aiCoreCalibration')" :state="state" :revision="revision" @buy="(id, count, queued) => emit('buy', id, count, queued)" @toggle="(id, delta) => emit('toggle', id, delta)" @configure="emit('downloadSettings')" />
   <template v-if="worldView === 'home'">
     <section class="building-group">
       <h3 class="building-group-title">杂项</h3>

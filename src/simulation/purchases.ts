@@ -99,14 +99,10 @@ export function constructBuildingState(state: GameState, id: BuildingId, moonAva
   if (insufficient) {
     state.stoppedBuildings[id] = (state.stoppedBuildings[id] || 0) + 1;
   }
-  // The last segment of 空间撕裂者 completes the current main storyline.
   if (id === 'massEjector' && state.buildings[id] === 1) addLog(state, MASS_EJECTION_UNLOCK_LOG, 'progress');
-  if (id === 'spaceRipper' && state.buildings[id] === building.segmentedRequired) {
-    addLog(state, SPACE_RIPPER_COMPLETED_LOG, 'progress');
-  }
 }
-export const SPACE_RIPPER_COMPLETED_LOG = '当前游戏主线部分已完成喵，请等待未来更新喵';
 export const STABILIZE_BLACK_HOLE_LOG = '黑洞已稳定：奇异质量按40倍转化为普通质量，并加入了100k中子的质量。';
+export const AI_CORE_CALIBRATION_LOG = 'AI超级核心似乎出现了错误，需要重新校准，在校准过程中一些工程师神秘失踪，最后我们发现他们把自己数字化了！';
 export const OVERCLOCKING13_LOG = '空间撕裂者在虚空中撕开了空间，形成了一个黑洞！';
 
 export interface ResearchSideEffects {
@@ -136,6 +132,12 @@ export function applyResearchSideEffects(state: GameState, id: TechnologyId, pre
       state.stoppedBuildings[buildingId] = state.buildings[buildingId];
       poweredShutdown.push(buildingId);
     }
+  }
+  // Only actual research awards the bootstrap router; loading an earned tech never does.
+  // Grant after the powered-upgrade scan so this new unit starts enabled.
+  if (id === 'aiCoreCalibration' && !previousTech.includes(id)) {
+    state.buildings.gatewayRouter += 1;
+    addLog(state, AI_CORE_CALIBRATION_LOG, 'progress');
   }
   return { poweredShutdown, unlockedContainers: id === 'containerManagement' };
 }

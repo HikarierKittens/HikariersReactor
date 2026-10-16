@@ -2,6 +2,7 @@ import type { ResourceId, ResourceRecipe } from './economy';
 import type { TechnologyId } from './technologies';
 
 export type BuildingId =
+  | 'gatewayRouter' | 'downloadExecutable' | 'quantumStorage' | 'downloadCache'
   | 'signalRepeater' | 'hydrogenPowerPlant'
   | 'hyperspaceSpaceport' | 'iceMiningShip' | 'asteroidBase'
   | 'comprehensiveMiningFacility' | 'gasCloudMiningShip' | 'highTechFarmPlatform'
@@ -57,6 +58,11 @@ export interface BuildingDefinition {
   spaceSource?: boolean;
   moonSupport?: number;
   swarmSupport?: number;
+  /** Digital-world bandwidth supplied / required while running. */
+  bandwidth?: number;
+  bandwidthUse?: number;
+  bytesCap?: number;
+  downloadBoost?: number;
   knowledgeCap?: number;
   soldierCap?: number;
   trainingBoost?: number;

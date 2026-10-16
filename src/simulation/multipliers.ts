@@ -23,6 +23,7 @@ export function calculateChallengeAcceleratorMultiplier(id: string, state: Pick<
     ? 1 + (RESOURCES[id as ResourceId].crafted ? .0125 : .05) * (state.buildings.particleAccelerator || 0) : 1;
 }
 export function calculateProductionMultiplier(id: string, happiness: number, state: GameState): number {
+  if (id === 'bytes') return 1;
   return happiness / 100 * calculateCommunityMultiplier(id, state) * calculateRefiningMultiplier(id, state)
     * (id === 'cash' ? 1 : calculateGovernmentMultiplier(id, state)) * calculateChallengeAcceleratorMultiplier(id, state);
 }

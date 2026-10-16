@@ -19,7 +19,9 @@ test('frozen pre-beta0.6.5 JSON upgrades only missing building entries and round
   const before = structuredClone(raw); freeze(raw);
   const state = validateCurrentSave(raw, context);
   const expected = structuredClone(before);
-  for (const field of fields) expected[field].hazardousMaterialStorage = 0;
+  for (const field of fields) for (const id of ['hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache']) expected[field][id] = 0;
+  for (const field of ['resources', 'containerAssignments', 'alloyContainerAssignments']) expected[field].bytes = 0;
+  expected.downloadAllocation = 0;
   assert.deepEqual(state, expected);
   assert.deepEqual(validateCurrentSave(JSON.parse(JSON.stringify(state)), context), state);
   assert.deepEqual(raw, before);

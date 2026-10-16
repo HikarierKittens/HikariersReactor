@@ -21,6 +21,14 @@
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
 - 包管理：npm；生成式桥接脚本见 `scripts/generate-legacy-data.cjs`。
 
+### 数字世界（beta 0.6.8）
+
+- aiCoreCalibration需penroseSphere完整100段，2500000知识；实际购买/队列完成产生准确日志并赠1运行gatewayRouter，载入不发奖。binaryWorld需前者，2500000知识+1000bytes。Buildings metadata bandwidth5/use1/bytesCap10000/downloadBoost.1；四建筑id gatewayRouter/downloadExecutable/quantumStorage/downloadCache。
+- digital-world纯分配模块由settlement-ledger在电站后预留路由耗电，每座25/s；供电比例决定带宽5倍，消费者按下载→存储→缓存整单位分配。回放只付一次，其他空间支持不能重复使用该电。
+- 在纯本地回放资源池拦截知识正向最终入账，按downloadAllocation0～100分流，后续维护只可使用留存知识与已有库存。1000knowledge/s→10bytes/s，结果只乘精通与(1+.1*activecache)；知识自身产出已有倍率不剥离，字节不额外叠粒子/幸福/基因。
+- production.digital与supportPreview.digital为UI及容量共享结果；bytes容量10000+10000*受支持量子存储器，无其他储量全局加成。ResourcePanel、价格/储量/收支明细均用B/KB/MB等1000进制，精确值不变。
+- schema31兼容归零缺失四建筑的数量/工人/停用、bytes库存/容器记录及downloadAllocation；显式非法不修复，校准已研究却没路由不回填赠品。数字页和滑块旧存档默认未开放/0分流；软重置按原规则清除本周目数字进度。
+
 ### 成本与库存格式（beta 0.6.7）
 
 危险物质库cost增加cash2000000/alloy50000，与已有adamantite10000/nanoAlloy10000均使用1.265递增。formatCostNumber用于悬停费用、建筑成本及ARPA工程投入/需求，formatResourceNumber用于库存/储量，两者达到1000就切换下一SI单位；formatRateNumber/formatEffectNumber保持原10000阈值。只影响显示，实际计费与库存精度不变，无存档字段变化且升级兼容逻辑保留。
@@ -230,7 +238,7 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 - 威望资源解锁：`GameState.prestigeUnlocked`（`'particles'|'casimir'`）只增不减，由`updateProgression`→`syncPrestigeUnlocks`记录当前持有>0的资源，软重置、核弹与逃离均经`keepPrestigeUnlocks`继承且不修改源状态；`isPrestigeResourceUnlocked`=记录命中或当前持有>0。当前存档须提供完整解锁记录，不从历史持有量或重置次数补全。
 - 基因修饰：`GameState.geneModification={dna:{C,G,A,T},levels}`为本周目状态（`createInitialState`新建，所有重置清零），当前存档须提供完整记录；校验拒绝未知键、负数、非整数与超过`MAX_GENE_LEVEL`(50)。解锁条件`isGeneModificationUnlocked`=CRISPR`geneSplicing`+本周目`arpaBuildings.geneSequencing≥1`。`craftDna`每个扣200k知识并计入`knowledgeSpent`；`upgradeGene`扣对应碱基`10×2^level`。CRISPR定义新增可选`casimirCost`，`canAffordCrisprUpgrade`统一判定，`validateStatistics`把已购升级的卡西米尔计入历史获取下限。
 - 基因效果接入点：建筑基础产出类基因在`calculateBuildingOutput`中乘到单位产出（地面结算、钛副产物、收支明细同源），资源收支明细不单列基因行，加成直接计入来源的基础值；完美主义乘在`calculateFactoryRecipe.output`（不改input），生产线明细同样直接计入；泰坦之力乘`calculateCombatPower`；猫猫凝聚经`calculatePopulationPressure`与`calculateSoldierPressure`（×(1-bonus/2)）进入`calculateMorale`。
-- 空间撕裂者：`powerPlant`+`alwaysRunning`+`output.energy=100`，走普通`settlePowerPlants`路径（无燃料）；知识容量在详情与总量两条路径都于CRISPR之后乘`1+0.2×建成数`，系数在`building-effects.ts`共享。完成第100段时`constructBuildingState`写入事件日志`SPACE_RIPPER_COMPLETED_LOG`（主线完成提示），直接、批量与队列建造共用该入口，因此只触发一次。
+- 空间撕裂者：`powerPlant`+`alwaysRunning`+`output.energy=100`，走普通`settlePowerPlants`路径（无燃料）；知识容量在详情与总量两条路径都于CRISPR之后乘`1+0.2×建成数`，系数在`building-effects.ts`共享。自beta0.6.9起，完成第100段不再写入主线完成提示；直接、批量与队列建造均保持正常完成与效果，存档内已有历史日志不改写。
 - 高科技工厂：`lines:2`、`jobSlots:{cementWorkshop:2}`；在`settleFactoryLines`中排在太空工厂之后按电力与氘连续比例供能，供能生产线=地面+太空+高科技×2，太空工厂秘银加成份额也按生产线计。不进入地面结算与超空间来源循环。
 - 超空间太空港付费运行时提供16000氦-3容量（不依赖氘解锁），研究高维存储后与氘一起×2。
 - 高维存储：`storage-bonuses.ts`中对民用航线站、小行星基地、太空港基础值×2，太空港追加16000水；货运站倍率由`calculateFreightCapacityMultiplier`给出`1+0.05×基地+1`（加算）。桥接新增`building-effects`模块（80个脚本）。

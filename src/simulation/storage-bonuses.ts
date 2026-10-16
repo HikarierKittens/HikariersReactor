@@ -58,13 +58,15 @@ export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: 
   if (id === 'warehouse') return Object.fromEntries((upgraded ? ADVANCED_STORAGE_RESOURCES : WAREHOUSE_RESOURCES).map(r => [r, (upgraded ? 500 : 250) * warehouseMultiplier]));
   if (id === 'biologyLab') return { knowledge: 3000 };
   if (id === 'e710ResearchStation') return { knowledge: 50000 };
-  if (id === 'library') return { knowledge: state.tech.includes('internet') ? 150 : 100 };
+  if (id === 'library') return { knowledge: (state.tech.includes('internet') ? 150 : 100)
+    * (1 + (state.tech.includes('knowledgeInheritance') ? .1 * state.buildings.particleAccelerator : 0)) };
   if (id === 'school') return { knowledge: (state.tech.includes('internet') ? 750 : 500) * (1 + .05 * (moon?.allocations.moonObservatory || 0)) * instituteMultiplier };
   if (id === 'observatory') return { knowledge: 3000 };
   if (id === 'moonObservatory') return { knowledge: 5000 };
   if (id === 'ecologicalDome') return { food: 2500 };
   // Per supported lab: knowledge follows supported residents; E710 is flat.
-  if (id === 'alienMaterialLab') return { knowledge: asriel ? 250 * countAsrielResidents(state, asriel) : 0, e710: 25 };
+  if (id === 'alienMaterialLab') return { knowledge: asriel ? 250 * countAsrielResidents(state, asriel)
+    * (1 + (state.tech.includes('stationScienceFacilities') ? .05 * state.buildings.starRingStation : 0)) : 0, e710: 25 };
   if (id === 'spaceWaystation') return { oil: 250, helium3: 250 };
   if (id === 'hangar') return { ...Object.fromEntries(['copper', 'iron', 'cement', 'metal', 'titanium', 'alloy', 'polymer'].map(r => [r, 8000 * warehouseMultiplier])),
     ...(isResourceUnlocked('neutron', state) ? { neutron: 4000 * warehouseMultiplier } : {}),

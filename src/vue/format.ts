@@ -27,8 +27,8 @@ export function percent(n: number): string {
 
 /** Display-only storage snapshot: identical reservations to the settlement tick. */
 export function storageSnapshot(state: GameState, dt: number = 1, revision?: number): DeepReadonly<StorageSnapshot> {
-  const { moon, asriel, biologyUnits, dataCenterUnits, e710ContainerUnits, e710WarehouseUnits, researchStationUnits, blackHoleStationUnits, stageThree } = revision === undefined ? calculateSupportPreview(state, dt) : uiPreview.support(state, revision, dt);
-  return { biologyUnits, dataCenterUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits, e710WarehouseUnits, researchStationUnits, blackHoleStationUnits, stageThree };
+  const { moon, asriel, biologyUnits, dataCenterUnits, e710ContainerUnits, e710WarehouseUnits, researchStationUnits, blackHoleStationUnits, stageThree, digital } = revision === undefined ? calculateSupportPreview(state, dt) : uiPreview.support(state, revision, dt);
+  return { biologyUnits, dataCenterUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits, e710WarehouseUnits, researchStationUnits, blackHoleStationUnits, stageThree, digital };
 }
 
 export function storageCap(resource: ResourceId, state: GameState, revision?: number): number {

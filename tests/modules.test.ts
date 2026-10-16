@@ -901,7 +901,7 @@ import { calculateFactoryRecipe } from '../src/simulation/factory';
 import { allocateMoonSupport } from '../src/simulation/moon';
 import { allocateAsrielSupport } from '../src/simulation/asriel';
 import { calculateTechnologyTier } from '../src/simulation/technology';
-import { formatNumber, formatEffectNumber, formatResourceNumber, formatCostNumber, formatRateNumber } from '../src/shared/format';
+import { formatNumber, formatEffectNumber, formatResourceNumber, formatCostNumber, formatRateNumber, formatByteNumber } from '../src/shared/format';
 import { advanceSoldierTraining } from '../src/simulation/military';
 import { advancePopulationGrowth, sampleGrowthTarget } from '../src/simulation/population';
 import { finalizeProduction, settlePopulationIncome } from '../src/simulation/production-finalize';
@@ -1151,6 +1151,12 @@ test('decimal effects survive binary roundoff without rounding genuine stock fra
   assert.equal(formatNumber(1.9999), '1.99');
   assert.equal(formatNumber(.04999), '0.04');
   assert.equal(formatNumber(12000 * 1.17), '14.04k');
+});
+
+test('bytes use decimal byte symbols for balances rates and prices', () => {
+  for (const [value, text] of [[1, '1B'], [999, '999B'], [1000, '1KB'], [10000, '10KB'], [2.5e6, '2.5MB'], [1e9, '1GB'], [1e12, '1TB'], [1e15, '1PB']] as const) assert.equal(formatByteNumber(value), text);
+  assert.equal(formatByteNumber(1.239), '1.23B');
+  assert.equal(formatByteNumber(1.239, true), '1.24B');
 });
 
 test('costs and inventory switch at thousands independently of production rates', () => {

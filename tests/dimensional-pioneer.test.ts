@@ -14,7 +14,7 @@ import { calculateFactoryCapacity } from '../src/simulation/factory';
 import { calculateWorkerCapacity } from '../src/simulation/building-production';
 import { countRunningBuildings } from '../src/simulation/housing';
 import { isBuildingUnlocked, isTechnologyUnlocked } from '../src/simulation/unlocks';
-import { requestPurchaseModule, buyBuildingNow, buyBuildingsInBatch, queuePurchase, settlePurchaseQueue, SPACE_RIPPER_COMPLETED_LOG } from '../src/simulation/purchases';
+import { requestPurchaseModule, buyBuildingNow, buyBuildingsInBatch, queuePurchase, settlePurchaseQueue } from '../src/simulation/purchases';
 import { createMilestoneState } from './fixtures/milestones';
 import type { ResourceId } from '../src/types/economy';
 
@@ -31,8 +31,8 @@ function eraState(): GameState {
   return s;
 }
 
-test('completing the space ripper logs the main-story completion exactly once on every build path', () => {
-  assert.equal(SPACE_RIPPER_COMPLETED_LOG, '当前游戏主线部分已完成喵，请等待未来更新喵');
+test('completing the space ripper no longer logs main-story completion on any build path', () => {
+  const SPACE_RIPPER_COMPLETED_LOG = '当前游戏主线部分已完成喵，请等待未来更新喵';
   const count = (s: GameState) => s.logs.filter(entry => entry.text === SPACE_RIPPER_COMPLETED_LOG).length;
   const ready = (segments: number) => {
     const s = eraState();
@@ -41,26 +41,25 @@ test('completing the space ripper logs the main-story completion exactly once on
     for (const resource of Object.keys(BUILDINGS.spaceRipper.cost) as ResourceId[]) s.resources[resource] = 1e12;
     return s;
   };
-  // Direct buy: segment 99 is silent, segment 100 logs once as an event.
+  // Direct buy: neither segment 99 nor segment 100 emits the retired completion notice.
   const direct = ready(98);
   assert.ok(buyBuildingNow(direct, 'spaceRipper', 0).bought);
   assert.equal(count(direct), 0, '99 segments do not log');
   assert.ok(buyBuildingNow(direct, 'spaceRipper', 0).bought);
   assert.equal(direct.buildings.spaceRipper, 100);
-  assert.equal(count(direct), 1);
-  assert.equal(direct.logs[0]?.type, 'progress');
+  assert.equal(count(direct), 0);
   assert.equal(buyBuildingNow(direct, 'spaceRipper', 0).bought, false, 'cannot exceed 100 segments');
-  assert.equal(count(direct), 1);
+  assert.equal(count(direct), 0);
   // Batch buy spanning the final segment.
   const batch = ready(95);
   assert.equal(buyBuildingsInBatch(batch, 'spaceRipper', 10, 0).bought, 5);
-  assert.equal(count(batch), 1);
+  assert.equal(count(batch), 0);
   // Queue completion of the final segment.
   const queued = ready(99);
   assert.notEqual(queuePurchase(queued, 'build', 'spaceRipper').status, 'rejected');
   settlePurchaseQueue(queued, 0);
   assert.equal(queued.buildings.spaceRipper, 100);
-  assert.equal(count(queued), 1);
+  assert.equal(count(queued), 0);
 });
 
 test('new technologies have the requested tiers, prices and prerequisites', () => {

@@ -1,4 +1,5 @@
 import { settlePowerPlants, type PowerResult } from './power';
+import { settleDigitalSupport, type DigitalSupport } from './digital-world';
 import { settleQuantumCores } from './quantum';
 import { settleSpaceProduction } from './space-settlement';
 import { settleE710WarehousePower } from './power-consumers';
@@ -8,6 +9,7 @@ import type { ResourceAmounts, AsrielSupport } from '../types/economy';
 
 import type { StageThreeSupport } from './stage-three-support';
 export interface SupportPreview {
+  digital: DigitalSupport;
   stageThree: StageThreeSupport;
   pool: ResourceAmounts;
   moon: MoonSupport;
@@ -56,6 +58,7 @@ export function buildSettlementLedger(state: GameState, dt = 1, quantumLevel?: n
   const pool = { ...state.resources };
   const aiSupercoreUnits = settleQuantumCores(state, pool, dt);
   const plants = settlePowerPlants(pool, dt, state, quantumLevel);
+  const digital = settleDigitalSupport(state, pool, dt);
   // Happiness only scales ordinary space outputs, never power or maintenance.
   const space = settleSpaceProduction(state, pool, dt, 1, plants.inputUnits.geothermalPlant || 0, plants.inputUnits.hydrogenPowerPlant || 0);
   const e710WarehouseUnits = settleE710WarehousePower(state, pool, dt);
@@ -66,6 +69,7 @@ export function buildSettlementLedger(state: GameState, dt = 1, quantumLevel?: n
   const dataCenterUnits = Math.min(dataRunning, Math.floor((Math.max(0, pool.energy) + 1e-8) / (3 * dt)));
   // Preserve the research-power API: pool reserves biology but not observatories.
   return {
+    digital,
     stageThree: space.stageThree,
     pool, moon: space.moon, asriel: space.asriel, metalRefineryUnits: space.metalRefineryUnits,
     biologyUnits, dataCenterUnits,

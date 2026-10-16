@@ -13,6 +13,7 @@ export interface ResourceDefinition {
 }
 
 export const RESOURCES: Record<ResourceId, ResourceDefinition> = {
+  bytes: { name: '字节', icon: '', cap: 10000, special: true, tech: 'aiCoreCalibration' },
   water: { name: '水', icon: '', cap: 0, unlockBy: 'iceMiningShip' },
   cash: { name: '$', icon: '', cap: 1000 },
   fur: { name: '毛皮', icon: '', cap: 100 },

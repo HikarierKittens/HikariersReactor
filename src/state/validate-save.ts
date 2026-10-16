@@ -41,6 +41,7 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
   if (typeof raw.furUnlocked !== 'boolean') throw Error('毛皮解锁状态无效。');
   state.furUnlocked = raw.furUnlocked;
   state.happiness = validateSaveNumber(raw.happiness, 0, Number.MAX_SAFE_INTEGER, '幸福度');
+  state.downloadAllocation = validateSaveNumber(raw.downloadAllocation, 0, 100, '下载分配');
   const savedSettings = raw.settings;
   if (!savedSettings || typeof savedSettings !== 'object' || Array.isArray(savedSettings) || Object.keys(savedSettings).some(key => !Object.hasOwn(DEFAULT_GAME_SETTINGS, key))) throw Error('游戏设置无效。');
   const settings: GameSettings = { ...DEFAULT_GAME_SETTINGS };

@@ -1,6 +1,6 @@
 /** Canonical identifiers shared by configuration, state and simulation. */
 export type ResourceId =
-  | 'water'
+  | 'water' | 'bytes'
   | 'cash' | 'fur' | 'energy' | 'knowledge' | 'food' | 'wood'
   | 'cement' | 'brick' | 'stone' | 'iron' | 'coal' | 'copper'
   | 'aluminum' | 'titanium' | 'metal' | 'plank' | 'oil' | 'uranium'

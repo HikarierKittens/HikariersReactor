@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONFIG } from '../src/data/config';
+import { calculateDigitalProduction, calculateDigitalSupport } from '../src/simulation/digital-world';
 import { RESOURCES } from '../src/data/resources';
 import { createInitialState } from '../src/state/create-state';
 import { settleQuantumCores } from '../src/simulation/quantum';
@@ -71,7 +72,7 @@ function oracleProduction(state: GameState, dt = 1): ProductionResult {
     const geneSynthesis = settleGeneSynthesis(state, pool, dt, biologyUnits);
     const ejected = settleMassEjection(state, pool, dt, inputUnits.massEjector || 0);
     const final = finalizeProduction(state, pool, before, dt, { stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits });
-    return { ...final, outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis };
+    return { ...final, digital: calculateDigitalProduction(state, calculateDigitalSupport(state, 0, dt), Math.max(0, final.rates.knowledge)), outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis };
   });
 }
 import { settleMassEjection } from '../src/simulation/black-hole';
@@ -159,7 +160,7 @@ test('support preview keeps its historical semantics while sharing the ledger un
     const actual = calculateSupportPreview(state, dt);
     // The public contract is the SupportPreview fields; the shared ledger's raw
     // space/plants settlements are internal artifacts consumed by production only.
-    const { space: _space, plants: _plants, ...publicPreview } = actual as typeof actual & { space: unknown; plants: unknown };
+    const { space: _space, plants: _plants, digital: _digital, ...publicPreview } = actual as typeof actual & { space: unknown; plants: unknown };
     void _space; void _plants;
     assert.deepEqual({ ...publicPreview, pool: publicPreview.pool }, { ...expectedPreview(state, dt), pool: expectedPreview(state, dt).pool }, label);
     for (const id of Object.keys(RESOURCES) as (keyof typeof RESOURCES)[]) near(publicPreview.pool[id] ?? 0, expectedPreview(state, dt).pool[id] ?? 0, `${label} support.pool.${id}`);

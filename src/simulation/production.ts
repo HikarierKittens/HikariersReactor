@@ -1,4 +1,5 @@
 import { withPoweredMetalRefining } from './refining';
+import { createDigitalProductionPool } from './digital-world';
 import { settlePowerPlants } from './power';
 import { calculateQuantumSnapshot } from './quantum';
 import { calculateSpaceFuelMultiplier } from './space-fuel';
@@ -29,7 +30,7 @@ export function previewMorale(state: GameState, dt = 1) {
   settlePowerPlants(moonPool, dt, state);
   const support = buildSettlementLedger(state, dt);
   const derive = (happiness: number) => {
-    const paid = replaySettledPool(state, support, dt, happiness).inputUnits;
+    const paid = replaySettledPool(state, support, dt, happiness, createDigitalProductionPool(state, support.digital, dt).pool).inputUnits;
     return calculateMorale(state, dt, {
       broadcastUnits: paid.broadcast || 0,
       touristStationUnits: paid.touristStation || 0,
@@ -73,7 +74,8 @@ export function previewMorale(state: GameState, dt = 1) {
 export function calculateProduction(state: GameState, dt = 1) {
   const morale = previewMorale(state, dt);
   const ledger = buildSettlementLedger(state, dt);
-  const replay = replaySettledPool(state, ledger, dt, morale.happiness);
+  const digitalProduction = createDigitalProductionPool(state, ledger.digital, dt);
+  const replay = replaySettledPool(state, ledger, dt, morale.happiness, digitalProduction.pool);
   const pool = replay.pool, before = { ...state.resources };
   const outputs = replay.outputs, inputUnits = replay.inputUnits;
   const space = ledger.space;
@@ -82,7 +84,7 @@ export function calculateProduction(state: GameState, dt = 1) {
   const e710WarehouseUnits = ledger.e710WarehouseUnits;
   const biologyUnits = ledger.biologyUnits, dataUnits = ledger.dataCenterUnits;
   return withPoweredMetalRefining(state, space.metalRefineryUnits, state => {
-    const quantum = calculateQuantumSnapshot(state, { stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, blackHoleStationUnits: ledger.blackHoleStationUnits }, aiSupercoreUnits);
+    const quantum = calculateQuantumSnapshot(state, { digital: ledger.digital, stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, blackHoleStationUnits: ledger.blackHoleStationUnits }, aiSupercoreUnits);
     const factory = settleFactoryLines(state, pool, dt, morale.happiness, asriel, calculateSpaceFuelMultiplier(state, inputUnits.spaceWaystation || 0), quantum.level);
     Object.assign(inputUnits, factory.inputs); Object.assign(outputs, factory.outputs);
     const automation = settleAutomationPower(state, pool, dt);
@@ -99,8 +101,8 @@ export function calculateProduction(state: GameState, dt = 1) {
     const geneSynthesis = settleGeneSynthesis(state, pool, dt, biologyUnits);
     // 质量喷射: withdraw after every producer so same-step output can be ejected.
     const ejected = settleMassEjection(state, pool, dt, inputUnits.massEjector || 0);
-    const final = finalizeProduction(state, pool, before, dt, { stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, blackHoleStationUnits: ledger.blackHoleStationUnits });
-    return { ...final, outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis };
+    const final = finalizeProduction(state, pool, before, dt, { digital: ledger.digital, stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, blackHoleStationUnits: ledger.blackHoleStationUnits });
+    return { ...final, digital: digitalProduction.result(), outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis };
   });
 }
 export type ProductionResult = ReturnType<typeof calculateProduction>;

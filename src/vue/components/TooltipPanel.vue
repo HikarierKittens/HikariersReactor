@@ -12,7 +12,7 @@ import { ARPA_PROJECTS } from '../../data/projects';
 import { calculateProjectDescription, calculateProjectCost } from '../../simulation/projects';
 import { SHIP_COMPONENTS, calculateShipComponentRemainingCost, calculateShipComponentProgress, isShipComponentUnlocked, type ShipComponentId } from '../../simulation/spaceship';
 import { CONFIG } from '../../data/config';
-import { floorWithPrecision, formatEffectNumber, formatResourceNumber, formatCostNumber } from '../../shared/format';
+import { floorWithPrecision, formatEffectNumber, formatResourceNumber, formatCostNumber, formatByteNumber } from '../../shared/format';
 import { calculateFoodPerCat } from '../../simulation/population';
 import { calculateBuildingCost, isBuildingFullyBuilt } from '../../simulation/costs';
 import { describeQueuedPurchases } from '../../simulation/purchases';
@@ -271,6 +271,11 @@ const content = computed<TipContent | null>(() => {
     const mixerPowered = id === 'cementWorkshop' && state.tech.includes('cementMixer');
     if (miningPowered) add(id === 'mine' ? '每座供电矿井：矿工产量' : '每座供电煤矿：煤矿工人产量', '+5%');
     if (mixerPowered) add('每座供电水泥工坊：水泥工人产量', '+5%');
+    if (id === 'gatewayRouter') add('数据带宽', '+5');
+    if (id === 'quantumStorage') add('字节容量', '+10KB');
+    if (id === 'downloadCache') add('字节产量', '+10%');
+    if (id === 'downloadExecutable') add('数据下载', '1k知识/s → 10B/s', false, '配置0%～100%的实际知识产出用于下载；不主动消耗知识库存。');
+    if (['downloadExecutable', 'quantumStorage', 'downloadCache'].includes(id)) add('数据带宽', '−1', true);
     const storage = calculateStorageBonuses(id, state, snapshot.moon, snapshot.asriel);
     for (const [resource, amount] of orderedCostEntries(storage)) {
       const effectiveAmount = id === 'anchorFreightStation' ? amount * calculateFreightCapacityMultiplier(state, snapshot.stageThree?.asteroidBases || 0) : amount;
@@ -353,7 +358,7 @@ const content = computed<TipContent | null>(() => {
     const storage = calculateStorageDetails(id, state, snapshot);
     tip.title = `${RESOURCES[id].name}${target.kind === 'storage' ? '储量' : '收支'}`;
     if (target.kind === 'storage') {
-      for (const row of storage.rows) add(row.name, `+${formatResourceNumber(row.value)}`);
+      for (const row of storage.rows) add(row.name, `+${id === 'bytes' ? formatByteNumber(row.value) : formatResourceNumber(row.value)}`);
       if (!storage.rows.length) tip.description = id === 'water' ? '水的基础容量为0，需要获得供电和支持的采冰船或小行星基地提供容量；不能分配集装箱。' : '锻造物不受储量上限限制。';
       tip.footnote = '储量使用当前供能与支持状态计算；降低上限后超出的资源会被截断。';
     } else {
@@ -562,7 +567,7 @@ onUnmounted(() => {
       <p v-if="content.warning" class="tip-desc danger" data-tech-warning>{{ content.warning }}</p>
       <template v-if="content.costs.length">
         <p class="tip-label">{{ selected?.kind === 'arpa' || selected?.kind === 'ship' || anchor?.dataset.queueUid ? '剩余资源需求' : selected?.kind === 'building' && BUILDINGS[selected.id as BuildingId]?.segmentedRequired ? '每段固定价格' : '当前价格' }}</p>
-        <div v-for="cost in content.costs" :key="cost.id" class="tip-cost" :class="{ 'is-cap-blocked': cost.blocked, 'is-missing': !cost.blocked && cost.missing }">{{ cost.name }} {{ selected?.kind === 'building' && ['swarmSatellite', 'swarmFactory'].includes(selected.id) && cost.amount < 1 ? '0' : formatCostNumber(cost.amount) }}</div>
+        <div v-for="cost in content.costs" :key="cost.id" class="tip-cost" :class="{ 'is-cap-blocked': cost.blocked, 'is-missing': !cost.blocked && cost.missing }">{{ cost.name }} {{ selected?.kind === 'building' && ['swarmSatellite', 'swarmFactory'].includes(selected.id) && cost.amount < 1 ? '0' : cost.id === 'bytes' ? formatByteNumber(cost.amount) : formatCostNumber(cost.amount) }}</div>
         <hr>
       </template>
       <p v-if="selected?.kind === 'building' && content.rows.length" class="tip-label">建筑效果</p>

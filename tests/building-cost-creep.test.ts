@@ -122,7 +122,7 @@ test('ordinary creep never drops below 1.005; segmented and specified scales are
   assert.equal(calculateBuildingScale('interstellarDock', 'cash', state), 1);
   // Every ordinary registry scale sits at or above the floor.
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
-    if (BUILDINGS[id].segmentedRequired || id === 'interstellarDock') continue;
+    if (BUILDINGS[id].segmentedRequired || id === 'interstellarDock' || id === 'downloadExecutable') continue;
     for (const raw of Object.values(BUILDINGS[id].costScales ?? {})) assert.ok(raw >= MIN_BUILDING_SCALE, id);
   }
 });

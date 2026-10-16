@@ -23,6 +23,16 @@ export function formatCostNumber(value: number): string {
   return (value < 0 && amount !== 0 ? '−' : '') + text + METRIC_UNITS[index];
 }
 
+/** Digital resource uses decimal byte units, with rounded rates and truncated balances. */
+export function formatByteNumber(value: number, rate = false): string {
+  if (!Number.isFinite(value)) return value === Infinity ? '∞B' : '0B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB', 'RB', 'QB'];
+  let magnitude = Math.abs(value), index = 0;
+  while (magnitude >= 1000 && index < units.length - 1) { magnitude /= 1000; index++; }
+  const amount = rate ? Number(magnitude.toFixed(2)) : floorWithPrecision(magnitude * 100) / 100;
+  return (value < 0 && amount !== 0 ? '−' : '') + amount.toFixed(2).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1') + units[index];
+}
+
 /** Effect values are not spendable stock: display up to four decimals without padding. */
 export function formatEffectNumber(value: number): string {
   if (!Number.isFinite(value)) return value === Infinity ? '∞' : '0';

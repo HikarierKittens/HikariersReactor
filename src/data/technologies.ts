@@ -1,6 +1,10 @@
 import type { TechnologyId, TechnologyDefinition } from '../types/technologies';
 
 export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
+  stationScienceFacilities: { name: '空间站科学设施', era: 4, tier: 16, knowledgeCost: 420000, cost: { knowledge: 420000 }, pre: ['alienScienceResearch'], desc: '每个星环空间站使外星材料实验室的知识容量+5%。' },
+  knowledgeInheritance: { name: '知识传承', era: 2, tier: 6, knowledgeCost: 15000, cost: { knowledge: 15000 }, pre: ['particleAccelerator', 'knowledgeContainer'], desc: '每个粒子加速器使图书馆的知识容量+10%。' },
+  aiCoreCalibration: { name: 'AI核心校准', era: 4, tier: 22, knowledgeCost: 2500000, cost: { knowledge: 2500000 }, pre: [], desc: '需要建成完整的彭罗斯球体。校准AI超级核心，解锁数字世界world_execution、字节与Ethernet，开放网关路由与dl.exe，并获得一座网关路由。' },
+  binaryWorld: { name: '二进制世界', era: 4, tier: 22, knowledgeCost: 2500000, cost: { knowledge: 2500000, bytes: 1000 }, pre: ['aiCoreCalibration'], desc: '探索world_execution，解锁Interface、量子存储器与下载缓存器。' },
   spaceBroadcasting: { name: '太空广播', era: 4, tier: 16, knowledgeCost: 480000, cost: { knowledge: 480000 }, pre: ['artificialIntelligenceII'], desc: '导航灯塔升级为广播信标，每座获得完整供电的广播信标使幸福度+3%，电力消耗增加1/s；月球支持保持+1。' },
   accessPointBeacon: { name: '接入点信标', era: 4, tier: 17, knowledgeCost: 650000, cost: { knowledge: 650000 }, pre: ['fieldConstraintTheory'], desc: '安置信号中继器为接入点附近提供通信保障，解锁建筑：信号中继' },
   hydrogenRecovery: { name: '氢气回收', era: 4, tier: 17, knowledgeCost: 660000, cost: { knowledge: 660000 }, pre: ['dimensionBeaconDeployment'], buildingRequired: 'asteroidBase', desc: '再利用水加工过程中的多余氢气，拿去发电喵！解锁建筑：氢气发电站' },

@@ -15,7 +15,7 @@ export function isTechnologyUnlocked(id: string, state: GameState): boolean {
   // Ripper technologies require a COMPLETED 空间撕裂者 (all 100 segments), not merely one segment.
   if ((id === 'higherDimensionalStorage' || id === 'ripperOverclock' || id === 'overclocking13') && !isBuildingFullyBuilt('spaceRipper', state)) return false;
   // 质量喷射器 requires a COMPLETED 彭罗斯球体; the two black-hole specials open while it is unstable.
-  if (id === 'massEjector' && !isBuildingFullyBuilt('penroseSphere', state)) return false;
+  if ((id === 'massEjector' || id === 'aiCoreCalibration') && !isBuildingFullyBuilt('penroseSphere', state)) return false;
   if ((id === 'stabilizeBlackHole' || id === 'exoticRunaway') && !state.blackHole?.unstable) return false;
   const technology = TECHNOLOGIES[id as TechnologyId];
   return (state.prestige.nuclearResets + (state.prestige.escapeResets || 0) + (state.prestige.blackHoleResets || 0) >= (technology.prestigeResetsRequired || 0))

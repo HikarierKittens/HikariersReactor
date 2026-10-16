@@ -98,6 +98,8 @@ export interface GameState {
   version: number;
   government: GovernmentId;
   taxRate: number;
+  /** Percentage of supported download bandwidth allocated to dl.exe (0–100). */
+  downloadAllocation: number;
   lastReformTime: number | null;
   furUnlocked: boolean;
   unlockedResources: ResourceId[];

@@ -1215,6 +1215,48 @@ try {
     log(S().resources.food === caps.food, 'F12命令可以重复执行');
     store.mutate(state => Object.assign(state, snapshot)); await flush();
   }
+  {
+    const digitalSnapshot = structuredClone(S());
+    try {
+      store.mutate(state => {
+        Object.assign(state, createInitialState());
+        state.settings.paused = true;
+      });
+      click($('[data-tab="buildings"]')); await flush();
+      log(!$('[data-world-view="world_execution"]'), 'AI核心校准前隐藏数字世界子页');
+      store.mutate(state => {
+        state.tech.push('writing', 'aiCoreCalibration');
+        state.buildings.gatewayRouter = 1;
+        state.buildings.school = 1;
+        state.workers.school = 1;
+        state.resources.energy = 1000;
+      }); await flush();
+      click($('[data-world-view="world_execution"]')); await flush();
+      log(visible($('[data-building-group="ethernet"]')) && !$('[data-building-group="interface"]'), 'AI核心校准解锁world_execution与Ethernet，二进制世界前无Interface');
+      log($$('[data-digital-bandwidth]').length === 1 && $('[data-building-group="ethernet"] .building-group-title').contains($('[data-digital-bandwidth]')), '带宽仅显示于Ethernet标题右侧');
+      log($('[data-region-description="ethernet"]').textContent.includes('这里是数字世界之间的连接'), 'Ethernet区域说明正确');
+      const initialBytes = S().resources.bytes;
+      click($('[data-buy="downloadExecutable"]')); await flush();
+      log(S().buildings.downloadExecutable === 1 && S().resources.bytes === initialBytes && $('[data-buy="downloadExecutable"]').getAttribute('aria-disabled') === 'true', 'dl.exe零字节建造且上限为一');
+      click($('[data-download-settings]')); await flush();
+      log($('#downloadModal').open && $('#downloadAllocation').min === '0' && $('#downloadAllocation').max === '100', '配置文字按钮打开工厂样式下载分配弹窗');
+      $('#downloadAllocation').value = '100'; $('#downloadAllocation').dispatchEvent(new Event('input', { bubbles: true })); await flush();
+      const conversion = uiPreview.production(S(), store.revision()).digital;
+      log(S().downloadAllocation === 100 && conversion.knowledgeProduction > 0 && conversion.divertedKnowledge === conversion.knowledgeProduction && conversion.byteProduction > 0, '二进制世界前100%滑块将全部知识产量分流为字节');
+      log($('[data-download-preview]').textContent.includes('分流后知识产量：0/s') && /B\/s/.test($('[data-download-preview]').textContent), '下载弹窗明确显示保留知识及字节单位速率');
+      click($('#downloadModal [aria-label="关闭下载配置"]')); await flush();
+      store.mutate(state => { state.tech.push('binaryWorld'); }); await flush();
+      log(visible($('[data-building-group="interface"]')) && $('[data-region-description="interface"]').textContent.includes('连接万物的交互接口'), '二进制世界在Ethernet下方显示Interface与说明');
+      const byteCostAnchor = $('[data-buy="quantumStorage"]');
+      byteCostAnchor.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' })); await flush();
+      log(/KB/.test($('#gameTooltip')?.textContent || ''), '数字建筑字节成本使用KB单位');
+      await escapeTip();
+    } finally {
+      if ($('#downloadModal [aria-label="关闭下载配置"]')) click($('#downloadModal [aria-label="关闭下载配置"]'));
+      await escapeTip();
+      store.mutate(state => Object.assign(state, digitalSnapshot)); await flush();
+    }
+  }
   mounted.app.unmount();
   const protectedText = '  ' + JSON.stringify({ version: 29, original: '不可改写的旧档' }) + '\n';
   localStorage.setItem(saveKey, protectedText);

@@ -48,6 +48,7 @@ const registry = [
   ['population', 'simulation/population'],
   ['statistics', 'simulation/statistics'],
   ['crafting', 'simulation/crafting'],
+  ['digital-world', 'simulation/digital-world'],
   ['unlocks', 'simulation/unlocks'],
   ['building-production', 'simulation/building-production'],
   ['storage-bonuses', 'simulation/storage-bonuses'],

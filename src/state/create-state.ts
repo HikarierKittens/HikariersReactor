@@ -24,7 +24,7 @@ export function createInitialState(version: number, eventIn: number, now: number
     story: { unlocked: [], read: [] },
     challenge: { genes: [], modes: [], story: null, particleBaseline: 0 },
     statistics: createStatistics(), starvationElapsed: 0,
-    government: 'none', taxRate: 20, lastReformTime: null,
+    government: 'none', taxRate: 20, lastReformTime: null, downloadAllocation: 0,
     furUnlocked: false, unlockedResources: [],
     prestige: { particles: 0, nuclearResets: 0, softResets: 0, casimir: 0, escapeResets: 0, darkEnergy: 0, blackHoleResets: 0 }, prestigeUnlocked: [], crispr: [],
     geneModification: createGeneModificationState(),
