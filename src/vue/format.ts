@@ -37,7 +37,7 @@ export function storageCap(resource: ResourceId, state: GameState, revision?: nu
 
 export function housingCapacity(state: GameState, revision?: number): number {
   const snapshot = revision === undefined ? calculateSupportPreview(state) : uiPreview.support(state, revision);
-  return calculateHousingDetails(state, snapshot.asriel, snapshot.stageThree)
+  return calculateHousingDetails(state, snapshot.asriel, snapshot.stageThree, snapshot.digital)
     .reduce((sum, row) => sum + row.value, 0);
 }
 

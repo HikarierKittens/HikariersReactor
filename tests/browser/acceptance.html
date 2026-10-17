@@ -43,6 +43,14 @@ try {
   $('#test-root').id = 'app';
   const S = () => store.runtime.state;
   await flush();
+  const cashBeforeFormatCheck = S().resources.cash;
+  const pausedBeforeFormatCheck = S().settings.paused;
+  store.mutate(state => { state.settings.paused = true; }); await flush();
+  for (const [value, expected] of [[999, '999'], [1000, '1k'], [9999, '9.99k'], [10000, '10k'], [11999, '11.99k'], [999999, '999.99k'], [1000000, '1M']]) {
+    store.mutate(state => { state.resources.cash = value; }); await flush();
+    log($('[data-resource-id="cash"] .res-amount b')?.textContent === expected, `资源列表储量${value}显示${expected}`);
+  }
+  store.mutate(state => { state.resources.cash = cashBeforeFormatCheck; state.settings.paused = pausedBeforeFormatCheck; }); await flush();
   const { uiPreview } = await import('/src/vue/preview-cache.ts');
   const initialPreview=uiPreview.production(S(),store.revision());
   log(initialPreview===uiPreview.production(S(),store.revision()),'同一界面版本共享生产快照');
@@ -1140,6 +1148,13 @@ try {
       if (!tip || tip.querySelector('h3')?.textContent !== expectedBuildingTitle) {
         tooltipFailures.push(`${id}: real tooltip did not render`); continue;
       }
+      if ([...tip.querySelectorAll('.rate-note')].some(note => /获得.*(?:支持|算力|带宽).*生效|(?:供能|供电|电力维护).*生效|需完整供电/.test(note.textContent))) tooltipFailures.push(`${id}: redundant power/support effect note`);
+      if (id === 'dataDecryptionModule') {
+        const rows = [...tip.querySelectorAll('.resource-factor')];
+        log(rows.filter(row => row.firstElementChild?.textContent.startsWith('加密数据') && /\+0\.05\/s|\+25%/.test(row.querySelector('.resource-factor-value')?.textContent || '')).length === 2,
+          '解密建筑的加密数据+0.05/s与+25%作为两个不同类型效果共存');
+        log(rows.some(row => row.firstElementChild?.textContent === 'CPU算力' && row.querySelector('.resource-factor-value')?.textContent === '−2'), '解密建筑维护通用显示CPU算力−2');
+      }
       if (BUILDINGS[id].max === 1 && tip.querySelector('.tip-cost')) tooltipFailures.push(`${id}: completed one-off still quotes cost`);
       if (BUILDINGS[id].max === 1) {
         store.mutate(state => { state.buildings[id] = 0; }); await flush();
@@ -1176,8 +1191,9 @@ try {
     }
     log(tooltipRows > Object.keys(BUILDINGS).length && tooltipFailures.length === 0,
       `全部${Object.keys(BUILDINGS).length}种建筑真实悬停在242px/180px下效果列不挤压、不重叠、不溢出${tooltipFailures.length ? ': ' + tooltipFailures.join('; ') : ''}`);
-    log(tooltipNotes > 0 && ['asteroidBase', 'signalRepeater', 'moonObservatory', 'ecologicalDome'].every(id => requiredNoteTips.has(id)),
-      '基地、中继、月球天文台与生态穹顶的长说明均以独立整行备注接受布局验证');
+    log(tooltipNotes > 0 && ['asteroidBase', 'signalRepeater', 'massEjector', 'smelter', 'spaceWaystation', 'downloadExecutable'].every(id => requiredNoteTips.has(id))
+      && !['moonObservatory', 'ecologicalDome', 'ethMiner', 'navigationBeacon'].some(id => requiredNoteTips.has(id)),
+      '所有建筑移除冗余供能支持备注，仍保留叠加、分配、工位、适用范围与下载长说明并验证独立整行布局');
   } finally {
     await escapeTip(); tooltipAnchor.remove();
     store.mutate(state => { Object.assign(state, tooltipState); });
@@ -1272,6 +1288,51 @@ try {
       const compressionTip = $('#gameTooltip').textContent;
       log((compressionTip.match(/知识容量/g) || []).length === 1 && compressionTip.includes('110k'), '量化压缩提示只显示一次知识容量并包含有效解码器加成');
       await escapeTip();
+      log(!$('[data-building-group="memory"]') && !$('[data-building-group="npu"]'), '深入核心前隐藏Memory和NPU');
+      store.mutate(state => {
+        state.tech.push('deepCore', 'cryptocurrency', 'encryptedDataAnalysis');
+        state.buildings.cellCore = 4; state.buildings.memoryCore = 1;
+        state.buildings.ethMiner = 1; state.buildings.dataDecryptionModule = 2;
+        state.resources.energy = 10000;
+      }); await flush();
+      log($$('[data-building-group]').map(el => el.dataset.buildingGroup).join(',') === 'ethernet,interface,qssd,cpu,memory,npu', '深入核心按CPU、Memory、NPU顺序扩展区域');
+      log($('[data-region-description="memory"]').textContent.includes('她的记忆中只有你.......') && $('[data-region-description="npu"]').textContent.includes('我看到了她的意识和心灵'), 'Memory与NPU区域描述正确');
+      log($('[data-building-group="cpu"]').contains($('[data-buy="cellCore"]')) && $('[data-building-group="cpu"]').contains($('[data-buy="dataDecryptionModule"]')) && $('[data-building-group="memory"]').contains($('[data-buy="memoryCore"]')) && $('[data-building-group="npu"]').contains($('[data-buy="ethMiner"]')), '核心、记忆、解密和矿机位于正确区域');
+      $('[data-buy="memoryCore"]').dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' })); await flush();
+      log($('#gameTooltip').textContent.includes('加密数据容量') && $('#gameTooltip').textContent.includes('25k'), '解锁加密数据后记忆核心显示额外加密存储');
+      await escapeTip();
+      $('[data-buy="ethMiner"]').dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' })); await flush();
+      const minerRows = $$('#gameTooltip .resource-factor');
+      log(minerRows.some(row => row.firstElementChild?.textContent === RESOURCES.cash.name && row.querySelector('.resource-factor-value')?.textContent === '+512/s')
+        && minerRows.some(row => row.firstElementChild?.textContent === '现金容量' && row.querySelector('.resource-factor-value')?.textContent === '+512k')
+        && !$('#gameTooltip .rate-note'), `矿机资金提示保留现金基础产量与容量且无供能备注: ${minerRows.map(row => row.textContent).join('|')}`);
+      await escapeTip();
+      log($('[data-digital-cpu]').textContent.includes('9 / 16'), `两座解密模块各占2CPU，数字世界算力使用合计9/16: ${$('[data-digital-cpu]').textContent}`);
+      store.mutate(state => {
+        state.tech.push('cellMultithreading', 'softRoutingNode', 'aes114514', 'digitalSimulation', 'highPrecisionWorldSimulation', 'agi', 'digitalAscension');
+        state.buildings.softRouterNode = 2;
+        state.buildings.aesComputeModule = 1;
+        state.buildings.worldSimulator = 1;
+        state.buildings.agiCoreComponent = 100;
+        state.buildings.agiAscensionCore = 100;
+        state.stoppedBuildings.agiAscensionCore = 1;
+        state.resources.energy = 1000000;
+        state.resources.water = 1000000;
+      }); await flush();
+      log($('[data-building-group="ethernet"]').contains($('[data-buy="softRouterNode"]')) && $('[data-building-group="npu"]').contains($('[data-buy="aesComputeModule"]')) && $('[data-building-group="npu"]').contains($('[data-buy="worldSimulator"]')), '软路由位于Ethernet，AES与世界模拟器位于NPU');
+      log($$('[data-building-group]').at(-1)?.dataset.buildingGroup === 'agi-core' && $('[data-region-description="agi-core"]').textContent.includes('"Hikarier.Execute"的内心世界'), 'AI超级核心区域位于NPU之后且说明正确');
+      log($('[data-buy="agiAscensionCore"] .building-count').textContent === '100/100' && !$('[data-digital-ascension]'), '完整飞升核心显示100/100且关闭时隐藏飞升按钮');
+      const coreControl = $('[data-buy="agiAscensionCore"]').closest('.building-control');
+      log(coreControl.querySelector('.building-toggle.stop').textContent === '1' && coreControl.querySelector('.building-toggle.start').textContent === '0', '分段核心开关使用完整单位而非分段数量');
+      $('[data-buy="agiCoreComponent"]').dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' })); await flush();
+      log($('#gameTooltip').textContent.includes('量子水平') && $('#gameTooltip').textContent.includes('+0.5'), 'AGI组件提示展示量子水平效果');
+      await escapeTip();
+      store.mutate(state => { state.stoppedBuildings.agiAscensionCore = 0; }); await flush();
+      log(!!$('[data-digital-ascension]'), '完整启用且供能的核心显示数字化飞升按钮');
+      click($('[data-digital-ascension]')); await flush();
+      log(visible($('#digitalAscensionConfirm')) && $('#digitalAscensionConfirm').textContent.includes('和谐晶体'), '数字化飞升动作打开明确奖励与重置确认框');
+      click($('#digitalAscensionConfirm .actions button')); await flush();
+      log(!$('#digitalAscensionConfirm') && S().buildings.agiAscensionCore === 100, '取消数字化飞升不更改文明进度');
       const gear = $('[data-download-settings]'); const building = $('[data-buy="downloadExecutable"]');
       const gearRect = gear.getBoundingClientRect(); const buildingRect = building.getBoundingClientRect();
       log(gear.textContent === '⚙' && gear.classList.contains('building-gear') && Math.abs(gearRect.left - buildingRect.left) < 5 && Math.abs(gearRect.top - buildingRect.top) < 5, 'dl.exe复用工厂齿轮图标并位于建筑按钮左上角');

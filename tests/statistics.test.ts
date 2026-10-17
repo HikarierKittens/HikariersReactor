@@ -12,7 +12,7 @@ const context = { now: 0, eventInterval: 60, housingCapacity: () => 1, clampReso
 test('statistics helpers support old partial states and invalid input is a no-op', () => {
   const state: StatisticsState = {};
   recordKnowledgeSpent(state, 123.5); recordStarvation(state, 2); recordSoldierDeaths(state, 3); recordGameDays(state, .25); recordParticlesEarned(state, 4);
-  assert.deepEqual(state.statistics, { lifetime: { knowledgeSpent: 123.5, starved: 2, soldierDeaths: 3, days: .25, particlesEarned: 4, casimirEarned: 0, darkEnergyEarned: 0 }, run: { knowledgeSpent: 123.5, starved: 2, soldierDeaths: 3, days: .25 } });
+  assert.deepEqual(state.statistics, { lifetime: { knowledgeSpent: 123.5, starved: 2, soldierDeaths: 3, days: .25, particlesEarned: 4, casimirEarned: 0, darkEnergyEarned: 0, harmonyCrystalsEarned: 0 }, run: { knowledgeSpent: 123.5, starved: 2, soldierDeaths: 3, days: .25 } });
   const before = JSON.stringify(state);
   for (const value of [-1, NaN, Infinity, 0]) recordKnowledgeSpent(state, value);
   assert.equal(JSON.stringify(state), before);

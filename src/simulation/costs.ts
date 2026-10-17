@@ -31,11 +31,31 @@ export function buildPriceContext(state: GameState, dt = 1): PriceContext {
  */
 export interface DynamicCreepTerm { label: string; value: number }
 
+/** Non-ground regions: orbital/planetary, hyperspace and digital-world buildings.
+ * ARPA projects are not BuildingIds and never pass through this pricing path. */
+export const HARMONY_BUILDING_IDS = new Set<BuildingId>([
+  'touristStation', 'solarSatellite', 'researchSatellite', 'orbitalFuelDepot', 'navigationBeacon',
+  'moonBase', 'iridiumMine', 'helium3Mine', 'moonObservatory',
+  'asrielSpaceport', 'asrielControlTower', 'asrielResidence', 'asrielMine', 'ecologicalDome', 'hangar', 'spaceFactory', 'starRingStation', 'planetaryFoundry', 'spaceGarrison', 'alienMaterialLab', 'vrCenter', 'geothermalPlant',
+  'swarmControlStation', 'swarmSatellite', 'swarmFactory', 'atmosphericCollector', 'galacticFuelDepot', 'talosMoonMiningStation', 'miningDrone', 'oilExtractor', 'aiSupercore',
+  'iridiumMiningShip', 'ironMiningShip', 'e710MiningShip', 'e710Container', 'e710Warehouse', 'e710Reactor', 'interstellarDock',
+  'constraintArray', 'signalRepeater', 'shortRangeRelay', 'anchorFreightStation', 'civilianRouteStation', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'hydrogenPowerPlant', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation',
+  'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'stellarForge', 'hazardousMaterialStorage', 'blackHoleStation', 'penroseSphere', 'massEjector',
+  'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule',
+  'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore',
+]);
+export function calculateHarmonyCreepReduction(state: Partial<Pick<GameState, 'prestige'>>): number {
+  const harmony = state.prestige?.harmonyCrystals ?? 0;
+  return (Math.log(50 + harmony) - Math.log(50)) * .01;
+}
+
 /** Collect every active dynamic creep contribution for one building/resource. */
-export function calculateDynamicCreep(id: BuildingId, resource: ResourceId, state: Pick<GameState, 'government'> & Partial<Pick<GameState, 'crispr' | 'tech' | 'buildings'>>): DynamicCreepTerm[] {
+export function calculateDynamicCreep(id: BuildingId, resource: ResourceId, state: Pick<GameState, 'government'> & Partial<Pick<GameState, 'crispr' | 'tech' | 'buildings' | 'prestige'>>): DynamicCreepTerm[] {
   const terms: DynamicCreepTerm[] = [];
   // Segmented projects have a permanent creep of exactly 1: no dynamic term may apply.
   if (BUILDINGS[id].segmentedRequired) return terms;
+  const harmony = HARMONY_BUILDING_IDS.has(id) ? calculateHarmonyCreepReduction(state) : 0;
+  if (harmony) terms.push({ label: '和谐水晶', value: -harmony });
   const crispr = calculateCrisprCostReduction(state);
   if (crispr) terms.push({ label: 'CRISPR 材料基因', value: -crispr });
   if (id === 'factory' && state.government === 'industrialism') terms.push({ label: '工业至上体制', value: -.005 });
@@ -50,7 +70,7 @@ export const MIN_BUILDING_SCALE = 1.005;
 /** Actual creep = base (registry scale) + Σ dynamic terms, floored at MIN_BUILDING_SCALE.
  * Exempt: segmented projects (fixed creep 1) and explicitly specified registry scales that
  * are already below the floor (e.g. the once-only 星际船坞 at 1), which keep their own value. */
-export function calculateBuildingScale(id: BuildingId, resource: ResourceId, state: Pick<GameState, 'government'> & Partial<Pick<GameState, 'crispr' | 'tech' | 'buildings'>>): number {
+export function calculateBuildingScale(id: BuildingId, resource: ResourceId, state: Pick<GameState, 'government'> & Partial<Pick<GameState, 'crispr' | 'tech' | 'buildings' | 'prestige'>>): number {
   const scale = BUILDINGS[id].costScales?.[resource];
   if (scale === undefined) throw new Error(`Missing cost scale: ${id}/${resource}`);
   const dynamic = calculateDynamicCreep(id, resource, state).reduce((sum, term) => sum + term.value, 0);

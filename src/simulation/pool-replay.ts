@@ -62,7 +62,7 @@ export function replaySettledPool(
     outputs[id] = (outputs[id] || 0) + (actual || 0);
   }
   replayPlantDebits(state, ledger, dt, pool);
-  charge(pool, 'energy', ledger.digital.gatewayUnits * 25 * dt);
+  charge(pool, 'energy', (ledger.digital.gatewayUnits * 25 + ledger.digital.cellUnits * 25 + ledger.digital.memoryUnits * 5 + ledger.digital.minerUnits * 10) * dt);
   if (state.buildings.gatewayRouter) inputUnits.gatewayRouter = outputs.gatewayRouter = ledger.digital.gatewayUnits;
   if (state.buildings.downloadExecutable) inputUnits.downloadExecutable = outputs.downloadExecutable = ledger.digital.downloadUnits;
   if (state.buildings.quantumStorage) inputUnits.quantumStorage = outputs.quantumStorage = ledger.digital.quantumStorageUnits;
@@ -72,6 +72,11 @@ export function replaySettledPool(
 
   if (state.buildings.dataCompression) inputUnits.dataCompression = outputs.dataCompression = ledger.digital.dataCompressionUnits;
   if (state.buildings.cpuDecoder) inputUnits.cpuDecoder = outputs.cpuDecoder = ledger.digital.decoderUnits;
+
+  if (state.buildings.cellCore) inputUnits.cellCore = outputs.cellCore = ledger.digital.cellUnits;
+  if (state.buildings.memoryCore) inputUnits.memoryCore = outputs.memoryCore = ledger.digital.memoryUnits;
+  if (state.buildings.ethMiner) inputUnits.ethMiner = outputs.ethMiner = ledger.digital.minerUnits;
+  if (state.buildings.dataDecryptionModule) inputUnits.dataDecryptionModule = outputs.dataDecryptionModule = ledger.digital.decryptionUnits;
 
   // 3. Space chain debits (waystations, moon, asriel, stage three, containers,
   //    mining ships) replayed from the ledger units; outputs recomputed at the

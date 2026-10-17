@@ -73,7 +73,7 @@ export function calculateResourceBreakdown(
     if (id === 'forage' && state.tech.includes('agriculturalMachinery')) notes.push('农业机械 ×2');
     if (b.input) notes.push('已按可用原料调整开工量');
 
-    const output = calculateBuildingOutput(id, state, result.inputUnits)[resource];
+    const output = id === 'ethMiner' || id === 'dataDecryptionModule' ? 0 : calculateBuildingOutput(id, state, result.inputUnits)[resource];
     if (output) {
       const base = b.workerOutput
         ? (calculateBuildingOutput(id, state)[resource] || 0) * calculateToolMultiplier(id, state)
@@ -107,7 +107,7 @@ export function calculateResourceBreakdown(
       const spaceShare = (result.inputUnits.spaceFactory || 0)
         / ((result.inputUnits.factory || 0) + (result.inputUnits.spaceFactory || 0)
           + (result.inputUnits.highTechFactory || 0) * (BUILDINGS.highTechFactory.lines || 0) || 1);
-      const knowledge = calculateKnowledgeMultiplier(state, result.inputUnits.observatory || 0);
+      const knowledge = calculateKnowledgeMultiplier(state, result.inputUnits.observatory || 0, result.digital);
       entries.push({
         id: opt.id, kind: 'income', name: `${opt.name}产出`,
         value: recipe.output[resource] * speed
@@ -169,6 +169,8 @@ export function calculateResourceBreakdown(
   if (resource === 'energy' && (result.inputUnits.automatedQuarry || 0) > 0) {
     entries.push({ id: 'automatedQuarry', kind: 'expense', name: '自动化采石场消耗', value: -(result.inputUnits.automatedQuarry ?? 0), note: '每座实际供能采石场消耗 1 电力/s' });
   }
+  if (resource === 'encryptedData' && result.digital.encryptedProduction) entries.push({ id: 'dataDecryptionModule', kind: 'income', name: '数据解密模块', value: result.digital.encryptedProduction, note: `${BUILDINGS.dataDecryptionModule.output!.encryptedData}/s × 有效数量 × (1 + 25% × 有效数量) × 精通` });
+  if (resource === 'cash' && result.digital.minerProduction) entries.push({ id: 'ethMiner', kind: 'income', name: 'eth_miner', value: result.digital.minerProduction, note: '512/s × 有效运行数量 × 资金产量倍率' });
   if (resource === 'bytes' && result.digital.decoderProduction) entries.push({ id: 'cpuDecoder', kind: 'income', name: 'CPU解码器', value: result.digital.decoderProduction, note: '100B/s × 获得带宽和CPU支持的数量' });
   if (resource === 'bytes') entries.push({ id: 'digitalDownload', kind: 'income', name: 'dl.exe 下载', value: result.digital.byteProduction, note: '实际知识产出 × 分配比例 × 0.01 × 精通 × 下载缓存器' });
   if (resource === 'knowledge' && result.digital.divertedKnowledge > 0) entries.push({ id: 'digitalDownload', kind: 'expense', name: 'dl.exe 下载消耗', value: -result.digital.divertedKnowledge, note: '仅分配本次实际正向知识产出，不转换库存或负收入' });
@@ -216,7 +218,14 @@ export function calculateResourceFactorRows(
     add('dl.exe 下载', '+' + formatByteNumber(result.digital.divertedKnowledge * .01, true) + '/s');
     pct('精通', calculateMasteryMultiplier('bytes', state));
     pct('下载缓存器', 1 + .1 * result.digital.cacheUnits);
+    pct('神经网络', result.digital.neuralMultiplier);
     if (result.digital.decoderProduction) add('CPU解码器', '+' + formatByteNumber(result.digital.decoderProduction, true) + '/s');
+    return { rows };
+  }
+  if (resource === 'encryptedData') {
+    if (result.digital.decryptionUnits) add('数据解密模块', signedRate(result.digital.decryptionUnits * BUILDINGS.dataDecryptionModule.output!.encryptedData!));
+    pct('数据解密模块产量加成', 1 + .25 * result.digital.decryptionUnits);
+    pct('精通', calculateMasteryMultiplier('encryptedData', state));
     return { rows };
   }
   const data = calculateResourceBreakdown(resource, state, result);
@@ -275,7 +284,7 @@ export function calculateResourceFactorRows(
       continue;
     }
     const globalFactor = (resource === 'energy' ? 1 : calculateProductionMultiplier(resource, happiness, state))
-      * (resource === 'knowledge' ? calculateKnowledgeMultiplier(state, result.inputUnits.observatory || 0) : 1)
+      * (resource === 'knowledge' ? calculateKnowledgeMultiplier(state, result.inputUnits.observatory || 0, result.digital) : 1)
       * calculateGlobalOutputMultiplier(resource, state);
     const sourceValue = (globalFactor > 0 ? e.value / globalFactor : e.value)
       / (id === 'cementWorkshop' ? 1 + (result.inputUnits.cementMixer || 0) * .05 : 1)
@@ -324,7 +333,7 @@ export function calculateResourceFactorRows(
       if (state.tech.includes('agriculture')) { pct('农业', 1.5, true); local *= 1.5; }
       if (state.tech.includes('agriculturalMachinery')) { pct('农业机械', 2, true); local *= 2; }
     }
-    if (calculateBuildingOutput(id, state).knowledge) local *= calculateKnowledgeMultiplier(state, result.inputUnits.observatory || 0);
+    if (calculateBuildingOutput(id, state).knowledge) local *= calculateKnowledgeMultiplier(state, result.inputUnits.observatory || 0, result.digital);
     if (id === 'observatory') local *= 1.1;
 
     const base = b.workerOutput
@@ -355,6 +364,7 @@ export function calculateResourceFactorRows(
   if (resource === 'knowledge') {
     pct('图书馆', 1 + state.buildings.library * (BUILDINGS.library.knowledgeBoost || 0));
     pct('数据中心', 1 + (result.inputUnits.observatory || 0) * (BUILDINGS.observatory.knowledgeBoost || .1));
+    pct('AES计算模块', 1 + result.digital.aesUnits * (BUILDINGS.aesComputeModule.knowledgeBoost || 0));
   }
   if (resource !== 'energy' && !RESOURCES[resource].crafted) pct('幸福度', happiness / 100);
   return { rows };

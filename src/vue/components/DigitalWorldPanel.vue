@@ -10,17 +10,22 @@ import { buildingUnlocked, clickMultiplier, fmt } from '../format';
 import { uiPreview } from '../preview-cache';
 
 const props = defineProps<{ state: GameState; revision: number }>();
-const emit = defineEmits<{ buy: [id: BuildingId, count: number, forceQueue: boolean]; toggle: [id: BuildingId, delta: number]; configure: [] }>();
+const emit = defineEmits<{ buy: [id: BuildingId, count: number, forceQueue: boolean]; toggle: [id: BuildingId, delta: number]; configure: []; ascend: [] }>();
 const digital = computed(() => { props.revision; return uiPreview.production(props.state, props.revision).digital; });
 const sections = computed(() => {
   props.revision;
   return [
-    { id: 'ethernet', name: 'Ethernet', description: '这里是数字世界之间的连接', list: ['gatewayRouter', 'downloadExecutable'] as BuildingId[] },
+    { id: 'ethernet', name: 'Ethernet', description: '这里是数字世界之间的连接', list: ['gatewayRouter', 'softRouterNode', 'downloadExecutable'] as BuildingId[] },
     ...(props.state.tech.includes('binaryWorld') ? [{ id: 'interface', name: 'Interface', description: '连接万物的交互接口', list: ['quantumStorage', 'downloadCache', 'subcomputeNode'] as BuildingId[] }] : []),
     ...(props.state.tech.includes('downwardProbe') ? [
       { id: 'qssd', name: 'QSSD', description: 'AI超级核心的量子存储阵列，让我们深入搜索....', list: ['dataCompression'] as BuildingId[] },
-      { id: 'cpu', name: 'CPU', description: '无数的量子数据流在此穿行', list: ['quantizedCompressionModule', 'cpuDecoder'] as BuildingId[] },
+      { id: 'cpu', name: 'CPU', description: '无数的量子数据流在此穿行', list: ['quantizedCompressionModule', 'cpuDecoder', 'cellCore', 'dataDecryptionModule'] as BuildingId[] },
     ] : []),
+    ...(props.state.tech.includes('deepCore') ? [
+      { id: 'memory', name: 'Memory', description: '她的记忆中只有你.......', list: ['memoryCore'] as BuildingId[] },
+      { id: 'npu', name: 'NPU', description: '我看到了她的意识和心灵。', list: ['ethMiner', 'aesComputeModule', 'worldSimulator'] as BuildingId[] },
+    ] : []),
+    ...(props.state.tech.includes('agi') ? [{ id: 'agi-core', name: 'AI超级核心', description: '"Hikarier.Execute"的内心世界', list: ['agiCoreComponent', 'coreCooler', 'agiAscensionCore'] as BuildingId[] }] : []),
   ].map(section => ({ ...section, list: section.list.filter(id => buildingUnlocked(id, props.state)) }));
 });
 const qHeld = ref(false);
@@ -37,6 +42,12 @@ function running(id: BuildingId): number { return countRunningBuildings(id, prop
 function effective(id: BuildingId): number {
   const snapshot = digital.value;
   switch (id) {
+    case 'softRouterNode': return snapshot.softRouterUnits;
+    case 'aesComputeModule': return snapshot.aesUnits;
+    case 'worldSimulator': return snapshot.worldSimulatorUnits;
+    case 'agiCoreComponent': return snapshot.agiComponentUnits;
+    case 'coreCooler': return snapshot.coreCoolerUnits;
+    case 'agiAscensionCore': return snapshot.ascensionCoreUnits;
     case 'gatewayRouter': return snapshot.gatewayUnits;
     case 'downloadExecutable': return snapshot.downloadUnits;
     case 'quantumStorage': return snapshot.quantumStorageUnits;
@@ -45,11 +56,17 @@ function effective(id: BuildingId): number {
     case 'quantizedCompressionModule': return snapshot.compressionUnits;
     case 'dataCompression': return snapshot.dataCompressionUnits;
     case 'cpuDecoder': return snapshot.decoderUnits;
+    case 'cellCore': return snapshot.cellUnits;
+    case 'memoryCore': return snapshot.memoryUnits;
+    case 'ethMiner': return snapshot.minerUnits;
+    case 'dataDecryptionModule': return snapshot.decryptionUnits;
     default: return 0;
   }
 }
+const canAscend = computed(() => props.state.tech.includes('digitalAscension') && isBuildingFullyBuilt('agiAscensionCore', props.state) && digital.value.ascensionCoreUnits >= 1);
+function ownedUnits(id: BuildingId): number { return Math.floor(props.state.buildings[id] / (BUILDINGS[id].segmentedRequired ?? 1)); }
 function toggle(id: BuildingId, event: MouseEvent, start: boolean): void {
-  const available = start ? props.state.buildings[id] - running(id) : running(id);
+  const available = start ? ownedUnits(id) - running(id) : running(id);
   emit('toggle', id, (start ? 1 : -1) * Math.min(clickMultiplier(event), available));
 }
 </script>
@@ -62,16 +79,17 @@ function toggle(id: BuildingId, event: MouseEvent, start: boolean): void {
       <span v-if="section.id === 'cpu'" class="digital-bandwidth" data-digital-cpu :aria-label="`CPU算力使用 ${fmt(digital.cpuUsed)} / ${fmt(digital.cpuCapacity)}`">{{ fmt(digital.cpuUsed) }} / {{ fmt(digital.cpuCapacity) }}</span>
     </h3>
     <div class="building-grid">
-      <div v-for="id in section.list" :key="id" class="building-control">
+      <div v-for="id in section.list" :key="id" class="building-control" :class="{ 'has-ascension': id === 'agiAscensionCore' && canAscend }">
         <button class="building-button" :class="{ 'is-complete': isBuildingFullyBuilt(id, state), 'is-affordable': isBuildingFullyBuilt(id, state) || (affordable(id) && !atLimit(id)), 'is-unaffordable': !isBuildingFullyBuilt(id, state) && (!affordable(id) || atLimit(id)) }" :data-buy="id" :data-building-tip="id" data-tip-kind="building" :aria-disabled="atLimit(id)" :aria-label="`${BUILDINGS[id].name}，已有 ${state.buildings[id]} 座`" @click="!atLimit(id) && emit('buy', id, clickMultiplier($event), !!(state.settings.queueHotkeys && (qHeld || $event.shiftKey)))">
-          <span class="building-name">{{ BUILDINGS[id].name }}</span><span class="building-count" aria-hidden="true">{{ state.buildings[id] }}</span><span v-if="queued(id)" class="building-pending">预约 {{ queued(id) }}</span>
+          <span class="building-name">{{ BUILDINGS[id].name }}</span><span class="building-count" aria-hidden="true">{{ BUILDINGS[id].segmentedRequired ? `${state.buildings[id]}/${BUILDINGS[id].segmentedRequired}` : state.buildings[id] }}</span><span v-if="queued(id)" class="building-pending">预约 {{ queued(id) }}</span>
         </button>
         <button class="building-info" :data-building-tip="id" data-tip-kind="building" :aria-label="`查看${BUILDINGS[id].name}详情`">ⓘ</button>
         <button v-if="id === 'downloadExecutable' && state.buildings[id] > 0" class="building-gear" data-download-settings aria-label="配置 dl.exe 下载分配" title="下载分配设置" @click="emit('configure')">⚙</button>
-        <template v-if="state.buildings[id] > 0 && hasContinuousEnergyInput(id, state)">
-          <button class="building-toggle stop" :aria-label="`关停一座${BUILDINGS[id].name}`" :disabled="running(id) === 0" @click="toggle(id, $event, false)">{{ state.buildings[id] - running(id) }}</button>
-          <button class="building-toggle start" :class="{ 'is-shortage': effective(id) + 1e-9 < running(id) }" :aria-label="`启动一座${BUILDINGS[id].name}`" :disabled="running(id) === state.buildings[id]" @click="toggle(id, $event, true)">{{ running(id) }}</button>
+        <template v-if="ownedUnits(id) > 0 && (hasContinuousEnergyInput(id, state) || BUILDINGS[id].toggleable)">
+          <button class="building-toggle stop" :aria-label="`关停一座${BUILDINGS[id].name}`" :disabled="running(id) === 0" @click="toggle(id, $event, false)">{{ ownedUnits(id) - running(id) }}</button>
+          <button class="building-toggle start" :class="{ 'is-shortage': effective(id) + 1e-9 < running(id) }" :aria-label="`启动一座${BUILDINGS[id].name}`" :disabled="running(id) === ownedUnits(id)" @click="toggle(id, $event, true)">{{ running(id) }}</button>
         </template>
+        <button v-if="id === 'agiAscensionCore' && canAscend" data-digital-ascension class="digital-ascension" @click="emit('ascend')">数字化飞升</button>
       </div>
     </div>
   </section>
@@ -83,4 +101,8 @@ function toggle(id: BuildingId, event: MouseEvent, start: boolean): void {
 .region-name:hover .region-description, .region-name:focus .region-description { display: block; }
 .region-name:focus-visible { outline: 1px solid var(--gold); outline-offset: 3px; }
 .digital-bandwidth { color: var(--green); font-variant-numeric: tabular-nums; margin-left: auto; }
+.has-ascension { grid-column: span 2; padding-right: 110px; }
+.has-ascension .building-toggle.start { right: 113px; }
+.digital-ascension { position: absolute; right: 0; top: 0; width: 104px; height: 40px; white-space: nowrap; border: 1px solid var(--gold); color: var(--gold); }
+@media (max-width: 380px) { .has-ascension { grid-column: 1 / -1; } }
 </style>

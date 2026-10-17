@@ -19,9 +19,16 @@ test('frozen pre-beta0.6.5 JSON upgrades only missing building entries and round
   const before = structuredClone(raw); freeze(raw);
   const state = validateCurrentSave(raw, context);
   const expected = structuredClone(before);
-  for (const field of fields) for (const id of ['hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder']) expected[field][id] = 0;
-  for (const field of ['resources', 'containerAssignments', 'alloyContainerAssignments']) expected[field].bytes = 0;
+  for (const field of fields) for (const id of ['hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore']) expected[field][id] = 0;
+  for (const field of ['resources', 'containerAssignments', 'alloyContainerAssignments']) {
+    expected[field].bytes = 0;
+    expected[field].encryptedData = 0;
+    assert.equal(Object.hasOwn(before[field], 'encryptedData'), false);
+  }
   expected.downloadAllocation = 0;
+  expected.prestige.harmonyCrystals = 0;
+  expected.prestige.ascensionResets = 0;
+  expected.statistics.lifetime.harmonyCrystalsEarned = 0;
   assert.deepEqual(state, expected);
   assert.deepEqual(validateCurrentSave(JSON.parse(JSON.stringify(state)), context), state);
   assert.deepEqual(raw, before);
@@ -57,6 +64,34 @@ test('historical queued overclock loads but cannot bypass the live research gate
     raw.tech = raw.tech.filter((id: string) => id !== 'dimensionPioneer');
     assert.throws(() => validateCurrentSave(raw, context));
   }
+});
+
+test('new ascension fields default only when absent and malformed explicit values are rejected', () => {
+  const ids = ['softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore'];
+  for (const field of fields) for (const id of ids) {
+    for (const value of [undefined, null, '0', false, -1, .5, NaN, Infinity, {}, []]) {
+      const raw = fixture(); raw[field][id] = value;
+      const before = structuredClone(raw);
+      assert.throws(() => validateCurrentSave(raw, context), `${field}/${id}/${String(value)}`);
+      assert.deepEqual(raw, before);
+    }
+  }
+  for (const key of ['harmonyCrystals', 'ascensionResets']) {
+    for (const value of [undefined, null, '0', false, -1, .5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, {}, []]) {
+      const raw = fixture(); raw.prestige[key] = value;
+      assert.throws(() => validateCurrentSave(raw, context), `${key}/${String(value)}`);
+    }
+  }
+  for (const value of [undefined, null, '0', false, -1, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, {}, []]) {
+    const raw = fixture(); raw.statistics.lifetime.harmonyCrystalsEarned = value;
+    assert.throws(() => validateCurrentSave(raw, context));
+  }
+  const earned = fixture(); earned.prestige.harmonyCrystals = 12; earned.prestige.ascensionResets = 3;
+  earned.prestigeUnlocked.push('harmonyCrystals'); earned.statistics.lifetime.harmonyCrystalsEarned = 19;
+  const loaded = validateCurrentSave(earned, context);
+  assert.equal(loaded.prestige.harmonyCrystals, 12); assert.equal(loaded.prestige.ascensionResets, 3);
+  assert.equal(loaded.statistics.lifetime.harmonyCrystalsEarned, 19);
+  assert.deepEqual(validateCurrentSave(JSON.parse(JSON.stringify(loaded)), context), loaded);
 });
 
 test('compatibility defaults never repair malformed explicit entries or unrelated missing data', () => {

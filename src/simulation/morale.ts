@@ -4,6 +4,7 @@ import { calculatePopulationPressure, calculateSoldierPressure } from './governm
 import type { GameState } from '../types/state';
 
 export interface MoralePowerSnapshot {
+  digital?: { worldSimulatorUnits: number; agiComponentUnits: number };
   generatorSpeed: number;
   generatorEnergy: number;
   coalRatio: number;
@@ -24,7 +25,7 @@ export function calculateArtistEffect(state: Pick<GameState, 'tech' | 'governmen
 /** Display and settlement share the same power reservations, supplied by the caller. */
 export function calculateMorale(state: GameState, dt: number, power: MoralePowerSnapshot) {
   const community = state.buildings.communityCenter ? 25 : 0;
-  const base = 100, populationPenalty = calculatePopulationPressure(state), soldierPenalty = calculateSoldierPressure(state);
+  const base = 100, populationPenalty = calculatePopulationPressure(state), soldierPenalty = calculateSoldierPressure(state, power.digital);
   const taxPenalty = state.taxRate - 20, governmentPenalty = state.government === 'oligarchy' ? 10 : 0;
   const artistCount = (state.workers.theater || 0) + (state.workers.catCafe || 0);
   const artistEffect = calculateArtistEffect(state), artists = artistCount * artistEffect;
@@ -34,7 +35,9 @@ export function calculateMorale(state: GameState, dt: number, power: MoralePower
   const catCafeCap = state.buildings.catCafe;
   const beacon = state.tech.includes('spaceBroadcasting') ? 3 * (power.navigationBeaconUnits || 0) : 0;
   const vr = 2.5 * (power.vrCenterUnits || 0);
-  const monumentCap = (state.arpaBuildings.monument || 0) * 2, cap = 100 + theaterCap + broadcastCap + stationCap + catCafeCap + monumentCap;
+  const worldSimulator = (power.digital?.worldSimulatorUnits ?? 0) * 5;
+  const agi = (power.digital?.agiComponentUnits ?? 0) * 25;
+  const monumentCap = (state.arpaBuildings.monument || 0) * 2, cap = 100 + theaterCap + broadcastCap + stationCap + catCafeCap + monumentCap + worldSimulator;
   const broadcastRunning = countRunningBuildings('broadcast', state), stationRunning = countRunningBuildings('touristStation', state);
   const demand = broadcastRunning * 2 + stationRunning * 5;
   const ratio = demand ? Math.min(1, Math.max(0, Math.max(0, state.resources.energy / dt + power.generatorEnergy - (power.navigationBeaconUnits || 0) * (calculateBuildingInput('navigationBeacon', state).energy || 2) - (power.waystationUnits || 0) * 5 - power.moonBaseUnits * 4 - power.biologyUnits * 2 - power.dataCenterUnits * 3) / demand)) : 1;
@@ -45,10 +48,10 @@ export function calculateMorale(state: GameState, dt: number, power: MoralePower
   const broadcast = broadcastUnits * 3, station = stationUnits * 3;
   const powerUsed = broadcastUnits * 2 + stationUnits * 5;
   const paidRatio = demand ? powerUsed / demand : 1;
-  const raw = Math.max(0, base + community - populationPenalty - soldierPenalty - taxPenalty - governmentPenalty + artists + broadcast + station + beacon + vr);
+  const raw = Math.max(0, base + community - populationPenalty - soldierPenalty - taxPenalty - governmentPenalty + artists + broadcast + station + beacon + vr + worldSimulator + agi);
   const happiness = Math.max(40, Math.min(cap, raw));
   return { base, community, populationPenalty, soldierPenalty, taxPenalty, governmentPenalty, artists, artistCount, artistEffect,
-    theaterCap, broadcastCap, stationCap, catCafeCap, monumentCap, beacon, vr, cap, demand, powerUsed, ratio: paidRatio, broadcast, station,
+    theaterCap, broadcastCap, stationCap, catCafeCap, monumentCap, beacon, vr, worldSimulator, agi, cap, demand, powerUsed, ratio: paidRatio, broadcast, station,
     raw,
     happiness, generatorSpeed: power.generatorSpeed, generatorEnergy: power.generatorEnergy, coalRatio: power.coalRatio };
 }

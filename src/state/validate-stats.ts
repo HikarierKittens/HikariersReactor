@@ -16,6 +16,9 @@ export function validateStatistics(raw: Record<string, unknown>, state: GameStat
   const lifetime = object(source.lifetime, '历史统计');
   const run = object(source.run, '本周目统计');
   const stats = createStatistics();
+  if (Object.keys(source).some(key => key !== 'lifetime' && key !== 'run')
+    || Object.keys(lifetime).some(key => !Object.hasOwn(stats.lifetime, key))
+    || Object.keys(run).some(key => !Object.hasOwn(stats.run, key))) throw Error('统计字段无效。');
   for (const key of ['knowledgeSpent', 'starved', 'soldierDeaths', 'days'] as const) {
     stats.run[key] = counter(run[key], '本周目统计');
     stats.lifetime[key] = counter(lifetime[key], '历史统计');
@@ -23,6 +26,7 @@ export function validateStatistics(raw: Record<string, unknown>, state: GameStat
   stats.lifetime.particlesEarned = counter(lifetime.particlesEarned, '粒子获取统计');
   stats.lifetime.casimirEarned = counter(lifetime.casimirEarned, '卡西米尔获取统计');
   stats.lifetime.darkEnergyEarned = counter(lifetime.darkEnergyEarned, '暗能量获取统计');
+  stats.lifetime.harmonyCrystalsEarned = counter(lifetime.harmonyCrystalsEarned, '和谐水晶获取统计');
   state.statistics = stats;
   state.starvationElapsed = counter(raw.starvationElapsed, '饥饿计时');
 }

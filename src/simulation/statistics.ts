@@ -4,7 +4,7 @@ export type StatisticsState = { statistics?: { lifetime?: Partial<GameStatistics
 
 export function createStatistics(): GameStatistics {
   return {
-    lifetime: { knowledgeSpent: 0, starved: 0, soldierDeaths: 0, days: 0, particlesEarned: 0, casimirEarned: 0, darkEnergyEarned: 0 },
+    lifetime: { knowledgeSpent: 0, starved: 0, soldierDeaths: 0, days: 0, particlesEarned: 0, casimirEarned: 0, darkEnergyEarned: 0, harmonyCrystalsEarned: 0 },
     run: { knowledgeSpent: 0, starved: 0, soldierDeaths: 0, days: 0 },
   };
 }
@@ -50,4 +50,10 @@ export function recordParticlesEarned(state: StatisticsState, amount: number): v
   if (!Number.isFinite(amount) || amount <= 0) return;
   const stats = ensureStatistics(state);
   stats.lifetime.particlesEarned = Math.min(Number.MAX_SAFE_INTEGER, stats.lifetime.particlesEarned + amount);
+}
+
+export function recordHarmonyCrystalsEarned(state: StatisticsState, amount: number): void {
+  if (!Number.isFinite(amount) || amount <= 0) return;
+  const stats = ensureStatistics(state);
+  stats.lifetime.harmonyCrystalsEarned = Math.min(Number.MAX_SAFE_INTEGER, stats.lifetime.harmonyCrystalsEarned + amount);
 }

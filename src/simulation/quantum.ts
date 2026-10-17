@@ -9,6 +9,7 @@ export interface QuantumSnapshot {
   knowledgeCapacity: number;
   base: number;
   cores: number;
+  agi: number;
   level: number;
 }
 /** Completed cores are indivisible; partial segments never reserve fuel or grant quantum. */
@@ -37,8 +38,11 @@ export function calculateQuantumSnapshot(state: GameState, snapshot?: StorageSna
   const knowledgeCapacity = calculateStorageDetails('knowledge', state, snapshot).total;
   const base = state.tech.includes('artificialIntelligenceII') ? knowledgeCapacity / 100000 : 0;
   const cores = fundedCores ?? 0;
-  const level = Math.floor(base * (1 + .25 * cores) * 100) / 100;
-  return { knowledgeCapacity, base, cores, level };
+  // The caller's paid digital snapshot is authoritative, including an explicit zero.
+  // AGI's flat bonus is not multiplied by AI supercores or gated by AI II.
+  const agi = .5 * (snapshot.digital?.agiComponentUnits ?? 0);
+  const level = Math.floor((base * (1 + .25 * cores) + agi) * 100) / 100;
+  return { knowledgeCapacity, base, cores, agi, level };
 }
 export function calculateQuantumLevel(state: GameState, dt = 1): number { return calculateQuantumSnapshot(state, undefined, undefined, dt).level; }
 export function calculateSwarmSupportCapacity(state: GameState, quantumLevel?: number): number {

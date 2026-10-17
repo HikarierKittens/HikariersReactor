@@ -45,7 +45,8 @@ const pinned = ref(false);
 let hoveredBuilding: HTMLElement | null = null;
 const position = ref({ left: '8px', top: '8px' });
 /** Keep values concise; conditions and stacking rules belong in the full-width note. */
-interface DetailRow { name: string; value: string; negative?: boolean; child?: boolean; note?: string }
+type EffectRowType = 'detail' | 'production' | 'multiplier';
+interface DetailRow { name: string; value: string; negative?: boolean; child?: boolean; note?: string; effectType?: EffectRowType }
 interface TipContent {
   title: string;
   description: string;
@@ -68,7 +69,12 @@ const content = computed<TipContent | null>(() => {
   if (!target) return null;
   const state = props.state;
   const tip: TipContent = { title: '', description: '', costs: [], rows: [], requirements: [], income: [], expense: [], footnote: '', resourceTiming: '' };
-  const add = (name: string, value: string, negative = false, note?: string) => tip.rows.push({ name, value, negative, ...(note === undefined ? {} : { note }) });
+  const add = (name: string, value: string, negative = false, note?: string, effectType: EffectRowType = 'detail') => {
+    // A resource can have both flat production and a percentage multiplier.
+    // Only identical typed effects are duplicates; display names are not row identities.
+    if (tip.rows.some(row => row.effectType === effectType && row.name === name && row.value === value && row.negative === negative && row.note === note)) return;
+    tip.rows.push({ name, value, negative, effectType, ...(note === undefined ? {} : { note }) });
+  };
   const snapshot = storageSnapshot(state, 1, props.revision);
   const prices = (cost: ResourceRecipe) => orderedCostEntries(cost).map(([id, amount]) => ({
     id,
@@ -87,7 +93,7 @@ const content = computed<TipContent | null>(() => {
     const decimal = (value: number) => (floorWithPrecision(value * 100) / 100).toFixed(2);
     tip.title = '量子水平';
     tip.description = '基础量子水平由当前知识容量决定；建成的AI超级核心获得供能且支付氦-3维护时，每个核心按基础水平增加25%。';
-    add('知识容量', number(quantum.knowledgeCapacity));
+    add('知识容量', formatResourceNumber(quantum.knowledgeCapacity));
     add('基础水平：知识容量 / 100000', decimal(quantum.base));
     add('实际生效核心', String(quantum.cores));
     add('核心倍率', `×${decimal(1 + .25 * quantum.cores)}`);
@@ -181,7 +187,7 @@ const content = computed<TipContent | null>(() => {
     // 冶炼厂 only grants 冶炼厂工位; the slot recipe lives in the smelter settings modal.
     if (!building.workerOutput && !building.asrielSource && id !== 'smelter') {
       for (const [resource, amount] of orderedCostEntries(calculateBuildingOutput(id, state))) {
-        add(RESOURCES[resource as ResourceId].name, `+${resource === 'bytes' ? formatByteNumber(amount) : number(amount)}/s`);
+        add(RESOURCES[resource as ResourceId].name, `+${resource === 'bytes' ? formatByteNumber(amount, false, 10000) : number(amount)}/s`, false, undefined, 'production');
       }
     }
     if ((building.workerOutput || building.artistSlots || building.craftSlots) && !building.unlimited) {
@@ -209,7 +215,7 @@ const content = computed<TipContent | null>(() => {
       add(advanced ? '供能时：铝产量' : '铝产量', advanced ? '+8%' : '+6%');
       if (advanced) { add('供能时：钢产量', '+1%'); add('供能时：铱产量', '+0.5%'); }
     }
-    if (id === 'moonObservatory') add('学校知识容量', '+5%', false, '获得月球支持时生效。');
+    if (id === 'moonObservatory') add('学校知识容量', '+5%');
     if (id === 'particleAccelerator') {
       if (isChallengeGeneActive(state, 'particleImbalance')) {
         const bonus = 0.05;
@@ -230,7 +236,7 @@ const content = computed<TipContent | null>(() => {
     if (id === 'planetaryFoundry') add('每行星居民锻造物产量加成', '+3%');
     if (id === 'miningDrone') add('塔卫二采矿站产量', '+5%');
     if (id === 'geothermalPlant') add('月球铱矿产量', '+5%');
-    if (id === 'ecologicalDome') add('每座Asriel居住站猫口容量', '+0.05', false, '获得Asriel支持时生效。');
+    if (id === 'ecologicalDome') add('每座Asriel居住站猫口容量', '+0.05');
     if (building.cap) add('猫口容量', `+${number(building.cap + (id === 'asrielResidence' ? .05 * snapshot.asriel.allocations.ecologicalDome : 0))}`);
     if (building.soldierCap) add('士兵容量', `+${number(building.soldierCap)}`);
     if (building.trainingBoost) add('训练效果', `+${percent(calculateTrainingBoost(state))}%`);
@@ -238,15 +244,15 @@ const content = computed<TipContent | null>(() => {
     if (id === 'smelter') add('冶炼厂工位', '+1', false, '冶炼厂本身不产出也不消耗资源；资源由钢冶炼工位产出和消耗，可在设置中查看配方并分配。');
     if (id === 'stellarForge') { add('冶炼厂工位', '+2'); add('工匠上限', '+2'); add('锻造物产量', '+10%'); }
     if (id === 'adamantiteProcessor') add('精金采矿船产量', '+20%');
-    if (id === 'vrCenter') add('幸福度', '+2.5%', false, '获得Asriel支持时生效，仍受幸福度上限限制。');
-    if (id === 'blackHoleStation') add('空间撕裂者知识容量效果', '+1%', false, '完整支付电力维护后生效。');
+    if (id === 'vrCenter') add('幸福度', '+2.5%', false, '仍受幸福度上限限制。');
+    if (id === 'blackHoleStation') add('空间撕裂者知识容量效果', '+1%');
     const containerCap = calculateBuildingContainerCap(id, state);
     const alloyContainerCap = calculateBuildingAlloyContainerCap(id, state);
     if (containerCap) add('集装箱容量', `+${number(containerCap)}`);
     if (alloyContainerCap) add('合金集装箱容量', `+${number(alloyContainerCap)}`);
     if (building.moraleCap) add('幸福度上限', `+${percent(building.moraleCap)}%`);
     if (building.morale) add('幸福度', `+${percent(building.morale)}%`);
-    if (id === 'navigationBeacon' && state.tech.includes('spaceBroadcasting')) add('幸福度', '+3%', false, '完整获得供电时生效，保留月球支持。');
+    if (id === 'navigationBeacon' && state.tech.includes('spaceBroadcasting')) add('幸福度', '+3%');
     if (id === 'moonBase' || id === 'navigationBeacon') add('月球支持', `+${id === 'moonBase' ? 2 : 1}`);
     if (id === 'asrielSpaceport') add('Asriel支持', '+4');
     if (id === 'swarmControlStation') add('戴森群支持', `+${formatEffectNumber(20 + (state.tech.includes('quantumSwarm') ? calculateQuantumSnapshot(state).level : 0))}`);
@@ -271,22 +277,38 @@ const content = computed<TipContent | null>(() => {
     const mixerPowered = id === 'cementWorkshop' && state.tech.includes('cementMixer');
     if (miningPowered) add(id === 'mine' ? '每座供电矿井：矿工产量' : '每座供电煤矿：煤矿工人产量', '+5%');
     if (mixerPowered) add('每座供电水泥工坊：水泥工人产量', '+5%');
-    if (building.cpuCompute) add('CPU算力', `+${number(building.cpuCompute)}`);
+    if (building.cpuCompute) add('CPU算力', `+${number(id === 'cellCore' && state.tech.includes('cellMultithreading') ? 4 : building.cpuCompute)}`);
     if (id === 'dataCompression') {
-      add('锚点货运站容量', '+20%', false, '获得CPU算力时生效，按有效运行数量累加。');
-      add('量子存储器容量', '+25%', false, '获得CPU算力时生效，按有效运行数量累加。');
+      add('锚点货运站容量', '+20%', false, '按有效运行数量累加。');
+      add('量子存储器容量', '+25%', false, '按有效运行数量累加。');
+      if (state.tech.includes('deepCore')) add('记忆核心容量', '+15%', false, '按有效运行数量累加。');
     }
-    if (id === 'cpuDecoder') add('量化压缩模块知识容量', '+10%', false, '获得带宽和CPU算力时生效，按有效运行数量累加。');
-    if (id === 'gatewayRouter') add('数据带宽', '+5');
-    if (id === 'quantumStorage') add('字节容量', `+${formatByteNumber(building.bytesCap! * (1 + .25 * (snapshot.digital?.dataCompressionUnits ?? 0)))}`, false, '获得带宽时生效；包含有效运行数据压缩的加成。');
+    if (id === 'cpuDecoder') add('量化压缩模块知识容量', '+10%', false, '按有效运行数量累加。');
+    if (id === 'gatewayRouter') {
+      add('数据带宽', state.tech.includes('layer3Switch') ? '+7.5' : '+5');
+      if (state.tech.includes('layer3Switch')) tip.description = (building.desc || '').replace('提供5带宽', '提供7.5带宽');
+    }
+    if (id === 'memoryCore') {
+      add('字节容量', `+${formatByteNumber(building.bytesCap! * (1 + .15 * (snapshot.digital?.dataCompressionUnits ?? 0)), false, 10000)}`, false, '包含有效运行数据压缩的加成。');
+      if (state.tech.includes('encryptedDataAnalysis')) add('加密数据容量', `+${number(25000)}`);
+    }
+    if (id === 'softRouterNode') add('数据带宽', '+4');
+    if (id === 'aesComputeModule') add('知识产量', '+10%', false, '按有效运行数量累加。', 'multiplier');
+    if (id === 'agiCoreComponent') add('量子水平', '+0.5', false, '完整建成并运行时生效。');
+    if (id === 'coreCooler') add('AGI飞升核心电力消耗', '-100/s', false, '按有效运行数量累加，最低为0。');
+    if (id === 'agiAscensionCore') tip.footnote = '默认关闭；完整建成、启用且获得完整供能后可数字化飞升。';
+    if (id === 'ethMiner') add('现金容量', `+${number(building.cashCap!)}`);
+    if (id === 'dataDecryptionModule') add('加密数据产量', '+25%', false, '按有效运行数量累加。', 'multiplier');
+    if (id === 'quantumStorage') add('字节容量', `+${formatByteNumber(building.bytesCap! * (1 + .25 * (snapshot.digital?.dataCompressionUnits ?? 0)), false, 10000)}`, false, '包含有效运行数据压缩的加成。');
     if (id === 'downloadCache') add('字节产量', '+10%');
     if (id === 'downloadExecutable') add('数据下载', '1k知识/s → 10B/s', false, '配置0%～100%的实际知识产出用于下载；不主动消耗知识库存。');
     if (building.bandwidthUse) add('数据带宽', `−${number(building.bandwidthUse)}`, true);
     if (building.cpuComputeUse) add('CPU算力', `−${number(building.cpuComputeUse)}`, true);
     const storage = calculateStorageBonuses(id, state, snapshot.moon, snapshot.asriel, snapshot.digital);
     for (const [resource, amount] of orderedCostEntries(storage)) {
+      if ((id === 'memoryCore' && (resource === 'bytes' || resource === 'encryptedData')) || (id === 'ethMiner' && resource === 'cash') || (id === 'quantumStorage' && resource === 'bytes')) continue;
       const effectiveAmount = id === 'anchorFreightStation' ? amount * calculateFreightCapacityMultiplier(state, snapshot.stageThree?.asteroidBases || 0, (snapshot.digital?.dataCompressionUnits ?? 0)) : amount;
-      add(`${RESOURCES[resource as ResourceId].name}容量`, `+${number(effectiveAmount)}`, false, id === 'quantizedCompressionModule' ? '当前每座容量，包含有效运行CPU解码器加成；获得CPU算力时生效。' : undefined);
+      add(`${RESOURCES[resource as ResourceId].name}容量`, `+${number(effectiveAmount)}`, false, id === 'quantizedCompressionModule' ? '当前每座容量，包含有效运行CPU解码器加成。' : undefined);
     }
     // Worker recipe ingredients are not per-building maintenance.
     // Maintenance always follows all benefits and capacity effects.
@@ -424,13 +446,21 @@ const content = computed<TipContent | null>(() => {
     influence('观光空间站', morale.station);
     influence('广播信标', morale.beacon);
     influence('VR中心', morale.vr);
+    influence('世界模拟器', morale.worldSimulator);
+    influence('AGI核心组件', morale.agi);
     tip.footnote = '实际值最低为0%，不受上限限制；有效值限制在40%至当前上限之间。';
   } else if (target.kind === 'housing') {
-    const housing = calculateHousingDetails(state, snapshot.asriel, snapshot.stageThree);
+    const housing = calculateHousingDetails(state, snapshot.asriel, snapshot.stageThree, snapshot.digital);
     tip.title = '猫口容量';
     add('当前猫口 / 容量', `${number(state.population)} / ${number(floorWithPrecision(housing.reduce((sum, row) => sum + row.value, 0)))}`);
     for (const row of housing) add(row.name, `+${number(row.value)}`);
 
+  } else if (target.kind === 'prestige' && target.id === 'harmonyCrystals') {
+    tip.title = '和谐晶体';
+    tip.description = '通过数字化飞升获得的永久威望资源，跨周目保留。';
+    add('当前持有', number(state.prestige.harmonyCrystals));
+    add('累计获取', number(state.statistics.lifetime.harmonyCrystalsEarned));
+    add('数字化飞升次数', number(state.prestige.ascensionResets));
   } else if (target.kind === 'prestige' && target.id === 'darkEnergy') {
     tip.title = '暗能量';
     tip.description = '暗能量通过奇异失控引发的黑洞重置获得，跨周目保留。每个暗能量使普通资源储量提高1%（暗能量加成）。';
@@ -574,7 +604,7 @@ onUnmounted(() => {
       <p v-if="content.warning" class="tip-desc danger" data-tech-warning>{{ content.warning }}</p>
       <template v-if="content.costs.length">
         <p class="tip-label">{{ selected?.kind === 'arpa' || selected?.kind === 'ship' || anchor?.dataset.queueUid ? '剩余资源需求' : selected?.kind === 'building' && BUILDINGS[selected.id as BuildingId]?.segmentedRequired ? '每段固定价格' : '当前价格' }}</p>
-        <div v-for="cost in content.costs" :key="cost.id" class="tip-cost" :class="{ 'is-cap-blocked': cost.blocked, 'is-missing': !cost.blocked && cost.missing }">{{ cost.name }} {{ selected?.kind === 'building' && ['swarmSatellite', 'swarmFactory'].includes(selected.id) && cost.amount < 1 ? '0' : cost.id === 'bytes' ? formatByteNumber(cost.amount) : formatCostNumber(cost.amount) }}</div>
+        <div v-for="cost in content.costs" :key="cost.id" class="tip-cost" :class="{ 'is-cap-blocked': cost.blocked, 'is-missing': !cost.blocked && cost.missing }">{{ cost.name }} {{ selected?.kind === 'building' && ['swarmSatellite', 'swarmFactory'].includes(selected.id) && cost.amount < 1 ? '0' : cost.id === 'bytes' ? formatByteNumber(cost.amount, false, 10000) : formatCostNumber(cost.amount) }}</div>
         <hr>
       </template>
       <p v-if="selected?.kind === 'building' && content.rows.length" class="tip-label">建筑效果</p>

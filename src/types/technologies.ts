@@ -3,8 +3,10 @@ import type { ArpaProjectId } from './state';
 import type { ResourceId, ResourceRecipe } from './economy';
 
 export type TechnologyId =
+  | 'softRoutingNode' | 'aes114514' | 'digitalSimulation' | 'highPrecisionWorldSimulation' | 'agi' | 'digitalAscension'
   | 'aiCoreCalibration' | 'binaryWorld' | 'downwardProbe' | 'subcomputeNode' | 'quantizedCompression'
   | 'dataCompressor' | 'cpuDecoding'
+  | 'deepCore' | 'neuralNetwork' | 'layer3Switch' | 'cryptocurrency' | 'encryptedDataAnalysis' | 'cellMultithreading'
   | 'stationScienceFacilities' | 'knowledgeInheritance'
   | 'batteryConcentrationRing'
   | 'spaceBroadcasting'

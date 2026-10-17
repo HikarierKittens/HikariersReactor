@@ -37,6 +37,7 @@ export function previewMorale(state: GameState, dt = 1) {
       waystationUnits: support.waystations,
       navigationBeaconUnits: support.moon.beaconUnits || 0,
       vrCenterUnits: support.asriel.allocations.vrCenter || 0,
+      digital: support.digital,
       generatorSpeed: (Object.keys(BUILDINGS) as BuildingId[]).filter(isPowerProducer).reduce((sum, id) => sum + countRunningBuildings(id, state), 0),
       generatorEnergy: plants.energy, coalRatio: coalSpeed ? (plants.outputs.generator || 0) / coalSpeed : 1,
       moonBaseUnits: allocateMoonSupport(state, moonPool, dt).baseUnits,
@@ -74,7 +75,7 @@ export function previewMorale(state: GameState, dt = 1) {
 export function calculateProduction(state: GameState, dt = 1) {
   const morale = previewMorale(state, dt);
   const ledger = buildSettlementLedger(state, dt);
-  const digitalProduction = createDigitalProductionPool(state, ledger.digital, dt);
+  const digitalProduction = createDigitalProductionPool(state, ledger.digital, dt, morale.happiness);
   const replay = replaySettledPool(state, ledger, dt, morale.happiness, digitalProduction.pool);
   const pool = replay.pool, before = { ...state.resources };
   const outputs = replay.outputs, inputUnits = replay.inputUnits;
@@ -89,7 +90,7 @@ export function calculateProduction(state: GameState, dt = 1) {
     Object.assign(inputUnits, factory.inputs); Object.assign(outputs, factory.outputs);
     const automation = settleAutomationPower(state, pool, dt);
     Object.assign(inputUnits, automation.inputs);
-    settleGroundProduction(state, pool, dt, morale.happiness, inputUnits, outputs, { ...automation, dataUnits });
+    settleGroundProduction(state, pool, dt, morale.happiness, inputUnits, outputs, { ...automation, dataUnits, digital: ledger.digital });
     if (state.tech.includes('titaniumSmelting')) {
       const titanium = (calculateBuildingOutput('smelter', state).metal || 0) * .1 * (inputUnits.smelter || 0) * calculateProductionMultiplier('titanium', morale.happiness, state) * calculateGlobalOutputMultiplier('titanium', state);
       pool.titanium += titanium * dt; outputs.titaniumByproduct = titanium;

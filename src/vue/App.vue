@@ -19,7 +19,7 @@ import { estimateQueueTimes } from './queue-estimates';
 import { changeCraftAssignment } from '../simulation/crafting';
 import { setAutoWorkersEnabled, setAutoWorkerEnabled, setAutoWorkerLimit, moveAutoWorkerPriority, applyAutoWorkerAssignment } from '../simulation/auto-workers';
 import { trimFactoryAssignments } from '../simulation/factory';
-import { fillNuclearProject, launchNuclearPrestige, launchEscapePrestige, launchBlackHolePrestige, calculateBlackHolePrestigeRewards } from '../simulation/prestige';
+import { fillNuclearProject, launchNuclearPrestige, launchEscapePrestige, launchBlackHolePrestige, calculateBlackHolePrestigeRewards, launchDigitalAscension, calculateDigitalAscensionRewards } from '../simulation/prestige';
 import { calculateEscapePrestigeReward, calculateCasimirReward, calculateTechCost } from '../simulation/government';
 import { TECHNOLOGIES } from '../data/technologies';
 import { canPayCost } from '../simulation/costs';
@@ -404,6 +404,27 @@ function changeEjection(id: ResourceId, delta: number): void {
   afterAction();
 }
 
+const digitalAscensionConfirm = ref(false);
+const digitalAscensionDialog = ref<HTMLDialogElement | null>(null);
+const digitalAscensionRewards = computed(() => { props.store.revision(); return calculateDigitalAscensionRewards(state.value); });
+watch(digitalAscensionConfirm, async open => { if (open) { await nextTick(); digitalAscensionDialog.value?.showModal(); } });
+function confirmDigitalAscension(): void {
+  const result = launchDigitalAscension(props.store.state(), sampleEventInterval(Math.random), Date.now());
+  if (!result) return;
+  if (!replaceRun(result.next)) return;
+  props.store.mutate(s => addLog(s, `数字化飞升完成，获得 ${result.reward} 粒子、${result.casimirReward} 卡西米尔晶体与 ${result.harmonyReward} 和谐晶体。新的文明开始了。`, 'system'));
+  digitalAscensionConfirm.value = false;
+  shipModal.value = false;
+  factoryOpen.value = false;
+  smelterOpen.value = false;
+  synthesisOpen.value = false;
+  downloadOpen.value = false;
+  worldView.value = 'home';
+  activeTab.value = 'buildings';
+  techView.value = 'available';
+  afterAction();
+}
+
 const nuclearConfirm = ref(false);
 function launchNuclear(): void {
   nuclearConfirm.value = true;
@@ -581,6 +602,7 @@ onUnmounted(() => {
               @synthesis-settings="synthesisOpen = true"
               @ship-settings="shipModal = true"
                @download-settings="downloadOpen = true"
+               @digital-ascension="digitalAscensionConfirm = true"
               @world-view="worldView = $event"
               @mission="mission"
             />
@@ -736,6 +758,13 @@ onUnmounted(() => {
       <p v-if="!canAffordRunaway" class="small subtle">资源不足，无法支付奇异失控的研究费用。</p>
       <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
       <div class="actions"><button @click="blackHoleConfirm = false">取消</button><button id="confirmBlackHoleReset" class="danger" :disabled="!canAffordRunaway" @click="confirmBlackHole">确认研究</button></div>
+    </dialog>
+    <dialog v-if="digitalAscensionConfirm" ref="digitalAscensionDialog" id="digitalAscensionConfirm" aria-labelledby="digitalAscensionConfirmTitle" @cancel="digitalAscensionConfirm = false">
+      <h2 id="digitalAscensionConfirmTitle">确认数字化飞升</h2>
+      <p>数字化飞升将结束当前文明并开启新的周目，保留永久威望奖励、基因修饰与历史统计。</p>
+      <p>预计获得 {{ digitalAscensionRewards.reward }} 粒子、{{ digitalAscensionRewards.casimirReward }} 卡西米尔晶体与 {{ digitalAscensionRewards.harmonyReward }} 和谐晶体。</p>
+      <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
+      <div class="actions"><button @click="digitalAscensionConfirm = false">取消</button><button id="confirmDigitalAscension" class="danger" @click="confirmDigitalAscension">确认飞升</button></div>
     </dialog>
     <dialog v-if="nuclearConfirm" ref="nuclearDialog" id="nuclearConfirm" @cancel="nuclearConfirm = false">
       <h2>确认发射核弹</h2><p>发射会结束本周目，保留粒子、成就与重置记录。</p>

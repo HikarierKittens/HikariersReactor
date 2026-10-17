@@ -5,7 +5,7 @@ import type { ResourceId } from '../../types/economy';
 import { RESOURCES } from '../../data/resources';
 import { uiPreview } from '../preview-cache';
 import { signedRate } from '../../simulation/resource-breakdown';
-import { fmt, storageCap, resourceUnlocked } from '../format';
+import { storageCap, resourceUnlocked } from '../format';
 import { formatResourceNumber, formatByteNumber } from '../../shared/format';
 import { DNA_BASE_IDS } from '../../data/genes';
 import { isGeneModificationUnlocked } from '../../simulation/genes';
@@ -54,9 +54,9 @@ const dnaRow = computed(() => {
     <template v-if="dnaRow">
       <div class="panel-head"><h2>特殊资源II</h2><span>本周目有效</span></div>
       <div id="specialResourcesII" class="res-list">
-        <div class="res-row dna-row" data-dna-row :aria-label="`DNA：${dnaRow.map(base => `${base.id} ${fmt(base.amount)}`).join('，')}`">
+        <div class="res-row dna-row" data-dna-row :aria-label="`DNA：${dnaRow.map(base => `${base.id} ${formatResourceNumber(base.amount)}`).join('，')}`">
           <span class="res-name">DNA：</span>
-          <span class="dna-amounts"><template v-for="(base, index) in dnaRow" :key="base.id">{{ index ? ' ' : '' }}<span :data-dna="base.id">{{ base.id }}-<b>{{ fmt(base.amount) }}</b></span></template></span>
+          <span class="dna-amounts"><template v-for="(base, index) in dnaRow" :key="base.id">{{ index ? ' ' : '' }}<span :data-dna="base.id">{{ base.id }}-<b>{{ formatResourceNumber(base.amount) }}</b></span></template></span>
         </div>
       </div>
     </template>

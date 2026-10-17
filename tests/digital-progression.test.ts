@@ -14,7 +14,7 @@ import { isContainerAssignable } from '../src/simulation/containers';
 const context = { now: 1_000_000, eventInterval: 60, housingCapacity: () => 1e6, clampResources: () => {} };
 const fresh = () => createInitialState(31, 60, context.now);
 const fixture = () => JSON.parse(readFileSync(new URL('./fixtures/pre-beta0.6.5-schema31.json', import.meta.url), 'utf8'));
-const digitalIds = ['gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder'] as const;
+const digitalIds = ['gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule'] as const;
 const fields = ['buildings', 'workers', 'stoppedBuildings'] as const;
 
 test('digital definitions preserve cost formats and use explicit byte price scales', () => {
@@ -141,7 +141,11 @@ test('previous schema31 JSON gains only additive defaults and earned tech never 
   const state = validateCurrentSave(raw, context);
   assert.deepEqual(raw, before);
   for (const field of fields) for (const id of digitalIds) assert.equal(state[field][id], 0);
-  for (const field of ['resources', 'containerAssignments', 'alloyContainerAssignments'] as const) assert.equal(state[field].bytes, 0);
+  for (const field of ['resources', 'containerAssignments', 'alloyContainerAssignments'] as const) {
+    assert.equal(state[field].bytes, 0);
+    assert.equal(Object.hasOwn(before[field], 'encryptedData'), false);
+    assert.equal(state[field].encryptedData, 0);
+  }
   assert.equal(state.downloadAllocation, 0);
   assert.deepEqual(state.tech, before.tech);
   assert.deepEqual(state.logs, before.logs);
@@ -164,9 +168,11 @@ test('strict digital boundaries retain explicit values and reject malformed reco
     assert.throws(() => validateCurrentSave(raw, context));
     assert.deepEqual(raw, before);
   }
-  for (const field of ['resources', 'containerAssignments', 'alloyContainerAssignments']) for (const value of [undefined, null, '0', -1, Infinity]) {
-    const raw = fixture(); raw[field].bytes = value;
+  for (const field of ['resources', 'containerAssignments', 'alloyContainerAssignments']) for (const id of ['bytes', 'encryptedData']) for (const value of [undefined, null, '0', false, -1, Infinity, NaN, {}, []]) {
+    const raw = fixture(); raw[field][id] = value;
+    const before = structuredClone(raw);
     assert.throws(() => validateCurrentSave(raw, context));
+    assert.deepEqual(raw, before);
   }
   const malformed = fixture(); delete malformed.resources.cash;
   assert.throws(() => validateCurrentSave(malformed, context));

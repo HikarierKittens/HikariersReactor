@@ -2,7 +2,9 @@ import { snapshotStoryArchive, updateStoryProgress } from './story';
 import { createInitialState } from '../state/create-state';
 import { CONFIG } from '../data/config';
 import { validateStatistics } from '../state/validate-stats';
-import { recordParticlesEarned, recordCasimirEarned, recordDarkEnergyEarned } from './statistics';
+import { recordParticlesEarned, recordCasimirEarned, recordDarkEnergyEarned, recordHarmonyCrystalsEarned } from './statistics';
+import { calculateSupportPreview } from './support-preview';
+import { calculateDigitalAscensionParticleReward, calculateDigitalAscensionCasimirReward, calculateDigitalAscensionHarmonyReward } from './government';
 import { calculateDarkEnergyReward } from './black-hole';
 import { isTechnologyUnlocked } from './unlocks';
 import { syncPrestigeUnlocks } from './prestige-unlocks';
@@ -151,6 +153,36 @@ export function launchBlackHolePrestige(state: GameState, eventIn: number, now: 
   awardResetAchievement(state, next, 'spaceDestroyer');
   updateStoryProgress(next);
   return { next, reward, casimirReward, darkEnergyReward };
+}
+
+export interface DigitalAscensionRewards extends EscapePrestigeReset { harmonyReward: number }
+export function calculateDigitalAscensionRewards(state: GameState): { reward: number; casimirReward: number; harmonyReward: number } {
+  const reward = calculateDigitalAscensionParticleReward(state);
+  return { reward, casimirReward: calculateDigitalAscensionCasimirReward(reward), harmonyReward: calculateDigitalAscensionHarmonyReward(state) };
+}
+
+/** A completed, enabled and fully powered AGI core is required; all observations are pure. */
+export function launchDigitalAscension(state: GameState, eventIn: number, now: number): DigitalAscensionRewards | null {
+  if (state.buildings.agiAscensionCore !== 100 || (state.stoppedBuildings.agiAscensionCore || 0) !== 0) return null;
+  if (!(calculateSupportPreview(state).digital.ascensionCoreUnits >= 1)) return null;
+  const { reward, casimirReward, harmonyReward } = calculateDigitalAscensionRewards(state);
+  const { particles, casimir, harmonyCrystals, ascensionResets } = state.prestige;
+  if (![reward, casimirReward, harmonyReward, particles, casimir, harmonyCrystals, ascensionResets].every(value => Number.isSafeInteger(value) && value >= 0)
+    || !Number.isSafeInteger(particles + reward) || !Number.isSafeInteger(casimir + casimirReward)
+    || !Number.isSafeInteger(harmonyCrystals + harmonyReward) || ascensionResets >= Number.MAX_SAFE_INTEGER) return null;
+  const next = createInitialState(CONFIG.version, eventIn, now);
+  preserveLifetime(state, next);
+  recordParticlesEarned(next, reward);
+  recordCasimirEarned(next, casimirReward);
+  recordHarmonyCrystalsEarned(next, harmonyReward);
+  next.prestige = { ...state.prestige, particles: particles + reward, casimir: casimir + casimirReward,
+    harmonyCrystals: harmonyCrystals + harmonyReward, ascensionResets: ascensionResets + 1 };
+  keepPrestigeUnlocks(state, next);
+  next.crispr = [...state.crispr];
+  preserveFinalAchievements(state, next);
+  next.settings = { ...state.settings };
+  updateStoryProgress(next);
+  return { next, reward, casimirReward, harmonyReward };
 }
 
 export interface SoftReset { next: GameState }

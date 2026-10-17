@@ -30,11 +30,11 @@ const cashCap = computed(() => { props.revision; return storageCap('cash', props
 const soldierCap = computed(() => { props.revision; return calculateSoldierCapacity(props.state); });
 const trainingCap = computed(() => {
   props.revision;
-  const paid = props.state.buildings.spaceGarrison ? uiPreview.production(props.state, props.revision).inputUnits.spaceGarrison || 0 : 0;
-  return calculateOperationalSoldierCapacity(props.state, paid);
+  const result = uiPreview.production(props.state, props.revision);
+  return calculateOperationalSoldierCapacity(props.state, result.inputUnits.spaceGarrison || 0, result.digital);
 });
 const soldierPower = computed(() => { props.revision; return calculateCombatPower(props.state); });
-const soldierPenalty = computed(() => { props.revision; return calculateSoldierPressure(props.state); });
+const soldierPenalty = computed(() => { props.revision; return calculateSoldierPressure(props.state, uiPreview.support(props.state, props.revision).digital); });
 const trainDuration = computed(() => { props.revision; return calculateTrainingDuration(props.state); });
 const trainingRatio = computed(() => {
   props.revision;

@@ -44,14 +44,16 @@ export function createRuntime(): Runtime {
   let state = createInitialState(CONFIG.version, sampleEventInterval(Math.random), Date.now());
   let lastTick = performance.now();
   let saveElapsed = 0;
+  // Keep background debt out of a single blocking call; retain one-second settlement semantics.
+  let pendingSimulation = 0;
   let saveFailed = false;
   let saveBlocked = false;
   let loaded = false;
   let protectedSaveText: string | null = null;
 
   function capacity(candidate: GameState = state): number {
-    const { asriel, stageThree } = calculateSupportPreview(candidate);
-    return floorWithPrecision(calculateHousingDetails(candidate, asriel, stageThree).reduce((sum, row) => sum + row.value, 0));
+    const { asriel, stageThree, digital } = calculateSupportPreview(candidate);
+    return floorWithPrecision(calculateHousingDetails(candidate, asriel, stageThree, digital).reduce((sum, row) => sum + row.value, 0));
   }
 
   function storageSnapshot(candidate: GameState) {
@@ -70,6 +72,7 @@ export function createRuntime(): Runtime {
 
   function resetClock(): void {
     saveElapsed = 0;
+    pendingSimulation = 0;
     lastTick = performance.now();
   }
 
@@ -145,7 +148,17 @@ export function createRuntime(): Runtime {
     const elapsed = Math.max(0, (now - lastTick) / 1000);
     lastTick = now;
     if (!Number.isFinite(elapsed)) return;
-    simulateElapsed(elapsed, dt => advanceGameTick(state, dt, tickHooks));
+    pendingSimulation = Math.min(CONFIG.simulateLimit, pendingSimulation + Math.min(elapsed, CONFIG.simulateLimit));
+    const batchStart = performance.now();
+    let steps = 0;
+    while (pendingSimulation > 1e-9 && steps < 10) {
+      const dt = Math.min(1, pendingSimulation);
+      simulateElapsed(dt, step => advanceGameTick(state, step, tickHooks));
+      pendingSimulation = Math.max(0, pendingSimulation - dt);
+      steps++;
+      // At least one step progresses even on slower late-game saves.
+      if (performance.now() - batchStart >= 8) break;
+    }
     saveElapsed += elapsed;
     if (saveElapsed >= 10) {
       saveElapsed %= 10;

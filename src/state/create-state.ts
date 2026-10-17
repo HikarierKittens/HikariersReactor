@@ -26,7 +26,7 @@ export function createInitialState(version: number, eventIn: number, now: number
     statistics: createStatistics(), starvationElapsed: 0,
     government: 'none', taxRate: 20, lastReformTime: null, downloadAllocation: 0,
     furUnlocked: false, unlockedResources: [],
-    prestige: { particles: 0, nuclearResets: 0, softResets: 0, casimir: 0, escapeResets: 0, darkEnergy: 0, blackHoleResets: 0 }, prestigeUnlocked: [], crispr: [],
+    prestige: { particles: 0, nuclearResets: 0, softResets: 0, casimir: 0, escapeResets: 0, darkEnergy: 0, blackHoleResets: 0, harmonyCrystals: 0, ascensionResets: 0 }, prestigeUnlocked: [], crispr: [],
     geneModification: createGeneModificationState(),
     soldiers: 0, trainingProgress: 0, nuclearProgress: 0,
     arpaResourceProgress: {},

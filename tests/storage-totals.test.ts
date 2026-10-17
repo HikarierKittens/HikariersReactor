@@ -219,3 +219,27 @@ test('batched totals stay pure and crafted resources stay unlimited', () => {
     assert.equal(Number.isFinite(first[resource]), Number.isFinite(calculateStorageDetails(resource, state, snapshot).total), resource);
   }
 });
+
+test('partial storage snapshots resolve support once and preserve supplied zeroes', () => {
+  const state = createMilestoneState('space', { buildings: { spaceWaystation: 1, swarmControlStation: 1, swarmSatellite: 10, library: 10, e710Container: 2, e710Warehouse: 1 } });
+  Object.assign(state.resources, { energy: 1e6, helium3: 1e6, oil: 1e6 });
+  const support = calculateSupportPreview(state);
+  const full: StorageSnapshot = { ...support, moonBaseUnits: support.moon.baseUnits, e710ContainerUnits: 0 };
+  const partial: StorageSnapshot = { moon: support.moon, asriel: support.asriel, moonBaseUnits: support.moon.baseUnits, biologyUnits: support.biologyUnits, dataCenterUnits: support.dataCenterUnits, e710ContainerUnits: 0 };
+  const before = structuredClone(partial);
+  let reads = 0;
+  const tracked = new Proxy(state, { get(target, key, receiver) { if (key === 'resources') reads++; return Reflect.get(target, key, receiver); } });
+  calculateSupportPreview(tracked);
+  const oneSupportReads = reads;
+  reads = 0;
+  assert.deepEqual(calculateStorageTotals(tracked, partial), calculateStorageTotals(state, full));
+  assert.equal(reads, oneSupportReads, 'one fallback support solve, shared across all storage passes');
+  for (const resource of Object.keys(RESOURCES) as ResourceId[]) assert.deepEqual(calculateStorageDetails(resource, state, partial), calculateStorageDetails(resource, state, full), resource);
+  assert.deepEqual(partial, before, 'caller snapshot is immutable');
+  reads = 0;
+  calculateStorageTotals(tracked, full);
+  assert.equal(reads, 0, 'complete snapshots do not compute fallback');
+  state.resources.energy = 0;
+  const fresh = calculateSupportPreview(state);
+  assert.equal(calculateStorageTotals(state, partial).bytes, calculateStorageTotals(state, { ...full, digital: fresh.digital }).bytes, 'no stale cross-call fallback cache');
+});

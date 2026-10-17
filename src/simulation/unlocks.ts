@@ -18,7 +18,7 @@ export function isTechnologyUnlocked(id: string, state: GameState): boolean {
   if ((id === 'massEjector' || id === 'aiCoreCalibration') && !isBuildingFullyBuilt('penroseSphere', state)) return false;
   if ((id === 'stabilizeBlackHole' || id === 'exoticRunaway') && !state.blackHole?.unstable) return false;
   const technology = TECHNOLOGIES[id as TechnologyId];
-  return (state.prestige.nuclearResets + (state.prestige.escapeResets || 0) + (state.prestige.blackHoleResets || 0) >= (technology.prestigeResetsRequired || 0))
+  return (state.prestige.nuclearResets + (state.prestige.escapeResets || 0) + (state.prestige.blackHoleResets || 0) + (state.prestige.ascensionResets || 0) >= (technology.prestigeResetsRequired || 0))
     && (!technology.kerberosMissionRequired || state.kerberosMissionCompleted)
     && (!technology.spaceMissionRequired || isSpaceMissionCompleted(state, technology.spaceMissionRequired))
     && (!technology.buildingRequired || state.buildings[technology.buildingRequired] > 0)

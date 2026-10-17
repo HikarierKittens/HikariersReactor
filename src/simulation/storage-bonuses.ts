@@ -59,6 +59,7 @@ export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: 
   }
   if (id === 'warehouse') return Object.fromEntries((upgraded ? ADVANCED_STORAGE_RESOURCES : WAREHOUSE_RESOURCES).map(r => [r, (upgraded ? 500 : 250) * warehouseMultiplier]));
   if (id === 'quantizedCompressionModule') return { knowledge: 100000 * (1 + .1 * (digital ?? calculateSupportPreview(state).digital).decoderUnits) };
+  if (id === 'ethMiner') return { cash: 512000 };
   if (id === 'biologyLab') return { knowledge: 3000 };
   if (id === 'e710ResearchStation') return { knowledge: 50000 };
   if (id === 'library') return { knowledge: (state.tech.includes('internet') ? 150 : 100)

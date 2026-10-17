@@ -25,15 +25,20 @@ export function calculateTechCost(id: TechnologyId, state: Pick<GameState, 'gove
 }
 /** Owned ceiling for save validation and existing capacity-based army pressure.
  * Stopping or starving a garrison never deletes already trained soldiers. */
-export function calculateSoldierCapacity(state: Pick<GameState, 'buildings'>): number { return ((state.buildings.barracks || 0) + (state.buildings.spaceGarrison || 0)) * 2; }
+export function calculateSoldierCapacity(state: Pick<GameState, 'buildings'>): number { return ((state.buildings.barracks || 0) + (state.buildings.spaceGarrison || 0)) * 2 + (state.buildings.worldSimulator || 0) * 4; }
 /** Only whole paid garrisons can open new training places. */
-export function calculateOperationalSoldierCapacity(state: Pick<GameState, 'buildings' | 'stoppedBuildings'>, paidGarrisonUnits: number): number {
+export function calculateOperationalSoldierCapacity(state: Pick<GameState, 'buildings' | 'stoppedBuildings'>, paidGarrisonUnits: number, digital?: { worldSimulatorUnits: number }): number {
   const running = Math.max(0, (state.buildings.spaceGarrison || 0) - (state.stoppedBuildings?.spaceGarrison || 0));
-  return (state.buildings.barracks || 0) * 2 + Math.floor(Math.min(running, Math.max(0, paidGarrisonUnits)) + 1e-9) * 2;
+  const simulators = Math.max(0, (state.buildings.worldSimulator || 0) - (state.stoppedBuildings?.worldSimulator || 0));
+  return (state.buildings.barracks || 0) * 2 + Math.floor(Math.min(running, Math.max(0, paidGarrisonUnits)) + 1e-9) * 2
+    + Math.floor(Math.min(simulators, Math.max(0, digital?.worldSimulatorUnits ?? 0)) + 1e-9) * 4;
 }
 export function calculateCombatPower(state: Pick<GameState, 'tech' | 'government'> & Partial<Pick<GameState, 'geneModification'>>): number { return (state.tech.includes('ironEquipment') ? 2 : 1) * (state.government === 'militaryRule' ? 1.2 : 1) * (1 + geneBonus(state, 'titanPower')); }
 /** 猫猫凝聚 scales soldier-capacity pressure by half its population rate. */
-export function calculateSoldierPressure(state: Pick<GameState, 'buildings' | 'government'> & Partial<Pick<GameState, 'geneModification'>>): number { return calculateSoldierCapacity(state) * (state.government === 'militaryRule' ? 1.5 : 1) * Math.max(0, 1 - geneBonus(state, 'catCohesion') / 2); }
+export function calculateSoldierPressure(state: Pick<GameState, 'buildings' | 'government'> & Partial<Pick<GameState, 'geneModification'>>, digital?: { worldSimulatorUnits: number }): number {
+  const capacity = ((state.buildings.barracks || 0) + (state.buildings.spaceGarrison || 0)) * 2 + (digital?.worldSimulatorUnits ?? 0) * 4;
+  return capacity * (state.government === 'militaryRule' ? 1.5 : 1) * Math.max(0, 1 - geneBonus(state, 'catCohesion') / 2);
+}
 /** 猫猫凝聚 scales the 0.5-per-cat population pressure. */
 export function calculatePopulationPressure(state: Pick<GameState, 'population'> & Partial<Pick<GameState, 'geneModification'>>): number { return state.population * .5 * Math.max(0, 1 - geneBonus(state, 'catCohesion')); }
 export function calculateGovernmentMultiplier(resource: string, state: Pick<GameState, 'government'>): number { return resource === 'cash' && state.government === 'oligarchy' ? 1.25 : resource === 'knowledge' && state.government === 'technocracy' ? 1.1 : 1; }
@@ -60,6 +65,20 @@ export function calculateCasimirReward(particleReward: number): number {
   const raw = particleReward / 8;
   return Math.floor(raw <= 100 ? raw : 100 + (raw - 100) * .05);
 }
+/** 飞升 uses this run's actual knowledge expenditure, never lifetime spending. */
+export function calculateDigitalAscensionParticleReward(state: Pick<GameState, 'population' | 'soldiers' | 'statistics'>): number {
+  const raw = (state.population + state.soldiers) / 1.15
+    + Math.log1p(.008 * state.statistics.run.knowledgeSpent / 30000) / Math.log1p(.008);
+  return Math.floor(raw <= 2000 ? raw : 2000 + (raw - 2000) * .25);
+}
+/** Derived only from the final capped, integer particle reward. Zero awards no Casimir. */
+export function calculateDigitalAscensionCasimirReward(particleReward: number): number {
+  return particleReward <= 1 ? 0 : Math.max(0, Math.floor(Math.log2(particleReward) * 4 * Math.E));
+}
+export function calculateDigitalAscensionHarmonyReward(state: Pick<GameState, 'challenge'>): number {
+  return 2 + state.challenge.genes.length;
+}
+
 /** 黑洞重置 particles: larger base and a later, gentler soft cap than escape. */
 export function calculateBlackHoleParticleReward(state: Pick<GameState, 'population' | 'soldiers'>): number {
   const raw = (state.population + state.soldiers) / 2 + 250;

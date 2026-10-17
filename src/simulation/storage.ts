@@ -29,6 +29,32 @@ export interface StorageSnapshot {
 }
 export interface StorageDetails { rows: { name: string; value: number }[]; total: number }
 
+/** Legacy callers supply only part of the paid snapshot. Resolve missing support
+ * lazily once per storage calculation, never cache across mutable state changes.
+ * Supplied values (including zero) remain authoritative; the input is untouched.
+ */
+function withStorageSupportFallback(state: GameState, snapshot: StorageSnapshot): StorageSnapshot {
+  let fallback: ReturnType<typeof calculateSupportPreview> | undefined;
+  const support = () => fallback ??= calculateSupportPreview(state);
+  return {
+    ...snapshot,
+    get digital() { return snapshot.digital ?? support().digital; },
+    get stageThree() {
+      if (!snapshot.stageThree) return support().stageThree;
+      return {
+        ...snapshot.stageThree,
+        get ports() { return snapshot.stageThree!.ports ?? support().stageThree.ports; },
+        get iceShips() { return snapshot.stageThree!.iceShips ?? support().stageThree.iceShips; },
+        get asteroidBases() { return snapshot.stageThree!.asteroidBases ?? support().stageThree.asteroidBases; },
+      };
+    },
+    get e710ContainerUnits() { return snapshot.e710ContainerUnits ?? support().e710ContainerUnits; },
+    get e710WarehouseUnits() { return snapshot.e710WarehouseUnits ?? support().e710WarehouseUnits; },
+    get researchStationUnits() { return snapshot.researchStationUnits ?? support().researchStationUnits; },
+    get blackHoleStationUnits() { return snapshot.blackHoleStationUnits ?? support().blackHoleStationUnits; },
+  };
+}
+
 /** One row contribution inside the shared storage pass. */
 interface StorageRowContext {
   counts: Partial<Record<BuildingId, number>>;
@@ -60,6 +86,7 @@ function accumulateStorageRows(
       : id === 'e710Warehouse' ? (detailResource === 'e710' ? snapshot.e710WarehouseUnits ?? calculateSupportPreview(state).e710WarehouseUnits : 0)
       : id === 'moonBase' ? snapshot.moonBaseUnits
       : id === 'quantizedCompressionModule' ? (state.buildings[id] ? (snapshot.digital ?? calculateSupportPreview(state).digital).compressionUnits : 0)
+      : id === 'ethMiner' ? (snapshot.digital ?? calculateSupportPreview(state).digital).minerUnits
       : id === 'biologyLab' ? snapshot.biologyUnits
       : id === 'observatory' ? snapshot.dataCenterUnits
       : id === 'moonObservatory' ? snapshot.moon.allocations.moonObservatory || 0
@@ -167,11 +194,18 @@ export function calculateRipperKnowledgeBonus(state: GameState, snapshot: Pick<S
 }
 
 export function calculateStorageDetails(resource: ResourceId, state: GameState, snapshot: StorageSnapshot): StorageDetails {
+  snapshot = withStorageSupportFallback(state, snapshot);
   if (resource === 'bytes') {
     const digital = snapshot.digital ?? calculateSupportPreview(state).digital;
     const rows = [{ name: '基础储量', value: 10000 }];
     if (digital.quantumStorageUnits) rows.push({ name: '量子存储器 ×' + formatNumber(digital.quantumStorageUnits), value: digital.quantumStorageUnits * 10000 * (1 + .25 * digital.dataCompressionUnits) });
+    if (digital.memoryUnits) rows.push({ name: '记忆核心 ×' + formatNumber(digital.memoryUnits), value: digital.memoryUnits * 50000 * (1 + .15 * digital.dataCompressionUnits) });
     return { rows, total: calculateDigitalByteCapacity(digital) };
+  }
+  if (resource === 'encryptedData') {
+    const digital = snapshot.digital ?? calculateSupportPreview(state).digital;
+    const extra = state.tech.includes('encryptedDataAnalysis') ? digital.memoryUnits * 25000 : 0;
+    return { rows: [{ name: '基础储量', value: 50000 }, ...(extra ? [{ name: '记忆核心 ×' + formatNumber(digital.memoryUnits), value: extra }] : [])], total: 50000 + extra };
   }
   if (RESOURCES[resource].crafted) return { rows: [], total: Infinity };
   const rows: StorageDetails['rows'] = [{ name: '基础储量', value: baseStorage(resource, state) }];
@@ -192,6 +226,7 @@ export function calculateStorageDetails(resource: ResourceId, state: GameState, 
 
 /** All resource caps in one shared building pass; totals match calculateStorageDetails exactly. */
 export function calculateStorageTotals(state: GameState, snapshot: StorageSnapshot): Record<ResourceId, number> {
+  snapshot = withStorageSupportFallback(state, snapshot);
   const totals: Partial<Record<ResourceId, number>> = {};
   for (const resource of Object.keys(RESOURCES) as ResourceId[]) {
     totals[resource] = RESOURCES[resource].crafted ? Infinity : baseStorage(resource, state);
@@ -235,6 +270,7 @@ export function calculateStorageTotals(state: GameState, snapshot: StorageSnapsh
   const ripperCores = countRunningBuildings('spaceRipper', state);
   if (ripperCores) totals.knowledge = (totals.knowledge || 0) * (1 + calculateRipperKnowledgeBonus(state, snapshot) * ripperCores);
   totals.bytes = calculateDigitalByteCapacity(snapshot.digital ?? calculateSupportPreview(state).digital);
+  totals.encryptedData = 50000 + (state.tech.includes('encryptedDataAnalysis') ? (snapshot.digital ?? calculateSupportPreview(state).digital).memoryUnits * 25000 : 0);
   return totals as Record<ResourceId, number>;
 }
 /** Drop only what a lowered cap can no longer hold, reporting whether anything was lost. */

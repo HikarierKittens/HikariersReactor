@@ -20,7 +20,7 @@ function digital() {
 test('bandwidth allocates whole consumers in download/storage/cache order from paid fractional gateways', () => {
   const s = digital(); s.buildings.quantumStorage = 3; s.buildings.downloadCache = 3;
   const full = calculateDigitalSupport(s, 25);
-  assert.deepEqual(full, { gatewayUnits: 1, capacity: 5, used: 5, downloadUnits: 1, quantumStorageUnits: 3, cacheUnits: 1, subcomputeUnits: 0, compressionUnits: 0, dataCompressionUnits: 0, decoderUnits: 0, cpuCapacity: 0, cpuUsed: 0 });
+  assert.deepEqual(full, { gatewayUnits: 1, capacity: 5, used: 5, downloadUnits: 1, quantumStorageUnits: 3, cacheUnits: 1, subcomputeUnits: 0, compressionUnits: 0, dataCompressionUnits: 0, decoderUnits: 0, cellUnits: 0, memoryUnits: 0, minerUnits: 0, decryptionUnits: 0, cpuCapacity: 0, cpuUsed: 0 });
   const partial = calculateDigitalSupport(s, 12.5);
   near(partial.gatewayUnits, .5); near(partial.capacity, 2.5);
   assert.equal(partial.used, 2); assert.equal(partial.quantumStorageUnits, 1); assert.equal(partial.cacheUnits, 0);

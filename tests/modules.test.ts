@@ -1157,21 +1157,35 @@ test('bytes use decimal byte symbols for balances rates and prices', () => {
   for (const [value, text] of [[1, '1B'], [999, '999B'], [1000, '1KB'], [10000, '10KB'], [2.5e6, '2.5MB'], [1e9, '1GB'], [1e12, '1TB'], [1e15, '1PB']] as const) assert.equal(formatByteNumber(value), text);
   assert.equal(formatByteNumber(1.239), '1.23B');
   assert.equal(formatByteNumber(1.239, true), '1.24B');
+  for (const rate of [false, true]) {
+    for (const [value, expected] of [[999, '999B'], [1000, '1000B'], [9999, '9999B'], [10000, '10KB'], [11999, '11.99KB'], [999999, '999.99KB'], [1e6, '1MB']] as const) {
+      assert.equal(formatByteNumber(value, rate, 10000), expected);
+      assert.equal(formatByteNumber(-value, rate, 10000), `−${expected}`);
+    }
+    assert.equal(formatByteNumber(2.05 - 2, rate, 10000), '0.05B');
+  }
+  assert.equal(formatByteNumber(1000, true), '1000B');
 });
 
-test('costs and inventory switch at thousands independently of production rates', () => {
-  for (const format of [formatCostNumber, formatResourceNumber]) {
-    for (const [value, expected] of [[999, '999'], [1000, '1k'], [2100, '2.1k'], [1000000, '1M'], [2100000, '2.1M'], [1e9, '1G']] as const) assert.equal(format(value), expected);
+test('inventory starts at thousands while costs effects and rates start at ten thousand', () => {
+  for (const [value, expected] of [[999, '999'], [1000, '1k'], [9999, '9.99k'], [10000, '10k'], [11999, '11.99k'], [999999, '999.99k'], [1e6, '1M']] as const) {
+    assert.equal(formatResourceNumber(value), expected);
+    assert.equal(formatResourceNumber(-value), `−${expected}`);
   }
-  assert.equal(formatRateNumber(2100), '2100');
-  assert.equal(formatRateNumber(2100000), '2100k');
-  assert.equal(formatEffectNumber(2100000), '2100k');
+  for (const format of [formatCostNumber, formatNumber, formatEffectNumber, formatRateNumber]) {
+    for (const [value, expected] of [[999, '999'], [1000, '1000'], [9999, '9999'], [10000, '10k'], [11999, '11.99k'], [999999, '999.99k'], [1e6, '1M'], [2100000, '2.1M'], [1e9, '1G']] as const) {
+      assert.equal(format(value), expected);
+      assert.equal(format(-value), `−${expected}`);
+    }
+    assert.equal(format(2.05 - 2), '0.05');
+    assert.equal(format(-(2.05 - 2)), '−0.05');
+  }
 });
 
 test('building effect numbers retain up to four decimals without trailing zeros and compact large values', () => {
   assert.equal(formatEffectNumber(2.05), '2.05');
   assert.equal(formatEffectNumber(.123456), '0.1235');
-  assert.equal(formatEffectNumber(12345.6789), '12.3457k');
+  assert.equal(formatEffectNumber(12345.6789), '12.34k');
   assert.equal(formatEffectNumber(10), '10');
   assert.equal(formatEffectNumber(.0001), '0.0001');
   assert.equal(formatEffectNumber(.00000001), '0');
@@ -1205,5 +1219,5 @@ test('resource display retains two decimals and suppresses binary roundoff witho
 test('formatting truncates stock and handles invalid and negative values', () => {
   assert.equal(formatNumber(NaN), '0'); assert.equal(formatNumber(Infinity), '0');
   assert.equal(formatNumber(12345), '12.34k'); assert.equal(formatNumber(-12.39), '−12.3');
-  assert.equal(formatNumber(9999.99), '9999'); assert.equal(formatNumber(1e6), '1000k');
+  assert.equal(formatNumber(9999.99), '9999'); assert.equal(formatNumber(1e6), '1M');
 });

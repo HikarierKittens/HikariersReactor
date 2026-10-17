@@ -2,8 +2,10 @@ import type { ResourceId, ResourceRecipe } from './economy';
 import type { TechnologyId } from './technologies';
 
 export type BuildingId =
+  | 'softRouterNode' | 'aesComputeModule' | 'worldSimulator' | 'agiCoreComponent' | 'coreCooler' | 'agiAscensionCore'
   | 'gatewayRouter' | 'downloadExecutable' | 'quantumStorage' | 'downloadCache'
   | 'subcomputeNode' | 'quantizedCompressionModule' | 'dataCompression' | 'cpuDecoder'
+  | 'cellCore' | 'memoryCore' | 'ethMiner' | 'dataDecryptionModule'
   | 'signalRepeater' | 'hydrogenPowerPlant'
   | 'hyperspaceSpaceport' | 'iceMiningShip' | 'asteroidBase'
   | 'comprehensiveMiningFacility' | 'gasCloudMiningShip' | 'highTechFarmPlatform'
@@ -66,6 +68,7 @@ export interface BuildingDefinition {
   cpuCompute?: number;
   cpuComputeUse?: number;
   bytesCap?: number;
+  cashCap?: number;
   downloadBoost?: number;
   knowledgeCap?: number;
   soldierCap?: number;

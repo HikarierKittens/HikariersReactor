@@ -4,7 +4,7 @@ import type { CraftId, FactoryLineId, ResourceAmounts, ResourceId, ResourceRecip
 import type { TechnologyId } from './technologies';
 
 export type CrisprUpgradeId = 'materialEfficiency' | 'innovativeMaterials' | 'structuralReinforcement' | 'physicsLaws' | 'halfLife3' | 'geneOptimization' | 'spatialReasoning' | 'dimensionCompression' | 'dimensionDistortion' | 'casimirEffect' | 'coreReplication' | 'technician' | 'masterArtisan' | 'architect' | 'challengeGene' | 'geneSplicing';
-export type PrestigeResourceId = 'particles' | 'casimir' | 'darkEnergy';
+export type PrestigeResourceId = 'particles' | 'casimir' | 'darkEnergy' | 'harmonyCrystals';
 /** Run-scoped black hole fed by 质量喷射器; masses keep full float precision. */
 export interface BlackHoleState {
   mass: number;
@@ -58,7 +58,7 @@ export interface RunStatistics {
   days: number;
 }
 export interface GameStatistics {
-  lifetime: RunStatistics & { particlesEarned: number; casimirEarned: number; darkEnergyEarned: number };
+  lifetime: RunStatistics & { particlesEarned: number; casimirEarned: number; darkEnergyEarned: number; harmonyCrystalsEarned: number };
   run: RunStatistics;
 }
 
@@ -103,7 +103,7 @@ export interface GameState {
   lastReformTime: number | null;
   furUnlocked: boolean;
   unlockedResources: ResourceId[];
-  prestige: { particles: number; casimir: number; darkEnergy: number; nuclearResets: number; escapeResets: number; blackHoleResets: number; softResets: number };
+  prestige: { particles: number; casimir: number; darkEnergy: number; harmonyCrystals: number; ascensionResets: number; nuclearResets: number; escapeResets: number; blackHoleResets: number; softResets: number };
   /** Prestige resources ever held; stays unlocked when the amount later returns to 0. */
   prestigeUnlocked: PrestigeResourceId[];
   crispr: CrisprUpgradeId[];

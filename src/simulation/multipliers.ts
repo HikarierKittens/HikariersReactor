@@ -12,8 +12,8 @@ import type { GameState } from '../types/state';
 export function calculateCommunityMultiplier(id: string, state: Pick<GameState, 'buildings'>): number {
   return 1;
 }
-export function calculateKnowledgeMultiplier(state: Pick<GameState, 'buildings'>, dataUnits: number): number {
-  return 1 + (Object.keys(BUILDINGS) as BuildingId[]).reduce((sum, id) => sum + (id === 'observatory' ? dataUnits : state.buildings[id] || 0) * (BUILDINGS[id].knowledgeBoost || 0), 0);
+export function calculateKnowledgeMultiplier(state: Pick<GameState, 'buildings'>, dataUnits: number, digital?: { aesUnits?: number }): number {
+  return 1 + (Object.keys(BUILDINGS) as BuildingId[]).reduce((sum, id) => sum + (id === 'observatory' ? dataUnits : id === 'aesComputeModule' ? digital?.aesUnits ?? 0 : state.buildings[id] || 0) * (BUILDINGS[id].knowledgeBoost || 0), 0);
 }
 export function calculateAluminumMultiplier(state: GameState): number { return calculateRefiningMultiplier('aluminum', state); }
 /** Particle imbalance repurposes accelerators for ordinary production, including knowledge. */
@@ -23,7 +23,6 @@ export function calculateChallengeAcceleratorMultiplier(id: string, state: Pick<
     ? 1 + (RESOURCES[id as ResourceId].crafted ? .0125 : .05) * (state.buildings.particleAccelerator || 0) : 1;
 }
 export function calculateProductionMultiplier(id: string, happiness: number, state: GameState): number {
-  if (id === 'bytes') return 1;
   return happiness / 100 * calculateCommunityMultiplier(id, state) * calculateRefiningMultiplier(id, state)
     * (id === 'cash' ? 1 : calculateGovernmentMultiplier(id, state)) * calculateChallengeAcceleratorMultiplier(id, state);
 }

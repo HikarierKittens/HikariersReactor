@@ -51,6 +51,9 @@ test('pre-beta0.6.5 load, import and protected-save recovery preserve earned pro
   const env = environment(t);
   const json = readFileSync(new URL('./fixtures/pre-beta0.6.5-schema31.json', import.meta.url), 'utf8');
   const original = JSON.parse(json);
+  original.prestige.harmonyCrystals = 0;
+  original.prestige.ascensionResets = 0;
+  original.statistics.lifetime.harmonyCrystalsEarned = 0;
   env.writes.set(CONFIG.saveKey, json);
   const runtime = createRuntime(); runtime.load();
   assert.equal(runtime.saveBlocked, false);
@@ -73,6 +76,31 @@ test('pre-beta0.6.5 load, import and protected-save recovery preserve earned pro
   assert.equal(protectedRuntime.saveBlocked, false);
   check(protectedRuntime.state);
   const recovered = createRuntime(); recovered.load(); check(recovered.state);
+});
+
+test('ascension prestige roundtrips and malformed new fields preserve protected save bytes', t => {
+  const env = environment(t);
+  const state = env.state();
+  state.prestige.harmonyCrystals = 8; state.prestige.ascensionResets = 3;
+  state.prestigeUnlocked = ['harmonyCrystals']; state.statistics.lifetime.harmonyCrystalsEarned = 11;
+  env.writes.set(CONFIG.saveKey, JSON.stringify(state));
+  const runtime = createRuntime(); runtime.load();
+  assert.equal(runtime.saveBlocked, false); assert.equal(runtime.state.prestige.harmonyCrystals, 8);
+  assert.equal(runtime.state.statistics.lifetime.harmonyCrystalsEarned, 11);
+  assert.equal(runtime.save(), true);
+  const reloaded = createRuntime(); reloaded.load();
+  assert.equal(reloaded.state.prestige.ascensionResets, 3);
+  assert.deepEqual(reloaded.state.prestigeUnlocked, ['harmonyCrystals']);
+  const malformed = JSON.parse(JSON.stringify(state)); malformed.prestige.harmonyCrystals = '8';
+  const badBytes = JSON.stringify(malformed); env.writes.set(CONFIG.saveKey, badBytes);
+  const protectedRuntime = createRuntime(); protectedRuntime.load();
+  assert.equal(protectedRuntime.saveBlocked, true); assert.equal(protectedRuntime.save(), false);
+  assert.equal(env.writes.get(CONFIG.saveKey), badBytes);
+  assert.equal(protectedRuntime.importSave(JSON.stringify(state)), true);
+  assert.equal(protectedRuntime.saveBlocked, false);
+  const recovered = createRuntime(); recovered.load();
+  assert.equal(recovered.state.prestige.harmonyCrystals, 8);
+  assert.equal(recovered.state.statistics.lifetime.harmonyCrystalsEarned, 11);
 });
 
 test('runtime achievement scan logs a newly reached condition once', t => {
@@ -227,6 +255,20 @@ test('automatic saves use actual elapsed time rather than nominal interval', t =
   runtime.tick(.2);
   assert.equal(env.saves, 1);
   assert.equal(JSON.parse(env.writes.get(CONFIG.saveKey)!).time, 10);
+});
+
+test('long background gaps settle in bounded batches and replacement discards pending debt', t => {
+  const env = environment(t);
+  const runtime = createRuntime(); runtime.load();
+  env.advance(8 * 3600);
+  runtime.tick(.2);
+  assert.equal(runtime.state.time, 10, 'never synchronously run 28800 full settlements');
+  runtime.tick(.2);
+  assert.equal(runtime.state.time, 20, 'remaining debt continues on subsequent turns');
+  const replacement = env.state();
+  runtime.replaceState(replacement);
+  runtime.tick(.2);
+  assert.equal(runtime.state.time, 0, 'import/reset cannot inherit another save’s pending simulation');
 });
 
 test('replacement validates atomically, persists, and clears previous clock debt', t => {

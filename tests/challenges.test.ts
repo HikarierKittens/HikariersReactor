@@ -68,7 +68,7 @@ test('save round trips active genes, rejects missing and explicit malformed reco
 test('imbalance accelerator boosts are linear for all ordinary resources including knowledge only', () => {
   const state = fresh(); state.challenge.genes = ['particleImbalance']; state.buildings.particleAccelerator = 3;
   for (const id of Object.keys(RESOURCES) as ResourceId[]) {
-    assert.equal(calculateChallengeAcceleratorMultiplier(id, state), id === 'energy' ? 1 : RESOURCES[id].crafted ? 1.0375 : 1.15);
+    assert.equal(calculateChallengeAcceleratorMultiplier(id, state), id === 'energy' || id === 'encryptedData' ? 1 : RESOURCES[id].crafted ? 1.0375 : 1.15);
   }
   assert.equal(calculateProductionMultiplier('knowledge', 100, state), 1.15);
   assert.equal(calculateProductionMultiplier('energy', 100, state), 1);

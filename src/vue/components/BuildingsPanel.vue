@@ -46,6 +46,7 @@ const emit = defineEmits<{
   synthesisSettings: [];
   shipSettings: [];
   downloadSettings: [];
+  digitalAscension: [];
   worldView: [view: string];
   mission: [id: RegionalMissionId, forceQueue: boolean];
 }>();
@@ -216,7 +217,7 @@ function canGather(id: string): boolean {
     <button v-if="hyperspaceUnlocked" data-world-view="hyperspace" :class="{ active: worldView === 'hyperspace' }" @click="emit('worldView', 'hyperspace')">{{ state.tech.includes('overclocking13') ? '遥远星际' : '超空间' }}</button>
     <button v-if="state.tech.includes('aiCoreCalibration')" data-world-view="world_execution" :class="{ active: worldView === 'world_execution' }" @click="emit('worldView', 'world_execution')">world_execution</button>
   </nav>
-  <DigitalWorldPanel v-if="worldView === 'world_execution' && state.tech.includes('aiCoreCalibration')" :state="state" :revision="revision" @buy="(id, count, queued) => emit('buy', id, count, queued)" @toggle="(id, delta) => emit('toggle', id, delta)" @configure="emit('downloadSettings')" />
+  <DigitalWorldPanel v-if="worldView === 'world_execution' && state.tech.includes('aiCoreCalibration')" :state="state" :revision="revision" @buy="(id, count, queued) => emit('buy', id, count, queued)" @toggle="(id, delta) => emit('toggle', id, delta)" @configure="emit('downloadSettings')" @ascend="emit('digitalAscension')" />
   <template v-if="worldView === 'home'">
     <section class="building-group">
       <h3 class="building-group-title">杂项</h3>

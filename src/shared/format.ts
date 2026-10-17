@@ -6,38 +6,43 @@ export function floorWithPrecision(value: number): number {
 }
 
 const METRIC_UNITS = ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y', 'R', 'Q'] as const;
-/** Promote only above 10000 of the current unit, as requested by the resource UI. */
-function metricUnit(magnitude: number, stock = false): readonly [number, string] {
+/** Context controls the first suffix; all subsequent SI units advance every thousand. */
+function metricUnit(magnitude: number, threshold = 10000): readonly [number, string] {
   let scale = 1, index = 0;
-  while (index < METRIC_UNITS.length - 1 && (stock ? magnitude / scale >= 1000 : magnitude / scale > 10000)) { scale *= 1000; index++; }
+  if (magnitude >= threshold) {
+    do { scale *= 1000; index++; }
+    while (index < METRIC_UNITS.length - 1 && magnitude / scale >= 1000);
+  }
   return [scale, METRIC_UNITS[index]!];
 }
 
-/** Purchase quotes use strict thousand-based SI units, independently of inventory/effects. */
+/** Purchase quotes begin SI notation at ten thousand and truncate spendable amounts. */
 export function formatCostNumber(value: number): string {
   if (!Number.isFinite(value)) return value === Infinity ? '∞' : '0';
-  let magnitude = Math.abs(value), index = 0;
-  while (magnitude >= 1000 && index < METRIC_UNITS.length - 1) { magnitude /= 1000; index++; }
-  const amount = floorWithPrecision(magnitude * 100) / 100;
+  const [scale, suffix] = metricUnit(Math.abs(value));
+  const amount = floorWithPrecision(Math.abs(value) / scale * 100) / 100;
   const text = amount.toFixed(2).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
-  return (value < 0 && amount !== 0 ? '−' : '') + text + METRIC_UNITS[index];
+  return (value < 0 && amount !== 0 ? '−' : '') + text + suffix;
 }
 
-/** Digital resource uses decimal byte units, with rounded rates and truncated balances. */
-export function formatByteNumber(value: number, rate = false): string {
+/** Decimal bytes keep their own symbols; stock starts at 1000, rates/costs/effects at 10000.
+ * Unscaled rates retain rounding; compact values and balances truncate to two decimals. */
+export function formatByteNumber(value: number, rate = false, threshold = rate ? 10000 : 1000): string {
   if (!Number.isFinite(value)) return value === Infinity ? '∞B' : '0B';
   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB', 'RB', 'QB'];
-  let magnitude = Math.abs(value), index = 0;
-  while (magnitude >= 1000 && index < units.length - 1) { magnitude /= 1000; index++; }
-  const amount = rate ? Number(magnitude.toFixed(2)) : floorWithPrecision(magnitude * 100) / 100;
+  const [scale, suffix] = metricUnit(Math.abs(value), threshold);
+  const index = METRIC_UNITS.indexOf(suffix as typeof METRIC_UNITS[number]);
+  const magnitude = Math.abs(value) / scale;
+  const amount = rate && scale === 1 ? Number(magnitude.toFixed(2)) : floorWithPrecision(magnitude * 100) / 100;
   return (value < 0 && amount !== 0 ? '−' : '') + amount.toFixed(2).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1') + units[index];
 }
 
-/** Effect values are not spendable stock: display up to four decimals without padding. */
+/** Unscaled effects retain four decimals; compact effects truncate to two without padding. */
 export function formatEffectNumber(value: number): string {
   if (!Number.isFinite(value)) return value === Infinity ? '∞' : '0';
   const [scale, suffix] = metricUnit(Math.abs(value));
-  const text = (value / scale).toFixed(4).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
+  const amount = scale === 1 ? value : Math.sign(value) * floorWithPrecision(Math.abs(value) / scale * 100) / 100;
+  const text = amount.toFixed(scale === 1 ? 4 : 2).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
   return text === '-0' ? '0' : text.replace(/^-/, '−') + suffix;
 }
 
@@ -46,7 +51,8 @@ export function formatRateNumber(value: number): string {
   if (!Number.isFinite(value)) return value === Infinity ? '∞' : '0';
   const magnitude = Math.abs(value);
   const [scale, suffix] = metricUnit(magnitude);
-  const text = (magnitude / scale).toFixed(2).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
+  const amount = scale === 1 ? magnitude : floorWithPrecision(magnitude / scale * 100) / 100;
+  const text = amount.toFixed(2).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
   return (value < 0 && text !== '0' ? '−' : '') + text + suffix;
 }
 
@@ -56,7 +62,7 @@ export function formatRateNumber(value: number): string {
 export function formatResourceNumber(value: number): string {
   if (!Number.isFinite(value)) return value === Infinity ? '∞' : '0';
   const magnitude = Math.abs(value);
-  const [scale, suffix] = metricUnit(magnitude, true);
+  const [scale, suffix] = metricUnit(magnitude, 1000);
   const scaled = magnitude / scale * 100;
   // Scaling enormous values must not overflow or introduce an unsafe integer conversion.
   const displayed = Number.isSafeInteger(Math.floor(scaled)) ? floorWithPrecision(scaled) / 100 : magnitude / scale;

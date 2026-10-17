@@ -19,6 +19,7 @@ export const RESOURCES: Record<ResourceId, ResourceDefinition> = {
   energy: { special: true, name: '电力', icon: '', tech: 'electricity', cap: 10000 },
   knowledge: { special: true, name: '知识', icon: '', tech: 'writing', cap: 1000 },
   bytes: { name: '字节', icon: '', cap: 10000, special: true, tech: 'aiCoreCalibration' },
+  encryptedData: { name: '加密数据', icon: '', cap: 50000, special: true, tech: 'encryptedDataAnalysis' },
   food: { name: '猫粮', icon: '', cap: 100 },
   wood: { name: '木材', icon: '', cap: 200 },
   cement: { name: '水泥', icon: '', tech: 'cement', cap: 200 },
