@@ -1,7 +1,8 @@
+import { withoutPowerCost } from './one-time-cost';
 import { BUILDINGS } from '../data/buildings';
 import { calculateCrisprCostReduction } from './crispr';
 import { applySpaceFuelDiscount } from './space-fuel';
-import { calculateQuantumLevel } from './quantum';
+import { calculateQuantumLevel, calculateQuantumSwarmFactoryReduction } from './quantum';
 import { calculateProduction } from './production';
 import { calculateSupportPreview } from './support-preview';
 import type { BuildingId } from '../types/buildings';
@@ -40,7 +41,7 @@ export const HARMONY_BUILDING_IDS = new Set<BuildingId>([
   'swarmControlStation', 'swarmSatellite', 'swarmFactory', 'atmosphericCollector', 'galacticFuelDepot', 'talosMoonMiningStation', 'miningDrone', 'oilExtractor', 'aiSupercore',
   'iridiumMiningShip', 'ironMiningShip', 'e710MiningShip', 'e710Container', 'e710Warehouse', 'e710Reactor', 'interstellarDock',
   'constraintArray', 'signalRepeater', 'shortRangeRelay', 'anchorFreightStation', 'civilianRouteStation', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'hydrogenPowerPlant', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation',
-  'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'stellarForge', 'hazardousMaterialStorage', 'blackHoleStation', 'penroseSphere', 'massEjector',
+  'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'stellarForge', 'hazardousMaterialStorage', 'blackHoleStation', 'penroseSphere', 'dysonSphere', 'massEjector',
   'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule',
   'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore',
 ]);
@@ -93,15 +94,16 @@ export function isBuildingFullyBuilt(id: BuildingId, state: Pick<GameState, 'bui
 export function calculateBuildingCost(id: BuildingId, count: number, state: GameState, context?: PriceContext): ResourceRecipe {
   // Segmented projects (AI超级核心, 空间撕裂者) always charge the fixed per-segment
   // price: creep is exactly 1 and dynamic creep terms (CRISPR etc.) never apply.
-  if (BUILDINGS[id].segmentedRequired) return { ...BUILDINGS[id].cost };
+  if (BUILDINGS[id].segmentedRequired) return withoutPowerCost(BUILDINGS[id].cost);
   let logDiscount = 0;
   if (id === 'swarmSatellite') {
     const quantum = state.tech?.includes('quantumSwarm') && state.resources
       ? context?.quantumLevel ?? calculateQuantumLevel(state)
       : 0;
-    const percent = .1 + (state.tech?.includes('quantumSwarm') ? Math.floor(quantum / 5) * .01 : 0);
+    const percent = calculateQuantumSwarmFactoryReduction(state, quantum);
     const factories = state.buildings?.swarmFactory || 0;
-    logDiscount = factories > 0 ? factories * Math.log(Math.max(Number.MIN_VALUE, 1 - percent)) : 0;
+    // Factories compound, but the final satellite price never falls below 5%.
+    logDiscount = factories > 0 ? Math.max(Math.log(.05), factories * Math.log(Math.max(.05, 1 - percent))) : 0;
   }
   if (id === 'swarmFactory' && state.tech?.includes('swarmFactoryOptimization') && state.resources) {
     const ironShips = context?.ironMiningShips ?? (calculateProduction(state).inputUnits.ironMiningShip || 0);
@@ -109,7 +111,7 @@ export function calculateBuildingCost(id: BuildingId, count: number, state: Game
   }
   const discounted = logDiscount !== 0;
   return applySpaceFuelDiscount(id, Object.fromEntries(Object.entries(BUILDINGS[id].cost)
-    .filter(([resource]) => resource !== 'cash' || id !== 'nest' || count >= 5)
+    .filter(([resource]) => resource !== 'energy' && (resource !== 'cash' || id !== 'nest' || count >= 5))
     .map(([resource, value]) => {
       const scale = calculateBuildingScale(id, resource as ResourceId, state);
       const residence = id === 'asrielResidence' && state.tech?.includes('neutronConstructionMaterials') ? .85 : 1;
@@ -121,11 +123,11 @@ export function calculateBuildingCost(id: BuildingId, count: number, state: Game
     })), state);
 }
 export function canPayCost(resources: ResourceAmounts, cost: ResourceRecipe): boolean {
-  return (Object.entries(cost) as [ResourceId, number][]).every(([id, value]) => Number.isFinite(value) && value >= 0 && resources[id] + 1e-8 >= value);
+  return (Object.entries(withoutPowerCost(cost)) as [ResourceId, number][]).every(([id, value]) => Number.isFinite(value) && value >= 0 && resources[id] + 1e-8 >= value);
 }
 /** All-or-nothing payment. The epsilon and floor preserve existing save/economy behavior. */
 export function payResourceCost(resources: ResourceAmounts, cost: ResourceRecipe): boolean {
   if (!canPayCost(resources, cost)) return false;
-  for (const [id, value] of Object.entries(cost) as [ResourceId, number][]) resources[id] = Math.max(0, resources[id] - value);
+  for (const [id, value] of Object.entries(withoutPowerCost(cost)) as [ResourceId, number][]) resources[id] = Math.max(0, resources[id] - value);
   return true;
 }

@@ -14,13 +14,13 @@ import { createMilestoneState } from './fixtures/milestones';
 import type { GameState } from '../src/types/state';
 import type { ResourceId } from '../src/types/economy';
 
-/** Historical sequential settlers on a clone pool: the byte-identical old chain. */
+/** Independent supply-first sequential settlers on a clone pool. */
 function legacySequentialPool(state: GameState, ledger: SettlementLedger, dt: number, happiness: number) {
   const pool = { ...state.resources };
   const inputUnits: Record<string, number> = {}, outputs: Record<string, number> = {};
+  const plants = settlePowerPlants(pool, dt, state);
   const aiSupercoreUnits = settleQuantumCores(state, pool, dt);
   inputUnits.aiSupercore = outputs.aiSupercore = aiSupercoreUnits;
-  const plants = settlePowerPlants(pool, dt, state);
   Object.assign(outputs, plants.outputs); Object.assign(inputUnits, plants.inputUnits);
   const space = settleSpaceProduction(state, pool, dt, happiness, plants.inputUnits.geothermalPlant || 0, plants.inputUnits.hydrogenPowerPlant || 0);
   Object.assign(inputUnits, space.inputs); Object.assign(outputs, space.outputs);

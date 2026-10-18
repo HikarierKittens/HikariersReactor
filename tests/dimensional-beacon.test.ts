@@ -12,6 +12,7 @@ import { calculateResourceBreakdown } from '../src/simulation/resource-breakdown
 import { isBuildingUnlocked, isTechnologyUnlocked } from '../src/simulation/unlocks';
 import { requestPurchaseModule } from '../src/simulation/purchases';
 import { isContainerAssignable } from '../src/simulation/containers';
+import { supplyPower } from './support/power';
 import type { ResourceId } from '../src/types/economy';
 const fresh=()=>createInitialState(CONFIG.version,60,0);
 const clone=<T>(x:T):T=>JSON.parse(JSON.stringify(x));
@@ -35,17 +36,17 @@ test('beacon research gates directly on field constraint theory and unlocks the 
 test('funded ports add stability before freight, and ice/base reserve whole support and maintenance exactly once',()=>{
  for(const dt of [.2,1]){
   const s=setup();s.buildings.hyperspaceSpaceport=s.buildings.iceMiningShip=s.buildings.asteroidBase=s.buildings.anchorFreightStation=1;
-  Object.assign(s.resources,{energy:60*dt,helium3:1e4});const before=clone(s),p=calculateProduction(s,dt),preview=calculateSupportPreview(s,dt);
+  Object.assign(s.resources,{helium3:1e4});supplyPower(s,60);const before=clone(s),p=calculateProduction(s,dt),preview=calculateSupportPreview(s,dt);
   assert.deepEqual(s,before);assert.deepEqual(p.stageThree,preview.stageThree);assert.equal(p.stageThree.capacity,4);assert.equal(p.stageThree.freight,1);assert.equal(p.stageThree.available,2);
   assert.equal(p.inputUnits.hyperspaceSpaceport,1);assert.equal(p.inputUnits.iceMiningShip,1);assert.equal(p.inputUnits.asteroidBase,1);
-  near(p.rates.energy,-60);near(p.rates.water,1);near(calculateResourceBreakdown('energy',s,p).net,p.rates.energy);near(calculateResourceBreakdown('water',s,p).net,1);
+  assert.deepEqual(p.power,{generated:60,used:60,available:0});near(p.rates.energy,0);near(p.rates.water,1);near(calculateResourceBreakdown('energy',s,p).net,p.rates.energy);near(calculateResourceBreakdown('water',s,p).net,1);
   near(calculateStorageDetails('water',s,snap(s,dt)).total,8100);
-  s.resources.energy=50*dt;s.resources.helium3=1e4;const low=calculateProduction(s,dt);assert.equal(low.inputUnits.iceMiningShip,1);assert.equal(low.inputUnits.asteroidBase,0);near(low.rates.energy,-50);
+  supplyPower(s,50);s.resources.helium3=1e4;const low=calculateProduction(s,dt);assert.equal(low.inputUnits.iceMiningShip,1);assert.equal(low.inputUnits.asteroidBase,0);assert.deepEqual(low.power,{generated:50,used:50,available:0});near(low.rates.energy,0);
   s.stoppedBuildings.hyperspaceSpaceport=1;const off=calculateProduction(s,dt);assert.equal(off.stageThree.capacity,0);assert.equal(off.inputUnits.iceMiningShip||0,0);assert.equal(off.inputUnits.asteroidBase||0,0);near(off.rates.water,0);near(calculateStorageDetails('water',s,snap(s,dt)).total,0);
  }
 });
 test('asteroid bases multiply freight capacity additively without boosting unrelated storage',()=>{
- const s=setup();s.buildings.hyperspaceSpaceport=2;s.buildings.iceMiningShip=1;s.buildings.asteroidBase=2;s.buildings.anchorFreightStation=1;s.resources.energy=1000;s.resources.helium3=1e4;
+ const s=setup();s.buildings.hyperspaceSpaceport=2;s.buildings.iceMiningShip=1;s.buildings.asteroidBase=2;s.buildings.anchorFreightStation=1;supplyPower(s,1000);s.resources.helium3=1e4;
  const off=clone(s);off.stoppedBuildings.asteroidBase=2;
  for(const id of ordinary)near(calculateStorageDetails(id,s,snap(s)).total-calculateStorageDetails(id,off,snap(off)).total,3200);
  for(const id of ['food','cash','knowledge','e710','energy'] as ResourceId[])near(calculateStorageDetails(id,s,snap(s)).total,calculateStorageDetails(id,off,snap(off)).total);
@@ -62,7 +63,7 @@ test('missing and malformed beacon records reject without mutation',()=>{
  assert.equal(BUILDINGS.hyperspaceSpaceport.input?.energy,30);
 });
 test('funded hyperspace spaceports add 16000 helium-3 storage, doubled by higher-dimensional storage',()=>{
- const s=setup();s.buildings.hyperspaceSpaceport=1;Object.assign(s.resources,{energy:1000,helium3:1e4});
+ const s=setup();s.buildings.hyperspaceSpaceport=1;s.resources.helium3=1e4;supplyPower(s,1000);
  const off=clone(s);off.stoppedBuildings.hyperspaceSpaceport=1;
  const row=(x:ReturnType<typeof fresh>)=>calculateStorageDetails('helium3',x,snap(x)).rows.find(r=>r.name.includes('超空间太空港'));
  assert.equal(row(off),undefined);near(row(s)!.value,16000);

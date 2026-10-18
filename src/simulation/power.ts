@@ -12,9 +12,22 @@ export function isPowerProducer(id: BuildingId): boolean {
   return BUILDINGS[id].powerPlant === true || id === 'generator';
 }
 export interface PowerResult { outputs: ProductionInputs; inputUnits: ProductionInputs; energy: number }
-/** Mutates only the caller's working pool. Generation has no happiness multiplier. */
+/** Fixed power rates, not stored resources or per-timestep quantities. */
+export interface PowerBudget { generated: number; used: number; available: number }
+export function calculatePowerBudget(generated: number, remaining: number, dt: number): PowerBudget {
+  const available = Math.max(0, remaining / dt);
+  return { generated, used: Math.max(0, generated - available), available };
+}
+/**
+ * Starts a fresh fixed-power budget in the caller's working pool. Scratch energy
+ * is power * dt solely to reuse existing consumer settlement arithmetic; saved
+ * energy is never supply. Fuel and all non-energy outputs still scale with dt.
+ * Generation has no happiness multiplier.
+ */
 export function settlePowerPlants(pool: ResourceAmounts, dt: number, state: GameState, quantumLevel?: number): PowerResult {
+  if (!Number.isFinite(dt) || dt <= 0) throw new RangeError('dt must be positive and finite');
   const outputs: ProductionInputs = {}, inputUnits: ProductionInputs = {};
+  pool.energy = 0;
   let energy = 0;
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
     if (!isPowerProducer(id)) continue;

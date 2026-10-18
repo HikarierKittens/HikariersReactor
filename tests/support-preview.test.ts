@@ -10,6 +10,7 @@ import { TECHNOLOGIES } from '../src/data/technologies';
 import { constructBuildingState, buyBuildingsInBatch, requestPurchaseModule, settlePurchaseQueue } from '../src/simulation/purchases';
 import { CONFIG } from '../src/data/config';
 import { createMilestoneState } from './fixtures/milestones';
+import { addPower, supplyPower } from './support/power';
 import type { GameState } from '../src/types/state';
 
 test('Asriel ports provide support and default enabled even when no support is available', () => {
@@ -38,7 +39,7 @@ test('new support consumers default off at shortage unless always-enable overrid
   assert.equal(s.stoppedBuildings.asrielMine, 1);
   assert.equal(s.stoppedBuildings.planetaryFoundry, 1);
   assert.equal(s.stoppedBuildings.swarmSatellite, 1);
-  s.buildings.asrielSpaceport = 1; s.resources.energy = 100; s.resources.food = 100; s.resources.helium3 = 100;
+  s.buildings.asrielSpaceport = 1; supplyPower(s, 100); s.resources.food = 100; s.resources.helium3 = 100;
   for (let i = 0; i < 5; i++) constructBuildingState(s, 'asrielResidence', 0);
   assert.equal(s.stoppedBuildings.asrielResidence, 1);
   s.buildings.swarmControlStation = 1;
@@ -72,7 +73,6 @@ function lunarState(): GameState {
   state.buildings.aiSupercore = 100;
   state.buildings.constraintArray = 1;
   state.resources.oil = 100;
-  state.resources.energy = 0;
   return state;
 }
 
@@ -99,16 +99,16 @@ test('Asriel support reserves lunar maintenance before allocating ports and hous
   state.buildings.ecologicalDome = 1;
   state.resources.helium3 = 100;
   state.resources.food = 100;
-  state.resources.energy = 3;
-  // 3 stored + 5 generated - 4 Moon = 4: insufficient for a 5-energy port.
+  addPower(state, 3);
+  // 3 added + 5 solar - 4 Moon = 4: insufficient for a 5-energy port.
   let preview = calculateSupportPreview(state);
   assert.equal(preview.moon.baseUnits, 1);
   assert.equal(preview.asriel.ports, 0);
   assert.equal(capacity(state), 0);
   assert.deepEqual(preview.asriel, calculateProduction(state).asriel);
   assert.equal(storageCap('food', state), 100);
-  state.resources.energy = 4;
-  // 4 + 5 - 4 = 5: the port and its first residence/dome now have support.
+  addPower(state, 1);
+  // 3 + 1 added + 5 solar - 4 Moon = 5: the port and its first residence/dome now have support.
   preview = calculateSupportPreview(state);
   assert.equal(preview.asriel.ports, 1);
   assert.equal(capacity(state), 2);

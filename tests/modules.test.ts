@@ -1,5 +1,6 @@
 import { CONFIG } from '../src/data/config';
 import assert from 'node:assert/strict';
+import { supplyPower } from './support/power';
 import { validateHistory } from '../src/state/validate-history';
 
 test('display history preserves explicit event and queue log types', () => {
@@ -245,12 +246,13 @@ test('research satellite adds escalating knowledge price and price lists priorit
 
 test('tourist stations scale at 1.18 and require both energy and discounted oil maintenance', () => {
   const s = createInitialState(CONFIG.version, 60, 0);
-  s.buildings.touristStation = 1; s.resources.energy = 10; s.resources.oil = 1;
+  s.buildings.touristStation = 1; supplyPower(s, 10); s.resources.oil = 1;
   assert.deepEqual(BUILDINGS.touristStation.costScales, { metal: 1.18, alloy: 1.18, oil: 1.18, cash: 1.18 });
   let p = calculateProduction(s);
   assert.equal(p.inputUnits.touristStation, 1);
   assert.equal(p.rates.oil, -.5);
-  assert.equal(p.rates.energy, -5);
+  assert.deepEqual(p.power, { generated: 10, used: 5, available: 5 });
+  assert.equal(p.rates.energy, 5);
   s.resources.oil = 0; p = calculateProduction(s);
   assert.equal(p.inputUnits.touristStation, 0);
   assert.equal(p.morale.station, 0);
@@ -294,7 +296,8 @@ test('ring bonuses affect only space sources and appear beneath each source with
   state.buildings.iridiumMine = state.buildings.helium3Mine = 1;
   state.buildings.asrielSpaceport = state.buildings.asrielResidence = state.buildings.asrielMine = 1;
   state.population = 2; state.workers.asrielResidence = 2;
-  Object.assign(state.resources, { energy: 100, food: 100, oil: 100, helium3: 100 });
+  Object.assign(state.resources, { food: 100, oil: 100, helium3: 100 });
+  supplyPower(state, 100);
   const base = calculateProduction(state);
   state.buildings.starRingStation = 10;
   const boosted = calculateProduction(state);
@@ -388,7 +391,7 @@ test('Kerberos technologies require mission and upgrade smelter and lunar helium
   state.tech.push('electrochemicalSmelting', 'oxygenConverter');
   assert.ok(Math.abs(calculateBuildingOutput('smelter', state).metal! - 1.8) < 1e-8);
   state.buildings.moonBase = state.buildings.helium3Mine = 1;
-  state.resources.oil = 100; state.resources.energy = 100;
+  state.resources.oil = 100; supplyPower(state, 100);
   const upgraded = calculateProduction(state);
   state.tech = state.tech.filter(id => id !== 'helium3ExtractionOptimization');
   const baseline = calculateProduction(state);
@@ -403,7 +406,8 @@ test('planetary foundries share artisans and boost both crafting paths only whil
   state.buildings.planetaryFoundry = 2;
   state.population = 4;
   state.workers.asrielResidence = 2;
-  state.resources.energy = 100; state.resources.helium3 = 100; state.resources.food = 100;
+  state.resources.helium3 = 100; state.resources.food = 100;
+  supplyPower(state, 100);
   assert.equal(calculateWorkerCapacity('foundry', state), 2);
   assert.equal(changeWorkerAssignment(state, 'foundry', 2), 2);
   assert.equal(calculateCraftingMultiplier('plank', state), 1.12);
@@ -434,13 +438,14 @@ test('Kerberos mission is independent and geothermal generation boosts only luna
   assert.equal(base.inputUnits.geothermalPlant, 1);
   assert.ok(Math.abs(base.rates.helium3 + .5) < 1e-8);
   assert.equal(base.outputs.geothermalPlant, 1);
+  assert.deepEqual(base.power, { generated: 10, used: 4, available: 6 });
   assert.ok(Math.abs(base.rates.energy - 6) < 1e-8, '10 geothermal energy minus 4 lunar base maintenance');
   const rows = calculateResourceFactorRows('iridium', state, base).rows;
   const mineIndex = rows.findIndex(row => row.name === BUILDINGS.iridiumMine.name);
   assert.ok(mineIndex >= 0);
   assert.deepEqual(rows[mineIndex + 1], { name: '地热发电站', value: '+5%', child: true });
   const iridium = base.rates.iridium;
-  state.stoppedBuildings.geothermalPlant = 1; state.resources.energy = 10;
+  state.stoppedBuildings.geothermalPlant = 1; supplyPower(state, 10);
   const off = calculateProduction(state);
   assert.equal(calculateResourceFactorRows('iridium', state, off).rows.some(row => row.name === '地热发电站'), false);
   assert.ok(Math.abs(iridium / off.rates.iridium - 1.05) < 1e-8);
@@ -469,23 +474,23 @@ test('power switch warning follows actual support and power allocation', () => {
   const state = createInitialState(CONFIG.version, 60, 0);
   state.buildings.asrielMine = 2;
   state.buildings.spaceWaystation = 1;
-  state.resources.energy = 5;
+  supplyPower(state, 5);
   assert.equal(isBuildingUnderworking('asrielMine', state, calculateProduction(state)), true);
   assert.equal(isBuildingUnderworking('spaceWaystation', state, calculateProduction(state)), false);
   state.stoppedBuildings.asrielMine = 2;
   assert.equal(isBuildingUnderworking('asrielMine', state, calculateProduction(state)), false);
-  state.resources.energy = 0;
+  supplyPower(state, 0);
   assert.equal(isBuildingUnderworking('spaceWaystation', state, calculateProduction(state)), true);
   state.stoppedBuildings.spaceWaystation = 1;
   assert.equal(isBuildingUnderworking('spaceWaystation', state, calculateProduction(state)), false);
   state.buildings.moonBase = 1;
   state.buildings.iridiumMine = 3;
-  state.resources.energy = 4;
+  supplyPower(state, 4);
   state.resources.oil = 2;
   assert.equal(isBuildingUnderworking('iridiumMine', state, calculateProduction(state)), true);
   state.tech.push('automatedMining');
   state.buildings.mine = 1;
-  state.resources.energy = 0;
+  supplyPower(state, 0);
   assert.equal(isBuildingUnderworking('mine', state, calculateProduction(state)), true);
 });
 
@@ -497,6 +502,7 @@ test('all support-consuming buildings expose power switches and stopped Asriel u
   assert.equal(hasContinuousEnergyInput('spaceWaystation', state), true);
   assert.equal(hasContinuousEnergyInput('starRingStation', state), false);
   state.buildings.asrielSpaceport = 1;
+  // Direct allocator input: this is a remaining pool for the unit-level API, not saved supply.
   Object.assign(state.resources, { energy: 5, helium3: 2, food: 25 });
   state.buildings.asrielResidence = state.buildings.asrielMine = state.buildings.ecologicalDome = 1;
   assert.equal(allocateAsrielSupport(state, state.resources, 1).used, 3);
@@ -518,7 +524,7 @@ import { completeAsrielMission } from '../src/simulation/commands';
 test('waystations compound space fuel discounts and add passive capacity/support', () => {
   const state = createInitialState(CONFIG.version, 60, 0);
   state.buildings.spaceWaystation = 20;
-  state.resources.energy = 109;
+  supplyPower(state, 109);
   const factor = .95 ** 20;
   assert.equal(calculateSpaceFuelMultiplier(state), factor);
   assert.ok(factor > .35 && factor < .36);
@@ -536,7 +542,7 @@ test('waystations compound space fuel discounts and add passive capacity/support
   state.buildings.asrielSpaceport = 1;
   state.resources.oil = 2 * factor;
   state.resources.helium3 = 2 * factor;
-  state.resources.energy = 109;
+  supplyPower(state, 109);
   state.resources.food = 25;
   const preview = calculateSupportPreview(state);
   assert.equal(preview.moon.baseUnits, 1);
@@ -556,27 +562,30 @@ test('waystations compound space fuel discounts and add passive capacity/support
 test('waystation maintenance is paid once and off/unpowered units lose active effects', () => {
   const state = createInitialState(CONFIG.version, 60, 0);
   state.buildings.spaceWaystation = 2;
-  state.resources.energy = 10;
+  supplyPower(state, 10);
   let production = calculateProduction(state);
   assert.equal(production.inputUnits.spaceWaystation, 2);
-  assert.equal(production.rates.energy, -10);
+  assert.deepEqual(production.power, { generated: 10, used: 10, available: 0 });
+  assert.equal(production.rates.energy, 0);
   assert.equal(production.asriel.capacity, 0);
   assert.equal(calculateSpaceFuelMultiplier(state), .95 ** 2);
   state.stoppedBuildings.spaceWaystation = 1;
   production = calculateProduction(state);
   assert.equal(production.inputUnits.spaceWaystation, 1);
-  assert.equal(production.rates.energy, -5);
+  assert.deepEqual(production.power, { generated: 10, used: 5, available: 5 });
+  assert.equal(production.rates.energy, 5);
   assert.equal(production.asriel.capacity, 0);
   assert.equal(calculateSpaceFuelMultiplier(state), .95);
-  state.resources.energy = 0;
+  supplyPower(state, 0);
   production = calculateProduction(state);
   assert.equal(production.inputUnits.spaceWaystation, 0);
   assert.equal(production.asriel.capacity, 0);
   assert.equal(calculateSpaceFuelMultiplier(state), 1);
-  state.resources.energy = 1;
+  supplyPower(state, 5);
   production = calculateProduction(state, .2);
   assert.equal(production.inputUnits.spaceWaystation, 1);
-  assert.equal(production.rates.energy, -5);
+  assert.deepEqual(production.power, { generated: 5, used: 5, available: 0 });
+  assert.equal(production.rates.energy, 0);
   assert.equal(production.asriel.capacity, 0);
 });
 
@@ -781,7 +790,7 @@ test('electrochemical smelting raises steel output without power upkeep even at 
   for (const dt of [.2, 1]) {
     const state = createInitialState(CONFIG.version, 60, 0);
     state.tech.push('metallurgy', 'electricity'); state.buildings.smelter = 2;
-    state.resources.iron = 1000; state.resources.coal = 1000; state.resources.energy = 0;
+    state.resources.iron = 1000; state.resources.coal = 1000; supplyPower(state, 0);
     const before = calculateProduction(state, dt);
     const recipe = calculateBuildingInput('smelter', state);
     state.tech.push('electrochemicalSmelting');
@@ -805,7 +814,7 @@ test('原油精炼优化 raises refinery base oil to 1.5/s and power to 2/s in r
   for (const dt of [.2, 1]) {
     const state = createInitialState(CONFIG.version, 60, 0);
     state.tech.push('oilTechnology'); state.buildings.refinery = 4;
-    state.resources.energy = 1e6;
+    supplyPower(state, 1e6);
     assert.deepEqual([calculateBuildingOutput('refinery', state), calculateBuildingInput('refinery', state)], [{ oil: 1 }, { energy: .5 }]);
     const before = calculateProduction(state, dt);
     state.tech.push('crudeOilRefiningOptimization');
@@ -814,7 +823,7 @@ test('原油精炼优化 raises refinery base oil to 1.5/s and power to 2/s in r
     assert.ok(Math.abs(after.rates.oil - 1.5 * before.rates.oil) < 1e-8, `oil ${after.rates.oil} vs ${before.rates.oil}`);
     assert.ok(Math.abs((before.rates.energy - after.rates.energy) - 4 * 1.5) < 1e-8, 'four refineries draw 1.5 more power each');
     // Power short: only the funded share of refineries runs at the new recipe.
-    state.resources.energy = 2 * 2 * dt;
+    supplyPower(state, 4);
     const short = calculateProduction(state, dt);
     assert.ok(Math.abs((short.inputUnits.refinery ?? 0) - 2) < 1e-8, `funded ${short.inputUnits.refinery}`);
   }
@@ -975,7 +984,8 @@ test('production finalization reports full food demand and does not modify sourc
 test('research pool reserves lunar then planetary maintenance without touching state', () => {
   const state = createInitialState(CONFIG.version, 60, 0);
   state.buildings.moonBase = 1; state.buildings.asrielSpaceport = 1;
-  Object.assign(state.resources, { energy: 10, oil: 2, helium3: 2, food: 25 });
+  Object.assign(state.resources, { oil: 2, helium3: 2, food: 25 });
+  supplyPower(state, 10);
   const snapshot = JSON.stringify(state);
   const pool = calculateResearchPowerPool(state, 1);
   assert.equal(pool.energy, 1); assert.equal(pool.oil, 0);
@@ -1038,6 +1048,7 @@ test('factory module imports real typed registries and returns fresh recipes', (
 test('support modules are read-only and preserve prioritized whole units', () => {
   const state = createInitialState(CONFIG.version, 60, 0);
   Object.assign(state.buildings, { moonBase: 1, iridiumMine: 2, helium3Mine: 1, asrielSpaceport: 1, asrielResidence: 3, asrielMine: 3 });
+  // Direct allocator input: a remaining pool for the read-only unit-level API, not saved supply.
   Object.assign(state.resources, { oil: 2, energy: 5, food: 25, helium3: 2 });
   const before = JSON.stringify(state);
   assert.equal(allocateMoonSupport(state, state.resources, 1).allocations.helium3Mine, 0);

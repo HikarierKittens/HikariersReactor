@@ -1,3 +1,4 @@
+import { withoutPowerCost } from './one-time-cost';
 import { recordKnowledgeSpent } from './statistics';
 import { affordableResourcePercent, calculateResourceRemainingCost, investResourceProgress, resourceCompletionPercent } from './project-funding';
 import { ARPA_PROJECTS, MONUMENT_MATERIALS } from '../data/projects';
@@ -14,7 +15,7 @@ export function calculateProjectCost(id: string, state: Pick<GameState, 'arpaBui
   if (!Object.hasOwn(ARPA_PROJECTS, id)) return {};
   if (id === 'geneSequencing' && state.crispr?.includes('geneOptimization')) return { knowledge: 500000 };
   const project = ARPA_PROJECTS[id as ArpaProjectId];
-  const cost = id === 'monument' ? { [state.monumentMaterial || 'stone']: 100000 } : project.cost || {};
+  const cost = withoutPowerCost(id === 'monument' ? { [state.monumentMaterial || 'stone']: 100000 } : project.cost || {});
   if (!project.costScale) return { ...cost };
   const count = state.arpaBuildings?.[id as ArpaProjectId] || 0;
   return Object.fromEntries(Object.entries(cost).map(([resource, base]) => {

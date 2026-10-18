@@ -15,6 +15,7 @@ import { updateProgression } from '../src/simulation/progression';
 import { resetRunState, launchNuclearPrestige, launchEscapePrestige } from '../src/simulation/prestige';
 import { SHIP_COMPONENTS } from '../src/simulation/spaceship';
 import { createMilestoneState } from './fixtures/milestones';
+import { supplyPower } from './support/power';
 import type { ShipComponentId } from '../src/types/state';
 const clone = <T>(s:T):T => JSON.parse(JSON.stringify(s));
 const near = (a:number,b:number) => assert.ok(Math.abs(a-b)<1e-7,`${a} != ${b}`);
@@ -24,7 +25,7 @@ function complete() {
  s.stoppedBuildings.aiSupercore=1;
  return s;
 }
-function funds(s:ReturnType<typeof complete>) { for(const id of Object.keys(s.resources) as (keyof typeof s.resources)[])s.resources[id]=1e8; }
+function funds(s:ReturnType<typeof complete>) { for(const id of Object.keys(s.resources) as (keyof typeof s.resources)[])if(id!=='energy')s.resources[id]=1e8;supplyPower(s,1e8); }
 
 test('freight station unlocks directly with field theory, without a project or experiment',()=>{
  const s=complete();s.tech=s.tech.filter(id=>id!=='fieldConstraintTheory');assert.equal(isBuildingUnlocked('anchorFreightStation',s),false);
@@ -36,9 +37,9 @@ test('freight station unlocks directly with field theory, without a project or e
 test('freight funds whole units after relays and charges maintenance once across step lengths',()=>{
  for(const dt of [.2,1,3]){
   const s=complete();s.buildings.constraintArray=4;s.buildings.shortRangeRelay=1;s.buildings.anchorFreightStation=2;
-  Object.assign(s.resources,{energy:225*dt,e710:1*dt});const before=clone(s);const preview=calculateSupportPreview(s,dt);const result=calculateProduction(s,dt);
-  assert.equal(preview.stageThree.freight,1);assert.equal(preview.stageThree.used,4);assert.equal(preview.stageThree.available,4);assert.equal(result.inputUnits.anchorFreightStation,1);near(result.rates.energy,-225);near(result.rates.e710,-1);assert.deepEqual(s,before);
-  s.resources.energy=224*dt;assert.equal(calculateSupportPreview(s,dt).stageThree.freight,0);
+  Object.assign(s.resources,{e710:1*dt});supplyPower(s,225);const before=clone(s);const preview=calculateSupportPreview(s,dt);const result=calculateProduction(s,dt);
+  assert.equal(preview.stageThree.freight,1);assert.equal(preview.stageThree.used,4);assert.equal(preview.stageThree.available,4);assert.equal(result.inputUnits.anchorFreightStation,1);assert.deepEqual(result.power,{generated:225,used:225,available:0});near(result.rates.energy,0);assert.equal(result.pool.energy,0,'electricity is a fixed budget, not stored');near(result.rates.e710,-1);assert.deepEqual(s,before);
+  supplyPower(s,224);assert.equal(calculateSupportPreview(s,dt).stageThree.freight,0);
   s.stoppedBuildings.constraintArray=4;assert.equal(calculateSupportPreview(s,dt).stageThree.freight,0);
  }
 });

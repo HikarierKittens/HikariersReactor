@@ -28,6 +28,8 @@ export function advanceGameTick(state: GameState, dt: number, hooks: TickHooks):
   const foodBefore = state.resources.food;
   const result = calculateProduction(state, dt);
   state.resources = result.pool;
+  // Compatibility key only: electricity is a fixed per-step budget, not stock.
+  state.resources.energy = 0;
   if (applyMassEjection(state, result.ejected, dt)) addLog(state, BLACK_HOLE_UNSTABLE_LOG, 'progress');
   applyGeneSynthesis(state, result.geneSynthesis, dt);
   const corePreviouslyActivated = state.stageThree.coreActivated;
@@ -49,6 +51,7 @@ export function advanceGameTick(state: GameState, dt: number, hooks: TickHooks):
   hooks.unlocks();
   applyAutoWorkerAssignment(state);
   state.happiness = hooks.happiness();
+  state.resources.energy = 0;
 }
 export function simulateElapsed(seconds: number, tick: (dt: number) => void): void {
   let left = Math.min(seconds, CONFIG.simulateLimit);

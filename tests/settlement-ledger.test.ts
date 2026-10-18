@@ -5,9 +5,7 @@ import { calculateDigitalProduction, calculateDigitalSupport } from '../src/simu
 import { RESOURCES } from '../src/data/resources';
 import { createInitialState } from '../src/state/create-state';
 import { settleQuantumCores } from '../src/simulation/quantum';
-import { settlePowerPlants, isPowerProducer } from '../src/simulation/power';
-import { calculateMorale } from '../src/simulation/morale';
-import { allocateMoonSupport } from '../src/simulation/moon';
+import { settlePowerPlants, calculatePowerBudget } from '../src/simulation/power';
 import { settleSpaceProduction } from '../src/simulation/space-settlement';
 import { settleResearchAndCulture, settleAutomationPower, settleE710WarehousePower } from '../src/simulation/power-consumers';
 import { settleFactoryLines } from '../src/simulation/factory-settlement';
@@ -16,36 +14,23 @@ import { settleAutomaticCrafting, calculateParticleMultiplier } from '../src/sim
 import { settlePopulationIncome, finalizeProduction } from '../src/simulation/production-finalize';
 import { calculateBuildingOutput } from '../src/simulation/building-production';
 import { calculateProductionMultiplier } from '../src/simulation/multipliers';
-import { BUILDINGS } from '../src/data/buildings';
-import { countRunningBuildings } from '../src/simulation/housing';
 import { withPoweredMetalRefining } from '../src/simulation/refining';
 import { calculateSupportPreview } from '../src/simulation/support-preview';
 import { calculateSpaceFuelMultiplier } from '../src/simulation/space-fuel';
-import { calculateProduction, type ProductionResult } from '../src/simulation/production';
+import { calculateProduction, previewMorale, type ProductionResult } from '../src/simulation/production';
 import { createMilestoneState } from './fixtures/milestones';
-import type { BuildingId } from '../src/types/buildings';
 import type { GameState } from '../src/types/state';
 
-/** Byte-identical replica of the pre-A5 production pipeline, used as the oracle. */
+/** Independent sequential production oracle, updated to fixed-power supply-first order. */
 function oracleProduction(state: GameState, dt = 1): ProductionResult {
   const pool = { ...state.resources }, before = { ...pool };
   const outputs: Record<string, number> = {}, inputUnits: Record<string, number> = {};
-  const plants = settlePowerPlants({ ...state.resources }, dt, state);
-  const coalSpeed = countRunningBuildings('generator', state);
-  const moonPool = { ...state.resources };
-  settlePowerPlants(moonPool, dt, state);
-  const support = calculateSupportPreview(state, dt);
-  const morale = calculateMorale(state, dt, {
-    waystationUnits: support.waystations,
-    navigationBeaconUnits: support.moon.beaconUnits || 0,
-    generatorSpeed: (Object.keys(BUILDINGS) as BuildingId[]).filter(isPowerProducer).reduce((sum, id) => sum + countRunningBuildings(id, state), 0),
-    generatorEnergy: plants.energy, coalRatio: coalSpeed ? (plants.outputs.generator || 0) / coalSpeed : 1,
-    moonBaseUnits: allocateMoonSupport(state, moonPool, dt).baseUnits,
-    biologyUnits: support.biologyUnits, dataCenterUnits: support.dataCenterUnits,
-  });
+  // Morale now uses paid support from the same fixed-power priority chain;
+  // the independent sequential oracle below verifies its resource replay.
+  const morale = previewMorale(state, dt);
+  const mainPlants = settlePowerPlants(pool, dt, state);
   const aiSupercoreUnits = settleQuantumCores(state, pool, dt);
   inputUnits.aiSupercore = outputs.aiSupercore = aiSupercoreUnits;
-  const mainPlants = settlePowerPlants(pool, dt, state);
   Object.assign(outputs, mainPlants.outputs); Object.assign(inputUnits, mainPlants.inputUnits);
   const space = settleSpaceProduction(state, pool, dt, morale.happiness, mainPlants.inputUnits.geothermalPlant || 0, mainPlants.inputUnits.hydrogenPowerPlant || 0);
   const { moon, asriel } = space;
@@ -71,8 +56,9 @@ function oracleProduction(state: GameState, dt = 1): ProductionResult {
     Object.assign(outputs, settlePopulationIncome(state, pool, morale.happiness, dt));
     const geneSynthesis = settleGeneSynthesis(state, pool, dt, biologyUnits);
     const ejected = settleMassEjection(state, pool, dt, inputUnits.massEjector || 0);
+    const power = calculatePowerBudget(mainPlants.energy, pool.energy, dt);
     const final = finalizeProduction(state, pool, before, dt, { stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits });
-    return { ...final, digital: calculateDigitalProduction(state, calculateDigitalSupport(state, 0, dt), Math.max(0, final.rates.knowledge)), outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis };
+    return { ...final, power, digital: calculateDigitalProduction(state, calculateDigitalSupport(state, 0, dt), Math.max(0, final.rates.knowledge)), outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis };
   });
 }
 import { settleMassEjection } from '../src/simulation/black-hole';
@@ -90,8 +76,8 @@ function expectedPreview(state: GameState, dt = 1) {
 
 function oracleSupportPreview(state: GameState, dt = 1) {
   const pool = { ...state.resources };
-  const aiSupercoreUnits = settleQuantumCores(state, pool, dt);
   const plants = settlePowerPlants(pool, dt, state);
+  const aiSupercoreUnits = settleQuantumCores(state, pool, dt);
   const space = settleSpaceProduction(state, pool, dt, 1, plants.inputUnits.geothermalPlant || 0, plants.inputUnits.hydrogenPowerPlant || 0);
   const e710WarehouseUnits = settleE710WarehousePower(state, pool, dt);
   const biologyRunning = Math.max(0, (state.buildings.biologyLab || 0) - (state.stoppedBuildings?.biologyLab || 0));
@@ -100,6 +86,7 @@ function oracleSupportPreview(state: GameState, dt = 1) {
   const dataRunning = Math.max(0, (state.buildings.observatory || 0) - (state.stoppedBuildings?.observatory || 0));
   const dataCenterUnits = Math.min(dataRunning, Math.floor((Math.max(0, pool.energy) + 1e-8) / (3 * dt)));
   return {
+    power: calculatePowerBudget(plants.energy, pool.energy, dt),
     stageThree: space.stageThree, pool, moon: space.moon, asriel: space.asriel, metalRefineryUnits: space.metalRefineryUnits,
     biologyUnits, dataCenterUnits, waystations: space.inputs.spaceWaystation || 0,
     e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, aiSupercoreUnits,
@@ -145,7 +132,7 @@ function scenarios(): [string, GameState, number][] {
   return list;
 }
 
-test('shared settlement ledger reproduces the pre-A5 production and support previews exactly', () => {
+test('shared settlement ledger reproduces fixed-power sequential production exactly', () => {
   for (const [label, state, dt] of scenarios()) {
     const before = JSON.stringify(state);
     const actual = calculateProduction(state, dt);
@@ -155,7 +142,7 @@ test('shared settlement ledger reproduces the pre-A5 production and support prev
   }
 });
 
-test('support preview keeps its historical semantics while sharing the ledger units', () => {
+test('support preview matches supply-first fixed-power sequential reservations', () => {
   for (const [label, state, dt] of scenarios()) {
     const actual = calculateSupportPreview(state, dt);
     // The public contract is the SupportPreview fields; the shared ledger's raw

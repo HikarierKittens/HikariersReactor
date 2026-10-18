@@ -1,5 +1,5 @@
 /**
- * Additive defaults within schema31, not a migration of retired schemas.
+ * Supported schema31 upgrades, not a migration of retired schemas.
  * Only absent entries introduced by supported releases are eligible.
  * Keep malformed records and explicitly supplied values for strict validation.
  * In particular, earned technology never backfills the one-time research reward.
@@ -8,9 +8,9 @@ export function normalizeSchema31Save(raw: Record<string, unknown>): Record<stri
   if (raw.version !== 31) return raw;
   const normalized = { ...raw };
   const defaults: Record<string, readonly string[]> = {
-    buildings: ['hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore'],
-    workers: ['hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore'],
-    stoppedBuildings: ['hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore'],
+    buildings: ['dysonSphere', 'hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore'],
+    workers: ['dysonSphere', 'hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore'],
+    stoppedBuildings: ['dysonSphere', 'hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore'],
     prestige: ['harmonyCrystals', 'ascensionResets'],
     resources: ['bytes', 'encryptedData'], containerAssignments: ['bytes', 'encryptedData'], alloyContainerAssignments: ['bytes', 'encryptedData'],
   };
@@ -28,5 +28,41 @@ export function normalizeSchema31Save(raw: Record<string, unknown>): Record<stri
     }
   }
   if (!Object.hasOwn(raw, 'downloadAllocation')) normalized.downloadAllocation = 0;
+  removeRetiredPowerContent(normalized);
   return normalized;
+}
+
+/** Remove only known retired content, without loosening validation of other IDs.
+ * Copy each touched record/array: callers may supply frozen historical JSON.
+ */
+function removeRetiredPowerContent(raw: Record<string, unknown>): void {
+  const recordOf = (value: unknown): Record<string, unknown> | null =>
+    value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+  const owned = recordOf(raw.buildings)?.batteryStation;
+  for (const field of ['buildings', 'workers', 'stoppedBuildings'] as const) {
+    const record = recordOf(raw[field]);
+    if (!record || !Object.hasOwn(record, 'batteryStation')) continue;
+    const count = record.batteryStation;
+    if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0
+      || (field === 'workers' && count !== 0)
+      || (field === 'stoppedBuildings' && count > (typeof owned === 'number' ? owned : 0))) throw Error('退役储能站数据无效。');
+    const copy = { ...record };
+    delete copy.batteryStation;
+    raw[field] = copy;
+  }
+  if (!Array.isArray(raw.queue)) return; // The ordinary validator reports malformed records.
+  if (raw.queue.length > 10000) throw Error('待购队列无效。');
+  const seenUID = new Set<number>();
+  raw.queue = raw.queue.filter((entry: unknown) => {
+    const q = recordOf(entry);
+    if (!q) return true;
+    // Validate UID uniqueness before filtering so retirement cannot conceal a
+    // malformed queue or make a retained entry reuse a removed entry's identity.
+    if (typeof q.uid !== 'number' || !Number.isSafeInteger(q.uid) || q.uid < 1 || seenUID.has(q.uid)) throw Error('队列项目无效。');
+    seenUID.add(q.uid);
+    const retiredBuilding = q.kind === 'build' && q.id === 'batteryStation';
+    const retiredResearch = q.kind === 'tech' && (q.id === 'energyStorage' || q.id === 'batteryConcentrationRing');
+    if ((retiredBuilding || retiredResearch) && Object.hasOwn(q, 'segments')) throw Error('分段队列数量无效。');
+    return !retiredBuilding && !retiredResearch;
+  });
 }

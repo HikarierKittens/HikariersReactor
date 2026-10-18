@@ -18,6 +18,7 @@ import { isContainerAssignable } from '../src/simulation/containers';
 import { advancePopulationGrowth, calculateGrowthMultiplier } from '../src/simulation/population';
 import { calculateProductionMultiplier } from '../src/simulation/multipliers';
 import { createMilestoneState } from './fixtures/milestones';
+import { supplyPower } from './support/power';
 import type { BuildingId } from '../src/types/buildings';
 import type { ResourceId } from '../src/types/economy';
 
@@ -27,7 +28,8 @@ const context = { now: 0, eventInterval: 60, housingCapacity: () => 1e6, clampRe
 
 function beaconState(): GameState {
   const s = createMilestoneState('beacon');
-  Object.assign(s.resources, { energy: 1e6, water: 1e4, helium3: 1e4, e710: 5e3, food: 1e4 });
+  Object.assign(s.resources, { water: 1e4, helium3: 1e4, e710: 5e3, food: 1e4 });
+  supplyPower(s, 1e6);
   return s;
 }
 
@@ -42,7 +44,7 @@ test('maintenance rebalance charges exact helium and energy per funded unit once
     const support = calculateSupportPreview(s, dt);
     // Port helium 5/s, ice ship helium 5/s, array energy 50/s and e710 .25/s.
     const energyPerSecond = 30 + 5 + 50;
-    near(support.pool.energy, s.resources.energy - energyPerSecond * dt, 'energy debit');
+    near(support.power.available, 1e6 - energyPerSecond, 'energy debit');
     near(support.pool.helium3, s.resources.helium3 - (5 + 5) * dt, 'helium debit');
     near(support.pool.e710, s.resources.e710 - .25 * dt, 'array e710 debit');
     const p = calculateProduction(s, dt);
@@ -55,7 +57,7 @@ test('maintenance rebalance charges exact helium and energy per funded unit once
     const belt = beaconState();
     belt.buildings.iridiumMiningShip = 1; belt.buildings.ironMiningShip = 1; belt.buildings.e710MiningShip = 1;
     belt.buildings.aiSupercore = 0; // exclude quantum core helium from this comparison.
-    belt.resources.energy = 1e6; belt.resources.helium3 = 1e4;
+    supplyPower(belt, 1e6); belt.resources.helium3 = 1e4;
     const beltPreview = calculateSupportPreview(belt, dt);
     near(beltPreview.pool.helium3, 1e4 - (2 + 2 + 3) * dt, 'belt helium debit');
   }
@@ -116,7 +118,7 @@ test('hyperspace buildings fund whole units, never bootstrap, and use ordinary m
     s.stoppedBuildings.gasCloudMiningShip = 0;
     // Comprehensive mining facility needs helium; gas ship needs only energy.
     s.resources.helium3 = 10 * dt; // exactly one funded facility for dt
-    s.resources.energy = 1e6;
+    supplyPower(s, 1e6);
     s.resources.deuterium = 2 * dt; // ample stock so every consumer funds fully
     const p = calculateProduction(s, dt);
     assert.equal(p.inputUnits.comprehensiveMiningFacility, 1);
@@ -220,6 +222,9 @@ test('missing and malformed era records reject immutably', () => {
 
 test('deuterium holdings and era buildings survive a full save round trip', () => {
   const s = beaconState();
+  // Test-only solar supply is not part of this era's save fixture (its tech is
+  // intentionally un-researched here), so clear it before validating the save.
+  supplyPower(s, 0);
   for (const id of eraTechs) s.tech.push(id);
   s.buildings.gasCloudMiningShip = 2; s.buildings.fusionPowerPlant = 1;
   s.resources.deuterium = 123;

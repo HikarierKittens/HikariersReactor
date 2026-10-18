@@ -9,6 +9,7 @@ import { calculateResourceBreakdown, calculateResourceFactorRows } from '../src/
 import { calculateCraftingMultiplier, calculateFoundryMultiplier, calculateGlobalOutputMultiplier, calculateParticleMultiplier } from '../src/simulation/crafting';
 import { craftManually } from '../src/simulation/commands';
 import { getAchievementMasteryBonus } from '../src/simulation/achievement-tracking';
+import { supplyPower } from './support/power';
 import type { AchievementId, GameState } from '../src/types/state';
 import type { ResourceId } from '../src/types/economy';
 
@@ -69,7 +70,8 @@ test('ordinary output, tax, soldiers and titanium byproducts gain mastery but in
   base.population = 4; base.soldiers = 2; base.workers.forage = 2;
   base.buildings.smelter = 1; base.buildings.generator = 1;
   base.tech.push('titaniumSmelting');
-  Object.assign(base.resources, { iron: 1000, coal: 1000, energy: 1000, food: 1000 });
+  Object.assign(base.resources, { iron: 1000, coal: 1000, food: 1000 });
+  supplyPower(base, 1000);
   const state = mastered(base), plain = calculateProduction(base), result = parity(state, ['food', 'cash', 'fur', 'metal', 'titanium', 'energy']);
   for (const id of ['food', 'cash', 'fur', 'metal', 'titanium'] as ResourceId[]) {
     near(calculateResourceBreakdown(id, state, result).income, calculateResourceBreakdown(id, base, plain).income * 1.01);
@@ -101,7 +103,8 @@ test('manual forging and artisans receive mastery once alongside foundry, not in
 
 test('factory actual output and breakdown receive mastery once with unchanged line ingredients', () => {
   const base = fresh(); base.buildings.factory = 1; base.lines.alloy = 1;
-  Object.assign(base.resources, { iron: 1000, copper: 1000, energy: 1000 });
+  Object.assign(base.resources, { iron: 1000, copper: 1000 });
+  supplyPower(base, 1000);
   const state = mastered(base), plain = calculateProduction(base), result = parity(state, ['alloy', 'iron', 'copper', 'energy']);
   assert.ok(plain.rates.alloy > 0);
   near(result.rates.alloy, plain.rates.alloy * 1.01);
@@ -112,7 +115,8 @@ test('factory actual output and breakdown receive mastery once with unchanged li
 test('multi-resource hyperspace and new distant sources gain mastery per resource with exact breakdown parity', () => {
   const base = fresh();
   Object.assign(base.buildings, { metalMiningShip: 1, grapheneFactory: 1, adamantiteMiningShip: 1 });
-  Object.assign(base.resources, { energy: 10000, helium3: 1000, deuterium: 1000, oil: 1000 });
+  Object.assign(base.resources, { helium3: 1000, deuterium: 1000, oil: 1000 });
+  supplyPower(base, 10000);
   const state = mastered(base), ids: ResourceId[] = ['stone', 'copper', 'aluminum', 'graphene', 'adamantite', 'energy'];
   const plain = calculateProduction(base), result = parity(state, ids);
   for (const id of ids.filter(id => id !== 'energy')) {

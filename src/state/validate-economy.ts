@@ -38,7 +38,10 @@ export function validateEconomyRecords(raw: Record<string, unknown>, state: Game
   }
   for (const id of Object.keys(RESOURCES) as ResourceId[]) {
     const saved = savedField(raw.resources, id);
-    state.resources[id] = validateSaveNumber(saved, 0, 1e100, '资源');
+    const amount = validateSaveNumber(saved, 0, 1e100, '资源');
+    // Energy remains a formula ID, not an inventory. Validate historical values
+    // before discarding them so explicit malformed data never gets repaired.
+    state.resources[id] = id === 'energy' ? 0 : amount;
   }
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
     const building = BUILDINGS[id];

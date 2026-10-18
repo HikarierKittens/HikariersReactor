@@ -15,6 +15,7 @@ import { isPrestigeResourceUnlocked } from '../src/simulation/prestige-unlocks';
 import { updateProgression } from '../src/simulation/progression';
 import { launchNuclearPrestige, resetRunState } from '../src/simulation/prestige';
 import { createMilestoneState } from './fixtures/milestones';
+import { supplyPower } from './support/power';
 import { calculateGrowthMultiplier, advancePopulationGrowth } from '../src/simulation/population';
 import { calculateAutomaticCraftingMultipliers, calculateCraftingMultiplier } from '../src/simulation/crafting';
 import { craftManually } from '../src/simulation/commands';
@@ -114,7 +115,8 @@ test('each gene applies its exact per-level bonus', () => {
 test('gene bonuses reach real settlement and the resource tooltip rows', () => {
   const s = geneState();
   s.buildings.smelter = Math.max(4, s.buildings.smelter);
-  Object.assign(s.resources, { iron: 1e5, coal: 1e5, energy: 1e5 });
+  Object.assign(s.resources, { iron: 1e5, coal: 1e5 });
+  supplyPower(s, 1e5);
   const before = calculateResourceBreakdown('metal', s, calculateProduction(s)).entries.find(entry => entry.id === 'smelter')!.value;
   s.geneModification.levels.kinoFire = 10;
   const result = calculateProduction(s);
@@ -122,14 +124,16 @@ test('gene bonuses reach real settlement and the resource tooltip rows', () => {
   near(after, before * 1.1, 'settled smelter metal');
   // Genes are part of the base output: the source row grows, no separate gene row is listed.
   const plain = geneState(); plain.buildings.smelter = s.buildings.smelter;
-  Object.assign(plain.resources, { iron: 1e5, coal: 1e5, energy: 1e5 });
+  Object.assign(plain.resources, { iron: 1e5, coal: 1e5 });
+  supplyPower(plain, 1e5);
   const baseRow = (state: GameState) => calculateResourceFactorRows('metal', state, calculateProduction(state)).rows.find(row => !row.child && row.name === '钢冶炼工位');
   const rows = calculateResourceFactorRows('metal', s, result).rows;
   assert.ok(!rows.some(row => Object.values(GENE_DEFINITIONS).some(gene => row.name === gene.name)), JSON.stringify(rows));
   assert.ok(baseRow(s) && baseRow(plain) && baseRow(s)!.value !== baseRow(plain)!.value, 'base row reflects the gene');
   // Factory lines: 完美主义 is folded into the line row too.
   const factory = geneState(); factory.buildings.factory = 1; factory.lines.alloy = 1;
-  Object.assign(factory.resources, { copper: 1e5, titanium: 1e5, energy: 1e5 });
+  Object.assign(factory.resources, { copper: 1e5, titanium: 1e5 });
+  supplyPower(factory, 1e5);
   factory.geneModification.levels.perfectionism = 5;
   assert.ok(!calculateResourceFactorRows('alloy', factory, calculateProduction(factory)).rows.some(row => row.name === '完美主义'));
 });
@@ -229,7 +233,7 @@ test('基因合成 converts 20k knowledge into 0.1 DNA per lab at 10%, rates ind
   const s = geneState();
   s.tech = [...new Set([...s.tech, 'genetics', 'geneSynthesis'] as const)];
   s.buildings.biologyLab = 3; s.stoppedBuildings.biologyLab = 0;
-  s.resources.energy = 1e6; s.resources.knowledge = 1e7;
+  supplyPower(s, 1e6); s.resources.knowledge = 1e7;
   assert.deepEqual(s.geneModification.synthesis, { C: 0, G: 0, A: 0, T: 0 }, 'default 0%');
   assert.equal(calculateProduction(s).geneSynthesis.knowledge, 0);
   for (const bad of [-1, 101, 2.5, NaN]) assert.equal(changeGeneSynthesisRate(s, 'C', bad), false, String(bad));

@@ -5,6 +5,7 @@ import type { FactoryLineId } from '../../types/economy';
 import { RESOURCES, FACTORY_OPTIONS } from '../../data/resources';
 import { calculateFactoryRecipe, calculateFactoryCapacity, countAssignedLines } from '../../simulation/factory';
 import { isFactoryLineUnlocked } from '../../simulation/factory-settlement';
+import { calculateQuantumLevel, calculateQuantumManufacturingMultiplier } from '../../simulation/quantum';
 import { clickMultiplier, fmt } from '../format';
 
 const props = defineProps<{ state: GameState; revision: number }>();
@@ -14,13 +15,14 @@ const cap = computed(() => { props.revision; return calculateFactoryCapacity(pro
 const used = computed(() => { props.revision; return countAssignedLines(props.state); });
 const rows = computed(() => {
   props.revision;
+  const quantumLevel = props.state.tech.includes('quantumManufacturing') ? calculateQuantumLevel(props.state) : 0;
   return FACTORY_OPTIONS.filter(opt => isFactoryLineUnlocked(opt.id, props.state)).map(opt => {
     const count = props.state.lines[opt.id] || 0;
     const recipe = calculateFactoryRecipe(opt.id, props.state);
     const inputs = Object.entries(recipe.input).map(([r, v]) =>
       `${RESOURCES[r as keyof typeof RESOURCES].name} ${Number(v.toPrecision(12))}/s`).join(' + ');
     const outputs = Object.entries(recipe.output).map(([r, v]) =>
-      `${RESOURCES[r as keyof typeof RESOURCES].name} ${Number(v.toPrecision(12))}/s`).join(' + ');
+      `${RESOURCES[r as keyof typeof RESOURCES].name} ${Number((v * calculateQuantumManufacturingMultiplier(props.state, r as keyof typeof RESOURCES, quantumLevel)).toPrecision(12))}/s`).join(' + ');
     return {
       id: opt.id,
       name: RESOURCES[opt.id].name,

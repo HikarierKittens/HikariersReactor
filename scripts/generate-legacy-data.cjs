@@ -44,6 +44,7 @@ const registry = [
   ['crispr', 'simulation/crispr'],
   ['validate-crispr', 'state/validate-crispr'],
   ['validate-genes', 'state/validate-genes'],
+  ['one-time-cost', 'simulation/one-time-cost'],
   ['costs', 'simulation/costs'],
   ['population', 'simulation/population'],
   ['statistics', 'simulation/statistics'],

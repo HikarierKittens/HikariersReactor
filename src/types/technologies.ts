@@ -15,7 +15,7 @@ export type TechnologyId =
   | 'hyperspaceMiningSurvey' | 'gasCloudAccretion' | 'highTechFarmPlatform'
   | 'fusionPower' | 'largeMiningShips'
   | 'dimensionPioneer' | 'highTechFactory' | 'higherDimensionalStorage' | 'e710ResearchStation' | 'ripperOverclock'
-  | 'overclocking13' | 'superMetal' | 'grapheneProcessing' | 'nanoAlloy' | 'virtualReality' | 'virtualTraining'
+  | 'overclocking13' | 'superMetal' | 'grapheneProcessing' | 'nanoAlloy' | 'dysonSphere' | 'virtualReality' | 'virtualTraining'
   | 'virtualEntertainment' | 'aerogel' | 'plasmaResearch' | 'plasmaMining' | 'energyShield' | 'stellarForge' | 'hazardousMaterialStorage' | 'penroseTheory'
   | 'globalObservationCalibration' | 'anomalyMapping' | 'fieldConstraintTheory'
   | 'advancedMetalRefining'

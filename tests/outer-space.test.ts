@@ -1,5 +1,6 @@
 import { CONFIG } from '../src/data/config';
 import assert from 'node:assert/strict';
+import { supplyPower } from './support/power';
 import { advanceSoldierTraining } from '../src/simulation/military';
 import { calculateSoldierCapacity, calculateOperationalSoldierCapacity } from '../src/simulation/government';
 
@@ -23,20 +24,28 @@ test('garrison training uses whole paid upkeep without shrinking the owned army 
 test('AI core pays both upkeep resources only when a whole core can run', () => {
   for (const dt of [.2, 1]) {
     const s = createInitialState(CONFIG.version, 60, 0); s.tech.push('artificialIntelligenceII'); s.buildings.aiSupercore = 100;
-    s.resources.helium3 = 25 * dt; s.resources.energy = 100 * dt;
+    s.resources.helium3 = 25 * dt; supplyPower(s, 100);
     let p = calculateProduction(s, dt);
     assert.equal(p.inputUnits.aiSupercore, 1);
-    assert.ok(Math.abs(p.rates.energy + 100) < 1e-8);
+    assert.deepEqual(p.power, { generated: 100, used: 100, available: 0 });
+    assert.equal(p.rates.energy, 0);
+    assert.equal(p.pool.energy, 0, 'electricity is a fixed budget, not stored');
     assert.ok(Math.abs(p.rates.helium3 + 25) < 1e-8);
-    s.resources.energy = 99 * dt;
+    supplyPower(s, 99);
     p = calculateProduction(s, dt);
     assert.equal(p.inputUnits.aiSupercore, 0); assert.equal(p.rates.helium3, 0);
-    s.resources.energy = 100 * dt; s.resources.helium3 = 24 * dt;
+    assert.deepEqual(p.power, { generated: 99, used: 0, available: 99 });
+    assert.equal(p.rates.energy, 99, 'an unfunded core leaves the whole fixed budget available');
+    supplyPower(s, 100); s.resources.helium3 = 24 * dt;
     p = calculateProduction(s, dt);
-    assert.equal(p.inputUnits.aiSupercore, 0); assert.equal(p.rates.energy, 0);
+    assert.equal(p.inputUnits.aiSupercore, 0);
+    assert.deepEqual(p.power, { generated: 100, used: 0, available: 100 });
+    assert.equal(p.rates.energy, 100);
     s.resources.helium3 = 25 * dt; s.buildings.aiSupercore = 99;
     p = calculateProduction(s, dt);
-    assert.equal(p.inputUnits.aiSupercore, 0); assert.equal(p.rates.energy, 0);
+    assert.equal(p.inputUnits.aiSupercore, 0);
+    assert.deepEqual(p.power, { generated: 100, used: 0, available: 100 });
+    assert.equal(p.rates.energy, 100);
   }
 });
 
@@ -44,7 +53,7 @@ test('AI power warning compares whole cores rather than construction segments', 
   const s = createInitialState(CONFIG.version, 60, 0);
   s.tech.push('artificialIntelligenceII');
   s.buildings.aiSupercore = 100;
-  s.resources.helium3 = 25; s.resources.energy = 100;
+  s.resources.helium3 = 25; supplyPower(s, 100);
   assert.equal(isBuildingUnderworking('aiSupercore', s, calculateProduction(s)), false);
   s.resources.helium3 = 24;
   assert.equal(isBuildingUnderworking('aiSupercore', s, calculateProduction(s)), true);
@@ -54,7 +63,7 @@ test('AI power warning compares whole cores rather than construction segments', 
   s.buildings.aiSupercore = 99;
   assert.equal(isBuildingUnderworking('aiSupercore', s, calculateProduction(s)), false);
 });
-import { calculateQuantumLevel, calculateSwarmSupportCapacity } from '../src/simulation/quantum';
+import { calculateQuantumLevel, calculateQuantumSnapshot, calculateSwarmSupportCapacity } from '../src/simulation/quantum';
 import { calculateSpaceMultiplier } from '../src/simulation/asriel';
 import { buyBuildingsInBatch } from '../src/simulation/purchases';
 import { SHIP_COMPONENTS, investInShipComponent } from '../src/simulation/spaceship';
@@ -109,7 +118,7 @@ test('regional tasks share building queue, reject duplicates and complete at liv
   settlePurchaseQueue(s, 0);
   assert.equal(s.asrielMissionCompleted, true);
   assert.equal(s.kerberosMissionCompleted, false);
-  s.buildings.spaceWaystation = 1; s.resources.energy = 100; s.resources.helium3 = 4750;
+  s.buildings.spaceWaystation = 1; supplyPower(s, 100); s.resources.helium3 = 4750;
   settlePurchaseQueue(s, 0);
   assert.equal(s.kerberosMissionCompleted, true);
   assert.equal(s.resources.helium3, 0);
@@ -137,7 +146,8 @@ test('alien labs require support for capacities and ring optimization uses suppo
   const s = fresh(); s.buildings.asrielSpaceport = 2; s.buildings.asrielResidence = 1;
   s.buildings.alienMaterialLab = 8; s.buildings.starRingStation = 1;
   s.population = 2; s.workers.asrielResidence = 2;
-  Object.assign(s.resources, { energy: 100, food: 100, helium3: 100 });
+  Object.assign(s.resources, { food: 100, helium3: 100 });
+  supplyPower(s, 100);
   const preview = calculateSupportPreview(s);
   assert.equal(preview.asriel.allocations.alienMaterialLab, 7);
   assert.deepEqual(calculateStorageBonuses('alienMaterialLab', s, preview.moon, preview.asriel), { knowledge: 500, e710: 25 });
@@ -148,15 +158,15 @@ test('alien labs require support for capacities and ring optimization uses suppo
 });
 test('AI core segments have immutable cost and grant quantum only when complete and fueled', () => {
   const s = fresh(); s.tech.push('artificialIntelligenceII'); s.buildings.lab = 50;
-  s.buildings.aiSupercore = 99; s.resources.helium3 = 1000; s.resources.energy = 1000;
+  s.buildings.aiSupercore = 99; s.resources.helium3 = 1000; supplyPower(s, 1000);
   const base = calculateQuantumLevel(s);
   s.crispr.push('materialEfficiency');
   assert.deepEqual(calculateBuildingCost('aiSupercore', 0, s), calculateBuildingCost('aiSupercore', 999, s));
   assert.deepEqual(calculateBuildingCost('aiSupercore', 999, s), { cash: 100000, metal: 10000, alloy: 5000, e710: 10, nanotubes: 50000 });
   s.buildings.aiSupercore = 100;
-  assert.equal(calculateQuantumLevel(s), Math.floor(base * 1.25 * 100) / 100);
+  assert.equal(calculateQuantumLevel(s), Math.floor(calculateQuantumSnapshot(s).base * 1.25 * 100) / 100);
   assert.ok(Math.abs(calculateProduction(s).rates.helium3 + 25) < 1e-8);
-  s.buildings.spaceWaystation = 1; s.resources.energy = 100;
+  s.buildings.spaceWaystation = 1; supplyPower(s, 100);
   assert.ok(Math.abs(calculateProduction(s).rates.helium3 + 25) < 1e-8);
   s.resources.helium3 = 0; assert.equal(calculateQuantumLevel(s), base);
 });
@@ -173,25 +183,29 @@ test('each segmented queue project reserves one slot and requests ten percent of
 test('queued ship funding checks once per second and leaves sub-one-percent stocks untouched', () => {
   const s = fresh(); s.buildings.interstellarDock = 1; s.shipComponents.hull = true;
   requestPurchaseModule(s, 'ship', 'computer', 0, true);
-  s.resources.knowledge = 9999; s.resources.energy = 999;
+  s.resources.knowledge = 9999; supplyPower(s, 999);
   settlePurchaseQueue(s, 0); advanceProjectQueue(s, .5, () => 0);
   assert.equal(s.resources.knowledge, 9999);
   advanceProjectQueue(s, .5, () => 0);
-  assert.equal(s.resources.knowledge, 9999); assert.equal(s.resources.energy, 999);
-  s.resources.knowledge = 10000; s.resources.energy = 1000;
+  assert.equal(s.resources.knowledge, 9999);
+  assert.equal(s.shipResourceProgress.computer?.knowledge, undefined, 'no sub-one-percent knowledge is paid');
+  supplyPower(s, 1000); s.resources.knowledge = 10000;
   advanceProjectQueue(s, .5, () => 0); assert.equal(s.resources.knowledge, 10000);
   advanceProjectQueue(s, .5, () => 0); assert.equal(s.shipResourceProgress.computer?.knowledge, 1);
-  assert.equal(s.shipResourceProgress.computer?.energy, 1);
+  // Power is a fixed supply budget now: the one-time energy fee is never a deposited stock.
+  assert.equal(s.shipResourceProgress.computer?.energy, undefined);
+  assert.equal(s.resources.energy, 0);
   s.resources.knowledge = 50; investInShipComponent('computer', 'max', s);
   assert.equal(s.resources.knowledge, 0);
 });
 test('quantum manufacturing multiplies factory source output only', () => {
   const s = fresh(); s.tech.push('artificialIntelligenceII'); s.buildings.lab = 100;
   s.buildings.factory = 1; s.lines.alloy = 1;
-  Object.assign(s.resources, { energy: 100, metal: 10000, aluminum: 10000, iron: 10000, copper: 10000 });
+  Object.assign(s.resources, { metal: 10000, aluminum: 10000, iron: 10000, copper: 10000 });
+  supplyPower(s, 100);
   const before = calculateProduction(s);
   s.tech.push('quantumManufacturing'); const after = calculateProduction(s);
-  assert.ok(Math.abs(after.rates.alloy - before.rates.alloy * (1 + .1 * after.quantum.level)) < 1e-8);
+  assert.ok(Math.abs(after.rates.alloy - before.rates.alloy * (1 + .5 * (after.quantum.level - 1))) < 1e-8);
   assert.equal(after.rates.metal, before.rates.metal); assert.equal(after.rates.aluminum, before.rates.aluminum);
   assert.deepEqual(calculateFactoryRecipe('alloy', s), calculateFactoryRecipe('alloy', { ...s, tech: s.tech.filter(id => id !== 'quantumManufacturing') }));
   assert.ok(calculateResourceFactorRows('alloy', s, after).rows.some(row => row.name === '量子制造' && row.child));
@@ -205,13 +219,14 @@ test('swarm factory discounts compound and quantum swarm changes total support',
   s.buildings.swarmControlStation = 2;
   assert.equal(calculateSwarmSupportCapacity(s), 2 * (20 + calculateQuantumLevel(s)));
   const ship = fresh(); ship.tech.push('swarmFactoryOptimization'); ship.buildings.ironMiningShip = 2;
-  Object.assign(ship.resources, { energy: 100, helium3: 100 });
+  Object.assign(ship.resources, { helium3: 100 });
+  supplyPower(ship, 100);
   const liveDiscount = calculateBuildingCost('swarmFactory', 0, ship);
   assert.ok(Math.abs(liveDiscount.cash! - 75000 * .95 ** 2) < 1e-8);
   ship.stoppedBuildings.ironMiningShip = 2;
   assert.equal(calculateBuildingCost('swarmFactory', 0, ship).cash, 75000);
   s.buildings.swarmFactory = 100000;
-  for (const value of Object.values(calculateBuildingCost('swarmSatellite', 0, s))) assert.ok(value > 0 && value < 1);
+  for (const [id, value] of Object.entries(calculateBuildingCost('swarmSatellite', 0, s))) assert.ok(Math.abs(value - base[id as keyof typeof base]! * .05) < 1e-8);
 });
 test('ARPA and ship accept independent resource deposits without overfill and hull gates later components', () => {
   const s = fresh(); s.tech.push('genetics'); s.resources.knowledge = 100;
@@ -229,7 +244,7 @@ test('ARPA and ship accept independent resource deposits without overfill and hu
   requestPurchaseModule(s, 'ship', 'computer', 0, true); advanceProjectQueue(s, 1, () => 0);
   assert.equal(s.shipResourceProgress.computer?.knowledge, 50);
   assert.equal(s.shipComponents.computer, false);
-  s.resources.knowledge = 500000; s.resources.energy = 100000; advanceProjectQueue(s, 1, () => 0);
+  s.resources.knowledge = 500000; supplyPower(s, 100000); advanceProjectQueue(s, 1, () => 0);
   assert.equal(s.shipComponents.computer, true);
   s.population = 20; s.workers.forage = 20;
   investInShipComponent('ecosystem', 10, s);
@@ -268,8 +283,11 @@ test('nanotube factory recipe capacity and maintained warehouse use requested ba
   assert.equal(calculateStorageBonuses('hangar', s, null).polymer, 8000);
   const upgradedHangar = { ...s, tech: [...s.tech, 'iridiumAlloyWarehouse' as TechnologyId] };
   assert.equal(calculateStorageBonuses('hangar', upgradedHangar, null).polymer, 16000);
-  s.buildings.e710Warehouse = 2; s.resources.energy = 7;
-  const p = calculateProduction(s); assert.equal(p.inputUnits.e710Warehouse, 1); assert.equal(p.rates.energy, -7);
+  s.buildings.e710Warehouse = 2; supplyPower(s, 7);
+  const p = calculateProduction(s); assert.equal(p.inputUnits.e710Warehouse, 1);
+  assert.deepEqual(p.power, { generated: 7, used: 7, available: 0 });
+  assert.equal(p.rates.energy, 0, 'warehouse upkeep spends the whole fixed budget');
+  assert.equal(p.pool.energy, 0);
 });
 test('misen multi-resource mission queues atomically and discounts only helium fuel', () => {
   const s = fresh(); s.tech.push('exoticElementResearch', 'misenDiscovery');
@@ -278,7 +296,7 @@ test('misen multi-resource mission queues atomically and discounts only helium f
   s.resources.e710 = 49; s.resources.helium3 = 30000;
   assert.equal(requestPurchaseModule(s, 'mission', 'misen', 0).status, 'queued');
   assert.equal(s.resources.helium3, 30000);
-  s.buildings.spaceWaystation = 1; s.resources.energy = 100;
+  s.buildings.spaceWaystation = 1; supplyPower(s, 100);
   assert.deepEqual(calculateRegionalMissionCost(s, 'misen'), { helium3: 28500, e710: 50 });
   s.resources.e710 = 50; settlePurchaseQueue(s, 0);
   assert.equal(s.misenMissionCompleted, true);
@@ -298,12 +316,15 @@ test('E-710 dedicated storage maintenance, space production and reactor settle o
   assert.equal(calculateStorageDetails('e710', s, { ...calculateSupportPreview(s), moonBaseUnits: 0 }).total, 100);
   s.resources.helium3 = 0;
   assert.equal(calculateStorageDetails('e710', s, { ...calculateSupportPreview(s), moonBaseUnits: 0 }).total, 0);
-  s.buildings.e710Warehouse = 1; s.resources.energy = 7;
+  s.buildings.e710Warehouse = 1; supplyPower(s, 7);
   assert.equal(calculateStorageDetails('e710', s, { ...calculateSupportPreview(s), moonBaseUnits: 0 }).total, 200);
   s.buildings.e710Reactor = 1; p = calculateProduction(s);
-  assert.equal(p.rates.energy, 18); assert.ok(Math.abs(p.rates.e710 + .05) < 1e-8);
+  assert.deepEqual(p.power, { generated: 32, used: 7, available: 25 });
+  assert.equal(p.rates.energy, 25); assert.ok(Math.abs(p.rates.e710 + .05) < 1e-8);
   s.resources.e710 = 0;
-  assert.equal(calculateProduction(s).rates.energy, -7);
+  const dry = calculateProduction(s);
+  assert.deepEqual(dry.power, { generated: 7, used: 7, available: 0 });
+  assert.equal(dry.rates.energy, 0, 'an unfueled reactor adds no generation');
   assert.equal(isContainerAssignable('e710', s), false);
 });
 test('drone bonus is attached to neutron source and oil extractor receives space ring bonus', () => {
@@ -317,7 +338,8 @@ test('drone bonus is attached to neutron source and oil extractor receives space
   s.buildings.oilExtractor = 1;
   s.buildings.asrielSpaceport = s.buildings.asrielResidence = 1; s.buildings.starRingStation = 10;
   s.population = 2; s.workers.asrielResidence = 2;
-  Object.assign(s.resources, { energy: 100, food: 100, helium3: 100 });
+  Object.assign(s.resources, { food: 100, helium3: 100 });
+  supplyPower(s, 100);
   s.buildings.talosMoonMiningStation = 1; s.resources.oil = 100;
   const p = calculateProduction(s);
   const neutronRows = calculateResourceFactorRows('neutron', s, p).rows;
@@ -341,7 +363,7 @@ test('outer missions use discounted atomic payment and independent ordered unloc
   assert.equal(isTechnologyUnlocked('dysonTheory', s), false);
   assert.equal(completeSpaceMission(s, 'solar'), false);
   assert.equal(completeSpaceMission(s, 'invalid'), false);
-  s.buildings.spaceWaystation = 1; s.resources.energy = 100;
+  s.buildings.spaceWaystation = 1; supplyPower(s, 100);
   assert.equal(calculateSpaceMissionCost(s, 'solar'), 9500);
   s.resources.helium3 = 9500;
   assert.equal(completeSpaceMission(s, 'solar'), true);
@@ -374,11 +396,14 @@ test('swarm generation uses complete support slots and powers maintenance immedi
   assert.equal(calculateProduction(s).inputUnits.atmosphericCollector, 0);
 });
 test('outer sources settle maintenance once and attach independent ring bonuses', () => {
-  const s = fresh(); Object.assign(s.resources, { energy: 100, oil: 100, food: 100, helium3: 100 });
+  const s = fresh(); Object.assign(s.resources, { oil: 100, food: 100, helium3: 100 });
+  supplyPower(s, 100);
   Object.assign(s.buildings, { asrielSpaceport: 1, asrielResidence: 1, starRingStation: 10, moonBase: 1, iridiumMine: 1, atmosphericCollector: 1, talosMoonMiningStation: 1, iridiumMiningShip: 1, ironMiningShip: 1 });
   s.population = 2; s.workers.asrielResidence = 2;
   const p = calculateProduction(s);
-  assert.equal(p.rates.energy, -14);
+  assert.deepEqual(p.power, { generated: 100, used: 14, available: 86 });
+  assert.equal(p.rates.energy, 86, 'energy reports the unused fixed budget');
+  assert.equal(p.pool.energy, 0);
   assert.equal(p.rates.oil, -3);
   for (const resource of ['iridium', 'helium3', 'neutron', 'iron'] as const) {
     const detail = calculateResourceBreakdown(resource, s, p);
@@ -425,7 +450,7 @@ test('missing additive fields reject and explicit malformed outer fields reject'
   for (const mutate of [(s:any)=>s.solarMissionCompleted=null, (s:any)=>s.resources.neutron=-1, (s:any)=>s.containerAssignments.neutron=1, (s:any)=>s.stoppedBuildings.swarmSatellite=null]) {
     const bad = JSON.parse(JSON.stringify(fresh())); mutate(bad); assert.throws(() => validateAndMigrateSave(bad, context));
   }
-  const full = fresh(); full.tech = Object.keys(TECHNOLOGIES).filter(id => !['spaceControlTower', 'globalObservationCalibration', 'anomalyMapping', 'fieldConstraintTheory', 'dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','hazardousMaterialStorage','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[]; full.prestige.nuclearResets = 1;
+  const full = fresh(); full.tech = Object.keys(TECHNOLOGIES).filter(id => !['spaceControlTower', 'globalObservationCalibration', 'anomalyMapping', 'fieldConstraintTheory', 'dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','dysonSphere','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','hazardousMaterialStorage','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[]; full.prestige.nuclearResets = 1;
   full.asrielMissionCompleted = full.kerberosMissionCompleted = full.solarMissionCompleted = full.talosMissionCompleted = full.talosMoonMissionCompleted = full.asteroidBeltMissionCompleted = full.misenMissionCompleted = true;
   full.arpaBuildings.rocketPlatform = full.arpaBuildings.monument = full.arpaBuildings.geneSequencing = 1; full.arpaBuildings.arpaResearchInstitute = 2;
   full.buildings.aiSupercore = 137; full.stoppedBuildings.aiSupercore = 1;

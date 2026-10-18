@@ -68,7 +68,7 @@ interface StorageRowContext {
  * Ordering and name strings must match the historical per-resource loop exactly.
  */
 function baseStorage(resource: ResourceId, state: GameState): number {
-  return RESOURCES[resource].cap + (resource === 'energy' && state.tech.includes('batteryConcentrationRing') ? 90000 : 0);
+  return resource === 'energy' ? 0 : RESOURCES[resource].cap;
 }
 
 function accumulateStorageRows(
@@ -194,6 +194,7 @@ export function calculateRipperKnowledgeBonus(state: GameState, snapshot: Pick<S
 }
 
 export function calculateStorageDetails(resource: ResourceId, state: GameState, snapshot: StorageSnapshot): StorageDetails {
+  if (resource === 'energy') return { rows: [], total: 0 };
   snapshot = withStorageSupportFallback(state, snapshot);
   if (resource === 'bytes') {
     const digital = snapshot.digital ?? calculateSupportPreview(state).digital;
@@ -271,6 +272,9 @@ export function calculateStorageTotals(state: GameState, snapshot: StorageSnapsh
   if (ripperCores) totals.knowledge = (totals.knowledge || 0) * (1 + calculateRipperKnowledgeBonus(state, snapshot) * ripperCores);
   totals.bytes = calculateDigitalByteCapacity(snapshot.digital ?? calculateSupportPreview(state).digital);
   totals.encryptedData = 50000 + (state.tech.includes('encryptedDataAnalysis') ? (snapshot.digital ?? calculateSupportPreview(state).digital).memoryUnits * 25000 : 0);
+  // Electricity is instantaneous supply; no storage source or multiplier may
+  // turn this retained formula resource ID back into an inventory.
+  totals.energy = 0;
   return totals as Record<ResourceId, number>;
 }
 /** Drop only what a lowered cap can no longer hold, reporting whether anything was lost. */

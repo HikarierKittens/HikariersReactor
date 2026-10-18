@@ -2,11 +2,11 @@ import type { BuildingId, BuildingDefinition } from '../types/buildings';
 import type { ResourceRecipe } from '../types/economy';
 
 export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
-  softRouterNode: { name: '软路由节点', icon: '', tech: 'softRoutingNode', slots: 0, toggleable: true, bandwidth: 4, cpuCompute: 3, output: { energy: 10 }, cost: { cash: 2500000, encryptedData: 25, nanoAlloy: 25000 }, costScales: { cash: 1.27, encryptedData: 1.27, nanoAlloy: 1.27 }, desc: 'Ethernet：运行时提供4带宽与3 CPU算力，电力+10/s。' },
-  aesComputeModule: { name: 'AES计算模块', icon: '', tech: 'aes114514', slots: 0, toggleable: true, cpuComputeUse: 1, output: { encryptedData: .005 }, knowledgeBoost: .1, cost: { cash: 4000000, bytes: 50000, encryptedData: 50, nanoAlloy: 25000 }, costScales: { cash: 1.265, bytes: 1.265, encryptedData: 1.265, nanoAlloy: 1.265 }, desc: 'NPU：运行时加密数据产量+0.005/s、知识产量+10%，占用1 CPU算力。' },
-  worldSimulator: { name: '世界模拟器', icon: '', tech: 'digitalSimulation', slots: 0, toggleable: true, cpuComputeUse: 3, cap: 8, soldierCap: 4, morale: 5, moraleCap: 5, input: { energy: 10 }, cost: { cash: 5000000, bytes: 25000, encryptedData: 100, nanoAlloy: 25000 }, costScales: { cash: 1.26, bytes: 1.26, encryptedData: 1.26, nanoAlloy: 1.26 }, desc: '运行时猫口容量+8、士兵容量+4、幸福度+5%、幸福度上限+5%。' },
-  agiCoreComponent: { name: 'AGI核心组件', icon: '', tech: 'agi', slots: 0, toggleable: true, segmentedRequired: 100, max: 100, input: { energy: 100, water: 1000 }, output: { bytes: .5 }, morale: 25, cost: { cash: 5000000, bytes: 50000, encryptedData: 500, nanoAlloy: 25000 }, costScales: { cash: 1, bytes: 1, encryptedData: 1, nanoAlloy: 1 }, desc: '建成100分段后运行：量子水平+0.5、幸福度+25%、字节产量+0.5B/s。' },
-  coreCooler: { name: '核心冷却器', icon: '', tech: 'digitalAscension', slots: 0, toggleable: true,  cost: { cash: 1000000, bytes: 10000, encryptedData: 10, nanoAlloy: 10000 }, costScales: { cash: 1.2, bytes: 1.2, encryptedData: 1.2, nanoAlloy: 1.2 }, desc: '每座运行中的核心冷却器使AGI飞升核心电力消耗减少100/s。' },
+  softRouterNode: { name: '软路由节点', icon: '', tech: 'softRoutingNode', slots: 0, toggleable: true, bandwidth: 4, cpuCompute: 3, input: { energy: 10 }, cost: { cash: 2500000, encryptedData: 25, nanoAlloy: 25000 }, costScales: { cash: 1.27, encryptedData: 1.27, nanoAlloy: 1.27 }, desc: 'Ethernet：供电运行时提供4带宽与3 CPU算力，电力-10/s。' },
+  aesComputeModule: { name: 'AES算力模块', icon: '', tech: 'aes114514', slots: 0, toggleable: true, cpuComputeUse: 1, output: { encryptedData: .005 }, knowledgeBoost: .1, cost: { cash: 4000000, bytes: 50000, encryptedData: 50, nanoAlloy: 25000 }, costScales: { cash: 1.265, bytes: 1.265, encryptedData: 1.265, nanoAlloy: 1.265 }, desc: 'NPU：运行时加密数据产量+0.005/s、知识产量+10%，占用1 CPU算力。' },
+  worldSimulator: { name: '世界模拟器', icon: '', tech: 'highPrecisionWorldSimulation', slots: 0, toggleable: true, cpuComputeUse: 3, cap: 8, soldierCap: 4, morale: 5, moraleCap: 5, input: { energy: 10 }, cost: { cash: 5000000, bytes: 25000, encryptedData: 100, nanoAlloy: 25000 }, costScales: { cash: 1.26, bytes: 1.26, encryptedData: 1.26, nanoAlloy: 1.26 }, desc: '运行时猫口容量+8、士兵容量+4、幸福度+5%、幸福度上限+5%。' },
+  agiCoreComponent: { name: 'AGI核心组件', icon: '', tech: 'agi', slots: 0, toggleable: true, segmentedRequired: 100, max: 100, input: { energy: 100, water: 1000 }, morale: 25, cost: { cash: 5000000, bytes: 50000, encryptedData: 500, nanoAlloy: 25000 }, costScales: { cash: 1, bytes: 1, encryptedData: 1, nanoAlloy: 1 }, desc: '建成100分段后运行：量子水平+50%、幸福度+25%、字节产量+50%，电力-100/s、水-1000/s。' },
+  coreCooler: { name: '核心散热器', icon: '', tech: 'digitalAscension', slots: 0, toggleable: true,  cost: { cash: 1000000, bytes: 10000, encryptedData: 10, nanoAlloy: 10000 }, costScales: { cash: 1.2, bytes: 1.2, encryptedData: 1.2, nanoAlloy: 1.2 }, desc: '每座运行中的核心散热器使AGI飞升核心电力消耗减少100/s。' },
   agiAscensionCore: { name: 'AGI飞升核心', icon: '', tech: 'digitalAscension', slots: 0, toggleable: true, segmentedRequired: 100, max: 100, input: { energy: 10000 }, cost: { cash: 10000000, bytes: 100000, encryptedData: 1000, nanoAlloy: 50000 }, costScales: { cash: 1, bytes: 1, encryptedData: 1, nanoAlloy: 1 }, desc: '建成100分段后可启动，默认关闭。完整供能并启用后，可进行数字化飞升。' },
   gatewayRouter: { name: '网关路由', icon: '', tech: 'aiCoreCalibration', slots: 0, toggleable: true, bandwidth: 5, input: { energy: 25 }, cost: { bytes: 1000 }, costScales: { bytes: 1.30 }, desc: 'Ethernet：连接数字世界的网关，运行时提供5带宽，电力-25/s。' },
   downloadExecutable: { name: 'dl.exe', icon: '', tech: 'aiCoreCalibration', slots: 0, toggleable: true, bandwidthUse: 1, max: 1, cost: { bytes: 0 }, costScales: { bytes: 1 }, desc: 'world_execution：配置下载分配（0–100%）以生产字节，占用1带宽。' },
@@ -40,6 +40,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   stellarForge: { name: '恒星熔炉', icon: '', tech: 'stellarForge', spaceMissionRequired: 'neutronStar', slots: 0, powerPlant: true, alwaysRunning: true, output: { energy: 25 }, desc: '借助中子星的极端环境进行冶炼与锻造，冶炼厂工位+2，工匠上限+2，锻造物产量加成+10%，电力+25/s。', cost: { cash: 5000000, alloy: 100000, nanoAlloy: 15000, mithril: 20000, e710: 500 }, costScales: { cash: 1.275, alloy: 1.275, nanoAlloy: 1.275, mithril: 1.275, e710: 1.275 } },
   hazardousMaterialStorage: { name: '危险物质库', icon: '', tech: 'hazardousMaterialStorage', spaceMissionRequired: 'neutronStar', slots: 0, desc: '在卡尔维拉隔离储存危险物质，E-710容量+500，中子容量+32k。', cost: { cash: 2000000, alloy: 50000, adamantite: 10000, nanoAlloy: 10000 }, costScales: { cash: 1.265, alloy: 1.265, adamantite: 1.265, nanoAlloy: 1.265 } },
   blackHoleStation: { name: '黑洞星际站', icon: '', tech: 'energyShield', spaceMissionRequired: 'blackHole', slots: 0, toggleable: true, input: { energy: 10 }, desc: '空间撕裂者的知识容量效果+1%，电力-10/s。', cost: { cash: 1000000, knowledge: 100000, neutron: 2500, adamantite: 500, e710: 100 }, costScales: { cash: 1.3, knowledge: 1.3, neutron: 1.3, adamantite: 1.3, e710: 1.3 } },
+  dysonSphere: { name: '戴森球', icon: '', tech: 'dysonSphere', segmentedRequired: 100, segmentEffects: true, slots: 0, powerPlant: true, alwaysRunning: true, output: { energy: 10 }, desc: '环绕恒星的巨型能量收集结构，每建成一段电力+10/s。', cost: { cash: 1000000, adamantite: 5000, graphene: 2500, nanoAlloy: 5000 }, costScales: { cash: 1, adamantite: 1, graphene: 1, nanoAlloy: 1 } },
   penroseSphere: { name: '彭罗斯球体', icon: '', tech: 'penroseTheory', spaceMissionRequired: 'blackHole', segmentedRequired: 100, segmentEffects: true, slots: 0, powerPlant: true, alwaysRunning: true, output: { energy: 5 }, desc: '环绕黑洞的巨型能量收集结构，每建成一段电力+5/s。', cost: { cash: 2000000, neutron: 400, adamantite: 15000, graphene: 20000, nanoAlloy: 5000, mithril: 500 }, costScales: { cash: 1, neutron: 1, adamantite: 1, graphene: 1, nanoAlloy: 1, mithril: 1 } },
   massEjector: { name: '质量喷射器', icon: '', tech: 'massEjector', spaceMissionRequired: 'blackHole', slots: 0, toggleable: true, input: { energy: 10 }, desc: '向黑洞喷射物质。喷射容量+1000/s，电力-10/s。', cost: { cash: 3000000, adamantite: 20000, nanoAlloy: 8000, mithril: 3000, aerogel: 4000 }, costScales: { cash: 1.28, adamantite: 1.28, nanoAlloy: 1.28, mithril: 1.28, aerogel: 1.28 } },
   vrCenter: { name: 'VR中心', icon: '', tech: 'virtualEntertainment', slots: 0, toggleable: true, support: 1, asrielSupport: 1, desc: '幸福度+2.5%，Asriel支持-1。', cost: { cash: 500000, nanoAlloy: 10000, aerogel: 2500 }, costScales: { cash: 1.275, nanoAlloy: 1.275, aerogel: 1.275 } },
@@ -292,7 +293,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   },
   "solarSatellite": {
     "name": "太阳能卫星",
-    "desc": "每座固定产出5电力/s，提供500电力储量。",
+    "desc": "每座固定产出5电力/s。",
     "icon": "",
     "cost": {
       "cash": 2000,
@@ -481,25 +482,6 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "oilCap": 1000,
     "tech": "oilStorage",
     "costScales": {
-      "iron": 1.17,
-      "metal": 1.17,
-      "cash": 1.17
-    }
-  },
-  "batteryStation": {
-    "name": "储能站",
-    "icon": "",
-    "desc": "电力存储设施，每座提供1000电力储量，研究电池聚能环后改为5000。",
-    "cost": {
-      "stone": 200,
-      "iron": 100,
-      "metal": 50,
-      "cash": 80
-    },
-    "energyCap": 1000,
-    "tech": "energyStorage",
-    "costScales": {
-      "stone": 1.17,
       "iron": 1.17,
       "metal": 1.17,
       "cash": 1.17
@@ -1458,8 +1440,7 @@ export const BUILDING_GROUPS: { id: string; name: string; buildings: BuildingId[
     "buildings": [
       "generator",
       "oilGenerator",
-      "fissionGenerator",
-      "batteryStation"
+      "fissionGenerator"
     ]
   },
   {

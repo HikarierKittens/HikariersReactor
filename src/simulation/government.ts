@@ -1,3 +1,4 @@
+import { withoutPowerCost } from './one-time-cost';
 import { TECHNOLOGIES } from '../data/technologies';
 import { BUILDINGS } from '../data/buildings';
 import type { GameState, GovernmentId } from '../types/state';
@@ -21,7 +22,7 @@ export function reformCooldown(state: Pick<GameState, 'lastReformTime' | 'time'>
   return state.lastReformTime === null ? 0 : Math.max(0, GOVERNMENT_COOLDOWN - (state.time - state.lastReformTime));
 }
 export function calculateTechCost(id: TechnologyId, state: Pick<GameState, 'government'>): ResourceRecipe {
-  return Object.fromEntries(Object.entries(TECHNOLOGIES[id].cost).map(([r, v]) => [r, r === 'knowledge' && state.government === 'technocracy' ? Math.ceil(v * .92) : v]));
+  return Object.fromEntries(Object.entries(withoutPowerCost(TECHNOLOGIES[id].cost)).map(([r, v]) => [r, r === 'knowledge' && state.government === 'technocracy' ? Math.ceil(v * .92) : v]));
 }
 /** Owned ceiling for save validation and existing capacity-based army pressure.
  * Stopping or starving a garrison never deletes already trained soldiers. */

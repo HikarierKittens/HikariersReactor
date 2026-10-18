@@ -26,7 +26,7 @@ export function calculateParticleMultiplier(id: ResourceId, state: Pick<GameStat
   // Only raw particle holdings pass through diminishing returns. Accelerator
   // additions are linear on that original bonus and never softened again.
   const acceleratorBonus = isChallengeGeneActive(state, 'particleImbalance') ? 0 : originalBonus * .1 * (state.buildings?.particleAccelerator || 0);
-  return id === 'energy' || id === 'bytes' || id === 'encryptedData' ? 1 : 1 + originalBonus + acceleratorBonus;
+  return id === 'energy' ? 1 : 1 + originalBonus + acceleratorBonus;
 }
 /** Independent output-only mastery; never modifies stocks, costs or energy. */
 export function calculateMasteryMultiplier(id: ResourceId, state: Pick<GameState, 'prestige'> & Partial<GameState>): number {
@@ -44,7 +44,6 @@ export function calculateStellarForgeCraftMultiplier(state: Pick<GameState, 'bui
   return 1 + .1 * (state.buildings.stellarForge || 0);
 }
 export function calculateCraftingMultiplier(id: ResourceId, state: GameState, support?: AsrielSupport): number {
-  if (id === 'encryptedData') return calculateMasteryMultiplier(id, state);
   let planetary = 1;
   if (state.resources && state.workers && state.population !== undefined && state.stoppedBuildings && state.buildings.planetaryFoundry) {
     const allocation = support || calculateSupportPreview(state).asriel;

@@ -34,10 +34,10 @@ export interface DigitalSupport {
 }
 
 /** Pure allocation; paid fractional gateways provide bandwidth, consumers need whole units. */
-export function calculateDigitalSupport(state: GameState, availableEnergy: number, dt = 1): DigitalSupport {
+export function calculateDigitalSupport(state: GameState, availableEnergy: number, dt = 1, availableWater = state.resources.water): DigitalSupport {
   if (!Number.isFinite(dt) || dt <= 0) throw new RangeError('dt must be positive and finite');
-  const softRouterUnits = countRunningBuildings('softRouterNode', state);
-  const suppliedEnergy = Math.max(0, availableEnergy) + softRouterUnits * 10 * dt;
+  const softRouterUnits = Math.min(countRunningBuildings('softRouterNode', state), Math.floor((Math.max(0, availableEnergy) + 1e-8) / (10 * dt)));
+  const suppliedEnergy = Math.max(0, availableEnergy - softRouterUnits * 10 * dt);
   const gatewayUnits = Math.min(countRunningBuildings('gatewayRouter', state), suppliedEnergy / (25 * dt));
   let energy = Math.max(0, suppliedEnergy - gatewayUnits * 25 * dt);
   const power = (requested: number, cost: number) => {
@@ -68,15 +68,26 @@ export function calculateDigitalSupport(state: GameState, availableEnergy: numbe
   cpuRemaining -= minerUnits;
   const decryptionCpu = BUILDINGS.dataDecryptionModule.cpuComputeUse!;
   const decryptionUnits = Math.min(Math.floor(cpuRemaining / decryptionCpu), countRunningBuildings('dataDecryptionModule', state));
-  return { gatewayUnits, capacity, used: downloadUnits + quantumStorageUnits + cacheUnits + subcomputeUnits * 3 + decoderUnits * 2,
+  cpuRemaining -= decryptionUnits * decryptionCpu;
+  const aesUnits = Math.min(cpuRemaining, countRunningBuildings('aesComputeModule', state));
+  cpuRemaining -= aesUnits;
+  const worldSimulatorUnits = power(Math.min(Math.floor(cpuRemaining / 3), countRunningBuildings('worldSimulator', state)), 10);
+  cpuRemaining -= worldSimulatorUnits * 3;
+  const agiComponentUnits = power(Math.min(countRunningBuildings('agiCoreComponent', state), Math.floor((Math.max(0, availableWater) + 1e-8) / (1000 * dt))), 100);
+  const coreCoolerUnits = countRunningBuildings('coreCooler', state);
+  const ascensionEnergyUse = Math.max(0, 10000 - 100 * coreCoolerUnits);
+  const ascensionCoreUnits = ascensionEnergyUse === 0 ? countRunningBuildings('agiAscensionCore', state) : power(countRunningBuildings('agiAscensionCore', state), ascensionEnergyUse);
+  const energyUse = softRouterUnits * 10 + gatewayUnits * 25 + cellUnits * 25 + memoryUnits * 5 + minerUnits * 10 + worldSimulatorUnits * 10 + agiComponentUnits * 100 + ascensionCoreUnits * ascensionEnergyUse;
+  return { softRouterUnits, aesUnits, worldSimulatorUnits, agiComponentUnits, coreCoolerUnits, ascensionCoreUnits, ascensionEnergyUse, energyUse, gatewayUnits, capacity, used: downloadUnits + quantumStorageUnits + cacheUnits + subcomputeUnits * 3 + decoderUnits * 2,
     downloadUnits, quantumStorageUnits, cacheUnits, subcomputeUnits, compressionUnits, dataCompressionUnits, decoderUnits,
     cellUnits, memoryUnits, minerUnits, decryptionUnits,
-    cpuCapacity, cpuUsed: compressionUnits + dataCompressionUnits + decoderUnits + memoryUnits + minerUnits + decryptionUnits * decryptionCpu };
+    cpuCapacity, cpuUsed: compressionUnits + dataCompressionUnits + decoderUnits + memoryUnits + minerUnits + decryptionUnits * decryptionCpu + aesUnits + worldSimulatorUnits * 3 };
 }
 
 export function settleDigitalSupport(state: GameState, pool: ResourceAmounts, dt = 1): DigitalSupport {
-  const support = calculateDigitalSupport(state, pool.energy, dt);
-  pool.energy = Math.max(0, pool.energy - (support.gatewayUnits * 25 + support.cellUnits * 25 + support.memoryUnits * 5 + support.minerUnits * 10) * dt);
+  const support = calculateDigitalSupport(state, pool.energy, dt, pool.water);
+  pool.energy = Math.max(0, pool.energy - support.energyUse * dt);
+  pool.water = Math.max(0, pool.water - support.agiComponentUnits * 1000 * dt);
   return support;
 }
 
@@ -89,9 +100,11 @@ export function calculateDigitalProduction(state: GameState, support: DigitalSup
   const allocation = support.downloadUnits > 0 ? Math.max(0, Math.min(100, state.downloadAllocation || 0)) / 100 : 0;
   const divertedKnowledge = Math.max(0, knowledgeProduction) * allocation;
   const neuralMultiplier = state.tech.includes('neuralNetwork') ? 1 + .01 * (quantumLevel ?? calculateQuantumLevel(state)) : 1;
-  const byteProduction = divertedKnowledge * .01 * calculateMasteryMultiplier('bytes', state) * (1 + .1 * support.cacheUnits) * neuralMultiplier;
-  const decoderProduction = support.decoderUnits * 100 * neuralMultiplier;
-  const encryptedProduction = support.decryptionUnits * BUILDINGS.dataDecryptionModule.output!.encryptedData! * (1 + .25 * support.decryptionUnits) * calculateMasteryMultiplier('encryptedData', state);
+  const byteMultiplier = calculateProductionMultiplier('bytes', happiness, state) * calculateGlobalOutputMultiplier('bytes', state) * (1 + .5 * support.agiComponentUnits);
+  const encryptedMultiplier = calculateProductionMultiplier('encryptedData', happiness, state) * calculateGlobalOutputMultiplier('encryptedData', state);
+  const byteProduction = divertedKnowledge * .001 * (1 + .1 * support.cacheUnits) * neuralMultiplier * byteMultiplier;
+  const decoderProduction = support.decoderUnits * 100 * neuralMultiplier * byteMultiplier;
+  const encryptedProduction = (support.decryptionUnits * BUILDINGS.dataDecryptionModule.output!.encryptedData! + support.aesUnits * .005) * (1 + .25 * support.decryptionUnits) * encryptedMultiplier;
   const minerProduction = support.minerUnits * 512 * calculateProductionMultiplier('cash', happiness, state) * calculateGlobalOutputMultiplier('cash', state);
   return { ...support, allocation: allocation * 100, knowledgeProduction: Math.max(0, knowledgeProduction), divertedKnowledge, byteProduction, decoderProduction, encryptedProduction, minerProduction, neuralMultiplier, byteCapacity: calculateDigitalByteCapacity(support) };
 }

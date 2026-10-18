@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { layoutTechTree, KEY_TECHNOLOGIES } from '../src/vue/tech-tree';
 import { TECHNOLOGIES } from '../src/data/technologies';
+import { calculateTechnologyTier } from '../src/simulation/technology';
 import type { TechnologyId } from '../src/types/technologies';
 
 test('tree stacks tiers vertically and preserves same-tier horizontal rows', () => {
@@ -36,4 +37,28 @@ test('a lone dependency uses the theme stroke, with no artificial colour', () =>
   assert.equal(edge.stroke, 'var(--text)');
   assert.equal(edge.dash, '');
   assert.equal(layoutTechTree([]).nodes.length, 0);
+});
+
+test('digital T24/T25 display preserves same-tier prerequisite chains', () => {
+  const initial = ['softRoutingNode', 'aes114514', 'digitalSimulation'] as const;
+  const advanced = ['highPrecisionWorldSimulation', 'agi', 'digitalAscension'] as const;
+  for (const id of initial) assert.equal(calculateTechnologyTier(id), 24, id);
+  for (const id of advanced) assert.equal(calculateTechnologyTier(id), 25, id);
+  assert.deepEqual(TECHNOLOGIES.softRoutingNode.pre, ['cellMultithreading']);
+  assert.deepEqual(TECHNOLOGIES.aes114514.pre, ['cellMultithreading']);
+  assert.deepEqual(TECHNOLOGIES.digitalSimulation.pre, ['cellMultithreading']);
+  assert.deepEqual(TECHNOLOGIES.highPrecisionWorldSimulation.pre, ['digitalSimulation']);
+  assert.deepEqual(TECHNOLOGIES.agi.pre, ['highPrecisionWorldSimulation']);
+  assert.deepEqual(TECHNOLOGIES.digitalAscension.pre, ['agi']);
+  const tree = layoutTechTree(['cellMultithreading', ...initial, ...advanced]);
+  assert.equal(tree.nodes.length, 7);
+  assert.equal(tree.edges.length, 6);
+  for (const tier of [24, 25]) {
+    const nodes = tree.nodes.filter(node => node.tier === tier);
+    assert.equal(new Set(nodes.map(node => node.y)).size, 1);
+    assert.equal(new Set(nodes.map(node => node.x)).size, nodes.length);
+  }
+  for (const edge of tree.edges) for (const point of edge.points) {
+    assert.ok(Number.isFinite(point.x) && Number.isFinite(point.y));
+  }
 });

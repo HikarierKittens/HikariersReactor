@@ -12,7 +12,7 @@ export type BuildingId =
   | 'fusionPowerPlant' | 'metalMiningShip' | 'fuelMiningShip'
   | 'spaceRipper' | 'highTechFactory' | 'e710ResearchStation'
   | 'adamantiteMiningShip' | 'adamantiteProcessor' | 'grapheneFactory' | 'vrCenter'
-  | 'stellarForge' | 'hazardousMaterialStorage' | 'blackHoleStation' | 'penroseSphere' | 'massEjector'
+  | 'stellarForge' | 'hazardousMaterialStorage' | 'blackHoleStation' | 'penroseSphere' | 'dysonSphere' | 'massEjector'
   | 'constraintArray' | 'shortRangeRelay' | 'anchorFreightStation' | 'civilianRouteStation'
   | 'asrielControlTower'
   | 'alienMaterialLab' | 'aiSupercore' | 'swarmFactory'
@@ -23,7 +23,7 @@ export type BuildingId =
   | 'moonBase' | 'iridiumMine' | 'helium3Mine' | 'navigationBeacon' | 'orbitalFuelDepot'
   | 'solarSatellite' | 'researchSatellite' | 'granary' | 'biologyLab' | 'bank'
   | 'barracks' | 'trainingCamp' | 'metalRefinery' | 'cementWorkshop' | 'fuelDepot'
-  | 'batteryStation' | 'containerWarehouse' | 'communityCenter' | 'coalMine' | 'mine'
+  | 'containerWarehouse' | 'communityCenter' | 'coalMine' | 'mine'
   | 'nestMKII' | 'apartment' | 'warehouse' | 'storageHub' | 'nest' | 'catHut' | 'forage'
   | 'lumber' | 'quarry' | 'theater' | 'broadcast' | 'touristStation' | 'foundry'
   | 'library' | 'school' | 'generator' | 'oilGenerator' | 'fissionGenerator'
@@ -74,7 +74,6 @@ export interface BuildingDefinition {
   soldierCap?: number;
   trainingBoost?: number;
   oilCap?: number;
-  energyCap?: number;
   containerCap?: number;
   max?: number;
   cap?: number;

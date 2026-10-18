@@ -15,11 +15,26 @@
 
 ## 1. 项目概览
 
-当前版本为 beta 0.6.0（2026/10/16），以恢复的 beta 0.5.19 传统玩法为基线，仅变更版本、存档契约与日志，不引入新玩法或已放弃的 0.6 原型内容。schema 31 严格断代；下文玩法机制沿用基线，旧版本兼容行为只在历史记录中保留。
+当前版本为 beta 0.7.0（2026/10/18），在 beta 0.6 分支基础上扩展第四阶段数字内容、戴森球与量子平衡，并把电力改为固定供给预算。schema 31 保持兼容；下文玩法机制沿用基线，旧版本兼容行为只在历史记录中保留。
 
 - 运行目录：`D:\XMaker\HikariersReactor`（Git 仓库）。
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
 - 包管理：npm；生成式桥接脚本见 `scripts/generate-legacy-data.cjs`。
+
+### 固定电力（beta 0.7.0）
+
+- 电力不再是库存资源：`RESOURCES.energy.cap = 0`，`storage` 对电力恒返回空明细与总量0，`validate-economy` 在载入时校验旧值后归零。发电与耗电都在每次结算内完成，剩余供给不累积。
+- `settlePowerPlants` 先把调用方池的 `energy` 清0，再按 `输出×dt` 写入临时预算；`settleQuantumCores` 与数字世界、空间、月面、Asriel、仓库、研究等消费者沿用既有优先级从该预算扣费，非电力燃料仍按 `dt` 结算。
+- 回放 `replaySettledPool` 只重放台账已支付的发电量与各消费者扣费，不重新推导单位；`finalizeProduction` 令持久 `pool.energy = 0`，并令 `rates.energy = available`。`calculateProduction` 返回 `power = { generated, used, available }`（均为瓦特原值，不随 dt 变化）；`SupportPreview.power` 是研究/观测预留前的边界余额。
+- UI 以 `production.power` 显示“可用电力 / 总发电量”；建筑提示中的电力数字不带 `/s`（其他资源保留）。旧储能站已从注册表、分组与类型移除，历史已研究的 `energyStorage`/`batteryConcentrationRing` 保留 ID 但不可再研究且无效果；旧档中的电池建筑/停用/工人/队列定向清理，其他进度不变。
+- 建造、科技与工程的一次性电力费用由 `one-time-cost` 过滤掉（报价、支付、队列与注资共用），每秒运行消耗不变。
+
+### 戴森球与量子平衡（beta 0.7.0）
+
+- `dysonSphere` 为 T21 科技（pre `superMetal`/`grapheneProcessing`/`nanoAlloy`，1.75M知识），解锁 `dysonSphere` 分段建筑：100段，`segmentEffects` 每段+10电力/s，固定单段造价（cash 1M、adamantite 5000、graphene 2500、nanoAlloy 5000），位于天元六-alpha（`alphaSector`）。
+- 量子基础水平为 `log1p(0.1 × 知识上限 / 250000) / log1p(0.1)`；已供能AI超级核心每个+25%、AGI核心组件每个+50%作用于基础值，最终向下截断两位小数，AI II 前为0。
+- 量子蜂群：控制站支持保留 `20+量子水平`；每座蜂群工厂降价 `0.1 + 0.01×量子水平`，多工厂复合，卫星总价最低为原价5%。量子制造仅作用于现有工厂产品：毛皮 `max(0, 1+(量子水平-1)×0.125)`，其余工业品 `max(0, 1+(量子水平-1)×0.5)`。
+- 队列倒计时（`src/vue/queue-estimates.ts`）用 `CONFIG.uiStepSeconds`（与实时结算步长一致）的产量预览，避免预览步长与实际步长不同导致倒计时快于现实。
 
 ### 数字世界（beta 0.6.8）
 

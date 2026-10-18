@@ -25,14 +25,10 @@ test('metal refinery and cement workshop carry their extra creep in the raw regi
   }
 });
 
-test('refinery creep does not spill into battery stations and both scale registries agree', () => {
-  const state = fresh();
-  for (const resource of ['stone', 'iron', 'metal', 'cash'] as const) {
-    assert.equal(BUILDINGS.batteryStation.costScales![resource], 1.17);
-    assert.equal(calculateBuildingScale('batteryStation', resource, state), 1.17);
-    assert.equal(BUILDING_COST_SCALES.batteryStation![resource], BUILDINGS.batteryStation.costScales![resource]);
-    assert.equal(BUILDING_COST_SCALES.metalRefinery![resource], BUILDINGS.metalRefinery.costScales![resource]);
-  }
+test('retired battery stations have no registry or cost scale entry', () => {
+  assert.equal(Object.hasOwn(BUILDINGS, 'batteryStation'), false);
+  assert.equal(Object.hasOwn(BUILDING_COST_SCALES, 'batteryStation'), false);
+  assert.equal(Object.hasOwn(BUILDING_CASH_COSTS, 'batteryStation'), false);
 });
 
 test('cement workshop carries .045 extra creep (.025 + balance .02) in its registry scale for construction resources', () => {

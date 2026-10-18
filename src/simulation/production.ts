@@ -1,11 +1,10 @@
 import { withPoweredMetalRefining } from './refining';
 import { createDigitalProductionPool } from './digital-world';
-import { settlePowerPlants } from './power';
+import { calculatePowerBudget } from './power';
 import { calculateQuantumSnapshot } from './quantum';
 import { calculateSpaceFuelMultiplier } from './space-fuel';
 import { calculateMorale } from './morale';
 import { HYPERSPACE_SOURCE_IDS } from './hyperspace-output';
-import { allocateMoonSupport } from './moon';
 import { settleAutomationPower } from './power-consumers';
 import { settleFactoryLines } from './factory-settlement';
 import { settleGroundProduction } from './ground-settlement';
@@ -24,11 +23,9 @@ import type { BuildingId } from '../types/buildings';
 import type { GameState } from '../types/state';
 
 export function previewMorale(state: GameState, dt = 1) {
-  const plants = settlePowerPlants({ ...state.resources }, dt, state);
-  const coalSpeed = countRunningBuildings('generator', state);
-  const moonPool = { ...state.resources };
-  settlePowerPlants(moonPool, dt, state);
   const support = buildSettlementLedger(state, dt);
+  const plants = support.plants;
+  const coalSpeed = countRunningBuildings('generator', state);
   const derive = (happiness: number) => {
     const paid = replaySettledPool(state, support, dt, happiness, createDigitalProductionPool(state, support.digital, dt).pool).inputUnits;
     return calculateMorale(state, dt, {
@@ -40,7 +37,7 @@ export function previewMorale(state: GameState, dt = 1) {
       digital: support.digital,
       generatorSpeed: (Object.keys(BUILDINGS) as BuildingId[]).filter(isPowerProducer).reduce((sum, id) => sum + countRunningBuildings(id, state), 0),
       generatorEnergy: plants.energy, coalRatio: coalSpeed ? (plants.outputs.generator || 0) / coalSpeed : 1,
-      moonBaseUnits: allocateMoonSupport(state, moonPool, dt).baseUnits,
+      moonBaseUnits: support.space.moon.baseUnits,
       biologyUnits: support.biologyUnits, dataCenterUnits: support.dataCenterUnits,
     });
   };
@@ -60,17 +57,11 @@ export function previewMorale(state: GameState, dt = 1) {
 }
 
 /**
- * THE shared paid settlement per (state, dt): quantum cores, power plants,
- * waystations, lunar/Asriel/stage-three maintenance, e710 warehouse and research
- * units are derived once in support-preview's `buildSettlementLedger`.
- *
- * A5 phase 2: production consumes the ledger units through `replaySettledPool`
- * (`src/simulation/pool-replay.ts`), which moves resources in the exact order
- * the historical sequential settlers did while re-deriving nothing. The pool
- * that factory/automation/ground mutate in place afterwards is byte-identical
- * to the pre-A5 chain (proven by the oracle in tests/settlement-ledger.test.ts
- * and the replay tests in tests/pool-replay.test.ts). The morale preview keeps
- * its historical two-pool structure and its own support inputs.
+ * Shared fixed-power settlement: generate fresh supply, reserve AI cores first,
+ * then digital, space, storage and research maintenance in established order.
+ * Replay consumes the paid ledger units before factory/automation/ground work.
+ * Only non-energy resources survive finalization; result.power exposes fixed
+ * generated/used/available rates and rates.energy mirrors available power.
  */
 export function calculateProduction(state: GameState, dt = 1) {
   const morale = previewMorale(state, dt);
@@ -102,8 +93,9 @@ export function calculateProduction(state: GameState, dt = 1) {
     const geneSynthesis = settleGeneSynthesis(state, pool, dt, biologyUnits);
     // 质量喷射: withdraw after every producer so same-step output can be ejected.
     const ejected = settleMassEjection(state, pool, dt, inputUnits.massEjector || 0);
+    const power = calculatePowerBudget(ledger.plants.energy, pool.energy, dt);
     const final = finalizeProduction(state, pool, before, dt, { digital: ledger.digital, stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, blackHoleStationUnits: ledger.blackHoleStationUnits });
-    return { ...final, digital: digitalProduction.result(), outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis };
+    return { ...final, power, digital: digitalProduction.result(), outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis };
   });
 }
 export type ProductionResult = ReturnType<typeof calculateProduction>;

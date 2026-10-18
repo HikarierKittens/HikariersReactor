@@ -7,20 +7,22 @@ import { calculateDigitalProduction, calculateDigitalSupport, createDigitalProdu
 import { calculateSupportPreview } from '../src/simulation/support-preview';
 import { calculateStorageDetails, calculateStorageTotals } from '../src/simulation/storage';
 import { calculateResourceBreakdown, calculateResourceFactorRows } from '../src/simulation/resource-breakdown';
-import { calculateMasteryMultiplier, calculateParticleMultiplier } from '../src/simulation/crafting';
+import { calculateGlobalOutputMultiplier, calculateParticleMultiplier } from '../src/simulation/crafting';
+import { calculateProductionMultiplier } from '../src/simulation/multipliers';
+import { supplyPower } from './support/power';
 const fresh = () => createInitialState(CONFIG.version, 60, 0);
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-7, `${a} != ${b}`);
 function digital() {
   const s = fresh();
   s.buildings.gatewayRouter = 1; s.buildings.downloadExecutable = 1;
-  s.resources.energy = 1000; s.downloadAllocation = 100;
+  supplyPower(s, 1000); s.downloadAllocation = 100;
   return s;
 }
 
 test('bandwidth allocates whole consumers in download/storage/cache order from paid fractional gateways', () => {
   const s = digital(); s.buildings.quantumStorage = 3; s.buildings.downloadCache = 3;
   const full = calculateDigitalSupport(s, 25);
-  assert.deepEqual(full, { gatewayUnits: 1, capacity: 5, used: 5, downloadUnits: 1, quantumStorageUnits: 3, cacheUnits: 1, subcomputeUnits: 0, compressionUnits: 0, dataCompressionUnits: 0, decoderUnits: 0, cellUnits: 0, memoryUnits: 0, minerUnits: 0, decryptionUnits: 0, cpuCapacity: 0, cpuUsed: 0 });
+  assert.deepEqual(full, { gatewayUnits: 1, capacity: 5, used: 5, downloadUnits: 1, quantumStorageUnits: 3, cacheUnits: 1, subcomputeUnits: 0, compressionUnits: 0, dataCompressionUnits: 0, decoderUnits: 0, cellUnits: 0, memoryUnits: 0, minerUnits: 0, decryptionUnits: 0, cpuCapacity: 0, cpuUsed: 0, softRouterUnits: 0, aesUnits: 0, worldSimulatorUnits: 0, agiComponentUnits: 0, coreCoolerUnits: 0, ascensionCoreUnits: 0, ascensionEnergyUse: 10000, energyUse: 25 });
   const partial = calculateDigitalSupport(s, 12.5);
   near(partial.gatewayUnits, .5); near(partial.capacity, 2.5);
   assert.equal(partial.used, 2); assert.equal(partial.quantumStorageUnits, 1); assert.equal(partial.cacheUnits, 0);
@@ -29,7 +31,7 @@ test('bandwidth allocates whole consumers in download/storage/cache order from p
   assert.equal(calculateDigitalSupport(s, 5).quantumStorageUnits, 1);
 });
 
-test('1000 knowledge per second becomes 10 bytes, never converts inventory or negative income', () => {
+test('1000 knowledge per second becomes one base byte before ordinary multipliers, never converts inventory or negative income', () => {
   const s = digital(); s.resources.knowledge = 5000;
   const support = calculateDigitalSupport(s, 25);
   for (const dt of [.2, 1, 3]) {
@@ -37,8 +39,8 @@ test('1000 knowledge per second becomes 10 bytes, never converts inventory or ne
     tracked.pool.knowledge += 1000 * dt;
     tracked.pool.knowledge -= 7 * dt;
     near(tracked.pool.knowledge, 5000 - 7 * dt);
-    near(tracked.pool.bytes, 10 * dt);
-    near(tracked.result().byteProduction, 10);
+    near(tracked.pool.bytes, calculateProductionMultiplier('bytes', s.happiness, s) * calculateGlobalOutputMultiplier('bytes', s) * dt);
+    near(tracked.result().byteProduction, calculateProductionMultiplier('bytes', s.happiness, s) * calculateGlobalOutputMultiplier('bytes', s));
   }
   near(calculateDigitalProduction(s, support, -100).byteProduction, 0);
   near(calculateProduction(s).rates.bytes, 0);
@@ -54,27 +56,32 @@ test('allocation intercepts funded positive production with pure preview and exa
     assert.ok(plain.rates.knowledge > 0);
     near(half.rates.knowledge, plain.rates.knowledge / 2);
     near(full.rates.knowledge, 0);
-    near(full.rates.bytes, plain.rates.knowledge * .01);
+    near(full.rates.bytes, plain.rates.knowledge * .001 * calculateProductionMultiplier('bytes', full.morale.happiness, s) * calculateGlobalOutputMultiplier('bytes', s));
     near(full.pool.bytes, full.rates.bytes * dt);
-    near(full.rates.energy, -25);
+    assert.deepEqual(full.power, { generated: 1000, used: 25, available: 975 });
+    near(full.rates.energy, 975);
     for (const id of ['knowledge', 'bytes', 'energy'] as const) near(calculateResourceBreakdown(id, s, full).net, full.rates[id]);
   }
   assert.deepEqual(s, before);
 });
 
-test('byte conversion bonus is mastery once and active cache only; storage ignores globals', () => {
+test('byte conversion applies ordinary production factors and active cache once; storage ignores globals', () => {
   const s = digital(); s.buildings.quantumStorage = 2; s.buildings.downloadCache = 2;
   s.prestige.particles = 10000; s.prestige.darkEnergy = 100;
   s.achievements = ['nuclearCuriosity']; s.achievementLevels = { nuclearCuriosity: 3 };
   const support = calculateDigitalSupport(s, 25);
-  near(calculateDigitalProduction(s, support, 1000).byteProduction, 10 * calculateMasteryMultiplier('bytes', s) * 1.2);
-  near(calculateParticleMultiplier('bytes', s), 1);
+  near(calculateDigitalProduction(s, support, 1000).byteProduction, calculateProductionMultiplier('bytes', s.happiness, s) * calculateGlobalOutputMultiplier('bytes', s) * 1.2);
+  assert.ok(calculateParticleMultiplier('bytes', s) > 1);
   const snapshot = calculateSupportPreview(s);
   const storage = { ...snapshot, moonBaseUnits: snapshot.moon.baseUnits };
   near(calculateStorageTotals(s, storage).bytes, 30000);
   near(calculateStorageDetails('bytes', s, storage).total, 30000);
   const names = calculateResourceFactorRows('bytes', s, calculateProduction(s)).rows.map(r => r.name);
-  assert.deepEqual(names, ['dl.exe 下载', '精通', '下载缓存器']);
+  assert.deepEqual(names, ['精通', '下载缓存器', '粒子']);
+  assert.ok(!calculateResourceBreakdown('bytes', s, calculateProduction(s)).entries.some(row => row.id === 'digitalDownload'));
+  s.buildings.lab = 1; s.workers.lab = 1;
+  assert.ok(calculateResourceFactorRows('bytes', s, calculateProduction(s)).rows.some(row => row.name === 'dl.exe 下载'));
+  assert.ok(calculateResourceBreakdown('bytes', s, calculateProduction(s)).entries.some(row => row.id === 'digitalDownload'));
 });
 
 test('full allocation leaves ongoing synthesis negative, and starved costs cannot spend redirected production', () => {
@@ -115,7 +122,7 @@ test('CPU uses whole bandwidth-funded nodes and powers knowledge capacity only w
   near(calculateStorageTotals(s, { ...stopped, moonBaseUnits: stopped.moon.baseUnits }).knowledge, baseline);
   s.stoppedBuildings.subcomputeNode = 0; s.stoppedBuildings.quantizedCompressionModule = 4;
   assert.equal(calculateDigitalSupport(s, 25).compressionUnits, 1);
-  s.resources.energy = 0;
+  supplyPower(s, 0);
   assert.equal(calculateProduction(s).digital.cpuUsed, 0);
   // 2.5 bandwidth cannot fund a 3-bandwidth node, even with downloads stopped.
   s.stoppedBuildings.downloadExecutable = 1;
@@ -160,7 +167,7 @@ test('data compression boosts only supported freight capacity with additive perc
   s.tech.push('fieldConstraintTheory', 'dimensionBeaconDeployment');
   s.buildings.dataCompression = 2; s.buildings.anchorFreightStation = 1;
   s.buildings.hyperspaceSpaceport = 1; s.buildings.constraintArray = 3;
-  s.resources.energy = 100000; s.resources.helium3 = 100000; s.resources.e710 = 1000;
+  supplyPower(s, 100000); s.resources.helium3 = 100000; s.resources.e710 = 1000;
   const snap = calculateSupportPreview(s); assert.equal(snap.stageThree.freight, 1);
   const total = calculateStorageTotals(s, { ...snap, moonBaseUnits: snap.moon.baseUnits }).wood;
   const details = calculateStorageDetails('wood', s, { ...snap, moonBaseUnits: snap.moon.baseUnits });
@@ -172,10 +179,11 @@ test('data compression boosts only supported freight capacity with additive perc
 });
 
 test('gateway reservation is paid once and cannot be spent again by upstream support', () => {
-  const s = digital(); s.resources.energy = 25; s.buildings.biologyLab = 1;
+  const s = digital(); supplyPower(s, 25); s.buildings.biologyLab = 1;
   const result = calculateProduction(s);
   near(result.digital.gatewayUnits, 1); near(result.inputUnits.biologyLab || 0, 0);
-  near(result.rates.energy, -25); near(result.pool.energy, 0);
-  s.resources.energy = 0;
+  assert.deepEqual(result.power, { generated: 25, used: 25, available: 0 });
+  near(result.rates.energy, 0); near(result.pool.energy, 0);
+  supplyPower(s, 0);
   assert.equal(calculateProduction(s).digital.used, 0);
 });

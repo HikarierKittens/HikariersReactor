@@ -9,6 +9,7 @@ import { calculateResourceBreakdown, calculateResourceFactorRows } from '../src/
 import { changeWorkerAssignment } from '../src/simulation/commands';
 import { applyResearchSideEffects } from '../src/simulation/purchases';
 import { isBuildingUnderworking } from '../src/vue/building-status';
+import { supplyPower } from './support/power';
 
 test('fractional automation payments never leave negative floating energy', () => {
   for (const id of ['cementWorkshop', 'mine', 'coalMine'] as const) {
@@ -29,7 +30,7 @@ function gatheringState() {
   state.buildings.quarry = 3;
   state.workers.lumber = 4;
   state.workers.quarry = 6;
-  state.resources.energy = 100;
+  supplyPower(state, 100);
   return state;
 }
 function close(actual: number, expected: number) {
@@ -43,7 +44,8 @@ test('automatedMining gates gathering controls, energy expense, and the separate
   assert.equal(hasContinuousEnergyInput('quarry', state), false);
   assert.equal(manual.inputUnits.automatedLumber, 0);
   assert.equal(manual.inputUnits.automatedQuarry, 0);
-  close(manual.rates.energy, 0);
+  assert.deepEqual(manual.power, { generated: 100, used: 0, available: 100 });
+  close(manual.rates.energy, 100);
   close(manual.rates.wood, 4 * 3 * 1.04);
   close(manual.rates.stone, 6 * 3 * 1.06);
   state.tech.push('automatedMining');
@@ -55,7 +57,8 @@ test('automatedMining gates gathering controls, energy expense, and the separate
   assert.deepEqual(calculateBuildingInput('quarry', state), {});
   assert.equal(powered.inputUnits.automatedLumber, 2);
   assert.equal(powered.inputUnits.automatedQuarry, 3);
-  close(powered.rates.energy, -5);
+  assert.deepEqual(powered.power, { generated: 100, used: 5, available: 95 });
+  close(powered.rates.energy, 95);
   close(powered.rates.wood, manual.rates.wood * 1.1);
   close(powered.rates.stone, manual.rates.stone * 1.15);
   assert.deepEqual(state, before, 'preview must not mutate assignments or resources');
@@ -65,21 +68,27 @@ test('gathering automation funds only full units for every dt and leaves fractio
   for (const dt of [.2, 1, 3]) {
     const state = gatheringState();
     state.tech.push('automatedMining');
-    state.resources.energy = 3.75 * dt;
+    supplyPower(state, 3.75);
     const result = calculateProduction(state, dt);
     assert.equal(result.inputUnits.automatedLumber, 2);
     assert.equal(result.inputUnits.automatedQuarry, 1);
-    close(result.rates.energy, -3);
-    close(result.pool.energy, .75 * dt);
+    assert.equal(result.power.generated, 3.75);
+    assert.equal(result.power.used, 3);
+    close(result.power.available, .75);
+    close(result.rates.energy, .75);
+    assert.equal(result.pool.energy, 0, 'electricity is a fixed budget, not stored');
     close(result.rates.wood, 4 * 3 * 1.04 * 1.1);
     close(result.rates.stone, 6 * 3 * 1.06 * 1.05);
     assert.equal(isBuildingUnderworking('lumber', state, result), false);
     assert.equal(isBuildingUnderworking('quarry', state, result), true);
-    state.resources.energy = .75 * dt;
+    supplyPower(state, .75);
     const unfunded = calculateProduction(state, dt);
     assert.equal(unfunded.inputUnits.automatedLumber, 0);
     assert.equal(unfunded.inputUnits.automatedQuarry, 0);
-    close(unfunded.rates.energy, 0);
+    assert.equal(unfunded.power.used, 0);
+    close(unfunded.power.generated, .75);
+    close(unfunded.power.available, .75);
+    close(unfunded.rates.energy, .75);
     close(unfunded.rates.wood, 4 * 3 * 1.04);
     close(unfunded.rates.stone, 6 * 3 * 1.06);
   }
@@ -111,7 +120,8 @@ test('stopping gathering buildings disables automation only, retaining owned boo
   const result = calculateProduction(state);
   assert.equal(result.inputUnits.automatedLumber, 1);
   assert.equal(result.inputUnits.automatedQuarry, 0);
-  close(result.rates.energy, -1);
+  assert.deepEqual(result.power, { generated: 100, used: 1, available: 99 });
+  close(result.rates.energy, 99);
   close(result.rates.wood, 30 * 3 * 1.04 * 1.05);
   close(result.rates.stone, 40 * 3 * 1.06);
   assert.equal(isBuildingUnderworking('lumber', state, result), false);
@@ -162,7 +172,8 @@ test('research defaults newly powered gathering buildings off without changing w
   const result = calculateProduction(state);
   assert.equal(result.inputUnits.automatedLumber, 0);
   assert.equal(result.inputUnits.automatedQuarry, 0);
-  close(result.rates.energy, 0);
+  assert.deepEqual(result.power, { generated: 100, used: 0, available: 100 });
+  close(result.rates.energy, 100);
   close(result.rates.wood, 4 * 3 * 1.04);
   close(result.rates.stone, 6 * 3 * 1.06);
   assert.equal(state.workers.lumber, 4);
@@ -174,7 +185,7 @@ test('manual gathering worker assignments remain unlimited and independent of au
     const state = gatheringState();
     if (automated) state.tech.push('automatedMining');
     state.population = 80;
-    state.resources.energy = 0;
+    supplyPower(state, 0);
     state.stoppedBuildings.lumber = 2;
     state.stoppedBuildings.quarry = 3;
     assert.equal(calculateWorkerCapacity('lumber', state), Infinity);

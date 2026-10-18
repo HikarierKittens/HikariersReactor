@@ -8,6 +8,7 @@ import { calculateSupportPreview } from '../src/simulation/support-preview';
 import { calculateBuildingScale, calculateDynamicCreep, calculateHarmonyCreepReduction, HARMONY_BUILDING_IDS } from '../src/simulation/costs';
 import { BUILDINGS } from '../src/data/buildings';
 import { isPrestigeResourceUnlocked } from '../src/simulation/prestige-unlocks';
+import { supplyPower } from './support/power';
 
 const fresh = () => createInitialState(CONFIG.version, 60, 1000);
 
@@ -31,14 +32,14 @@ test('ascension exact rewards: knowledge logarithm, 2000 softcap, final integer 
 });
 
 test('ascension gate requires all segments, enabled core and actual funded support', () => {
-  const s = fresh(); s.resources.energy = 1e12;
+  const s = fresh(); supplyPower(s, 1e6);
   s.buildings.agiAscensionCore = 99;
   assert.equal(launchDigitalAscension(s, 60, 2000), null);
   s.buildings.agiAscensionCore = 100; s.stoppedBuildings.agiAscensionCore = 100;
   assert.equal(launchDigitalAscension(s, 60, 2000), null);
-  s.stoppedBuildings.agiAscensionCore = 0; s.resources.energy = 0;
+  s.stoppedBuildings.agiAscensionCore = 0; supplyPower(s, 0);
   assert.equal(launchDigitalAscension(s, 60, 2000), null);
-  s.resources.energy = 1e12;
+  supplyPower(s, 1e6);
   assert.ok(calculateSupportPreview(s).digital.ascensionCoreUnits >= 1);
   const before = structuredClone(s);
   assert.ok(launchDigitalAscension(s, 60, 2000));
@@ -46,7 +47,7 @@ test('ascension gate requires all segments, enabled core and actual funded suppo
 });
 
 test('ascension keeps permanent state, resets run, records totals and sticky harmony unlock', () => {
-  const s = fresh(); s.buildings.agiAscensionCore = 100; s.resources.energy = 1e12;
+  const s = fresh(); s.buildings.agiAscensionCore = 100; supplyPower(s, 1e6);
   s.population = 115; s.soldiers = 10;
   s.prestige.particles = 50; s.prestige.casimir = 30; s.prestige.darkEnergy = 4;
   s.prestige.harmonyCrystals = 7; s.prestige.ascensionResets = 2;
@@ -91,7 +92,7 @@ test('harmony reduces only non-ground creep, respects floors and leaves fixed se
 
 test('ascension rejects unsafe reward totals or counters without mutation', () => {
   for (const key of ['particles', 'casimir', 'harmonyCrystals', 'ascensionResets'] as const) {
-    const s = fresh(); s.buildings.agiAscensionCore = 100; s.resources.energy = 1e12; s.population = 115;
+    const s = fresh(); s.buildings.agiAscensionCore = 100; supplyPower(s, 1e6); s.population = 115;
     s.prestige[key] = Number.MAX_SAFE_INTEGER;
     const before = structuredClone(s);
     assert.equal(launchDigitalAscension(s, 60, 2000), null, key);

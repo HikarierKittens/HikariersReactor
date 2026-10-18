@@ -10,6 +10,8 @@ import { advanceSoldierTraining } from '../src/simulation/military';
 import { calculateOperationalSoldierCapacity, calculateSoldierCapacity } from '../src/simulation/government';
 import { calculateKnowledgeMultiplier, calculateProductionMultiplier, calculateChallengeAcceleratorMultiplier, calculateFactoryOutputMultiplier } from '../src/simulation/multipliers';
 import { calculateQuantumSnapshot } from '../src/simulation/quantum';
+import { calculateResourceBreakdown } from '../src/simulation/resource-breakdown';
+import { supplyPower } from './support/power';
 
 const fresh = () => createInitialState(CONFIG.version, 60, 0);
 const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-8, `${a} != ${b}`);
@@ -45,14 +47,34 @@ test('AES knowledge bonus requires explicit funded context and preserves ordinar
   near(calculateKnowledgeMultiplier(s, 1, { aesUnits: 2 }), ordinary + .3);
 });
 
-test('quantum consumes the supplied AGI snapshot and flat bonus is independent of supercores', () => {
+test('AES funded knowledge bonus reaches actual production and resource breakdown exactly once', () => {
+  const s = fresh(); s.buildings.cellCore = 1; s.buildings.aesComputeModule = 1;
+  supplyPower(s, 1000); s.buildings.lab = 1; s.workers.lab = 1;
+  for (const dt of [.2, 1]) {
+    const on = calculateProduction(s, dt);
+    assert.equal(on.digital.aesUnits, 1);
+    s.stoppedBuildings.aesComputeModule = 1;
+    const off = calculateProduction(s, dt);
+    s.stoppedBuildings.aesComputeModule = 0;
+    near(on.rates.knowledge, off.rates.knowledge * 1.1);
+    near(calculateResourceBreakdown('knowledge', s, on).net, on.rates.knowledge);
+  }
+});
+
+test('funded AGI adds fifty percentage points to the base quantum multiplier alongside supercores', () => {
   const s = fresh(); s.buildings.agiCoreComponent = 100;
   const support = calculateSupportPreview(s);
   const snapshot = { ...support, moonBaseUnits: support.moon.baseUnits };
-  const off = calculateQuantumSnapshot(s, { ...snapshot, digital: { ...support.digital, agiComponentUnits: 0 } }, 4);
-  const on = calculateQuantumSnapshot(s, { ...snapshot, digital: { ...support.digital, agiComponentUnits: 1 } }, 4);
-  near(on.level - off.level, .5); near(on.agi, .5);
-  assert.equal(off.level, 0);
+  const funded = { ...snapshot, digital: { ...support.digital, agiComponentUnits: 1 } };
+  assert.equal(calculateQuantumSnapshot(s, funded, 4).level, 0, 'AGI never bypasses AI II');
+  s.tech.push('artificialIntelligenceII'); s.buildings.library = 100;
+  for (const cores of [0, 4]) {
+    const off = calculateQuantumSnapshot(s, { ...snapshot, digital: { ...support.digital, agiComponentUnits: 0 } }, cores);
+    const on = calculateQuantumSnapshot(s, funded, cores);
+    assert.ok(on.base > 0); near(on.agi, .5);
+    near(off.level, Math.floor(off.base * (1 + .25 * cores) * 100) / 100);
+    near(on.level, Math.floor(on.base * (1 + .25 * cores + .5) * 100) / 100);
+  }
 });
 
 test('funded production previews agree at fractional and whole ticks without recursion or mutation', () => {
@@ -60,7 +82,7 @@ test('funded production previews agree at fractional and whole ticks without rec
     const s = fresh(); s.buildings.cellCore = 1; s.buildings.worldSimulator = 1;
     s.buildings.agiCoreComponent = 100;
     s.buildings.lab = 1; s.workers.lab = 1;
-    s.resources.energy = 1000; s.resources.water = 10000;
+    supplyPower(s, 1000); s.resources.water = 10000;
     const before = structuredClone(s), result = calculateProduction(s, dt);
     assert.equal(result.digital.worldSimulatorUnits, 1); assert.equal(result.digital.agiComponentUnits, 1);
     assert.equal(result.digital.aesUnits, 0);
@@ -68,7 +90,7 @@ test('funded production previews agree at fractional and whole ticks without rec
     near(result.quantum.agi, .5); near(previewMorale(s, dt).happiness, result.morale.happiness);
     near(calculateQuantumSnapshot(s, undefined, undefined, dt).agi, .5);
     assert.deepEqual(s, before);
-    s.resources.energy = 0;
+    supplyPower(s, 0);
     const off = calculateProduction(s, dt);
     assert.equal(off.digital.worldSimulatorUnits, 0); assert.equal(off.digital.agiComponentUnits, 0);
     near(off.morale.worldSimulator, 0); near(off.morale.agi, 0); near(off.quantum.agi, 0);
@@ -77,9 +99,10 @@ test('funded production previews agree at fractional and whole ticks without rec
 
 test('bytes and encrypted data participate in ordinary happiness, accelerator and factory mechanics', () => {
   const s = fresh();
+  s.challenge.genes = ['particleImbalance']; s.buildings.particleAccelerator = 3;
   for (const resource of ['bytes', 'encryptedData'] as const) {
     near(calculateProductionMultiplier(resource, 140, s), calculateProductionMultiplier('wood', 140, s));
-    near(calculateChallengeAcceleratorMultiplier(resource, s), 1);
+    near(calculateChallengeAcceleratorMultiplier(resource, s), 1.15);
     const before = calculateFactoryOutputMultiplier(resource, 140, s, 1);
     s.government = 'industrialism';
     near(calculateFactoryOutputMultiplier(resource, 140, s, 1), before * 1.25);

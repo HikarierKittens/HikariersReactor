@@ -9,18 +9,21 @@ import { settlePowerPlants } from '../src/simulation/power';
 import { settleQuantumCores } from '../src/simulation/quantum';
 import { buildSettlementLedger } from '../src/simulation/support-preview';
 import { replaySettledPool } from '../src/simulation/pool-replay';
+import { supplyPower } from './support/power';
 import type { ResourceId } from '../src/types/economy';
 const near = (a:number,b:number) => assert.ok(Math.abs(a-b)<1e-7, `${a} != ${b}`);
 function state() {
  const s=createInitialState(CONFIG.version,60,0);
  s.tech.push('dimensionBeaconDeployment','gasCloudAccretion','largeMiningShips','hyperspaceMiningSurvey','highTechFarmPlatform');
 
- Object.assign(s.resources,{energy:1000,helium3:100,deuterium:10});
+ Object.assign(s.resources,{helium3:100,deuterium:10});
  s.buildings.hyperspaceSpaceport=1;s.buildings.gasCloudMiningShip=1;s.buildings.metalMiningShip=1;
+ supplyPower(s,1000);
  return s;
 }
 test('hyperspace sources no longer receive a port bonus and keep breakdown parity',()=>{
  const s=state(), p=calculateProduction(s,.2);
+ assert.equal(p.pool.energy,0,'electricity is a fixed budget, not stored');
  assert.equal(p.outputs.metalMiningShip,1);
  near(p.rates.stone,8); near(p.rates.copper,4); near(p.rates.aluminum,3);
  near(p.rates.deuterium,.25-.2); near(p.rates.helium3,2-5);

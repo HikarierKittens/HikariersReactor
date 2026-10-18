@@ -18,7 +18,6 @@ export function isFactoryLineUnlocked(id: string, state: GameState): boolean {
   return (!tech || state.tech.includes(tech)) && isResourceUnlocked(id, state);
 }
 export function settleFactoryLines(state: GameState, pool: ResourceAmounts, dt: number, happiness: number, support: AsrielSupport, fuelMultiplier?: number, quantumLevel = 0) {
-  const quantumMultiplier = calculateQuantumManufacturingMultiplier(state, quantumLevel);
   const inputs: Record<string, number> = {}, outputs: Record<string, number> = {};
   const ground = Math.min(countRunningBuildings('factory', state), Math.max(0, pool.energy) / (3 * dt));
   inputs.factory = outputs.factory = ground;
@@ -49,10 +48,10 @@ export function settleFactoryLines(state: GameState, pool: ResourceAmounts, dt: 
     inputs[option.id] = outputs[option.id] = actual;
     for (const [id, value] of ingredients) pool[id] = Math.max(0, pool[id] - value * actual * dt);
     // Current factory recipes never produce knowledge; keep that contract explicit.
-    for (const [id, value] of products) pool[id] += value * actual * calculateFactoryOutputMultiplier(id, happiness, state, 1) * quantumMultiplier * dt;
+    for (const [id, value] of products) pool[id] += value * actual * calculateFactoryOutputMultiplier(id, happiness, state, 1) * calculateQuantumManufacturingMultiplier(state, id, quantumLevel) * dt;
     for (const [id, value] of products) if (space > 0 && id !== 'energy' && id !== 'knowledge') {
       const share = space / (poweredLines || 1);
-      pool[id] += value * actual * calculateFactoryOutputMultiplier(id, happiness, state, 1) * quantumMultiplier * dt * share * (calculateSpaceMultiplier('spaceFactory', state, support) - 1);
+      pool[id] += value * actual * calculateFactoryOutputMultiplier(id, happiness, state, 1) * calculateQuantumManufacturingMultiplier(state, id, quantumLevel) * dt * share * (calculateSpaceMultiplier('spaceFactory', state, support) - 1);
     }
   }
   return { inputs, outputs };

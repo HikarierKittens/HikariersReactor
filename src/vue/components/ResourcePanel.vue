@@ -20,7 +20,7 @@ const groups = computed(() => {
   const rows = (Object.keys(RESOURCES) as ResourceId[])
     .filter(id => !RESOURCES[id].crafted && resourceUnlocked(id, props.state))
     .map(id => {
-      const cap = storageCap(id, props.state, props.revision);
+      const cap = id === 'energy' ? 0 : storageCap(id, props.state, props.revision);
       return { id, ...RESOURCES[id], amount: props.state.resources[id], cap,
         rate: production.value.rates[id], fill: cap > 0 ? Math.max(0, Math.min(100, props.state.resources[id] / cap * 100)) : 0 };
     });
@@ -43,11 +43,19 @@ const dnaRow = computed(() => {
       <div :id="group.id" class="res-list">
         <div v-for="row in group.rows" :key="row.id" class="res-row" :data-resource-id="row.id">
           <span class="res-name">{{ row.name }}</span>
+          <template v-if="row.id === 'energy'">
+            <span class="res-amount" tabindex="0" data-building-tip="energy" data-tip-kind="resource" aria-label="查看电力固定供给与占用">
+              <b>{{ formatResourceNumber(production.power.available) }}</b><i>/ {{ formatResourceNumber(production.power.generated) }}</i>
+            </span>
+            <span class="res-rate power-label">可用电力 / 总发电量</span>
+          </template>
+          <template v-else>
           <span class="res-amount" tabindex="0" :data-building-tip="row.id" data-tip-kind="storage" :aria-label="`查看${row.name}储量明细`">
             <b>{{ row.id === 'bytes' ? formatByteNumber(row.amount) : formatResourceNumber(row.amount) }}</b><i>/ {{ row.id === 'bytes' ? formatByteNumber(row.cap) : formatResourceNumber(row.cap) }}</i>
           </span>
           <span class="res-rate" :class="{ 'is-deficit': row.rate < 0 }" tabindex="0" :data-building-tip="row.id" data-tip-kind="resource" :aria-label="`查看${row.name}每秒收支明细`">{{ row.id === 'bytes' ? (row.rate >= 0 ? '+' : '') + formatByteNumber(row.rate, true) + '/s' : signedRate(row.rate) }}</span>
           <span class="res-fill" :style="{ width: `${row.fill}%` }"></span>
+          </template>
         </div>
       </div>
     </template>

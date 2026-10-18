@@ -16,7 +16,7 @@ export const RESOURCES: Record<ResourceId, ResourceDefinition> = {
   water: { name: '水', icon: '', cap: 0, unlockBy: 'iceMiningShip' },
   cash: { name: '$', icon: '', cap: 1000 },
   fur: { name: '毛皮', icon: '', cap: 100 },
-  energy: { special: true, name: '电力', icon: '', tech: 'electricity', cap: 10000 },
+  energy: { special: true, name: '电力', icon: '', tech: 'electricity', cap: 0 },
   knowledge: { special: true, name: '知识', icon: '', tech: 'writing', cap: 1000 },
   bytes: { name: '字节', icon: '', cap: 10000, special: true, tech: 'aiCoreCalibration' },
   encryptedData: { name: '加密数据', icon: '', cap: 50000, special: true, tech: 'encryptedDataAnalysis' },

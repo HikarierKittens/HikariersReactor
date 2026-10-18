@@ -1,4 +1,4 @@
-import { settlePowerPlants, type PowerResult } from './power';
+import { settlePowerPlants, calculatePowerBudget, type PowerBudget } from './power';
 import { settleDigitalSupport, type DigitalSupport } from './digital-world';
 import { settleQuantumCores } from './quantum';
 import { settleSpaceProduction } from './space-settlement';
@@ -9,6 +9,8 @@ import type { ResourceAmounts, AsrielSupport } from '../types/economy';
 
 import type { StageThreeSupport } from './stage-three-support';
 export interface SupportPreview {
+  /** Budget remaining at this support-preview boundary, in fixed power units. */
+  power: PowerBudget;
   digital: DigitalSupport;
   stageThree: StageThreeSupport;
   pool: ResourceAmounts;
@@ -30,8 +32,8 @@ export interface SupportPreview {
 }
 
 /**
- * The one paid settlement per (state, dt, quantumLevel): quantum cores, power
- * plants, waystations, lunar/Asriel/stage-three maintenance, e710 warehouse and
+ * The one paid settlement per (state, dt, quantumLevel): power plants, quantum
+ * cores, waystations, lunar/Asriel/stage-three maintenance, e710 warehouse and
  * research units are derived exactly once. The support preview consumes the
  * unit counts; the production tick consumes the same units through its own
  * pool flow, which must never observe this scratch pool.
@@ -56,8 +58,9 @@ export function calculateSupportPreview(state: GameState, dt = 1, quantumLevel?:
 export function buildSettlementLedger(state: GameState, dt = 1, quantumLevel?: number): SettlementLedger {
   if (!Number.isFinite(dt) || dt <= 0) throw new RangeError('dt must be positive and finite');
   const pool = { ...state.resources };
-  const aiSupercoreUnits = settleQuantumCores(state, pool, dt);
+  // Supply first, then reserve AI cores before every other consumer.
   const plants = settlePowerPlants(pool, dt, state, quantumLevel);
+  const aiSupercoreUnits = settleQuantumCores(state, pool, dt);
   const digital = settleDigitalSupport(state, pool, dt);
   // Happiness only scales ordinary space outputs, never power or maintenance.
   const space = settleSpaceProduction(state, pool, dt, 1, plants.inputUnits.geothermalPlant || 0, plants.inputUnits.hydrogenPowerPlant || 0);
@@ -69,6 +72,7 @@ export function buildSettlementLedger(state: GameState, dt = 1, quantumLevel?: n
   const dataCenterUnits = Math.min(dataRunning, Math.floor((Math.max(0, pool.energy) + 1e-8) / (3 * dt)));
   // Preserve the research-power API: pool reserves biology but not observatories.
   return {
+    power: calculatePowerBudget(plants.energy, pool.energy, dt),
     digital,
     stageThree: space.stageThree,
     pool, moon: space.moon, asriel: space.asriel, metalRefineryUnits: space.metalRefineryUnits,

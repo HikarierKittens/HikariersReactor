@@ -84,9 +84,6 @@ export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: 
   if (id === 'orbitalFuelDepot') return { oil: 2000, helium3: 1000, uranium: 500 };
   if (id === 'fuelDepot') return { oil: 1000, ...(state.tech.includes('uraniumStorage') ? { uranium: 250 } : {}), ...(state.tech.includes('helium3Storage') ? { helium3: 500 } : {}) };
   if (id === 'refinery') return { oil: 250 };
-  if (id === 'solarSatellite') return { energy: 500 };
-  if (id === 'batteryStation') return { energy: state.tech.includes('batteryConcentrationRing') ? 5000 : 1000 };
-  if (id === 'generator') return { energy: 100 };
   const boostResource = BUILDINGS[id].boostResource;
   return boostResource ? { [boostResource]: 100 } : {};
 }

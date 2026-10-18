@@ -14,6 +14,7 @@ import { SHIP_COMPONENTS, calculateShipComponentRemainingCost, calculateShipComp
 import { CONFIG } from '../../data/config';
 import { floorWithPrecision, formatEffectNumber, formatResourceNumber, formatCostNumber, formatByteNumber } from '../../shared/format';
 import { calculateFoodPerCat } from '../../simulation/population';
+import { withoutPowerCost } from '../../simulation/one-time-cost';
 import { calculateBuildingCost, isBuildingFullyBuilt } from '../../simulation/costs';
 import { describeQueuedPurchases } from '../../simulation/purchases';
 import { calculateTechCost, calculateTrainingBoost, calculateBankerTaxRate, BANKER_TAX_BONUS, STOCK_EXCHANGE_BANKER_BONUS, GOVERNMENTS } from '../../simulation/government';
@@ -23,7 +24,7 @@ import { getBuildingEffectRows, calculateFreightCapacityMultiplier, SPACE_RIPPER
 import { calculateStorageBonuses } from '../../simulation/storage-bonuses';
 import { calculateStorageDetails, calculateDarkEnergyStorageBonus } from '../../simulation/storage';
 import { calculateHousingDetails } from '../../simulation/housing';
-import { calculateQuantumSnapshot, calculateQuantumLevel } from '../../simulation/quantum';
+import { calculateQuantumSnapshot, calculateQuantumLevel, calculateQuantumSwarmFactoryReduction } from '../../simulation/quantum';
 import { uiPreview } from '../preview-cache';
 import { calculateGravityConversionEnergy, formatBlackHoleMass } from '../../simulation/black-hole';
 import { calculateResourceBreakdown, calculateResourceFactorRows, calculateResourceExpenseRows, signedRate } from '../../simulation/resource-breakdown';
@@ -61,7 +62,7 @@ interface TipContent {
 }
 function number(n: number): string { return Number.isFinite(n) ? fmt(n) : '∞'; }
 function recipeText(recipe: ResourceRecipe, suffix = ''): string {
-  return orderedCostEntries(recipe).map(([id, amount]) => `${RESOURCES[id as ResourceId].name} ${number(amount)}${suffix}`).join(' · ');
+  return orderedCostEntries(recipe).map(([id, amount]) => `${RESOURCES[id as ResourceId].name} ${number(amount)}${id === 'energy' ? '' : suffix}`).join(' · ');
 }
 const content = computed<TipContent | null>(() => {
   props.revision;
@@ -76,7 +77,7 @@ const content = computed<TipContent | null>(() => {
     tip.rows.push({ name, value, negative, effectType, ...(note === undefined ? {} : { note }) });
   };
   const snapshot = storageSnapshot(state, 1, props.revision);
-  const prices = (cost: ResourceRecipe) => orderedCostEntries(cost).map(([id, amount]) => ({
+  const prices = (cost: ResourceRecipe) => orderedCostEntries(withoutPowerCost(cost)).map(([id, amount]) => ({
     id,
     name: RESOURCES[id as ResourceId].name,
     amount,
@@ -92,11 +93,12 @@ const content = computed<TipContent | null>(() => {
     const quantum = calculateQuantumSnapshot(state);
     const decimal = (value: number) => (floorWithPrecision(value * 100) / 100).toFixed(2);
     tip.title = '量子水平';
-    tip.description = '基础量子水平由当前知识容量决定；建成的AI超级核心获得供能且支付氦-3维护时，每个核心按基础水平增加25%。';
+    tip.description = '人工智能 II 解锁量子水平。基础水平按知识容量对数增长；完整建成且维护已支付的AI超级核心每个增加25%基础水平，AGI核心组件每个增加50%基础水平。';
     add('知识容量', formatResourceNumber(quantum.knowledgeCapacity));
-    add('基础水平：知识容量 / 100000', decimal(quantum.base));
-    add('实际生效核心', String(quantum.cores));
-    add('核心倍率', `×${decimal(1 + .25 * quantum.cores)}`);
+    add('基础水平：log1p(0.1 × 知识容量 / 250000) / log1p(0.1)', decimal(quantum.base));
+    add('实际生效AI超级核心', String(quantum.cores));
+    add('AGI基础倍率加成', `+${percent(quantum.agi * 100)}%`);
+    add('最终倍率', `×${decimal(1 + .25 * quantum.cores + quantum.agi)}`);
     add('量子水平', decimal(quantum.level));
     tip.footnote = '量子水平截断到小数点后两位；未完成或缺少氦-3的核心不提供加成。';
   } else if (target.kind === 'craftJob' && Object.hasOwn(CRAFT_RECIPES, target.id)) {
@@ -134,10 +136,10 @@ const content = computed<TipContent | null>(() => {
         const jobMultiplier = calculateToolMultiplier(id, state)
           * (id === 'forage' && state.tech.includes('agriculture') ? 1.5 : 1)
           * (id === 'forage' && state.tech.includes('agriculturalMachinery') ? 2 : 1);
-        if (amount) add(RESOURCES[resource as ResourceId].name, `+${number(amount * jobMultiplier)}/s`);
+        if (amount) add(RESOURCES[resource as ResourceId].name, `+${number(amount * jobMultiplier)}${resource === 'energy' ? '' : '/s'}`);
       }
       for (const [resource, amount] of orderedCostEntries(building.input || {})) {
-        if (amount) add(RESOURCES[resource as ResourceId].name, `-${number(amount)}/s`, true);
+        if (amount) add(RESOURCES[resource as ResourceId].name, `-${number(amount)}${resource === 'energy' ? '' : '/s'}`, true);
       }
     }
   } else if (target.kind === 'building' && Object.hasOwn(BUILDINGS, target.id)) {
@@ -146,12 +148,12 @@ const content = computed<TipContent | null>(() => {
     const id = target.id as BuildingId, building = BUILDINGS[id];
     const count = state.buildings[id] || 0;
     tip.title = calculateBuildingName(id, state);
-    if (['alienMaterialLab', 'aiSupercore', 'swarmFactory', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'signalRepeater', 'hydrogenPowerPlant', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'vrCenter', 'stellarForge', 'blackHoleStation', 'penroseSphere', 'massEjector'].includes(id)) tip.description = building.desc || '';
+    if (['alienMaterialLab', 'aiSupercore', 'swarmFactory', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'signalRepeater', 'hydrogenPowerPlant', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'vrCenter', 'stellarForge', 'blackHoleStation', 'penroseSphere', 'dysonSphere', 'massEjector'].includes(id)) tip.description = building.desc || '';
     // 质量喷射 reveals the black hole's masses on the sphere it feeds.
     if (id === 'penroseSphere' && (state.buildings.massEjector || 0) > 0) tip.description += `\n黑洞质量：${formatBlackHoleMass(state.blackHole.mass)}\n奇异质量：${formatBlackHoleMass(state.blackHole.exoticMass)}`;
-    if (id === 'penroseSphere' && state.tech.includes('gravityConversion')) tip.description += `\n引力转化：电力+${formatEffectNumber(calculateGravityConversionEnergy(state))}/s`;
+    if (id === 'penroseSphere' && state.tech.includes('gravityConversion')) tip.description += `\n引力转化：电力+${formatEffectNumber(calculateGravityConversionEnergy(state))}`;
     if (id === 'iceMiningShip' && state.tech.includes('icebreakingPlan')) tip.description = (building.desc || '').replace('水产量+1/s', '水产量+1.25/s');
-    if (id === 'aiSupercore') tip.description = `world.exection(cat);\n分段进度： ${Math.min(count, building.segmentedRequired!)} /${building.segmentedRequired}\n量子水平 +25%\n氦-3 - 25/s\n电力 - 100/s`;
+    if (id === 'aiSupercore') tip.description = `world.exection(cat);\n分段进度： ${Math.min(count, building.segmentedRequired!)} /${building.segmentedRequired}\n量子水平 +25%\n氦-3 - 25/s\n电力 - 100`;
     const queueUid = Number(anchor.value?.dataset.queueUid);
     // Resolve by stable uid, but recompute the ordinal price from the current queue.
     // Removing an earlier duplicate shifts all later quotes without changing their identity.
@@ -180,14 +182,14 @@ const content = computed<TipContent | null>(() => {
     }
     for (const [job, slots] of Object.entries(building.jobSlots || {}) as [BuildingId, number][]) add(`${BUILDINGS[job].workerName}上限`, `+${number(slots)}`);
     if (id === 'swarmFactory') {
-      const reduction = .1 + (state.tech.includes('quantumSwarm') ? Math.floor(calculateQuantumLevel(state) / 5) * .01 : 0);
-      add('蜂群卫星价格', `-${percent(reduction * 100)}%`);
+      const reduction = calculateQuantumSwarmFactoryReduction(state, calculateQuantumLevel(state));
+      add('每座蜂群卫星价格', `-${percent(reduction * 100)}%`, false, '各工厂折扣复合计算；蜂群卫星总成本最多降低95%。');
     }
     // Building effects only: worker production belongs in the worker/resource details.
     // 冶炼厂 only grants 冶炼厂工位; the slot recipe lives in the smelter settings modal.
     if (!building.workerOutput && !building.asrielSource && id !== 'smelter') {
       for (const [resource, amount] of orderedCostEntries(calculateBuildingOutput(id, state))) {
-        add(RESOURCES[resource as ResourceId].name, `+${resource === 'bytes' ? formatByteNumber(amount, false, 10000) : number(amount)}/s`, false, undefined, 'production');
+        add(RESOURCES[resource as ResourceId].name, `+${resource === 'bytes' ? formatByteNumber(amount, false, 10000) : number(amount)}${resource === 'energy' ? '' : '/s'}`, false, undefined, 'production');
       }
     }
     if ((building.workerOutput || building.artistSlots || building.craftSlots) && !building.unlimited) {
@@ -293,15 +295,14 @@ const content = computed<TipContent | null>(() => {
       if (state.tech.includes('encryptedDataAnalysis')) add('加密数据容量', `+${number(25000)}`);
     }
     if (id === 'softRouterNode') add('数据带宽', '+4');
-    if (id === 'aesComputeModule') add('知识产量', '+10%', false, '按有效运行数量累加。', 'multiplier');
-    if (id === 'agiCoreComponent') add('量子水平', '+0.5', false, '完整建成并运行时生效。');
-    if (id === 'coreCooler') add('AGI飞升核心电力消耗', '-100/s', false, '按有效运行数量累加，最低为0。');
+    if (id === 'agiCoreComponent') { add('量子水平', '+50%', false, '完整建成并运行时生效。'); add('字节产量', '+50%', false, '完整建成并运行时生效。', 'multiplier'); }
+    if (id === 'coreCooler') add('AGI飞升核心电力占用', '-100', false, '按有效运行数量累加，最低为0。');
     if (id === 'agiAscensionCore') tip.footnote = '默认关闭；完整建成、启用且获得完整供能后可数字化飞升。';
     if (id === 'ethMiner') add('现金容量', `+${number(building.cashCap!)}`);
     if (id === 'dataDecryptionModule') add('加密数据产量', '+25%', false, '按有效运行数量累加。', 'multiplier');
     if (id === 'quantumStorage') add('字节容量', `+${formatByteNumber(building.bytesCap! * (1 + .25 * (snapshot.digital?.dataCompressionUnits ?? 0)), false, 10000)}`, false, '包含有效运行数据压缩的加成。');
     if (id === 'downloadCache') add('字节产量', '+10%');
-    if (id === 'downloadExecutable') add('数据下载', '1k知识/s → 10B/s', false, '配置0%～100%的实际知识产出用于下载；不主动消耗知识库存。');
+    if (id === 'downloadExecutable') add('数据下载', '1k知识/s → 1B/s', false, '配置0%～100%的实际知识产出用于下载；不主动消耗知识库存。');
     if (building.bandwidthUse) add('数据带宽', `−${number(building.bandwidthUse)}`, true);
     if (building.cpuComputeUse) add('CPU算力', `−${number(building.cpuComputeUse)}`, true);
     const storage = calculateStorageBonuses(id, state, snapshot.moon, snapshot.asriel, snapshot.digital);
@@ -316,9 +317,9 @@ const content = computed<TipContent | null>(() => {
     if (building.moonSupport) add('月球支持', `-${number(building.moonSupport)}`, true);
     if (id === 'swarmSatellite') add('戴森群支持', '-1', true);
     if (!building.workerOutput && id !== 'smelter') for (const [resource, amount] of orderedCostEntries(calculateBuildingInput(id, state))) {
-      add(RESOURCES[resource as ResourceId].name, `-${number(amount)}/s`, true);
+      add(RESOURCES[resource as ResourceId].name, `-${number(amount)}${resource === 'energy' ? '' : '/s'}`, true);
     }
-    if (miningPowered || gatheringPowered || mixerPowered) add('电力', `-${mixerPowered ? 2 : 1}/s`, true);
+    if (miningPowered || gatheringPowered || mixerPowered) add('电力', `-${mixerPowered ? 2 : 1}`, true);
     if (id === 'aiSupercore') {
       tip.description = `world.exection(cat);\n当前量子水平：${calculateQuantumLevel(state).toFixed(2)}`;
       tip.rows = [];
@@ -326,7 +327,7 @@ const content = computed<TipContent | null>(() => {
       add('分段进度', `${Math.min(count, building.segmentedRequired!)} /${building.segmentedRequired}`);
       add('量子水平', '+25%');
       add('氦-3', '-25/s', true);
-      add('电力', '-100/s', true);
+      add('电力', '-100', true);
     }
   } else if (target.kind === 'mission' && Object.hasOwn(REGIONAL_MISSIONS, target.id)) {
     const id = target.id as RegionalMissionId, mission = REGIONAL_MISSIONS[id];
@@ -384,6 +385,25 @@ const content = computed<TipContent | null>(() => {
     if (tech.arpaPre) add('所需已建工程', `${ARPA_PROJECTS[tech.arpaPre].name} ×${tech.arpaRequiredCount || 1}`);
   } else if ((target.kind === 'storage' || target.kind === 'resource') && Object.hasOwn(RESOURCES, target.id)) {
     const id = target.id as ResourceId;
+    if (id === 'energy') {
+      const result = uiPreview.production(state, props.revision);
+      const breakdown = calculateResourceBreakdown(id, state, result);
+      tip.title = '电力固定供给与占用';
+      tip.description = '电力为固定供给，不累积库存；建筑运行时占用供电，停机后释放。';
+      add('总发电量', formatResourceNumber(result.power.generated));
+      add('已占用电力', formatResourceNumber(result.power.used));
+      add('可用电力', formatResourceNumber(result.power.available));
+      const powerRows = (kind: 'income' | 'expense') => breakdown.entries.filter(row => row.kind === kind && row.value !== 0).map(row => ({
+        name: row.name.replace(/产出$/, '供给').replace(/消耗$/, '占用'),
+        value: `${row.value < 0 ? '−' : '+'}${formatResourceNumber(Math.abs(row.value))}`,
+        negative: row.value < 0,
+        note: row.note.replace(/\/s/g, '').replace(/产量/g, '供给'),
+      }));
+      tip.income = powerRows('income');
+      tip.expense = powerRows('expense');
+      tip.footnote = '固定电力分配随建筑、供能和燃料状态重新计算，不随时间储存。';
+      return tip;
+    }
     const storage = calculateStorageDetails(id, state, snapshot);
     tip.title = `${RESOURCES[id].name}${target.kind === 'storage' ? '储量' : '收支'}`;
     if (target.kind === 'storage') {
@@ -499,6 +519,9 @@ const content = computed<TipContent | null>(() => {
     }
     tip.footnote = `${imbalance ? '粒子失衡：开局粒子不提供产量或储量加成，仅新获得的有效粒子生效。' : ''}产量加成连续递减，超过软上限后递减加速；CRISPR储量加成按有效粒子数计算，不受产量衰减影响。高级储量修饰覆盖低级效果，不叠加。`;
   } else return null;
+  if (target.kind === 'building') {
+    tip.description = tip.description.replace(/(电力(?:消耗减少)?\s*[+−-]?\s*\d+(?:\.\d+)?)\/s/g, '$1');
+  }
   return tip;
 });
 
@@ -626,16 +649,16 @@ onUnmounted(() => {
       </div>
       <div v-if="selected?.kind === 'resource'" class="resource-columns">
         <div class="resource-column">
-          <div class="resource-column-title">来源与产量倍率</div>
+          <div class="resource-column-title">{{ selected.id === 'energy' ? '固定供给' : '来源与产量倍率' }}</div>
           <div v-for="(row, index) in content.income" :key="index" class="resource-factor" :class="{ child: row.child, 'last-child': row.child && !content.income[index + 1]?.child }"><span>{{ row.name }}</span><span class="resource-factor-value" :class="{ 'is-negative': row.negative }">{{ row.value }}</span></div>
-          <p v-if="!content.income.length" class="small subtle">暂无生产来源。</p>
+          <p v-if="!content.income.length" class="small subtle">{{ selected.id === 'energy' ? '暂无供电来源。' : '暂无生产来源。' }}</p>
         </div>
         <div class="resource-column">
-          <div class="resource-column-title">消耗</div>
+          <div class="resource-column-title">{{ selected.id === 'energy' ? '固定占用' : '消耗' }}</div>
           <div class="expense-list" :class="{ 'expense-list-split': splitEnergyExpense }">
             <div v-for="(row, index) in content.expense" :key="index" class="resource-factor" :class="{ child: row.child, 'last-child': row.child && !content.expense[index + 1]?.child }"><span>{{ row.name }}</span><span class="resource-factor-value" :class="{ 'is-negative': row.negative }">{{ row.value }}</span></div>
           </div>
-          <p v-if="!content.expense.length" class="small subtle">暂无消耗。</p>
+          <p v-if="!content.expense.length" class="small subtle">{{ selected.id === 'energy' ? '暂无电力占用。' : '暂无消耗。' }}</p>
         </div>
       </div>
       <p v-if="content.footnote" class="resource-footnote">{{ content.footnote }}</p>

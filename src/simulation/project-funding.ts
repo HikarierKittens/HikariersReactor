@@ -1,19 +1,20 @@
+import { withoutPowerCost } from './one-time-cost';
 import type { ResourceId, ResourceRecipe } from '../types/economy';
 
 /** Paid fractions in percent, independent of current prices. */
 export function resourceCompletionPercent(cost: ResourceRecipe, progress: ResourceRecipe): number {
-  const entries = Object.entries(cost).filter(([, total]) => total > 0);
+  const entries = Object.entries(withoutPowerCost(cost)).filter(([, total]) => total > 0);
   return entries.length ? Math.min(...entries.map(([id]) => progress[id as ResourceId] || 0)) : 100;
 }
 
 export function calculateResourceRemainingCost(cost: ResourceRecipe, progress: ResourceRecipe): ResourceRecipe {
-  return Object.fromEntries(Object.entries(cost).map(([id, total]) => [id, total * (100 - (progress[id as ResourceId] || 0)) / 100]));
+  return Object.fromEntries(Object.entries(withoutPowerCost(cost)).map(([id, total]) => [id, total * (100 - (progress[id as ResourceId] || 0)) / 100]));
 }
 
 /** Maximum percentage any one resource can contribute; other resources never gate it. */
 export function affordableResourcePercent(cost: ResourceRecipe, stock: ResourceRecipe, progress: ResourceRecipe, requested = 100): number {
   if (!Number.isFinite(requested) || requested <= 0) return 0;
-  return Math.max(0, ...Object.entries(cost).map(([key, total]) => {
+  return Math.max(0, ...Object.entries(withoutPowerCost(cost)).map(([key, total]) => {
     const id = key as ResourceId;
     const available = stock[id] || 0;
     return total > 0 && Number.isFinite(available)
@@ -25,7 +26,7 @@ export function affordableResourcePercent(cost: ResourceRecipe, stock: ResourceR
 export function investResourceProgress(cost: ResourceRecipe, stock: ResourceRecipe, progress: ResourceRecipe, requested = 100, minimumPercent = 0): { investedPercent: number; spent: ResourceRecipe; complete: boolean } {
   const spent: ResourceRecipe = {};
   let investedPercent = 0;
-  if (Number.isFinite(requested) && requested > 0) for (const [key, total] of Object.entries(cost)) {
+  if (Number.isFinite(requested) && requested > 0) for (const [key, total] of Object.entries(withoutPowerCost(cost))) {
     const id = key as ResourceId;
     const available = stock[id] || 0;
     const paid = progress[id] || 0;

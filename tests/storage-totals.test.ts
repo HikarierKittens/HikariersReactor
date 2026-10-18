@@ -67,27 +67,17 @@ test('station science facilities scale only alien laboratory knowledge capacity'
   assert.equal(calculateStorageBonuses('library', s, null).knowledge, 100);
 });
 
-test('battery concentration ring increases base energy and replaces station capacity', () => {
+test('historical battery research cannot restore energy storage', () => {
   const state = createInitialState(CONFIG.version, 60, 0);
-  assert.equal(TECHNOLOGIES.batteryConcentrationRing.tier, 8);
-  assert.deepEqual(TECHNOLOGIES.batteryConcentrationRing.cost, { knowledge: 42114.514 });
-  assert.deepEqual(TECHNOLOGIES.batteryConcentrationRing.pre, ['electronics']);
-  assert.equal(isTechnologyUnlocked('batteryConcentrationRing', state), false);
-  state.tech.push('electronics');
-  assert.equal(isTechnologyUnlocked('batteryConcentrationRing', state), true);
-  const snapshot = snapshotOf(state);
-  assert.equal(calculateStorageTotals(state, snapshot).energy, 10000);
   state.buildings.solarSatellite = 3;
-  state.buildings.batteryStation = 2;
-  assert.equal(calculateStorageTotals(state, snapshot).energy, 13500);
-  state.tech.push('batteryConcentrationRing');
-  const details = calculateStorageDetails('energy', state, snapshot);
-  assert.equal(details.rows[0]?.value, 100000);
-  assert.equal(details.total, 111500);
-  assert.equal(calculateStorageTotals(state, snapshot).energy, details.total);
-  assert.equal(calculateStorageBonuses('batteryStation', state, null).energy, 5000);
-  assert.equal(calculateStorageBonuses('solarSatellite', state, null).energy, 500);
-  const saved = createMilestoneState('space', { extraTech: ['batteryConcentrationRing'] });
+  state.buildings.generator = 4;
+  state.tech.push('batteryConcentrationRing', 'energyStorage');
+  const snapshot = snapshotOf(state);
+  assert.deepEqual(calculateStorageDetails('energy', state, snapshot), { rows: [], total: 0 });
+  assert.equal(calculateStorageTotals(state, snapshot).energy, 0);
+  assert.equal(calculateStorageBonuses('solarSatellite', state, null).energy, undefined);
+  assert.equal(calculateStorageBonuses('generator', state, null).energy, undefined);
+  const saved = createMilestoneState('space', { extraTech: ['batteryConcentrationRing', 'energyStorage'] });
   assert.ok(validateAndMigrateSave(JSON.parse(JSON.stringify(saved)), context).tech.includes('batteryConcentrationRing'));
 });
 
@@ -104,7 +94,7 @@ function lateState(): GameState {
   for (const [id, count] of Object.entries({
     warehouse: 4, storageHub: 2, hangar: 2, bank: 3, catCafe: 2, granary: 2, library: 2, school: 3, lab: 2, observatory: 2,
     biologyLab: 3, moonBase: 2, moonObservatory: 2, e710Container: 4, e710Warehouse: 2, fuelDepot: 2, orbitalFuelDepot: 1,
-    galacticFuelDepot: 1, batteryStation: 5, anchorFreightStation: 2, civilianRouteStation: 1, hyperspaceSpaceport: 1,
+    galacticFuelDepot: 1, anchorFreightStation: 2, civilianRouteStation: 1, hyperspaceSpaceport: 1,
     iceMiningShip: 1, asteroidBase: 2, alienMaterialLab: 2, ecologicalDome: 2, swarmControlStation: 1, researchSatellite: 2,
     container: 10, steelContainer: 4, talosMoonMiningStation: 1, spaceWaystation: 1, e710MiningShip: 2,
   })) state.buildings[id as keyof typeof state.buildings] = count;

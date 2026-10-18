@@ -445,7 +445,9 @@ const queueTimes = computed(() => {
   props.store.revision();
   if (!state.value.queue.length) return new Map<number, string>();
   const caps = Object.fromEntries((Object.keys(RESOURCES) as ResourceId[]).map(id => [id, storageCap(id, state.value, props.store.revision())])) as ResourceAmounts;
-  return estimateQueueTimes(state.value, uiPreview.production(state.value, props.store.revision()).rates, caps);
+  // Queue estimates use the live tick horizon so the countdown tracks the same
+  // production the next settlement will actually pay, not a different step length.
+  return estimateQueueTimes(state.value, uiPreview.production(state.value, props.store.revision(), CONFIG.uiStepSeconds).rates, caps);
 });
 const researchQueueItems = computed(() => queuedItems.value.filter(item => item.kind === 'tech'));
 const buildingQueueItems = computed(() => queuedItems.value.filter(item => item.kind === 'build' || item.kind === 'arpa' || item.kind === 'mission' || item.kind === 'ship'));
@@ -529,9 +531,9 @@ let timer: number | undefined;
 onMounted(() => {
   props.store.refresh();
   timer = window.setInterval(() => {
-    props.store.runtime.tick(0.2);
+    props.store.runtime.tick(CONFIG.uiStepSeconds);
     props.store.refresh();
-  }, 200);
+  }, CONFIG.uiStepSeconds * 1000);
 });
 
 onUnmounted(() => {
@@ -547,7 +549,7 @@ onUnmounted(() => {
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.6.10</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.7.0</span>
     </header>
 
     <p v-if="actionError && !escapeConfirm && !blackHoleConfirm && !nuclearConfirm" class="action-error" role="alert">{{ actionError }}</p>

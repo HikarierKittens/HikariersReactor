@@ -51,6 +51,7 @@ export function calculateBuildingInput(id: BuildingId, state: GameState): Resour
   if (id === 'navigationBeacon') return { energy: state.tech.includes('spaceBroadcasting') ? 3 : 2 };
   if (id === 'metalRefinery') return state.tech.includes('advancedMetalRefining') ? { energy: 4 } : {};
   if (id === 'aiSupercore') return { helium3: 25, energy: 100 };
+  if (id === 'agiAscensionCore') return { energy: Math.max(0, 10000 - 100 * Math.max(0, (state.buildings.coreCooler || 0) - (state.stoppedBuildings?.coreCooler || 0))) };
   if (id === 'refinery' && state.tech.includes('crudeOilRefiningOptimization')) return { energy: 2 };
   const input = BUILDINGS[id].input || {};
   return applySpaceFuelDiscount(id, input, state);

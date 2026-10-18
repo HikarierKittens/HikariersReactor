@@ -12,12 +12,13 @@ import { calculateRefiningMultiplier, calculatePoweredMetalRefineryUnits } from 
 import { calculateBuildingInput, hasContinuousEnergyInput } from '../src/simulation/building-production';
 import { calculateResourceBreakdown, calculateResourceFactorRows } from '../src/simulation/resource-breakdown';
 import { applyResearchSideEffects } from '../src/simulation/purchases';
+import { supplyPower } from './support/power';
 
 function state() {
   const s = createInitialState(CONFIG.version, 60, 0);
   s.buildings.metalRefinery = 3;
   s.buildings.quarry = 1; s.workers.quarry = 1;
-  s.resources.energy = 100;
+  supplyPower(s, 100);
   return s;
 }
 function close(actual: number, expected: number) {
@@ -34,7 +35,10 @@ test('advanced refining definition and the unconditional original aluminum basel
   close(calculateProduction(s).rates.aluminum, 1.02 * 1.18);
   assert.equal(hasContinuousEnergyInput('metalRefinery', s), false);
   assert.deepEqual(calculateBuildingInput('metalRefinery', s), {});
-  close(calculateProduction(s).rates.energy, 0);
+  const result = calculateProduction(s);
+  assert.equal(result.power.used, 0);
+  close(result.power.available, 100);
+  close(result.rates.energy, 100);
 });
 
 test('funded refineries stack 8% aluminum and 1% steel and 0.5% iridium, charge exactly 4 once without workers', () => {
@@ -43,7 +47,8 @@ test('funded refineries stack 8% aluminum and 1% steel and 0.5% iridium, charge 
   const result = calculateProduction(s);
   assert.equal(s.workers.metalRefinery, 0);
   assert.equal(result.inputUnits.metalRefinery, 3);
-  close(result.rates.energy, -12);
+  assert.deepEqual(result.power, { generated: 100, used: 12, available: 88 });
+  close(result.rates.energy, 88);
   close(result.rates.aluminum, 1.02 * 1.24);
   close(calculateRefiningMultiplier('metal', s), 1.03);
   close(calculateRefiningMultiplier('iridium', s), 1.015);
@@ -58,13 +63,13 @@ test('funded refineries stack 8% aluminum and 1% steel and 0.5% iridium, charge 
 test('shortage funds whole enabled units and preserves 6% passive baseline for unfunded/stopped owned buildings', () => {
   for (const dt of [.2, 1, 3]) {
     const s = state(); s.tech.push('advancedMetalRefining');
-    s.resources.energy = 7.9 * dt;
+    supplyPower(s, 7.9);
     const before = structuredClone(s);
     const result = calculateProduction(s, dt);
     assert.equal(result.inputUnits.metalRefinery, 1);
     assert.equal(calculateSupportPreview(s, dt).metalRefineryUnits, 1);
-    close(result.rates.energy, -4);
-    close(result.pool.energy, 3.9 * dt);
+    assert.equal(result.power.generated, 7.9); close(result.power.used, 4); close(result.power.available, 3.9);
+    assert.equal(result.pool.energy, 0, 'electricity is a fixed budget, not stored');
     close(result.rates.aluminum, 1.02 * 1.2);
     close(calculateResourceBreakdown('aluminum', s, result).net, result.rates.aluminum);
     const factors = calculateResourceFactorRows('aluminum', s, result).rows;
@@ -73,11 +78,11 @@ test('shortage funds whole enabled units and preserves 6% passive baseline for u
     s.stoppedBuildings.metalRefinery = 3;
     const stopped = calculateProduction(s, dt);
     assert.equal(stopped.inputUnits.metalRefinery, 0);
-    close(stopped.rates.energy, 0);
+    assert.equal(stopped.power.generated, 7.9); close(stopped.power.used, 0); close(stopped.power.available, 7.9);
     close(stopped.rates.aluminum, 1.02 * 1.18);
     close(calculateRefiningMultiplier('metal', s), 1);
     close(calculateRefiningMultiplier('iridium', s), 1);
-    s.stoppedBuildings.metalRefinery = 0; s.resources.energy = 0;
+    s.stoppedBuildings.metalRefinery = 0; supplyPower(s, 0);
     close(calculateProduction(s, dt).rates.aluminum, 1.02 * 1.18);
   }
 });
@@ -107,7 +112,7 @@ test('existing lunar maintenance has priority and preview counts agree without r
   const s = state(); s.tech.push('advancedMetalRefining'); s.buildings.metalRefinery = 1;
   s.buildings.moonBase = 1; s.buildings.iridiumMine = 1; s.resources.oil = 100;
   for (const energy of [4, 7.9, 8]) {
-    s.resources.energy = energy;
+    supplyPower(s, energy);
     const preview = calculateSupportPreview(s);
     const production = calculateProduction(s);
     assert.equal(preview.moon.baseUnits, 1);
@@ -138,6 +143,8 @@ test('research makes existing refineries continuous-power consumers and defaults
   assert.equal(s.stoppedBuildings.metalRefinery, 3);
   assert.equal(hasContinuousEnergyInput('metalRefinery', s), true);
   assert.deepEqual(calculateBuildingInput('metalRefinery', s), { energy: 4 });
-  close(calculateProduction(s).rates.energy, 0);
-  close(calculateProduction(s).rates.aluminum, 1.02 * 1.18);
+  const settled = calculateProduction(s);
+  assert.equal(settled.power.used, 0);
+  assert.equal(settled.power.available, 100);
+  close(settled.rates.aluminum, 1.02 * 1.18);
 });

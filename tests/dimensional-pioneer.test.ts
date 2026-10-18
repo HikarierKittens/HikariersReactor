@@ -16,6 +16,7 @@ import { countRunningBuildings } from '../src/simulation/housing';
 import { isBuildingUnlocked, isTechnologyUnlocked } from '../src/simulation/unlocks';
 import { requestPurchaseModule, buyBuildingNow, buyBuildingsInBatch, queuePurchase, settlePurchaseQueue } from '../src/simulation/purchases';
 import { createMilestoneState } from './fixtures/milestones';
+import { supplyPower } from './support/power';
 import type { ResourceId } from '../src/types/economy';
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -26,8 +27,12 @@ const ERA = ['hyperspaceMiningSurvey', 'gasCloudAccretion', 'highTechFarmPlatfor
 function eraState(): GameState {
   const s = createMilestoneState('beacon');
   s.tech.push(...ERA);
+  // Fixed supply is built from fractional solar satellites, so the fixture must
+  // own their research for save validation like any real save with that supply.
+  s.tech.push('polymer', 'solarSatellite');
   s.buildings.gasCloudMiningShip = 1; // unlocks deuterium
-  Object.assign(s.resources, { energy: 1e6, water: 1e4, helium3: 1e4, e710: 5e3, food: 1e4, deuterium: 1e3 });
+  Object.assign(s.resources, { water: 1e4, helium3: 1e4, e710: 5e3, food: 1e4, deuterium: 1e3 });
+  supplyPower(s, 1e6);
   return s;
 }
 

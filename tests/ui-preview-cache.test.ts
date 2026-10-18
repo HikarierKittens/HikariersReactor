@@ -6,6 +6,7 @@ import { calculateProduction } from '../src/simulation/production';
 import { calculateSupportPreview } from '../src/simulation/support-preview';
 import { createUiPreviewCache } from '../src/vue/preview-cache';
 import { storageSnapshot } from '../src/vue/format';
+import { supplyPower } from './support/power';
 const fresh = () => createInitialState(CONFIG.version, 60, 0);
 
 test('UI previews are lazy and shared only within identical state revision and dt', () => {
@@ -29,13 +30,13 @@ test('UI previews are lazy and shared only within identical state revision and d
 
 test('cached previews do not mutate input or replace authoritative simulation and keep working pools independent', () => {
   const s = fresh(); s.tech.push('fieldConstraintTheory'); s.buildings.constraintArray = 1;
-  Object.assign(s.resources, { energy: 50, e710: 1 });
+  s.resources.e710 = 1; supplyPower(s, 50);
   const before = JSON.stringify(s), cache = createUiPreviewCache();
   const p = cache.production(s, 1), u = cache.support(s, 1);
   assert.equal(JSON.stringify(s), before);
   assert.notEqual(p.pool, u.pool); assert.notEqual(p.pool, s.resources); assert.notEqual(u.pool, s.resources);
   assert.deepEqual(p, calculateProduction(s)); assert.deepEqual(u, calculateSupportPreview(s));
-  s.resources.energy = 0;
+  supplyPower(s, 0);
   assert.equal(calculateSupportPreview(s).stageThree.arrays, 0);
   assert.equal(cache.support(s, 2).stageThree.arrays, 0);
   assert.equal(cache.production(s, 2).stageThree.arrays, 0);
@@ -56,7 +57,7 @@ test('cached previews do not mutate input or replace authoritative simulation an
 
 test('formatter omitting revision stays uncached for command checks while display snapshots use supplied revisions', () => {
   const s = fresh(); s.tech.push('fieldConstraintTheory'); s.buildings.constraintArray = 1;
-  Object.assign(s.resources, { energy: 50, e710: 1 });
+  s.resources.e710 = 1; supplyPower(s, 50);
   assert.equal(storageSnapshot(s, 1, 10).stageThree?.freight, 0);
   const a = storageSnapshot(s, 1, 10), b = storageSnapshot(s, 1, 10);
   assert.equal(a.stageThree, b.stageThree);
@@ -65,7 +66,7 @@ test('formatter omitting revision stays uncached for command checks while displa
     // @ts-expect-error formatter cannot expose mutable references to cached support
     immutableSupport.freight = 123;
   }
-  s.resources.energy = 0;
+  supplyPower(s, 0);
   assert.notEqual(storageSnapshot(s).stageThree, a.stageThree);
   assert.equal(calculateSupportPreview(s).stageThree.arrays, 0);
   assert.notEqual(storageSnapshot(s, 1, 11).stageThree, a.stageThree);

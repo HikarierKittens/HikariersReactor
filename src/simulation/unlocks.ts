@@ -11,12 +11,15 @@ import { isBuildingFullyBuilt } from './costs';
 
 export function isTechnologyUnlocked(id: string, state: GameState): boolean {
   if (!Object.hasOwn(TECHNOLOGIES, id)) return false;
+  // Retired research IDs remain valid historical earned progress, never future research.
+  if (id === 'energyStorage' || id === 'batteryConcentrationRing') return false;
   if (id === 'globalObservationCalibration' && !state.stageThree.coreActivated) return false;
   // Ripper technologies require a COMPLETED 空间撕裂者 (all 100 segments), not merely one segment.
   if ((id === 'higherDimensionalStorage' || id === 'ripperOverclock' || id === 'overclocking13') && !isBuildingFullyBuilt('spaceRipper', state)) return false;
   // 质量喷射器 requires a COMPLETED 彭罗斯球体; the two black-hole specials open while it is unstable.
   if ((id === 'massEjector' || id === 'aiCoreCalibration') && !isBuildingFullyBuilt('penroseSphere', state)) return false;
   if ((id === 'stabilizeBlackHole' || id === 'exoticRunaway') && !state.blackHole?.unstable) return false;
+  if (id === 'digitalAscension' && !isBuildingFullyBuilt('agiCoreComponent', state)) return false;
   const technology = TECHNOLOGIES[id as TechnologyId];
   return (state.prestige.nuclearResets + (state.prestige.escapeResets || 0) + (state.prestige.blackHoleResets || 0) + (state.prestige.ascensionResets || 0) >= (technology.prestigeResetsRequired || 0))
     && (!technology.kerberosMissionRequired || state.kerberosMissionCompleted)

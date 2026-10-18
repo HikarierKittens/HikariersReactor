@@ -1,6 +1,8 @@
 import type { GameState } from '../types/state';
 import type { ResourceAmounts, ResourceRecipe } from '../types/economy';
 import { settlePowerPlants } from './power';
+import { settleQuantumCores } from './quantum';
+import { settleDigitalSupport } from './digital-world';
 
 export const SPACE_BUILDING_IDS: readonly string[] = [
   'e710Container', 'e710MiningShip', 'e710Warehouse', 'e710Reactor', 'miningDrone', 'oilExtractor',
@@ -18,6 +20,10 @@ export function calculatePoweredWaystations(state: FuelState, pool?: ResourceAmo
     if (!state.resources) return 0;
     pool = { ...state.resources };
     settlePowerPlants(pool, dt, state);
+    // Match the ledger prefix without calling the full support preview here:
+    // that would recurse through geothermal fuel-discount calculation.
+    settleQuantumCores(state, pool, dt);
+    settleDigitalSupport(state, pool, dt);
   }
   return Math.min(enabled, Math.floor((Math.max(0, pool.energy) + 1e-8) / (5 * dt)));
 }

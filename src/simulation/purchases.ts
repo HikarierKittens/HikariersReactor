@@ -96,6 +96,11 @@ export function constructBuildingState(state: GameState, id: BuildingId, moonAva
     }
   }
   state.buildings[id] += 1;
+  // Ascension is destructive: completion always waits for an explicit player start,
+  // including queued/bulk purchases and regardless of the auto-enable preference.
+  if (id === 'agiAscensionCore' && state.buildings[id] === building.segmentedRequired) {
+    state.stoppedBuildings[id] = 1;
+  }
   if (insufficient) {
     state.stoppedBuildings[id] = (state.stoppedBuildings[id] || 0) + 1;
   }

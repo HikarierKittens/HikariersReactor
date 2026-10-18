@@ -30,8 +30,8 @@ const credit = (pool: ResourceAmounts, resource: ResourceId, amount: number) => 
 /**
  * Deterministic replay of the paid settlement using the ledger's unit counts.
  * Units are never re-derived here: the replay only moves resources in the same
- * order the historical sequential settlers did, so the pool trajectory matches
- * the old chain byte-for-byte while the units were derived exactly once.
+ * fixed-supply-first priority order as the ledger. Only the scratch energy is
+ * transient; fuel and ordinary resources retain their dt-scaled pool flow.
  */
 export function replaySettledPool(
   state: GameState,
@@ -43,13 +43,11 @@ export function replaySettledPool(
   const inputUnits: Record<string, number> = {};
   const outputs: Record<string, number> = {};
 
-  // 1. Quantum cores: helium reserved first (historical order).
-  const aiSupercoreUnits = ledger.aiSupercoreUnits;
-  pool.helium3 = Math.max(0, pool.helium3 - aiSupercoreUnits * 25 * dt);
-  pool.energy = Math.max(0, pool.energy - aiSupercoreUnits * 100 * dt);
-  inputUnits.aiSupercore = outputs.aiSupercore = aiSupercoreUnits;
+  // Saved energy is compatibility-only. Replay the fresh generation budget,
+  // then fund cores before any other power consumer.
+  pool.energy = 0;
 
-  // 2. Power plants: fuel debits and energy credits from the ledger units.
+  // 1. Power plants: fuel debits and energy credits from the ledger units.
   //    The ledger ran the plants on its own scratch pool; unit decisions that
   //    read the pool (geothermal waystation discount, hydrogen water ratio) were
   //    derived there and are replayed as fixed counts. Fuel formulas are pure.
@@ -62,7 +60,15 @@ export function replaySettledPool(
     outputs[id] = (outputs[id] || 0) + (actual || 0);
   }
   replayPlantDebits(state, ledger, dt, pool);
-  charge(pool, 'energy', (ledger.digital.gatewayUnits * 25 + ledger.digital.cellUnits * 25 + ledger.digital.memoryUnits * 5 + ledger.digital.minerUnits * 10) * dt);
+  const aiSupercoreUnits = ledger.aiSupercoreUnits;
+  charge(pool, 'helium3', aiSupercoreUnits * 25 * dt);
+  charge(pool, 'energy', aiSupercoreUnits * 100 * dt);
+  inputUnits.aiSupercore = outputs.aiSupercore = aiSupercoreUnits;
+  charge(pool, 'energy', ledger.digital.energyUse * dt);
+  charge(pool, 'water', ledger.digital.agiComponentUnits * 1000 * dt);
+  for (const [id, units] of [['softRouterNode', ledger.digital.softRouterUnits], ['aesComputeModule', ledger.digital.aesUnits], ['worldSimulator', ledger.digital.worldSimulatorUnits], ['agiCoreComponent', ledger.digital.agiComponentUnits], ['coreCooler', ledger.digital.coreCoolerUnits], ['agiAscensionCore', ledger.digital.ascensionCoreUnits]] as const) {
+    if (state.buildings[id]) inputUnits[id] = outputs[id] = units;
+  }
   if (state.buildings.gatewayRouter) inputUnits.gatewayRouter = outputs.gatewayRouter = ledger.digital.gatewayUnits;
   if (state.buildings.downloadExecutable) inputUnits.downloadExecutable = outputs.downloadExecutable = ledger.digital.downloadUnits;
   if (state.buildings.quantumStorage) inputUnits.quantumStorage = outputs.quantumStorage = ledger.digital.quantumStorageUnits;

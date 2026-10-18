@@ -3,7 +3,11 @@ import { calculateStorageDetails } from './storage';
 import { countRunningBuildings } from './housing';
 import type { StorageSnapshot } from './storage';
 import type { GameState } from '../types/state';
-import type { ResourceAmounts } from '../types/economy';
+import type { ResourceAmounts, ResourceId } from '../types/economy';
+import { FACTORY_OPTIONS } from '../data/resources';
+
+/** Industrial products are exactly the outputs of the current factory recipes. */
+const FACTORY_PRODUCTS = new Set<ResourceId>(FACTORY_OPTIONS.flatMap(option => Object.keys(option.output) as ResourceId[]));
 
 export interface QuantumSnapshot {
   knowledgeCapacity: number;
@@ -36,18 +40,24 @@ export function calculateQuantumSnapshot(state: GameState, snapshot?: StorageSna
     return result!;
   }
   const knowledgeCapacity = calculateStorageDetails('knowledge', state, snapshot).total;
-  const base = state.tech.includes('artificialIntelligenceII') ? knowledgeCapacity / 100000 : 0;
+  const base = state.tech.includes('artificialIntelligenceII') ? Math.log1p(.1 * knowledgeCapacity / 250000) / Math.log1p(.1) : 0;
   const cores = fundedCores ?? 0;
   // The caller's paid digital snapshot is authoritative, including an explicit zero.
-  // AGI's flat bonus is not multiplied by AI supercores or gated by AI II.
+  // AGI adds fifty percentage points per funded component to the base multiplier,
+  // alongside AI supercores; it cannot grant quantum before AI II unlocks the base.
   const agi = .5 * (snapshot.digital?.agiComponentUnits ?? 0);
-  const level = Math.floor((base * (1 + .25 * cores) + agi) * 100) / 100;
+  const level = Math.floor(base * (1 + .25 * cores + agi) * 100) / 100;
   return { knowledgeCapacity, base, cores, agi, level };
 }
 export function calculateQuantumLevel(state: GameState, dt = 1): number { return calculateQuantumSnapshot(state, undefined, undefined, dt).level; }
 export function calculateSwarmSupportCapacity(state: GameState, quantumLevel?: number): number {
   return countRunningBuildings('swarmControlStation', state) * (20 + (state.tech.includes('quantumSwarm') ? quantumLevel ?? calculateQuantumLevel(state) : 0));
 }
-export function calculateQuantumManufacturingMultiplier(state: GameState, quantumLevel: number): number {
-  return state.tech.includes('quantumManufacturing') ? 1 + .1 * quantumLevel : 1;
+/** Per-factory effect, before compounding; total satellite discount is capped in pricing. */
+export function calculateQuantumSwarmFactoryReduction(state: Pick<GameState, 'tech'>, quantumLevel: number): number {
+  return .1 + (state.tech.includes('quantumSwarm') ? quantumLevel * .01 : 0);
+}
+export function calculateQuantumManufacturingMultiplier(state: Pick<GameState, 'tech'>, resource: ResourceId, quantumLevel: number): number {
+  if (!state.tech.includes('quantumManufacturing') || !FACTORY_PRODUCTS.has(resource)) return 1;
+  return Math.max(0, 1 + (quantumLevel - 1) * (resource === 'fur' ? .125 : .5));
 }

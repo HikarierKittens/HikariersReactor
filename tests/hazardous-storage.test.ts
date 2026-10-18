@@ -11,6 +11,7 @@ import { calculateStorageDetails, calculateStorageTotals } from '../src/simulati
 import { calculateSupportPreview } from '../src/simulation/support-preview';
 import { isBuildingUnlocked, isTechnologyUnlocked } from '../src/simulation/unlocks';
 import { calculateBuildingScale } from '../src/simulation/costs';
+import { supplyPower } from './support/power';
 
 const fresh = () => createInitialState(CONFIG.version, 60, 0);
 const snapshot = (s: ReturnType<typeof fresh>) => {
@@ -68,7 +69,8 @@ test('asteroid capacity follows powered supported bases and disappears when stop
   s.buildings.hyperspaceSpaceport = 2;
   s.buildings.iceMiningShip = 1;
   s.buildings.asteroidBase = 2;
-  Object.assign(s.resources, { energy: 1000, helium3: 1000 });
+  Object.assign(s.resources, { helium3: 1000 });
+  supplyPower(s, 1000);
   for (const multiplier of [1, 2]) {
     if (multiplier === 2) s.tech.push('higherDimensionalStorage');
     const p = snapshot(s);
@@ -85,7 +87,7 @@ test('asteroid capacity follows powered supported bases and disappears when stop
     assert.equal(calculateStorageDetails(resource, s, snapshot(s)).rows.some(row => row.name.startsWith('小行星基地')), false);
   }
   s.stoppedBuildings.asteroidBase = 0;
-  s.resources.energy = 0;
+  supplyPower(s, 0);
   assert.equal(snapshot(s).stageThree.asteroidBases, 0);
 });
 

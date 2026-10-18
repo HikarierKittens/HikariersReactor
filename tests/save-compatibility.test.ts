@@ -19,12 +19,14 @@ test('frozen pre-beta0.6.5 JSON upgrades only missing building entries and round
   const before = structuredClone(raw); freeze(raw);
   const state = validateCurrentSave(raw, context);
   const expected = structuredClone(before);
-  for (const field of fields) for (const id of ['hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore']) expected[field][id] = 0;
+  for (const field of fields) for (const id of ['dysonSphere', 'hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore']) expected[field][id] = 0;
   for (const field of ['resources', 'containerAssignments', 'alloyContainerAssignments']) {
     expected[field].bytes = 0;
     expected[field].encryptedData = 0;
     assert.equal(Object.hasOwn(before[field], 'encryptedData'), false);
   }
+  for (const field of fields) delete expected[field].batteryStation;
+  expected.resources.energy = 0;
   expected.downloadAllocation = 0;
   expected.prestige.harmonyCrystals = 0;
   expected.prestige.ascensionResets = 0;

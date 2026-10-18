@@ -11,6 +11,7 @@ import { calculateSupportPreview } from '../src/simulation/support-preview';
 import { calculateResourceBreakdown, calculateResourceFactorRows } from '../src/simulation/resource-breakdown';
 import { calculateGlobalOutputMultiplier, calculateMasteryMultiplier } from '../src/simulation/crafting';
 import { calculateProductionMultiplier } from '../src/simulation/multipliers';
+import { supplyPower } from './support/power';
 
 const fresh = () => createInitialState(CONFIG.version, 60, 0);
 const near = (actual: number, expected: number) => assert.ok(Math.abs(actual - expected) < 1e-7, `${actual} != ${expected}`);
@@ -62,7 +63,7 @@ test('CELL and powered consumers require fully funded units; multithreading gran
 });
 
 test('memory capacity uses only active compression and encrypted analysis unlock', () => {
-  const state = fresh(); state.resources.energy = 1000;
+  const state = fresh(); supplyPower(state, 1000);
   state.buildings.cellCore = 1; state.buildings.memoryCore = 2; state.buildings.dataCompression = 1;
   const snapshot = storage(state);
   near(calculateDigitalByteCapacity(snapshot.digital), 10000 + 2 * 50000 * 1.15);
@@ -78,7 +79,7 @@ test('memory capacity uses only active compression and encrypted analysis unlock
 });
 
 test('miners apply ordinary cash production multipliers once and grant only supported capacity', () => {
-  const state = fresh(); state.resources.energy = 1000; state.resources.cash = 0;
+  const state = fresh(); supplyPower(state, 1000); state.resources.cash = 0;
   state.buildings.cellCore = 1; state.buildings.ethMiner = 2;
   state.prestige.particles = 10000; state.prestige.darkEnergy = 100;
   state.achievements = ['nuclearCuriosity']; state.achievementLevels = { nuclearCuriosity: 3 };
@@ -101,8 +102,8 @@ test('miners apply ordinary cash production multipliers once and grant only supp
   assert.deepEqual(state, before);
 });
 
-test('two-CPU decryption admits whole modules and applies per-module boost and mastery once', () => {
-  const state = fresh(); state.resources.energy = 1000;
+test('two-CPU decryption admits whole modules and applies ordinary factors and per-module boost once', () => {
+  const state = fresh(); supplyPower(state, 1000);
   state.buildings.cellCore = 1; state.buildings.dataDecryptionModule = 7;
   state.prestige.particles = 10000; state.achievements = ['nuclearCuriosity']; state.achievementLevels = { nuclearCuriosity: 3 };
   const before = structuredClone(state);
@@ -111,23 +112,23 @@ test('two-CPU decryption admits whole modules and applies per-module boost and m
   state.tech.push('cellMultithreading');
   assert.equal(calculateDigitalSupport(state, 25).decryptionUnits, 2);
   state.tech.pop();
-  const expected = 1 * .05 * (1 + .25 * 1) * calculateMasteryMultiplier('encryptedData', state);
+  const expected = .01 * 1.25 * calculateProductionMultiplier('encryptedData', state.happiness, state) * calculateGlobalOutputMultiplier('encryptedData', state);
   near(calculateDigitalProduction(state, support, 0).encryptedProduction, expected);
   const result = calculateProduction(state);
-  near(result.rates.encryptedData, expected);
-  near(calculateResourceBreakdown('encryptedData', state, result).net, expected);
-  // Even a non-neutral morale result must not leak ordinary resource factors into this special resource.
+  near(result.rates.encryptedData, .01 * 1.25 * calculateProductionMultiplier('encryptedData', result.morale.happiness, state) * calculateGlobalOutputMultiplier('encryptedData', state));
+  near(calculateResourceBreakdown('encryptedData', state, result).net, result.rates.encryptedData);
+  // Ordinary morale and particle factors are now displayed for digital output too.
   for (const happiness of [50, 150]) {
     const rows = calculateResourceFactorRows('encryptedData', state, { ...result, morale: { ...result.morale, happiness } }).rows;
-    assert.deepEqual(rows.map(row => row.name), ['数据解密模块', '数据解密模块产量加成', '精通']);
-    assert.equal(rows[0]!.value, '+0.05/s');
+    assert.deepEqual(rows.map(row => row.name), ['数据解密模块', '数据解密模块产量加成', '粒子', '幸福度', '精通']);
+    assert.equal(rows[0]!.value, '+0.01/s');
     assert.equal(rows[1]!.value, '+25%');
   }
   assert.deepEqual(state, before);
 });
 
 test('neural quantum bonus boosts both byte sources; layer3 bandwidth grants whole consumers', () => {
-  const state = fresh(); state.resources.energy = 1000;
+  const state = fresh(); supplyPower(state, 1000);
   state.buildings.gatewayRouter = 1; state.buildings.downloadExecutable = 1;
   state.buildings.cellCore = 1; state.buildings.cpuDecoder = 2; state.downloadAllocation = 100;
   const support = calculateDigitalSupport(state, 50);

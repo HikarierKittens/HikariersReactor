@@ -23,6 +23,7 @@ import { countRunningBuildings } from '../src/simulation/housing';
 import { calculateRegionalMissionCost } from '../src/simulation/space-missions';
 import { getBuildingEffectRows } from '../src/simulation/building-effects';
 import { calculateBuildingInput } from '../src/simulation/building-production';
+import { supplyPower } from './support/power';
 import type { ResourceId } from '../src/types/economy';
 import type { TechnologyId } from '../src/types/technologies';
 
@@ -94,7 +95,8 @@ test('new resources: zero base caps, containers, anchor storage and unlock rules
   for (const id of ['graphene', 'nanoAlloy', 'adamantite']) assert.equal(isContainerAssignable(id, s), true, id);
   assert.equal(isContainerAssignable('aerogel', s), false);
   s.tech.push('fieldConstraintTheory');
-  s.buildings.constraintArray = 2; s.buildings.anchorFreightStation = 1; Object.assign(s.resources, { energy: 200, e710: 1, helium3: 1e4 });
+  s.buildings.constraintArray = 2; s.buildings.anchorFreightStation = 1; Object.assign(s.resources, { e710: 1, helium3: 1e4 });
+  supplyPower(s, 200);
   const totals = calculateStorageTotals(s, snap(s));
   for (const id of ['graphene', 'nanoAlloy', 'adamantite'] as ResourceId[]) {
     near(calculateStorageDetails(id, s, snap(s)).rows.find(row => row.name.includes('锚点货运站'))!.value, 32000, id);
@@ -104,7 +106,8 @@ test('new resources: zero base caps, containers, anchor storage and unlock rules
 
 function alpha() {
   const s = fresh(); s.tech.push('superMetal', 'grapheneProcessing');
-  Object.assign(s.resources, { energy: 1000, helium3: 1000, deuterium: 1000, oil: 1000 });
+  Object.assign(s.resources, { helium3: 1000, deuterium: 1000, oil: 1000 });
+  supplyPower(s, 1000);
   return s;
 }
 test('alpha-sector miners and graphene settle like hyperspace sources with breakdown parity', () => {
@@ -112,7 +115,9 @@ test('alpha-sector miners and graphene settle like hyperspace sources with break
     const s = alpha(); s.buildings.adamantiteMiningShip = 2; s.buildings.grapheneFactory = 1; s.buildings.adamantiteProcessor = 3;
     const before = clone(s), p = calculateProduction(s, dt); assert.deepEqual(s, before);
     near(p.rates.adamantite, .5 * 1.6); near(p.rates.graphene, 2);
-    near(p.rates.energy, -45); near(p.rates.helium3, -10); near(p.rates.deuterium, -2); near(p.rates.oil, -15);
+    near(p.power.generated, 1000); near(p.power.used, 45); near(p.power.available, 955);
+    near(p.rates.energy, 955, 'energy');
+    near(p.rates.helium3, -10); near(p.rates.deuterium, -2); near(p.rates.oil, -15);
     for (const id of ['adamantite', 'graphene', 'energy', 'helium3', 'deuterium', 'oil'] as ResourceId[]) near(calculateResourceBreakdown(id, s, p).net, p.rates[id], id);
     const rows = calculateResourceFactorRows('adamantite', s, p).rows;
     assert.ok(rows.some(row => row.name === '精金精炼站' && row.child), 'processor row under the miner');
@@ -143,10 +148,11 @@ test('adamantite refinery bonuses require whole funded running stations with bre
       [0, 19, 1, .3, -15], // A fractionally affordable second refinery grants no bonus.
     ]) {
       const s = alpha(); s.buildings.adamantiteMiningShip = 1; s.buildings.adamantiteProcessor = 2;
-      s.stoppedBuildings.adamantiteProcessor = stopped!; s.resources.energy = energy! * dt;
+      s.stoppedBuildings.adamantiteProcessor = stopped!; supplyPower(s, energy!);
       const p = calculateProduction(s, dt);
       near(p.inputUnits.adamantiteProcessor!, funded!);
-      near(p.rates.adamantite, rate!); near(p.rates.energy, upkeep!);
+      near(p.power.generated, energy!); near(p.power.used, -upkeep!); near(p.power.available, energy! + upkeep!);
+      near(p.rates.adamantite, rate!); near(p.rates.energy, energy! + upkeep!, 'energy');
       for (const id of ['adamantite', 'energy'] as const) near(calculateResourceBreakdown(id, s, p).net, p.rates[id], id);
     }
   }
@@ -168,7 +174,8 @@ test('star-ring bonus applies to distant ordinary resources while the old port b
 test('nano-alloy factory line and aerogel craft follow the shared factory and artisan pipelines', () => {
   const s = fresh(); s.tech.push('superMetal', 'grapheneProcessing', 'nanoAlloy', 'aerogel');
   s.buildings.adamantiteMiningShip = 1; s.buildings.factory = 2; s.lines.nanoAlloy = 2; s.buildings.foundry = 1; s.workers.foundry = 2; s.craftWorkers.aerogel = 1;
-  Object.assign(s.resources, { energy: 1000, graphene: 1000, adamantite: 1000, nanoAlloy: 1000 });
+  Object.assign(s.resources, { graphene: 1000, adamantite: 1000, nanoAlloy: 1000 });
+  supplyPower(s, 1000);
   const p = calculateProduction(s, 1);
   assert.equal(p.inputUnits.nanoAlloy, 2);
   near(calculateResourceBreakdown('nanoAlloy', s, p).net, p.rates.nanoAlloy);
@@ -195,7 +202,8 @@ test('smelter slots keep legacy steel output, auto-assign steel and gain forge s
 test('VR, virtual training, black-hole station and Penrose effects', () => {
   const s = fresh(); s.tech.push('planetaryExploration', 'virtualEntertainment'); s.asrielMissionCompleted = true;
   s.buildings.asrielSpaceport = 1; s.buildings.vrCenter = 1; s.buildings.theater = 10;
-  Object.assign(s.resources, { energy: 100, helium3: 100, food: 1000 }); s.population = 10;
+  Object.assign(s.resources, { helium3: 100, food: 1000 }); s.population = 10;
+  supplyPower(s, 100);
   const base = fresh(); base.buildings.theater = 10; base.population = 10; base.resources.food = 1000;
   near(calculateProduction(s, 1).morale.vr, 2.5);
   s.stoppedBuildings.vrCenter = 1; near(calculateProduction(s, 1).morale.vr, 0);
@@ -203,7 +211,7 @@ test('VR, virtual training, black-hole station and Penrose effects', () => {
   t.tech.push('virtualTraining'); near(calculateTrainingDuration(t), 30 / 2 ** (5 * 8 / 100)); assert.ok(calculateTrainingDuration(t) < slow);
   const k = fresh(); k.buildings.spaceRipper = 100; k.buildings.library = 10;
   const without = calculateStorageDetails('knowledge', k, snap(k)).total;
-  k.buildings.blackHoleStation = 2; k.resources.energy = 1000;
+  k.buildings.blackHoleStation = 2; supplyPower(k, 1000);
   const sub = without / 1.2;
   near(calculateStorageDetails('knowledge', k, snap(k)).total, sub * 1.22);
   near(calculateStorageTotals(k, snap(k)).knowledge, sub * 1.22);
@@ -240,6 +248,7 @@ test('电磁发射器 fuel discount covers only ground and space regions, never 
     const s = createInitialState(CONFIG.version, 60, 0);
     s.tech = Object.keys(TECHNOLOGIES) as TechnologyId[];
     for (const key of Object.keys(s.resources) as ResourceId[]) s.resources[key] = 1e7;
+    supplyPower(s, 1e7);
     s.asrielMissionCompleted = true;
     Object.assign(s.buildings, { asrielSpaceport: 1, spaceWaystation: waystations, constraintArray: 2, hyperspaceSpaceport: 1, iceMiningShip: 1, comprehensiveMiningFacility: 1, adamantiteMiningShip: 1, grapheneFactory: 1 });
     return s;
@@ -262,14 +271,14 @@ test('电磁发射器 fuel discount covers only ground and space regions, never 
 });
 test('完整空间撕裂者 energy row has no fake 原料供应 and its knowledge row follows 黑洞星际站', () => {
   const s = createInitialState(CONFIG.version, 60, 0);
-  s.tech.push('dimensionPioneer'); s.buildings.spaceRipper = 100; s.resources.energy = 0;
+  s.tech.push('dimensionPioneer'); s.buildings.spaceRipper = 100; supplyPower(s, 0);
   const rows = calculateResourceFactorRows('energy', s, calculateProduction(s, 1)).rows;
   assert.ok(rows.some(row => row.name === '空间撕裂者' && row.value === '+100/s'));
   assert.equal(rows.some(row => row.name === '原料供应'), false);
   assert.equal(getBuildingEffectRows('spaceRipper', s, {})[0]!.value, '+20%');
   assert.equal(getBuildingEffectRows('spaceRipper', s, { blackHoleStations: 3 })[0]!.value, '+23%');
   // The tooltip snapshot uses the same funded count as the storage totals.
-  s.tech.push('energyShield'); s.blackHoleMissionCompleted = true; s.buildings.blackHoleStation = 3; s.resources.energy = 1000;
+  s.tech.push('energyShield'); s.blackHoleMissionCompleted = true; s.buildings.blackHoleStation = 3; supplyPower(s, 1000);
   const snapshot = calculateSupportPreview(s);
   assert.equal(snapshot.blackHoleStationUnits, 3);
   assert.equal(getBuildingEffectRows('spaceRipper', s, { blackHoleStations: snapshot.blackHoleStationUnits })[0]!.value, '+23%');
