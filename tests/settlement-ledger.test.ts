@@ -5,6 +5,7 @@ import { calculateDigitalProduction, calculateDigitalSupport } from '../src/simu
 import { RESOURCES } from '../src/data/resources';
 import { createInitialState } from '../src/state/create-state';
 import { settleQuantumCores } from '../src/simulation/quantum';
+import { calculatePowerGrid } from '../src/simulation/power-grid';
 import { settlePowerPlants, calculatePowerBudget } from '../src/simulation/power';
 import { settleSpaceProduction } from '../src/simulation/space-settlement';
 import { settleResearchAndCulture, settleAutomationPower, settleE710WarehousePower } from '../src/simulation/power-consumers';
@@ -29,6 +30,8 @@ function oracleProduction(state: GameState, dt = 1): ProductionResult {
   // the independent sequential oracle below verifies its resource replay.
   const morale = previewMorale(state, dt);
   const mainPlants = settlePowerPlants(pool, dt, state);
+  const grid = calculatePowerGrid(state, dt, 0, mainPlants.energy);
+  state = grid.state;
   const aiSupercoreUnits = settleQuantumCores(state, pool, dt);
   inputUnits.aiSupercore = outputs.aiSupercore = aiSupercoreUnits;
   Object.assign(outputs, mainPlants.outputs); Object.assign(inputUnits, mainPlants.inputUnits);
@@ -56,9 +59,9 @@ function oracleProduction(state: GameState, dt = 1): ProductionResult {
     Object.assign(outputs, settlePopulationIncome(state, pool, morale.happiness, dt));
     const geneSynthesis = settleGeneSynthesis(state, pool, dt, biologyUnits);
     const ejected = settleMassEjection(state, pool, dt, inputUnits.massEjector || 0);
-    const power = calculatePowerBudget(mainPlants.energy, pool.energy, dt);
+    const power = { ...calculatePowerBudget(mainPlants.energy, pool.energy, dt), available: grid.available };
     const final = finalizeProduction(state, pool, before, dt, { stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits });
-    return { ...final, power, digital: calculateDigitalProduction(state, calculateDigitalSupport(state, 0, dt), Math.max(0, final.rates.knowledge)), outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis };
+    return { ...final, rates: { ...final.rates, energy: power.available }, power, powerGrid: { requested: grid.requested, allocated: grid.allocated, failed: grid.failed }, digital: calculateDigitalProduction(state, calculateDigitalSupport(state, 0, dt), Math.max(0, final.rates.knowledge)), outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis };
   });
 }
 import { settleMassEjection } from '../src/simulation/black-hole';
@@ -77,6 +80,8 @@ function expectedPreview(state: GameState, dt = 1) {
 function oracleSupportPreview(state: GameState, dt = 1) {
   const pool = { ...state.resources };
   const plants = settlePowerPlants(pool, dt, state);
+  const grid = calculatePowerGrid(state, dt, 0, plants.energy);
+  state = grid.state;
   const aiSupercoreUnits = settleQuantumCores(state, pool, dt);
   const space = settleSpaceProduction(state, pool, dt, 1, plants.inputUnits.geothermalPlant || 0, plants.inputUnits.hydrogenPowerPlant || 0);
   const e710WarehouseUnits = settleE710WarehousePower(state, pool, dt);
@@ -86,7 +91,7 @@ function oracleSupportPreview(state: GameState, dt = 1) {
   const dataRunning = Math.max(0, (state.buildings.observatory || 0) - (state.stoppedBuildings?.observatory || 0));
   const dataCenterUnits = Math.min(dataRunning, Math.floor((Math.max(0, pool.energy) + 1e-8) / (3 * dt)));
   return {
-    power: calculatePowerBudget(plants.energy, pool.energy, dt),
+    power: { ...calculatePowerBudget(plants.energy, pool.energy, dt), available: grid.available },
     stageThree: space.stageThree, pool, moon: space.moon, asriel: space.asriel, metalRefineryUnits: space.metalRefineryUnits,
     biologyUnits, dataCenterUnits, waystations: space.inputs.spaceWaystation || 0,
     e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, aiSupercoreUnits,
@@ -107,6 +112,8 @@ function compareResult(actual: ProductionResult, expected: ProductionResult, lab
   }
   assert.deepEqual(actual.inputUnits, expected.inputUnits, `${label} inputUnits`);
   assert.deepEqual(actual.outputs, expected.outputs, `${label} outputs`);
+  assert.deepEqual(actual.power, expected.power, `${label} power`);
+  assert.deepEqual(actual.powerGrid, expected.powerGrid, `${label} powerGrid`);
   near(actual.morale.happiness, expected.morale.happiness, `${label} morale.happiness`);
   assert.deepEqual(actual.moon, expected.moon, `${label} moon`);
   assert.deepEqual(actual.asriel, expected.asriel, `${label} asriel`);

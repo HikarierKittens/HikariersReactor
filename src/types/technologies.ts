@@ -122,6 +122,7 @@ export type TechnologyId =
   | 'rocketry'
   | 'oilStorage'
   | 'oilTechnology'
+  | 'industrialization' | 'solarPower'
   | 'nuclearEnergy'
   | 'uraniumStorage'
   | 'electronics'

@@ -68,7 +68,7 @@ test('shortage funds whole enabled units and preserves 6% passive baseline for u
     const result = calculateProduction(s, dt);
     assert.equal(result.inputUnits.metalRefinery, 1);
     assert.equal(calculateSupportPreview(s, dt).metalRefineryUnits, 1);
-    assert.equal(result.power.generated, 7.9); close(result.power.used, 4); close(result.power.available, 3.9);
+    assert.equal(result.power.generated, 7.9); close(result.power.used, 4); close(result.power.available, -4.1);
     assert.equal(result.pool.energy, 0, 'electricity is a fixed budget, not stored');
     close(result.rates.aluminum, 1.02 * 1.2);
     close(calculateResourceBreakdown('aluminum', s, result).net, result.rates.aluminum);

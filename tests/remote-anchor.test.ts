@@ -37,8 +37,9 @@ test('freight station unlocks directly with field theory, without a project or e
 test('freight funds whole units after relays and charges maintenance once across step lengths',()=>{
  for(const dt of [.2,1,3]){
   const s=complete();s.buildings.constraintArray=4;s.buildings.shortRangeRelay=1;s.buildings.anchorFreightStation=2;
+  s.powerActivationOrder=[{id:'constraintArray',count:4},{id:'shortRangeRelay',count:1},{id:'anchorFreightStation',count:2}];
   Object.assign(s.resources,{e710:1*dt});supplyPower(s,225);const before=clone(s);const preview=calculateSupportPreview(s,dt);const result=calculateProduction(s,dt);
-  assert.equal(preview.stageThree.freight,1);assert.equal(preview.stageThree.used,4);assert.equal(preview.stageThree.available,4);assert.equal(result.inputUnits.anchorFreightStation,1);assert.deepEqual(result.power,{generated:225,used:225,available:0});near(result.rates.energy,0);assert.equal(result.pool.energy,0,'electricity is a fixed budget, not stored');near(result.rates.e710,-1);assert.deepEqual(s,before);
+  assert.equal(preview.stageThree.freight,1);assert.equal(preview.stageThree.used,4);assert.equal(preview.stageThree.available,4);assert.equal(result.inputUnits.anchorFreightStation,1);assert.deepEqual(result.power,{generated:225,used:225,available:-15});near(result.rates.energy,-15);assert.equal(result.pool.energy,0,'electricity is a fixed budget, not stored');near(result.rates.e710,-1);assert.deepEqual(s,before);
   supplyPower(s,224);assert.equal(calculateSupportPreview(s,dt).stageThree.freight,0);
   s.stoppedBuildings.constraintArray=4;assert.equal(calculateSupportPreview(s,dt).stageThree.freight,0);
  }

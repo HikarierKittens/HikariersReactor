@@ -26,11 +26,12 @@ const resources:ResourceId[]=['wood','cement','stone','iron','coal','copper','al
 test('service allocation spends two stability per relay freight and civilian with whole-unit upkeep exactly once',()=>{
  for(const dt of [.2,1,3]){
   const s=services();s.buildings.constraintArray=3;s.buildings.shortRangeRelay=1;s.buildings.anchorFreightStation=1;s.buildings.civilianRouteStation=2;
+  s.powerActivationOrder=[{id:'constraintArray',count:3},{id:'shortRangeRelay',count:1},{id:'anchorFreightStation',count:1},{id:'civilianRouteStation',count:2}];
   Object.assign(s.resources,{e710:.75*dt,food:50*dt});supplyPower(s,205);const before=clone(s);const preview=calculateSupportPreview(s,dt),p=calculateProduction(s,dt);
   assert.deepEqual(preview.stageThree,{arrays:3,relays:1,freight:1,civilian:1,capacity:6,used:6,available:0,ports:0,iceShips:0,asteroidBases:0,asteroidCapacity:0,asteroidUsed:0,asteroidAvailable:0,repeaters:0,hydrogenPlants:0});
-  assert.equal(p.inputUnits.civilianRouteStation,1);assert.deepEqual(p.power,{generated:205,used:190,available:15});near(p.rates.energy,15);assert.equal(p.pool.energy,0,'electricity is a fixed budget, not stored');near(p.rates.food,-50);near(p.rates.e710,-.75);assert.deepEqual(s,before);
+  assert.equal(p.inputUnits.civilianRouteStation,1);assert.deepEqual(p.power,{generated:205,used:190,available:0});near(p.rates.energy,0);assert.equal(p.pool.energy,0,'electricity is a fixed budget, not stored');near(p.rates.food,-50);near(p.rates.e710,-.75);assert.deepEqual(s,before);
   s.resources.food=49.9*dt;assert.equal(calculateSupportPreview(s,dt).stageThree.civilian,0);
-  s.resources.food=50*dt;supplyPower(s,159.9);assert.equal(calculateSupportPreview(s,dt).stageThree.civilian,0);
+  s.resources.food=50*dt;supplyPower(s,159.9);assert.equal(calculateSupportPreview(s,dt).stageThree.civilian,0,'159.9 covers 150 arrays first; civil stations fail last');
   supplyPower(s,160);s.stoppedBuildings.constraintArray=1;const short=calculateSupportPreview(s,dt).stageThree;assert.equal(short.relays,1);assert.equal(short.freight,1);assert.equal(short.civilian,0);
  }
 });

@@ -34,13 +34,14 @@ test('AI core pays both upkeep resources only when a whole core can run', () => 
     supplyPower(s, 99);
     p = calculateProduction(s, dt);
     assert.equal(p.inputUnits.aiSupercore, 0); assert.equal(p.rates.helium3, 0);
-    assert.deepEqual(p.power, { generated: 99, used: 0, available: 99 });
-    assert.equal(p.rates.energy, 99, 'an unfunded core leaves the whole fixed budget available');
+    // The core stays enabled, so its 100 W is still requested even though unfunded.
+    assert.deepEqual(p.power, { generated: 99, used: 0, available: -1 });
+    assert.equal(p.rates.energy, -1, 'requested demand exceeds generation by one watt');
     supplyPower(s, 100); s.resources.helium3 = 24 * dt;
     p = calculateProduction(s, dt);
     assert.equal(p.inputUnits.aiSupercore, 0);
-    assert.deepEqual(p.power, { generated: 100, used: 0, available: 100 });
-    assert.equal(p.rates.energy, 100);
+    assert.deepEqual(p.power, { generated: 100, used: 0, available: 0 });
+    assert.equal(p.rates.energy, 0);
     s.resources.helium3 = 25 * dt; s.buildings.aiSupercore = 99;
     p = calculateProduction(s, dt);
     assert.equal(p.inputUnits.aiSupercore, 0);
@@ -285,8 +286,9 @@ test('nanotube factory recipe capacity and maintained warehouse use requested ba
   assert.equal(calculateStorageBonuses('hangar', upgradedHangar, null).polymer, 16000);
   s.buildings.e710Warehouse = 2; supplyPower(s, 7);
   const p = calculateProduction(s); assert.equal(p.inputUnits.e710Warehouse, 1);
-  assert.deepEqual(p.power, { generated: 7, used: 7, available: 0 });
-  assert.equal(p.rates.energy, 0, 'warehouse upkeep spends the whole fixed budget');
+  // Both warehouses stay enabled, so 14 W is requested against 7 W generated.
+  assert.deepEqual(p.power, { generated: 7, used: 7, available: -7 });
+  assert.equal(p.rates.energy, -7, 'warehouse upkeep spends the whole fixed budget and requests one more');
   assert.equal(p.pool.energy, 0);
 });
 test('misen multi-resource mission queues atomically and discounts only helium fuel', () => {
@@ -393,7 +395,8 @@ test('swarm generation uses complete support slots and powers maintenance immedi
   s.buildings.atmosphericCollector = 1;
   assert.equal(calculateProduction(s).inputUnits.atmosphericCollector, 1);
   s.stoppedBuildings.swarmSatellite = 25;
-  assert.equal(calculateProduction(s).inputUnits.atmosphericCollector, 0);
+  // Unfunded sources are absent from inputUnits rather than reported as zero.
+  assert.equal(calculateProduction(s).inputUnits.atmosphericCollector ?? 0, 0);
 });
 test('outer sources settle maintenance once and attach independent ring bonuses', () => {
   const s = fresh(); Object.assign(s.resources, { oil: 100, food: 100, helium3: 100 });

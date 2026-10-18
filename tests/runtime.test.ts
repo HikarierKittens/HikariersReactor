@@ -254,17 +254,17 @@ test('automatic saves use actual elapsed time rather than nominal interval', t =
   env.advance(10);
   runtime.tick(.2);
   assert.equal(env.saves, 1);
-  assert.equal(JSON.parse(env.writes.get(CONFIG.saveKey)!).time, 10);
+  assert.equal(JSON.parse(env.writes.get(CONFIG.saveKey)!).time, 1);
 });
 
-test('long background gaps settle in bounded batches and replacement discards pending debt', t => {
+test('long background gaps settle at normal speed without accelerated catch-up', t => {
   const env = environment(t);
   const runtime = createRuntime(); runtime.load();
   env.advance(8 * 3600);
   runtime.tick(.2);
-  assert.equal(runtime.state.time, 10, 'never synchronously run 28800 full settlements');
+  assert.equal(runtime.state.time, 1, 'background time runs at most one settlement per tick');
   runtime.tick(.2);
-  assert.equal(runtime.state.time, 20, 'remaining debt continues on subsequent turns');
+  assert.equal(runtime.state.time, 1, 'a paused-looking long gap grants no extra debt');
   const replacement = env.state();
   runtime.replaceState(replacement);
   runtime.tick(.2);

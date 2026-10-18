@@ -959,6 +959,29 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
       "cash": 1.19
     }
   },
+  "solarFarm": {
+    "name": "光伏电站",
+    "icon": "",
+    "desc": "成排的光伏板把阳光直接变成电力，固定产出4电力，无岗位、无维护消耗，不受其他产量加成。",
+    "cost": {
+      "cash": 10000,
+      "copper": 1000,
+      "iron": 1000,
+      "metal": 100
+    },
+    "output": {
+      "energy": 4
+    },
+    "powerPlant": true,
+    "slots": 0,
+    "tech": "solarPower",
+    "costScales": {
+      "cash": 1.225,
+      "copper": 1.225,
+      "iron": 1.225,
+      "metal": 1.225
+    }
+  },
   "smelter": {
     "name": "冶炼厂",
     "icon": "",
@@ -1069,7 +1092,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "input": {
       "energy": 3
     },
-    "tech": "automation",
+    "tech": "industrialization",
     "slots": 0,
     "lines": 1,
     "costScales": {
@@ -1439,6 +1462,7 @@ export const BUILDING_GROUPS: { id: string; name: string; buildings: BuildingId[
     "name": "能源设施",
     "buildings": [
       "generator",
+      "solarFarm",
       "oilGenerator",
       "fissionGenerator"
     ]

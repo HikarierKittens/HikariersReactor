@@ -97,7 +97,7 @@ test('power UI uses fixed supply values in its own no-stock/no-rate/no-bar branc
   assert.ok(branch);
   assert.match(branch, /production\.power\.available/);
   assert.match(branch, /production\.power\.generated/);
-  assert.match(branch, /可用电力 \/ 总发电量/);
+  assert.match(branch, /剩余 \/ 总值/);
   assert.doesNotMatch(branch, /\/s(?!pan)|res-fill|data-tip-kind="storage"|储量/);
   const tooltip = readFileSync(new URL('../src/vue/components/TooltipPanel.vue', import.meta.url), 'utf8');
   const powerTip = tooltip.split("if (id === 'energy') {")[1]?.split('return tip;')[0];

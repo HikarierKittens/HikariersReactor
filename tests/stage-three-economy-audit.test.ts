@@ -16,6 +16,8 @@ test('subsecond quantum-funded satellite generation uses the same interval as co
   const s=stage();s.tech.push('artificialIntelligenceII','quantumSwarm');s.buildings.lab=600;s.buildings.aiSupercore=100;s.buildings.swarmControlStation=1;s.buildings.swarmSatellite=25;s.buildings.constraintArray=1;
   // The retired 27.55 stock over this 0.2 s step is a fixed 137.75 W supply.
   Object.assign(s.resources,{helium3:5,e710:1});supplyPower(s,27.55/.2);
+  // Settle the AI core before the stability array, matching the documented chain.
+  s.powerActivationOrder=[{id:'aiSupercore',count:1},{id:'constraintArray',count:1}];
   const before=JSON.stringify(s);const preview=calculateSupportPreview(s,.2);const actual=calculateProduction(s,.2);
   // Logarithmic knowledge scaling needs 600 labs to straddle the 25th-satellite threshold:
   // the funded core lifts base <5 to final >=5, without changing the upkeep boundary.
@@ -50,6 +52,7 @@ test('quantum feedback with relays and Asriel knowledge terminates purely and ch
   assert.equal(preview.stageThree.relays,1);assert.deepEqual(preview.asriel,actual.asriel);
   assert.equal(actual.inputUnits.constraintArray,1);assert.equal(actual.inputUnits.shortRangeRelay,1);
   assert.ok(actual.outputs.swarmSatellite !== undefined);
-  close(actual.rates.energy,actual.outputs.swarmSatellite*.5-60);close(actual.rates.e710,-.25);
+  // Generation (swarm output × 0.5) minus requested upkeep: 50 for the array plus 2×10 for the relays.
+  close(actual.rates.energy,actual.outputs.swarmSatellite*.5-70);close(actual.rates.e710,-.25);
   assert.equal(JSON.stringify(s),before);
 });

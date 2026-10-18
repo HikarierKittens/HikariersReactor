@@ -125,6 +125,8 @@ export interface GameState {
   resources: ResourceAmounts;
   buildings: Record<BuildingId, number>;
   stoppedBuildings: Record<BuildingId, number>;
+  /** Enabled complete units, oldest activation first; missing legacy entries use registry order. */
+  powerActivationOrder?: Array<{ id: BuildingId; count: number }>;
   workers: Record<BuildingId, number>;
   tech: TechnologyId[];
   population: number;

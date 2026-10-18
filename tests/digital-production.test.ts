@@ -182,8 +182,8 @@ test('gateway reservation is paid once and cannot be spent again by upstream sup
   const s = digital(); supplyPower(s, 25); s.buildings.biologyLab = 1;
   const result = calculateProduction(s);
   near(result.digital.gatewayUnits, 1); near(result.inputUnits.biologyLab || 0, 0);
-  assert.deepEqual(result.power, { generated: 25, used: 25, available: 0 });
-  near(result.rates.energy, 0); near(result.pool.energy, 0);
+  assert.deepEqual(result.power, { generated: 25, used: 25, available: -2 });
+  near(result.rates.energy, -2); near(result.pool.energy, 0);
   supplyPower(s, 0);
   assert.equal(calculateProduction(s).digital.used, 0);
 });

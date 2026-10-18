@@ -71,10 +71,11 @@ test('mapping needs only global calibration and field theory needs mapping witho
 test('constraint arrays and relays fund full units with exact once-only upkeep and pure support previews',()=>{
   for(const dt of [.2,1,3]) {
     const s=stageState();s.buildings.constraintArray=2;s.buildings.shortRangeRelay=3;supplyPower(s,120);s.resources.e710=.5*dt;
+    s.powerActivationOrder=[{id:'constraintArray',count:2},{id:'shortRangeRelay',count:3}];
     const before=clone(s);const preview=calculateSupportPreview(s,dt);const p=calculateProduction(s,dt);
     assert.deepEqual(preview.stageThree,{arrays:2,relays:2,freight:0,civilian:0,capacity:4,used:4,available:0,ports:0,iceShips:0,asteroidBases:0,asteroidCapacity:0,asteroidUsed:0,asteroidAvailable:0,repeaters:0,hydrogenPlants:0});
     assert.equal(p.inputUnits.constraintArray,2);assert.equal(p.inputUnits.shortRangeRelay,2);
-    assert.deepEqual(p.power,{generated:120,used:120,available:0});close(p.rates.energy,0);assert.equal(p.pool.energy,0,'electricity is a fixed budget, not stored');close(p.rates.e710,-.5);assert.equal(p.asriel.capacity,4);
+    assert.deepEqual(p.power,{generated:120,used:120,available:-10});close(p.rates.energy,-10);assert.equal(p.pool.energy,0,'electricity is a fixed budget, not stored');close(p.rates.e710,-.5);assert.equal(p.asriel.capacity,4);
     assert.deepEqual(s,before);
     supplyPower(s,49.9);assert.equal(calculateSupportPreview(s,dt).stageThree.arrays,0);
     supplyPower(s,120);s.resources.e710=.2499*dt;assert.equal(calculateSupportPreview(s,dt).stageThree.arrays,0);
@@ -85,6 +86,7 @@ test('constraint arrays and relays fund full units with exact once-only upkeep a
 
 test('original lunar and Asriel support maintenance remains ahead of new experimental facilities',()=>{
   const s=stageState();s.buildings.moonBase=1;s.buildings.asrielSpaceport=1;s.buildings.asrielControlTower=1;s.buildings.constraintArray=1;
+  s.powerActivationOrder=[{id:'moonBase',count:1},{id:'asrielSpaceport',count:1},{id:'asrielControlTower',count:1},{id:'constraintArray',count:1}];
   Object.assign(s.resources,{oil:10,food:100,helium3:100,e710:1});supplyPower(s,50.9);
   const p=calculateProduction(s);assert.equal(p.moon.baseUnits,1);assert.equal(p.asriel.ports,1);assert.equal(p.asriel.towers,1);assert.equal(p.inputUnits.constraintArray||0,0);
   supplyPower(s,61);assert.equal(calculateStageThreeSupport(s).arrays,1);

@@ -8,9 +8,15 @@ const priority: readonly AsrielSupportedBuilding[] = ['asrielResidence', 'asriel
 
 /** Caller supplies the available pool after power generation and lunar maintenance. */
 export function allocateAsrielSupport(state: GameState, resources: ResourceAmounts, dt: number, waystations = 0, fuelMultiplier = calculateSpaceFuelMultiplier(state)): AsrielSupport {
+  if (!Number.isFinite(dt) || dt <= 0) throw new RangeError('dt must be positive and finite');
+  if (!Number.isFinite(fuelMultiplier) || fuelMultiplier <= 0) throw new RangeError('fuel multiplier must be positive and finite');
+  for (const resource of ['energy', 'helium3', 'food'] as const) {
+    if (!Number.isFinite(resources[resource])) throw new RangeError(`${resource} funding must be finite`);
+  }
+  // A deficit funds zero units, never negative maintenance or negative support.
   const running = (id: BuildingId): number => Math.max(0, (state.buildings[id] || 0) - (state.stoppedBuildings[id] || 0));
-  const ports = Math.min(running('asrielSpaceport'), Math.floor(((resources.helium3 || 0) + 1e-8) / (2 * fuelMultiplier * dt)),
-    Math.floor((resources.energy || 0) / (5 * dt)), Math.floor((resources.food || 0) / (25 * dt)));
+  const ports = Math.min(running('asrielSpaceport'), Math.floor((Math.max(0, resources.helium3) + 1e-8) / (2 * fuelMultiplier * dt)),
+    Math.floor(Math.max(0, resources.energy) / (5 * dt)), Math.floor(Math.max(0, resources.food) / (25 * dt)));
   // Port maintenance has priority. The caller has not deducted it yet;
   // reserve it locally without mutating the shared resource pool.
   const towerEnergy = Math.max(0, (resources.energy || 0) - ports * 5 * dt);

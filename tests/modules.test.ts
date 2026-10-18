@@ -1147,7 +1147,7 @@ test('nuclear fill and prestige resets preserveInvalid guards', () => {
 
 test('direct building purchase reports first factory unlock', () => {
   const state = createInitialState(CONFIG.version, 60, 0);
-  state.tech.push('automation');
+  state.tech.push('industrialization');
   state.resources.cement = 1000; state.resources.titanium = 1000; state.resources.metal = 1000; state.resources.cash = 1000;
   const result = buyBuildingNow(state, 'factory', 1);
   assert.equal(result.bought, true);

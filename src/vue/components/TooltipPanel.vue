@@ -15,7 +15,7 @@ import { CONFIG } from '../../data/config';
 import { floorWithPrecision, formatEffectNumber, formatResourceNumber, formatCostNumber, formatByteNumber } from '../../shared/format';
 import { calculateFoodPerCat } from '../../simulation/population';
 import { withoutPowerCost } from '../../simulation/one-time-cost';
-import { calculateBuildingCost, isBuildingFullyBuilt } from '../../simulation/costs';
+import { calculateBuildingCost, calculateHarmonyCreepReduction, isBuildingFullyBuilt } from '../../simulation/costs';
 import { describeQueuedPurchases } from '../../simulation/purchases';
 import { calculateTechCost, calculateTrainingBoost, calculateBankerTaxRate, BANKER_TAX_BONUS, STOCK_EXCHANGE_BANKER_BONUS, GOVERNMENTS } from '../../simulation/government';
 import { SPACE_MISSIONS, REGIONAL_MISSIONS, calculateRegionalMissionCost, isRegionalMissionCompleted, type RegionalMissionId } from '../../simulation/space-missions';
@@ -32,7 +32,7 @@ import { uiPreview } from '../preview-cache';
 import { calculateGravityConversionEnergy, formatBlackHoleMass } from '../../simulation/black-hole';
 import { calculateResourceBreakdown, calculateResourceFactorRows, calculateResourceExpenseRows, signedRate } from '../../simulation/resource-breakdown';
 import { calculateArtistEffect } from '../../simulation/morale';
-import { calculateEffectiveParticles, calculateParticleMultiplier } from '../../simulation/crafting';
+import { calculateParticleMultiplier } from '../../simulation/crafting';
 import { calculateBuildingContainerCap, calculateBuildingAlloyContainerCap } from '../../simulation/containers';
 import { calculateCrisprStorageBonus } from '../../simulation/crispr';
 import { calculateEffectiveParticleCount, isChallengeGeneActive } from '../../simulation/challenges';
@@ -397,10 +397,12 @@ const content = computed<TipContent | null>(() => {
       const result = uiPreview.production(state, props.revision);
       const breakdown = calculateResourceBreakdown(id, state, result);
       tip.title = '电力固定供给与占用';
-      tip.description = '电力为固定供给，不累积库存；建筑运行时占用供电，停机后释放。';
+      tip.description = '电力为固定供给，不累积库存；可用电力为总发电量减去已开启建筑的请求用电量，实际耗电仅计入已供电的建筑。';
       add('总发电量', formatResourceNumber(result.power.generated));
-      add('已占用电力', formatResourceNumber(result.power.used));
-      add('可用电力', formatResourceNumber(result.power.available));
+      add('请求用电量', formatResourceNumber(result.powerGrid.requested));
+      add('实际耗电', formatResourceNumber(result.power.used));
+      add('可用电力', formatResourceNumber(result.power.available), result.power.available < 0);
+      if (result.power.available < 0) tip.warning = '供电不足：超额开启的建筑未获得供电，供能按钮以黄色标记；关闭超额负载或恢复发电后会重新分配供电。';
       const powerRows = (kind: 'income' | 'expense') => breakdown.entries.filter(row => row.kind === kind && row.value !== 0).map(row => ({
         name: row.name.replace(/产出$/, '供给').replace(/(?:消耗|占用)$/, ''),
         value: `${row.value < 0 ? '−' : '+'}${formatResourceNumber(Math.abs(row.value))}`,
@@ -516,11 +518,8 @@ const content = computed<TipContent | null>(() => {
     } else return null;
     tip.footnote = '点击按钮立即执行重置；奖励按当前文明状态计算，执行时可能略有变化。';
   } else if (target.kind === 'prestige' && target.id === 'harmonyCrystals') {
-    tip.title = '和谐晶体';
-    tip.description = '通过数字化飞升获得的永久威望资源，跨周目保留。';
-    add('当前持有', number(state.prestige.harmonyCrystals));
-    add('累计获取', number(state.statistics.lifetime.harmonyCrystalsEarned));
-    add('数字化飞升次数', number(state.prestige.ascensionResets));
+    tip.title = '和谐水晶';
+    tip.description = `当前已生效${formatResourceNumber(state.prestige.harmonyCrystals)}个和谐水晶，地面之外的建筑成本蠕变-${formatEffectNumber(calculateHarmonyCreepReduction(state))}`;
   } else if (target.kind === 'prestige' && target.id === 'darkEnergy') {
     tip.title = '暗能量';
     tip.description = '暗能量通过奇异失控引发的黑洞重置获得，跨周目保留。每个暗能量使普通资源储量提高1%（暗能量加成）。';
@@ -551,10 +550,8 @@ const content = computed<TipContent | null>(() => {
     tip.description = `当前持有${number(state.prestige.particles)}粒子，当前实际加成为普通资源产量 +${effect(ordinary)}%，锻造物产量 +${effect(crafted)}%；电力不受加成。`;
     add('当前持有粒子', number(state.prestige.particles));
     if (imbalance) add('挑战有效粒子数', number(effectiveParticles));
-    add('产量有效粒子数（衰减后）', effect(calculateEffectiveParticles(effectiveParticles, CONFIG.particleProductionSoftCap + state.prestige.casimir)));
     add('产量软上限', String(CONFIG.particleProductionSoftCap + state.prestige.casimir));
     if (storageBonus.particleUpgrade) {
-      add(`${CRISPR_UPGRADES[storageBonus.particleUpgrade].name}：每个有效粒子储量`, `+${effect(storageBonus.particleRate * 100)}%`);
       add('粒子储量总加成', `+${effect(storageBonus.particleBonus * 100)}%`);
     }
     tip.footnote = `${imbalance ? '粒子失衡：开局粒子不提供产量或储量加成，仅新获得的有效粒子生效。' : ''}产量加成连续递减，超过软上限后递减加速；CRISPR储量加成按有效粒子数计算，不受产量衰减影响。高级储量修饰覆盖低级效果，不叠加。`;
@@ -694,7 +691,7 @@ onUnmounted(() => {
           <p v-if="!content.income.length" class="small subtle">{{ selected.id === 'energy' ? '暂无供电来源。' : '暂无生产来源。' }}</p>
         </div>
         <div class="resource-column">
-          <div class="resource-column-title">{{ selected.id === 'energy' ? '固定占用' : '消耗' }}</div>
+          <div class="resource-column-title">{{ selected.id === 'energy' ? '实际耗电明细' : '消耗' }}</div>
           <div class="expense-list" :class="{ 'expense-list-split': splitEnergyExpense }">
             <div v-for="(row, index) in content.expense" :key="index" class="resource-factor" :class="{ child: row.child, 'last-child': row.child && !content.expense[index + 1]?.child }"><span>{{ row.name }}</span><span class="resource-factor-value" :class="{ 'is-negative': row.negative }">{{ row.value }}</span></div>
           </div>

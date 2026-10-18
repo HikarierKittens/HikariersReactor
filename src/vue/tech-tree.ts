@@ -5,6 +5,7 @@ import type { TechnologyId } from '../types/technologies';
 // Milestones highlighted in the previous interface, kept independent of prices.
 export const KEY_TECHNOLOGIES = new Set<TechnologyId>([
   'writing', 'metallurgy', 'science', 'electricity', 'automation',
+  'industrialization',
   'internet', 'nuclearEnergy', 'arpa', 'rocketry', 'oilTechnology',
 ]);
 const COLORS = ['#f2f0e7', '#80bfff', '#d9ac43', '#efdf65', '#bc9167', '#ef9c51'];

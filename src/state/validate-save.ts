@@ -14,6 +14,7 @@ import { validateHistory } from './validate-history';
 import { validateStatistics } from './validate-stats';
 import { validateBlackHole } from './validate-black-hole';
 import { validateAutoWorkers } from './validate-auto-workers';
+import { validatePowerActivationOrder } from './validate-power';
 import { validateProjectRecords } from './validate-projects';
 import { validateSaveSpaceship } from './validate-spaceship';
 import { validateSaveQueue } from './validate-queue';
@@ -59,6 +60,7 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
   validateGeneModification(raw, state);
   validateChallenges(raw, state);
   validateEconomyRecords(raw, state);
+  validatePowerActivationOrder(raw, state);
   loadStageThreeState(raw, state);
   validateUnlockRecords(raw, state);
   validatePopulationRecords(raw, state, context.housingCapacity(state), context.now);

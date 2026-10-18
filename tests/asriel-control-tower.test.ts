@@ -18,6 +18,7 @@ function poweredState(energy: number) {
   state.buildings.asrielSpaceport = 1;
   state.buildings.asrielControlTower = 3;
   state.buildings.asrielResidence = 6;
+  state.powerActivationOrder = [{ id: 'asrielSpaceport', count: 1 }, { id: 'asrielControlTower', count: 3 }];
   supplyPower(state, energy);
   state.resources.helium3 = 100;
   state.resources.food = 100;
@@ -61,6 +62,7 @@ test('built towers can operate independently of port fuel or enabled ports and h
   const state = poweredState(4);
   state.resources.helium3 = 0;
   state.resources.food = 0;
+  state.powerActivationOrder = [{ id: 'asrielControlTower', count: 3 }, { id: 'asrielSpaceport', count: 1 }];
   const support = calculateSupportPreview(state).asriel;
   assert.equal(support.ports, 0);
   assert.equal(support.towers, 2);
@@ -87,8 +89,10 @@ test('preview and production reserve towers exactly once before downstream facto
     assert.equal(result.inputUnits.factory, 0);
     assert.equal(preview.biologyUnits, 0);
     assert.equal(preview.pool.energy, 0);
-    assert.deepEqual(result.power, { generated: 9, used: 9, available: 0 });
-    assert.ok(Math.abs(result.rates.energy) < 1e-8);
+    assert.equal(result.power.generated, 9);
+    assert.equal(result.power.used, 9);
+    assert.equal(result.power.available, 9 - result.powerGrid.requested);
+    assert.ok(result.rates.energy < 0, 'requested downstream loads retain a visible deficit');
     assert.deepEqual(state, before);
     assert.equal(isBuildingUnderworking('asrielControlTower', state, result), false);
     supplyPower(state, 8);
@@ -105,6 +109,7 @@ test('waystation and lunar maintenance precede port and tower power allocation',
   const state = poweredState(16);
   state.buildings.spaceWaystation = 1;
   state.buildings.moonBase = 1;
+  state.powerActivationOrder = [{ id: 'spaceWaystation', count: 1 }, { id: 'moonBase', count: 1 }, { id: 'asrielSpaceport', count: 1 }, { id: 'asrielControlTower', count: 3 }];
   state.resources.oil = 100;
   const preview = calculateSupportPreview(state);
   assert.equal(preview.waystations, 1);

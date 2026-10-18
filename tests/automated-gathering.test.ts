@@ -74,8 +74,8 @@ test('gathering automation funds only full units for every dt and leaves fractio
     assert.equal(result.inputUnits.automatedQuarry, 1);
     assert.equal(result.power.generated, 3.75);
     assert.equal(result.power.used, 3);
-    close(result.power.available, .75);
-    close(result.rates.energy, .75);
+    close(result.power.available, 3.75 - result.powerGrid.requested);
+    close(result.rates.energy, 3.75 - result.powerGrid.requested);
     assert.equal(result.pool.energy, 0, 'electricity is a fixed budget, not stored');
     close(result.rates.wood, 4 * 3 * 1.04 * 1.1);
     close(result.rates.stone, 6 * 3 * 1.06 * 1.05);
@@ -87,8 +87,8 @@ test('gathering automation funds only full units for every dt and leaves fractio
     assert.equal(unfunded.inputUnits.automatedQuarry, 0);
     assert.equal(unfunded.power.used, 0);
     close(unfunded.power.generated, .75);
-    close(unfunded.power.available, .75);
-    close(unfunded.rates.energy, .75);
+    close(unfunded.power.available, .75 - unfunded.powerGrid.requested);
+    close(unfunded.rates.energy, .75 - unfunded.powerGrid.requested);
     close(unfunded.rates.wood, 4 * 3 * 1.04);
     close(unfunded.rates.stone, 6 * 3 * 1.06);
   }

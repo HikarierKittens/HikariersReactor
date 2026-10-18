@@ -13,22 +13,22 @@ import { createMilestoneState } from './fixtures/milestones';
 import { addPower, supplyPower } from './support/power';
 import type { GameState } from '../src/types/state';
 
-test('Asriel ports provide support and default enabled even when no support is available', () => {
+test('Asriel port purchases need no support but default stopped without spare electrical power', () => {
   const s = createInitialState(CONFIG.version, 60, 0);
   assert.equal(calculateSupportPreview(s).asriel.available, 0);
   constructBuildingState(s, 'asrielSpaceport', 0);
   assert.equal(s.buildings.asrielSpaceport, 1);
-  assert.equal(s.stoppedBuildings.asrielSpaceport, 0);
+  assert.equal(s.stoppedBuildings.asrielSpaceport, 1);
   s.stoppedBuildings.asrielSpaceport = 1;
   unlockAll(s);
   for (const id of Object.keys(s.resources) as (keyof typeof s.resources)[]) s.resources[id] = 1e9;
   assert.equal(buyBuildingsInBatch(s, 'asrielSpaceport', 2, 0).bought, 2);
-  assert.equal(s.stoppedBuildings.asrielSpaceport, 1);
+  assert.equal(s.stoppedBuildings.asrielSpaceport, 3);
   s.stoppedBuildings.asrielSpaceport = 3;
   assert.equal(requestPurchaseModule(s, 'build', 'asrielSpaceport', 0, true).status, 'queued');
   settlePurchaseQueue(s, 0);
   assert.equal(s.buildings.asrielSpaceport, 4);
-  assert.equal(s.stoppedBuildings.asrielSpaceport, 3);
+  assert.equal(s.stoppedBuildings.asrielSpaceport, 4);
 });
 
 test('new support consumers default off at shortage unless always-enable overrides', () => {
@@ -72,6 +72,7 @@ function lunarState(): GameState {
   state.buildings.iridiumMine = 1;
   state.buildings.aiSupercore = 100;
   state.buildings.constraintArray = 1;
+  state.powerActivationOrder = [{ id: 'moonBase', count: 1 }];
   state.resources.oil = 100;
   return state;
 }
@@ -97,6 +98,7 @@ test('Asriel support reserves lunar maintenance before allocating ports and hous
   state.buildings.asrielSpaceport = 1;
   state.buildings.asrielResidence = 1;
   state.buildings.ecologicalDome = 1;
+  state.powerActivationOrder!.push({ id: 'asrielSpaceport', count: 1 });
   state.resources.helium3 = 100;
   state.resources.food = 100;
   addPower(state, 3);
@@ -129,6 +131,7 @@ test('research capacity and morale previews use all power plants and the product
   state.buildings.biologyLab = 4;
   state.buildings.observatory = 8;
   state.buildings.broadcast = 2;
+  state.powerActivationOrder!.push({ id: 'broadcast', count: 2 }, { id: 'asrielSpaceport', count: 1 }, { id: 'biologyLab', count: 4 }, { id: 'observatory', count: 8 });
   const before = structuredClone(state);
   for (const dt of [.2, 1, 3]) {
     const preview = calculateSupportPreview(state, dt);

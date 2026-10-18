@@ -2,6 +2,7 @@ import { buildingQueueUsage, queuedBuildingSegments, segmentedQueueBatchSize, pu
 export { purchaseQueueCapacity } from './queue-settings';
 import { calculateSupportPreview } from './support-preview';
 import { countRunningBuildings } from './housing';
+import { reconcilePowerActivationOrder, registerBuiltPowerUnits } from './power-grid';
 import { calculateSwarmSupportCapacity } from './quantum';
 import { recordKnowledgeSpent } from './statistics';
 import { addLog } from './progression';
@@ -78,6 +79,9 @@ export type MoonAvailability = number | ((state: GameState) => number);
 /** Check free support before each construction; never displace existing enabled units. */
 export function constructBuildingState(state: GameState, id: BuildingId, moonAvailable: MoonAvailability): void {
   const building = BUILDINGS[id];
+  const required = building.segmentEffects ? undefined : building.segmentedRequired;
+  const beforeCompleted = required ? Math.floor(state.buildings[id] / required) : state.buildings[id];
+  const beforeRunning = countRunningBuildings(id, state);
   const alwaysEnable = setting(state, 'alwaysEnableNewBuildings', false);
   let insufficient = false;
   if (!alwaysEnable) {
@@ -104,6 +108,8 @@ export function constructBuildingState(state: GameState, id: BuildingId, moonAva
   if (insufficient) {
     state.stoppedBuildings[id] = (state.stoppedBuildings[id] || 0) + 1;
   }
+  if (countRunningBuildings(id, state) > beforeRunning) registerBuiltPowerUnits(state, id, beforeCompleted);
+  else state.powerActivationOrder = reconcilePowerActivationOrder(state);
   if (id === 'massEjector' && state.buildings[id] === 1) addLog(state, MASS_EJECTION_UNLOCK_LOG, 'progress');
 }
 export const STABILIZE_BLACK_HOLE_LOG = '黑洞已稳定：奇异质量按40倍转化为普通质量，并加入了100k中子的质量。';
@@ -138,10 +144,13 @@ export function applyResearchSideEffects(state: GameState, id: TechnologyId, pre
       poweredShutdown.push(buildingId);
     }
   }
+  state.powerActivationOrder = reconcilePowerActivationOrder(state);
   // Only actual research awards the bootstrap router; loading an earned tech never does.
-  // Grant after the powered-upgrade scan so this new unit starts enabled.
+  // Like construction, the gift starts stopped if the current grid cannot fund it.
   if (id === 'aiCoreCalibration' && !previousTech.includes(id)) {
+    const beforeCompleted = state.buildings.gatewayRouter;
     state.buildings.gatewayRouter += 1;
+    registerBuiltPowerUnits(state, 'gatewayRouter', beforeCompleted);
     addLog(state, AI_CORE_CALIBRATION_LOG, 'progress');
   }
   return { poweredShutdown, unlockedContainers: id === 'containerManagement' };

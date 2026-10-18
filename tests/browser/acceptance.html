@@ -319,6 +319,46 @@ try {
   store.mutate(state => { state.resources.wood = 123; }); await flush();
   log(!$('#gameTooltip').textContent.includes('当前数量 / 上限') && !$('#gameTooltip').textContent.includes('123 /'), '储量tooltip不重复显示当前数量与上限');
   await escapeTip(); log(!$('#gameTooltip'), 'Escape关闭tooltip');
+  const powerUiSnapshot = JSON.parse(JSON.stringify(S()));
+  try {
+    click($('[data-tab="buildings"]')); await flush();
+    store.mutate(state => {
+      state.settings.paused = true;
+      state.tech = Object.keys(TECHNOLOGIES);
+      for (const id of Object.keys(state.buildings)) { state.buildings[id] = 0; state.stoppedBuildings[id] = 0; }
+      state.resources.coal = 100;
+      state.buildings.generator = 1;
+      state.buildings.biologyLab = 3;
+      state.powerActivationOrder = [{ id: 'biologyLab', count: 3 }];
+    }); await flush();
+    const bioStart = () => $('[data-buy="biologyLab"]').closest('.building-control').querySelector('.building-toggle.start');
+    const bioStop = () => $('[data-buy="biologyLab"]').closest('.building-control').querySelector('.building-toggle.stop');
+    log($('[data-power-deficit]')?.textContent === '−1' && getComputedStyle($('[data-power-deficit]')).color === 'rgb(226, 138, 107)' && bioStart().classList.contains('is-shortage') && bioStart().title.includes('已开启3座，实际供电2座，超额1座') && bioStart().textContent === '3' && !bioStop().disabled, '负电力红色显示，部分供电按钮黄色且保留用户开启数量与关闭能力');
+    await showTip('[data-building-tip="energy"][data-tip-kind="resource"]');
+    log($('#gameTooltip').textContent.includes('请求用电量') && $('#gameTooltip').textContent.includes('实际耗电') && $('#gameTooltip').textContent.includes('供电不足') && $('#gameTooltip .is-negative')?.textContent === '−1', '电力悬停区分请求与实际用电并解释负余额');
+    await escapeTip();
+    store.mutate(state => { state.buildings.generator = 2; }); await flush();
+    log(!$('[data-power-deficit]') && !bioStart().hasAttribute('data-power-failed') && bioStart().title.includes('实际供电3座，超额0座'), '恢复发电清除负余额和超额供电标记');
+    store.mutate(state => { state.resources.coal = 0; }); await flush();
+    log($('[data-power-deficit]')?.textContent === '−6' && bioStart().getAttribute('data-power-failed') === '3', '发电燃料断供使全部开启负载显示供电不足');
+    click(bioStop()); await flush();
+    log(bioStart().textContent === '2' && S().stoppedBuildings.biologyLab === 1, '供电失效建筑仍可通过关闭按钮减少请求');
+    store.mutate(state => {
+      state.buildings.biologyLab = 0; state.stoppedBuildings.biologyLab = 0;
+      state.buildings.softRouterNode = 2;
+      state.resources.coal = 100;
+      state.powerActivationOrder = [{ id: 'softRouterNode', count: 2 }];
+    }); await flush();
+    click($('[data-world-view="world_execution"]')); await flush();
+    const routerControl = () => $('[data-buy="softRouterNode"]').closest('.building-control');
+    log(routerControl().querySelector('.start').getAttribute('data-power-failed') === '1' && routerControl().querySelector('.start').classList.contains('is-shortage') && routerControl().querySelector('.start').textContent === '2' && routerControl().querySelector('.start').title.includes('已开启2座，实际供电1座，超额1座'), '数字世界部分供电黄色标记并区分已开启与实际供电数量');
+    click(routerControl().querySelector('.stop')); await flush();
+    log(S().stoppedBuildings.softRouterNode === 1 && !routerControl().querySelector('.start').hasAttribute('data-power-failed'), '数字世界可关闭未供电部分且更新短缺状态');
+    click($('[data-world-view="home"]')); await flush();
+  } finally {
+    await escapeTip();
+    store.mutate(state => Object.assign(state, powerUiSnapshot)); await flush();
+  }
   const energyLayoutSnapshot = JSON.parse(JSON.stringify(S()));
   const { BUILDINGS: energyLayoutBuildings } = await import('/src/data/buildings.ts');
   store.mutate(state => {
@@ -334,7 +374,7 @@ try {
   log(powerExpenseNames.length > 0 && powerExpenseNames.every(name => name && !/(?:占用|消耗)$/.test(name)), '电力详情耗电条目直接显示名称，不附加占用或消耗后缀');
   log(Object.values(energyLayoutBuildings.coreCooler.costScales).every(scale => scale === 1.1), '核心散热器四项基础成本蠕变均为1.1');
   const energyRow = $('[data-resource-id="energy"]');
-  log(!!energyRow && energyRow.querySelector('.power-label')?.textContent.includes('可用电力 / 总发电量') && !energyRow.querySelector('.res-fill') && energyRow.querySelector('.res-amount')?.getAttribute('data-tip-kind') === 'resource' && !Object.hasOwn(energyLayoutBuildings, 'energyStorage') && !Object.hasOwn(energyLayoutBuildings, 'batteryConcentrationRing'), '电力资源行只显示可用电力/总发电量，无库存条且储能站已删除');
+  log(!!energyRow && energyRow.querySelector('.power-label')?.textContent.includes('剩余 / 总值') && !energyRow.querySelector('.res-fill') && energyRow.querySelector('.res-amount')?.getAttribute('data-tip-kind') === 'resource' && !Object.hasOwn(energyLayoutBuildings, 'energyStorage') && !Object.hasOwn(energyLayoutBuildings, 'batteryConcentrationRing'), '电力资源行只显示剩余/总值，无库存条且储能站已删除');
   await escapeTip();
   store.mutate(state => Object.assign(state, JSON.parse(JSON.stringify(energyLayoutSnapshot)))); await flush();
   await showTip('[data-building-tip="energy"][data-tip-kind="resource"]');
@@ -1103,6 +1143,7 @@ try {
   log($('.col-left').lastElementChild === $('#prestigeResources') && !!$('[data-prestige-row="particles"]') && !$('[data-prestige-row="casimir"]'), '获得粒子后威望资源位于左侧资源区最下方，未获得的卡西米尔仍隐藏');
   await showTip('#prestigeResources [data-tip-kind="prestige"]');
   log($('#gameTooltip').textContent.includes('当前持有1粒子，当前实际加成为普通资源产量 +0.5%，锻造物产量 +0.125%'), '粒子数字悬停显示精确持有效果');
+  log(!$('#gameTooltip').textContent.includes('产量有效粒子数') && !$('#gameTooltip').textContent.includes('每个有效粒子储量'), '粒子悬停不再显示产量有效粒子数与单个修饰储量行');
   store.mutate(state => { state.prestige.particles = 2; }); await flush();
   log($('#gameTooltip').textContent.includes('当前持有2粒子，当前实际加成为普通资源产量 +1%，锻造物产量 +0.25%'), '粒子数量与悬停效果实时更新');
   await escapeTip();
@@ -1384,6 +1425,17 @@ try {
       log(gear && gear.textContent === '⚙' && gear.classList.contains('building-gear') && gearRect && buildingRect && Math.abs(gearRect.left - buildingRect.left) < 5 && Math.abs(gearRect.top - buildingRect.top) < 5, 'dl.exe复用工厂齿轮图标并位于建筑按钮左上角');
       click(ascension); await flush();
       log(S().prestige.ascensionResets === 1 && S().buildings.agiAscensionCore === 0, '点击飞升立即执行数字化飞升重置');
+      log(!!$('[data-prestige-row="harmonyCrystals"]') && $('[data-prestige-row="harmonyCrystals"] b')?.textContent === String(S().prestige.harmonyCrystals) && S().prestige.harmonyCrystals > 0, '飞升获得的和谐晶体显示在威望资源列表且数量正确');
+      await showTip('[data-prestige-row="harmonyCrystals"] [data-tip-kind="prestige"]');
+      const { calculateHarmonyCreepReduction } = await import('/src/simulation/costs.ts');
+      const { formatEffectNumber, formatResourceNumber } = await import('/src/shared/format.ts');
+      const harmonyEffectText = () => `当前已生效${formatResourceNumber(S().prestige.harmonyCrystals)}个和谐水晶，地面之外的建筑成本蠕变-${formatEffectNumber(calculateHarmonyCreepReduction(S()))}`;
+      log($('#gameTooltip .tip-desc')?.textContent === harmonyEffectText() && !$('#gameTooltip .resource-factor') && !$('#gameTooltip').textContent.includes('累计获取') && !$('#gameTooltip').textContent.includes('飞升次数'), '和谐水晶数字悬停只显示按真实公式计算的效果，不显示历史统计');
+      store.mutate(state => { state.prestige.harmonyCrystals = 50; }); await flush();
+      log($('#gameTooltip .tip-desc')?.textContent === '当前已生效50个和谐水晶，地面之外的建筑成本蠕变-0.0069', '和谐水晶悬停随持有量更新，减免为蠕变系数而非百分比');
+      store.mutate(state => { state.prestige.harmonyCrystals = 0; }); await flush();
+      log(!!$('[data-prestige-row="harmonyCrystals"]') && $('#gameTooltip .tip-desc')?.textContent === '当前已生效0个和谐水晶，地面之外的建筑成本蠕变-0', '和谐水晶归零保留已解锁行且悬停效果归零');
+      await escapeTip();
     } finally {
       if ($('#downloadModal [aria-label="关闭下载配置"]')) click($('#downloadModal [aria-label="关闭下载配置"]'));
       await escapeTip();

@@ -31,6 +31,7 @@ import { launchChallenges } from '../simulation/challenges';
 import type { ChallengeGeneId } from '../types/state';
 import { purchaseCrisprUpgrade } from '../simulation/crispr';
 import { craftDna, upgradeGene } from '../simulation/genes';
+import { setBuildingPowerEnabled } from '../simulation/power-grid';
 import { isPrestigeResourceUnlocked } from '../simulation/prestige-unlocks';
 import { storageSnapshot, storageCap, moonSnapshot } from './format';
 import CivilizationPanel from './components/CivilizationPanel.vue';
@@ -162,9 +163,7 @@ function buy(id: BuildingId, count: number, forceQueue = false): void {
 function toggle(id: BuildingId, delta: number): void {
   props.store.mutate(s => {
     if (!hasContinuousEnergyInput(id, s) || !Number.isSafeInteger(delta)) return;
-    const n = Math.floor((s.buildings[id] || 0) / (BUILDINGS[id].segmentedRequired ?? 1));
-    const stopped = s.stoppedBuildings[id] || 0;
-    s.stoppedBuildings[id] = Math.max(0, Math.min(n, stopped - delta));
+    setBuildingPowerEnabled(s, id, delta);
     trimFactoryAssignments(s);
     clampResourcesToCaps(s, storageSnapshot(s));
   });
@@ -327,7 +326,7 @@ function queueShip(id: ShipComponentId): void {
 // Unlocked once held; the progression sync keeps them visible at 0 afterwards.
 const prestigeVisible = computed(() => {
   props.store.revision();
-  return { particles: isPrestigeResourceUnlocked(state.value, 'particles'), casimir: isPrestigeResourceUnlocked(state.value, 'casimir'), darkEnergy: isPrestigeResourceUnlocked(state.value, 'darkEnergy') };
+  return { particles: isPrestigeResourceUnlocked(state.value, 'particles'), casimir: isPrestigeResourceUnlocked(state.value, 'casimir'), darkEnergy: isPrestigeResourceUnlocked(state.value, 'darkEnergy'), harmonyCrystals: isPrestigeResourceUnlocked(state.value, 'harmonyCrystals') };
 });
 
 function purchaseCrispr(id: CrisprUpgradeId): void {
@@ -525,7 +524,7 @@ onUnmounted(() => {
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.7.1</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.7.3</span>
     </header>
 
     <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
@@ -534,7 +533,7 @@ onUnmounted(() => {
         <CivilizationPanel :state="state" :revision="store.revision()" />
         <ResourcePanel :state="state" :revision="store.revision()" />
         <CraftingPanel :state="state" :revision="store.revision()" @craft="(id, count) => { store.mutate(s => craftManually(s, id, count)); afterAction(); }" />
-        <section v-if="prestigeVisible.particles || prestigeVisible.casimir || prestigeVisible.darkEnergy" id="prestigeResources" class="panel">
+        <section v-if="prestigeVisible.particles || prestigeVisible.casimir || prestigeVisible.darkEnergy || prestigeVisible.harmonyCrystals" id="prestigeResources" class="panel">
           <div class="panel-head"><h2>威望资源</h2><span>跨周目保留</span></div>
           <div class="res-list">
             <div v-if="prestigeVisible.particles" class="res-row" data-prestige-row="particles">
@@ -548,6 +547,10 @@ onUnmounted(() => {
             <div v-if="prestigeVisible.darkEnergy" class="res-row" data-prestige-row="darkEnergy">
               <span class="res-name">暗能量</span>
               <span class="res-amount" tabindex="0" data-building-tip="darkEnergy" data-tip-kind="prestige" aria-label="查看暗能量效果"><b>{{ state.prestige.darkEnergy }}</b></span>
+            </div>
+            <div v-if="prestigeVisible.harmonyCrystals" class="res-row" data-prestige-row="harmonyCrystals">
+              <span class="res-name">和谐晶体</span>
+              <span class="res-amount" tabindex="0" data-building-tip="harmonyCrystals" data-tip-kind="prestige" aria-label="查看和谐晶体效果"><b>{{ state.prestige.harmonyCrystals }}</b></span>
             </div>
           </div>
         </section>

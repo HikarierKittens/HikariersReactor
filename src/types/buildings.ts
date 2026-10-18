@@ -26,7 +26,7 @@ export type BuildingId =
   | 'containerWarehouse' | 'communityCenter' | 'coalMine' | 'mine'
   | 'nestMKII' | 'apartment' | 'warehouse' | 'storageHub' | 'nest' | 'catHut' | 'forage'
   | 'lumber' | 'quarry' | 'theater' | 'broadcast' | 'touristStation' | 'foundry'
-  | 'library' | 'school' | 'generator' | 'oilGenerator' | 'fissionGenerator'
+  | 'library' | 'school' | 'generator' | 'oilGenerator' | 'fissionGenerator' | 'solarFarm'
   | 'smelter' | 'lab' | 'refinery' | 'observatory' | 'factory' | 'moonObservatory'
   | 'asrielSpaceport' | 'asrielResidence' | 'asrielMine' | 'ecologicalDome'
   | 'planetaryFoundry' | 'spaceGarrison' | 'geothermalPlant'

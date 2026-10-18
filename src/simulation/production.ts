@@ -24,6 +24,7 @@ import type { GameState } from '../types/state';
 
 export function previewMorale(state: GameState, dt = 1) {
   const support = buildSettlementLedger(state, dt);
+  state = support.grid.state;
   const plants = support.plants;
   const coalSpeed = countRunningBuildings('generator', state);
   const derive = (happiness: number) => {
@@ -66,6 +67,7 @@ export function previewMorale(state: GameState, dt = 1) {
 export function calculateProduction(state: GameState, dt = 1) {
   const morale = previewMorale(state, dt);
   const ledger = buildSettlementLedger(state, dt);
+  state = ledger.grid.state;
   const digitalProduction = createDigitalProductionPool(state, ledger.digital, dt, morale.happiness);
   const replay = replaySettledPool(state, ledger, dt, morale.happiness, digitalProduction.pool);
   const pool = replay.pool, before = { ...state.resources };
@@ -93,9 +95,12 @@ export function calculateProduction(state: GameState, dt = 1) {
     const geneSynthesis = settleGeneSynthesis(state, pool, dt, biologyUnits);
     // 质量喷射: withdraw after every producer so same-step output can be ejected.
     const ejected = settleMassEjection(state, pool, dt, inputUnits.massEjector || 0);
-    const power = calculatePowerBudget(ledger.plants.energy, pool.energy, dt);
+    const actualPower = calculatePowerBudget(ledger.plants.energy, pool.energy, dt);
+    // Public power figures use the grid's signed headroom, not actualPower.available
+    // (the clamped unspent budget); `used` still comes from the funded settlement.
+    const power = { ...actualPower, available: ledger.grid.available };
     const final = finalizeProduction(state, pool, before, dt, { digital: ledger.digital, stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, blackHoleStationUnits: ledger.blackHoleStationUnits });
-    return { ...final, power, digital: digitalProduction.result(), outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis };
+    return { ...final, rates: { ...final.rates, energy: power.available }, power, powerGrid: { requested: ledger.grid.requested, allocated: ledger.grid.allocated, failed: ledger.grid.failed }, digital: digitalProduction.result(), outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis };
   });
 }
 export type ProductionResult = ReturnType<typeof calculateProduction>;

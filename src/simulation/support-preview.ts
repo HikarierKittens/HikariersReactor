@@ -1,4 +1,5 @@
 import { settlePowerPlants, calculatePowerBudget, type PowerBudget } from './power';
+import { calculatePowerGrid, type PowerGrid } from './power-grid';
 import { settleDigitalSupport, type DigitalSupport } from './digital-world';
 import { settleQuantumCores } from './quantum';
 import { settleSpaceProduction } from './space-settlement';
@@ -39,6 +40,7 @@ export interface SupportPreview {
  * pool flow, which must never observe this scratch pool.
  */
 export interface SettlementLedger extends SupportPreview {
+  grid: PowerGrid;
   /** Space settlement inputs/outputs captured at happiness=1. */
   space: ReturnType<typeof settleSpaceProduction>;
   /** Raw power-plant settlement captured before the space chain (units + energy). */
@@ -60,6 +62,8 @@ export function buildSettlementLedger(state: GameState, dt = 1, quantumLevel?: n
   const pool = { ...state.resources };
   // Supply first, then reserve AI cores before every other consumer.
   const plants = settlePowerPlants(pool, dt, state, quantumLevel);
+  const grid = calculatePowerGrid(state, dt, quantumLevel ?? 0, plants.energy);
+  state = grid.state;
   const aiSupercoreUnits = settleQuantumCores(state, pool, dt);
   const digital = settleDigitalSupport(state, pool, dt);
   // Happiness only scales ordinary space outputs, never power or maintenance.
@@ -71,8 +75,8 @@ export function buildSettlementLedger(state: GameState, dt = 1, quantumLevel?: n
   const dataRunning = Math.max(0, (state.buildings.observatory || 0) - (state.stoppedBuildings?.observatory || 0));
   const dataCenterUnits = Math.min(dataRunning, Math.floor((Math.max(0, pool.energy) + 1e-8) / (3 * dt)));
   // Preserve the research-power API: pool reserves biology but not observatories.
-  return {
-    power: calculatePowerBudget(plants.energy, pool.energy, dt),
+  const result = {
+    power: { ...calculatePowerBudget(plants.energy, pool.energy, dt), available: grid.available },
     digital,
     stageThree: space.stageThree,
     pool, moon: space.moon, asriel: space.asriel, metalRefineryUnits: space.metalRefineryUnits,
@@ -84,5 +88,8 @@ export function buildSettlementLedger(state: GameState, dt = 1, quantumLevel?: n
     blackHoleStationUnits: space.inputs.blackHoleStation || 0,
     space,
     plants,
-  };
+  } as SettlementLedger;
+  // Internal effective state must not leak into serialized/public support snapshots.
+  Object.defineProperty(result, 'grid', { value: grid });
+  return result;
 }

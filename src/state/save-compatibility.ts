@@ -4,13 +4,25 @@
  * Keep malformed records and explicitly supplied values for strict validation.
  * In particular, earned technology never backfills the one-time research reward.
  */
+/**
+ * Buildings added after the first schema31 saves. Each is backfilled only when
+ * the field itself is absent, and only for the three count records, so an
+ * explicitly malformed value still reaches strict validation untouched.
+ */
+const ADDITIVE_BUILDING_IDS = [
+  'dysonSphere', 'hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage',
+  'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder',
+  'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule',
+  'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore', 'solarFarm',
+] as const;
+
 export function normalizeSchema31Save(raw: Record<string, unknown>): Record<string, unknown> {
   if (raw.version !== 31) return raw;
   const normalized = { ...raw };
   const defaults: Record<string, readonly string[]> = {
-    buildings: ['dysonSphere', 'hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore'],
-    workers: ['dysonSphere', 'hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore'],
-    stoppedBuildings: ['dysonSphere', 'hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore'],
+    buildings: ADDITIVE_BUILDING_IDS,
+    workers: ADDITIVE_BUILDING_IDS,
+    stoppedBuildings: ADDITIVE_BUILDING_IDS,
     prestige: ['harmonyCrystals', 'ascensionResets'],
     resources: ['bytes', 'encryptedData'], containerAssignments: ['bytes', 'encryptedData'], alloyContainerAssignments: ['bytes', 'encryptedData'],
   };
@@ -28,6 +40,7 @@ export function normalizeSchema31Save(raw: Record<string, unknown>): Record<stri
     }
   }
   if (!Object.hasOwn(raw, 'downloadAllocation')) normalized.downloadAllocation = 0;
+  if (!Object.hasOwn(raw, 'powerActivationOrder')) normalized.powerActivationOrder = [];
   removeRetiredPowerContent(normalized);
   return normalized;
 }

@@ -147,7 +147,11 @@ const swarmBalance = computed(() => {
 
 const operationalSnapshot = computed(() => { props.revision; return uiPreview.production(props.state, props.revision); });
 function underworking(id: BuildingId): boolean {
-  return isBuildingUnderworking(id, props.state, operationalSnapshot.value);
+  return (operationalSnapshot.value.powerGrid.failed[id] || 0) > 0 || isBuildingUnderworking(id, props.state, operationalSnapshot.value);
+}
+function powerStatus(id: BuildingId): string {
+  const grid = operationalSnapshot.value.powerGrid;
+  return `已开启${runningCount(id)}座，实际供电${grid.allocated[id] ?? runningCount(id)}座，超额${grid.failed[id] || 0}座`;
 }
 
 function buildingCount(id: BuildingId): number {
@@ -316,10 +320,12 @@ function canGather(id: string): boolean {
         >⚙</button>
 
         <template v-if="toggleable(id)">
+          <span :id="`building-power-${id}`" hidden>{{ powerStatus(id) }}</span>
           <button
             class="building-toggle stop"
             :aria-label="`${toggleLabel(id) ? '关闭一座供能：' : '关停一座'}${calculateBuildingName(id, state)}`"
-            title="关闭供能：Ctrl ×10、Shift ×25、Alt ×100，可组合"
+            :aria-describedby="`building-power-${id}`"
+            :title="`${powerStatus(id)}。关闭供能：Ctrl ×10、Shift ×25、Alt ×100，可组合`"
             :disabled="runningCount(id) === 0"
              @click="emit('toggle', id, toggleDelta(id, $event, false))"
           >{{ completedCount(id) - runningCount(id) }}</button>
@@ -327,7 +333,9 @@ function canGather(id: string): boolean {
             class="building-toggle start"
             :class="{ 'is-shortage': underworking(id) }"
             :aria-label="`${toggleLabel(id) ? '开启一座供能：' : '启动一座'}${calculateBuildingName(id, state)}`"
-             :title="`${underworking(id) ? '未完全正常工作：支持、电力或维护资源不足。' : ''}开启供能：Ctrl ×10、Shift ×25、Alt ×100，可组合`"
+             :aria-describedby="`building-power-${id}`"
+             :data-power-failed="operationalSnapshot.powerGrid.failed[id] || undefined"
+             :title="`${powerStatus(id)}。${underworking(id) ? '未完全正常工作：支持、电力或维护资源不足。' : ''}开启供能：Ctrl ×10、Shift ×25、Alt ×100，可组合`"
             :disabled="completedCount(id) === runningCount(id)"
              @click="emit('toggle', id, toggleDelta(id, $event, true))"
           >{{ runningCount(id) }}</button>

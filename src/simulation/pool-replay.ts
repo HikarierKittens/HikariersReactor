@@ -40,6 +40,7 @@ export function replaySettledPool(
   happiness: number,
   pool: ResourceAmounts = { ...state.resources },
 ): SettledPoolReplay {
+  state = ledger.grid.state;
   const inputUnits: Record<string, number> = {};
   const outputs: Record<string, number> = {};
 

@@ -18,12 +18,12 @@ import type { BuildingId } from '../src/types/buildings';
 import type { ResourceId } from '../src/types/economy';
 
 const fresh = () => createInitialState(CONFIG.version, 60, 0);
-function close(actual: number, expected: number) {
-  assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} should equal ${expected}`);
+function close(actual: number, expected: number, label = '') {
+  assert.ok(Math.abs(actual - expected) < 1e-8, `${label} ${actual} should equal ${expected}`);
 }
 const cases = [
-  { id: 'alloyDrill', tier: 8, pre: 'automation', resource: 'alloy', producer: 'factory', knowledge: 44000, material: 'alloy', amount: 500 },
-  { id: 'alloyChainsaw', tier: 8, pre: 'automation', resource: 'alloy', producer: 'factory', knowledge: 44000, material: 'alloy', amount: 500 },
+  { id: 'alloyDrill', tier: 8, pre: 'industrialization', resource: 'alloy', producer: 'factory', knowledge: 44000, material: 'alloy', amount: 500 },
+  { id: 'alloyChainsaw', tier: 8, pre: 'industrialization', resource: 'alloy', producer: 'factory', knowledge: 44000, material: 'alloy', amount: 500 },
   { id: 'silicateCement', tier: 5, pre: 'metallurgy', resource: 'cement', producer: 'cementWorkshop', knowledge: 5000, material: 'stone', amount: 1000 },
 ] as const;
 
@@ -144,8 +144,10 @@ test('silicate cement increases base and actual cement by 50% without increasing
     s.buildings.cementWorkshop = 2;
     s.workers.cementWorkshop = 2;
     s.resources.stone = stone;
-    s.resources.energy = 100;
+    // Fixed power ignores legacy energy stock, so fund the mixer upkeeps with real generation.
+    s.buildings.solarSatellite = 2;
     if (mixer) s.tech.push('cementMixer');
+    s.powerActivationOrder!.push({ id: 'cementWorkshop', count: 2 });
     const baseOutput = calculateBuildingOutput('cementWorkshop', s);
     const baseInput = structuredClone(calculateBuildingInput('cementWorkshop', s));
     const original = calculateProduction(s, dt);
@@ -156,7 +158,7 @@ test('silicate cement increases base and actual cement by 50% without increasing
     const upgraded = calculateProduction(s, dt);
     close(upgraded.rates.cement, original.rates.cement * 1.5);
     close(upgraded.rates.stone, original.rates.stone);
-    close(upgraded.rates.energy, original.rates.energy);
+    close(upgraded.rates.energy, original.rates.energy, 'silicate cement adds no electrical upkeep; the cement mixer drain is already present in both balances');
     close(upgraded.inputUnits.cementWorkshop!, original.inputUnits.cementWorkshop!);
     for (const resource of ['cement', 'stone', 'energy'] as const) {
       close(calculateResourceBreakdown(resource, s, upgraded).net, upgraded.rates[resource]);

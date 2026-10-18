@@ -148,7 +148,9 @@ export function createRuntime(): Runtime {
     const elapsed = Math.max(0, (now - lastTick) / 1000);
     lastTick = now;
     if (!Number.isFinite(elapsed)) return;
-    pendingSimulation = Math.min(CONFIG.simulateLimit, pendingSimulation + Math.min(elapsed, CONFIG.simulateLimit));
+    // No accelerated settlement: background time only counts as one step per
+    // 1-second game tick, so throttled pages run at normal in-game speed.
+    pendingSimulation = Math.min(1, pendingSimulation + Math.min(elapsed, 1));
     const batchStart = performance.now();
     let steps = 0;
     while (pendingSimulation > 1e-9 && steps < 10) {

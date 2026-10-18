@@ -12,7 +12,19 @@ export function isPowerProducer(id: BuildingId): boolean {
   return BUILDINGS[id].powerPlant === true || id === 'generator';
 }
 export interface PowerResult { outputs: ProductionInputs; inputUnits: ProductionInputs; energy: number }
-/** Fixed power rates, not stored resources or per-timestep quantities. */
+/**
+ * Fixed power rates, not stored resources or per-timestep quantities.
+ *
+ * Two different "available" figures exist in this codebase and they are not
+ * interchangeable:
+ * - Here, `available` is the *unspent budget* left after the funded settlement,
+ *   clamped to `>= 0`, and `used` is derived from it (`generated - available`).
+ * - `PowerGrid.available` is `generated - requested`, the *headroom* against every
+ *   enabled load. It can be negative when enabled demand exceeds generation.
+ * `calculateProduction` returns the grid figures, so the public
+ * `ProductionResult.power.available` is the signed headroom, not this clamped
+ * budget value. Read `used` when you need what was actually consumed.
+ */
 export interface PowerBudget { generated: number; used: number; available: number }
 export function calculatePowerBudget(generated: number, remaining: number, dt: number): PowerBudget {
   const available = Math.max(0, remaining / dt);

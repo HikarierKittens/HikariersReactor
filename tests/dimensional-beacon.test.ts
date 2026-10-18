@@ -41,7 +41,7 @@ test('funded ports add stability before freight, and ice/base reserve whole supp
   assert.equal(p.inputUnits.hyperspaceSpaceport,1);assert.equal(p.inputUnits.iceMiningShip,1);assert.equal(p.inputUnits.asteroidBase,1);
   assert.deepEqual(p.power,{generated:60,used:60,available:0});near(p.rates.energy,0);near(p.rates.water,1);near(calculateResourceBreakdown('energy',s,p).net,p.rates.energy);near(calculateResourceBreakdown('water',s,p).net,1);
   near(calculateStorageDetails('water',s,snap(s,dt)).total,8100);
-  supplyPower(s,50);s.resources.helium3=1e4;const low=calculateProduction(s,dt);assert.equal(low.inputUnits.iceMiningShip,1);assert.equal(low.inputUnits.asteroidBase,0);assert.deepEqual(low.power,{generated:50,used:50,available:0});near(low.rates.energy,0);
+  supplyPower(s,50);s.resources.helium3=1e4;const low=calculateProduction(s,dt);assert.equal(low.inputUnits.iceMiningShip,1);assert.equal(low.inputUnits.asteroidBase,1);assert.deepEqual(low.power,{generated:50,used:45,available:-10});near(low.rates.energy,-10);
   s.stoppedBuildings.hyperspaceSpaceport=1;const off=calculateProduction(s,dt);assert.equal(off.stageThree.capacity,0);assert.equal(off.inputUnits.iceMiningShip||0,0);assert.equal(off.inputUnits.asteroidBase||0,0);near(off.rates.water,0);near(calculateStorageDetails('water',s,snap(s,dt)).total,0);
  }
 });

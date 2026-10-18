@@ -11,7 +11,12 @@ import { uiPreview } from '../preview-cache';
 
 const props = defineProps<{ state: GameState; revision: number }>();
 const emit = defineEmits<{ buy: [id: BuildingId, count: number, forceQueue: boolean]; toggle: [id: BuildingId, delta: number]; configure: []; ascend: [] }>();
-const digital = computed(() => { props.revision; return uiPreview.production(props.state, props.revision).digital; });
+const production = computed(() => { props.revision; return uiPreview.production(props.state, props.revision); });
+const digital = computed(() => production.value.digital);
+function powerStatus(id: BuildingId): string {
+  const grid = production.value.powerGrid;
+  return `已开启${running(id)}座，实际供电${grid.allocated[id] ?? running(id)}座，超额${grid.failed[id] || 0}座`;
+}
 const sections = computed(() => {
   props.revision;
   return [
@@ -87,8 +92,9 @@ function toggle(id: BuildingId, event: MouseEvent, start: boolean): void {
           <button class="building-info" :data-building-tip="id" data-tip-kind="building" :aria-label="`查看${BUILDINGS[id].name}详情`">ⓘ</button>
           <button v-if="id === 'downloadExecutable' && state.buildings[id] > 0" class="building-gear" data-download-settings aria-label="配置 dl.exe 下载分配" title="下载分配设置" @click="emit('configure')">⚙</button>
           <template v-if="ownedUnits(id) > 0 && (hasContinuousEnergyInput(id, state) || BUILDINGS[id].toggleable)">
-            <button class="building-toggle stop" :aria-label="`关停一座${BUILDINGS[id].name}`" :disabled="running(id) === 0" @click="toggle(id, $event, false)">{{ ownedUnits(id) - running(id) }}</button>
-            <button class="building-toggle start" :class="{ 'is-shortage': effective(id) + 1e-9 < running(id) }" :aria-label="`启动一座${BUILDINGS[id].name}`" :disabled="running(id) === ownedUnits(id)" @click="toggle(id, $event, true)">{{ running(id) }}</button>
+            <span :id="`digital-power-${id}`" hidden>{{ powerStatus(id) }}</span>
+            <button class="building-toggle stop" :aria-label="`关停一座${BUILDINGS[id].name}`" :aria-describedby="`digital-power-${id}`" :title="`${powerStatus(id)}。关闭供能：Ctrl ×10、Shift ×25、Alt ×100，可组合`" :disabled="running(id) === 0" @click="toggle(id, $event, false)">{{ ownedUnits(id) - running(id) }}</button>
+            <button class="building-toggle start" :class="{ 'is-shortage': (production.powerGrid.failed[id] || 0) > 0 || effective(id) + 1e-9 < running(id) }" :data-power-failed="production.powerGrid.failed[id] || undefined" :aria-label="`启动一座${BUILDINGS[id].name}`" :aria-describedby="`digital-power-${id}`" :title="`${powerStatus(id)}。开启供能：Ctrl ×10、Shift ×25、Alt ×100，可组合`" :disabled="running(id) === ownedUnits(id)" @click="toggle(id, $event, true)">{{ running(id) }}</button>
           </template>
         </div>
         <!-- Ascension is an action, not a purchase: it renders as its own button to the right

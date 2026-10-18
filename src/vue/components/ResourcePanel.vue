@@ -45,9 +45,9 @@ const dnaRow = computed(() => {
           <span class="res-name">{{ row.name }}</span>
           <template v-if="row.id === 'energy'">
             <span class="res-amount" tabindex="0" data-building-tip="energy" data-tip-kind="resource" aria-label="查看电力固定供给与占用">
-              <b>{{ formatResourceNumber(production.power.available) }}</b><i>/ {{ formatResourceNumber(production.power.generated) }}</i>
+              <b :class="{ 'power-deficit': production.power.available < 0 }" :data-power-deficit="production.power.available < 0 ? '' : undefined">{{ formatResourceNumber(production.power.available) }}</b><i>/ {{ formatResourceNumber(production.power.generated) }}</i>
             </span>
-            <span class="res-rate power-label">可用电力 / 总发电量</span>
+            <span class="res-rate power-label">剩余 / 总值</span>
           </template>
           <template v-else>
           <span class="res-amount" tabindex="0" :data-building-tip="row.id" data-tip-kind="storage" :aria-label="`查看${row.name}储量明细`">
@@ -72,6 +72,7 @@ const dnaRow = computed(() => {
 </template>
 
 <style scoped>
+.power-deficit { color: var(--red, #e57373); }
 .dna-row { grid-template-columns: auto minmax(0, 1fr); }
 .dna-amounts { display: flex; flex-wrap: wrap; gap: 4px 14px; color: #e5cf92; font-variant-numeric: tabular-nums; }
 .dna-amounts b { font-weight: 400; }

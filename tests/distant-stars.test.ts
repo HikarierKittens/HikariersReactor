@@ -140,20 +140,25 @@ test('adamantite refinery bonuses require whole funded running stations with bre
   assert.equal(BUILDINGS.adamantiteMiningShip.output!.adamantite, .25);
   assert.equal(BUILDINGS.adamantiteProcessor.name, '精金精炼站');
   for (const dt of [.2, 1]) {
-    for (const [stopped, energy, funded, rate, upkeep] of [
-      [0, 25, 2, .35, -25],
-      [1, 25, 1, .3, -15],
-      [2, 25, 0, .25, -5],
-      [0, 5, 0, .25, -5],
-      [0, 19, 1, .3, -15], // A fractionally affordable second refinery grants no bonus.
+    // `requested` counts every enabled unit, funded or not: available is generated minus requested.
+    for (const [stopped, energy, funded, rate, upkeep, requested] of [
+      [0, 25, 2, .35, -25, 25],
+      [1, 25, 1, .3, -15, 15],
+      [2, 25, 0, .25, -5, 5],
+      [0, 5, 0, .25, -5, 25],
+      [0, 19, 1, .3, -15, 25], // A fractionally affordable second refinery grants no bonus.
     ]) {
       const s = alpha(); s.buildings.adamantiteMiningShip = 1; s.buildings.adamantiteProcessor = 2;
       s.stoppedBuildings.adamantiteProcessor = stopped!; supplyPower(s, energy!);
       const p = calculateProduction(s, dt);
       near(p.inputUnits.adamantiteProcessor!, funded!);
-      near(p.power.generated, energy!); near(p.power.used, -upkeep!); near(p.power.available, energy! + upkeep!);
-      near(p.rates.adamantite, rate!); near(p.rates.energy, energy! + upkeep!, 'energy');
-      for (const id of ['adamantite', 'energy'] as const) near(calculateResourceBreakdown(id, s, p).net, p.rates[id], id);
+      near(p.power.generated, energy!); near(p.power.used, -upkeep!); near(p.power.available, energy! - requested!);
+      near(p.rates.adamantite, rate!); near(p.rates.energy, energy! - requested!, 'energy');
+      near(calculateResourceBreakdown('adamantite', s, p).net, p.rates.adamantite, 'adamantite');
+      // Energy rows mirror the settled flow (generated − used). rates.energy is the
+      // headroom metric (generated − requested); the two only coincide when every
+      // enabled load is funded, which is exactly the case this test pins down.
+      near(calculateResourceBreakdown('energy', s, p).net, p.power.generated - p.power.used, 'energy');
     }
   }
 });

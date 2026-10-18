@@ -31,8 +31,9 @@ test('hyperspace technology tiers costs and building-gated research retain exact
 });
 test('funded repeaters amplify only funded arrays and never amplify spaceport stability',()=>{
  for(const dt of [.2,1]){const s=ready();s.buildings.constraintArray=2;s.buildings.signalRepeater=3;s.buildings.hyperspaceSpaceport=1;s.resources.e710=1;s.resources.helium3=1e4;supplyPower(s,165);
+ s.powerActivationOrder=[{id:'constraintArray',count:2},{id:'signalRepeater',count:3},{id:'hyperspaceSpaceport',count:1}];
  const before=clone(s),p=calculateProduction(s,dt);assert.deepEqual(s,before);assert.deepEqual(p.stageThree,calculateSupportPreview(s,dt).stageThree);near(p.stageThree.capacity,9.5);assert.deepEqual(p.power,{generated:165,used:160,available:5});near(p.rates.energy,5);assert.equal(p.pool.energy,0,'electricity is a fixed budget, not stored');near(calculateResourceBreakdown('energy',s,p).net,p.rates.energy);
- supplyPower(s,120);const short=calculateProduction(s,dt);near(short.stageThree.capacity,5);assert.deepEqual(short.power,{generated:120,used:120,available:0});near(short.rates.energy,0);
+ supplyPower(s,120);const short=calculateProduction(s,dt);near(short.stageThree.capacity,5);assert.deepEqual(short.power,{generated:120,used:120,available:-40});near(short.rates.energy,-40);
  s.stoppedBuildings.constraintArray=2;supplyPower(s,60);s.resources.helium3=1e4;near(calculateProduction(s,dt).stageThree.capacity,4);
  }
 });

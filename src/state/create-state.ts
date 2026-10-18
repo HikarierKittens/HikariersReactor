@@ -41,6 +41,7 @@ export function createInitialState(version: number, eventIn: number, now: number
     resources: zeroRecord(registryKeys(RESOURCES)),
     buildings: zeroRecord(registryKeys(BUILDINGS)),
     stoppedBuildings: zeroRecord(registryKeys(BUILDINGS)),
+    powerActivationOrder: [],
     workers: zeroRecord(registryKeys(BUILDINGS)),
     tech: [], population: 0, growthTarget: 0,
     lines: zeroRecord(FACTORY_OPTIONS.map(option => option.id)),

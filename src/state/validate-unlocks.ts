@@ -9,6 +9,7 @@ import { validateSaveIds } from './validation';
 import { SNAPSHOT_ACHIEVEMENT_IDS } from '../simulation/achievement-tracking';
 import type { GameState } from '../types/state';
 import type { BuildingId } from '../types/buildings';
+import type { TechnologyId } from '../types/technologies';
 
 /** Every current mission flag is required. */
 export function validateSpaceMissionRecords(raw: Record<string, unknown>, state: GameState): void {
@@ -28,6 +29,20 @@ const BUILDING_SPACE_MISSIONS = {
   atmosphericCollector: 'talos', galacticFuelDepot: 'talos',
   talosMoonMiningStation: 'talosMoon', iridiumMiningShip: 'asteroidBelt', ironMiningShip: 'asteroidBelt',
 } as const;
+
+/**
+ * Earned research that beta 0.7.3 re-gated behind 工业化. A save predating that
+ * retarget keeps its research; only the new parent is tolerated as missing, and
+ * isTechnologyUnlocked still enforces it for every future purchase. These IDs
+ * were originally gated on 自动化/电力, which historical saves already satisfy.
+ */
+const RETARGETED_PREREQUISITE_TECH: readonly TechnologyId[] = ['electronics', 'oilTechnology', 'alloyDrill', 'alloyChainsaw'];
+
+/**
+ * Buildings whose unlock technology moved in beta 0.7.3, mapped to the technology
+ * that previously opened them. Historical saves keep built counts and workers.
+ */
+const RETARGETED_BUILDING_TECH: Partial<Record<BuildingId, TechnologyId>> = { factory: 'automation' };
 
 export function validateUnlockRecords(raw: Record<string, unknown>, state: GameState): void {
   state.unlockedResources = validateSaveIds(raw.unlockedResources, RESOURCES);
@@ -66,7 +81,23 @@ export function validateUnlockRecords(raw: Record<string, unknown>, state: GameS
     // buildingRequired/full-ripper purchase gate must not revoke earned research.
     // Do not reuse isTechnologyUnlocked here: it governs future research.
     if ((tech === 'higherDimensionalStorage' || tech === 'overclocking13') && !isBuildingFullyBuilt('spaceRipper', state)) throw Error('科技需要完成空间撕裂者。');
-    if (!TECHNOLOGIES[tech].pre.every(parent => state.tech.includes(parent))) throw Error('科技前置关系无效。');
+    // beta 0.7.3 tightened these to require 工业化 (and retargeted 电子学/石油开采
+    // off 自动化+电力). Earned research must survive: a historical save that
+    // predates the retarget is accepted without the new parent, while
+    // isTechnologyUnlocked still governs all future research.
+    const tightened = RETARGETED_PREREQUISITE_TECH.includes(tech as TechnologyId);
+    const missing = TECHNOLOGIES[tech].pre.filter(parent => !state.tech.includes(parent));
+    if (missing.length && !(tightened && missing.every(parent => parent === 'industrialization'))) throw Error('科技前置关系无效。');
   }
-  for (const id of Object.keys(BUILDINGS) as BuildingId[]) if ((state.buildings[id] || state.workers[id]) && !isBuildingUnlocked(id, state)) throw Error('建筑尚未解锁。');
+  for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
+    if (!(state.buildings[id] || state.workers[id])) continue;
+    if (isBuildingUnlocked(id, state)) continue;
+    // beta 0.7.3 moved 工厂 onto 工业化. A save that predates the retarget keeps
+    // its built factories and assigned workers; every other gate is re-checked at
+    // its current strictness so this tolerance cannot open anything new.
+    const previousTech = RETARGETED_BUILDING_TECH[id];
+    if (previousTech && state.tech.includes(previousTech)
+      && isBuildingUnlocked(id, { ...state, tech: [...state.tech, BUILDINGS[id].tech] })) continue;
+    throw Error('建筑尚未解锁。');
+  }
 }

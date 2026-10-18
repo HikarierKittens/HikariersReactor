@@ -15,7 +15,7 @@
 
 ## 1. 项目概览
 
-当前版本为 beta 0.7.0（2026/10/18），在 beta 0.6 分支基础上扩展第四阶段数字内容、戴森球与量子平衡，并把电力改为固定供给预算。schema 31 保持兼容；下文玩法机制沿用基线，旧版本兼容行为只在历史记录中保留。
+当前版本为 beta 0.7.3（2026/10/19），在 beta 0.6 分支基础上扩展第四阶段数字内容、戴森球与量子平衡，并把电力改为固定供给预算。schema 31 保持兼容；下文玩法机制沿用基线，旧版本兼容行为只在历史记录中保留。
 
 - 运行目录：`D:\XMaker\HikariersReactor`（Git 仓库）。
 - 技术栈：Vue 3 + TypeScript + Vite；测试使用 Node.js 内置 `node:test`，浏览器验收使用无头 Edge 驱动真实挂载。
@@ -26,8 +26,28 @@
 - 电力不再是库存资源：`RESOURCES.energy.cap = 0`，`storage` 对电力恒返回空明细与总量0，`validate-economy` 在载入时校验旧值后归零。发电与耗电都在每次结算内完成，剩余供给不累积。
 - `settlePowerPlants` 先把调用方池的 `energy` 清0，再按 `输出×dt` 写入临时预算；`settleQuantumCores` 与数字世界、空间、月面、Asriel、仓库、研究等消费者沿用既有优先级从该预算扣费，非电力燃料仍按 `dt` 结算。
 - 回放 `replaySettledPool` 只重放台账已支付的发电量与各消费者扣费，不重新推导单位；`finalizeProduction` 令持久 `pool.energy = 0`，并令 `rates.energy = available`。`calculateProduction` 返回 `power = { generated, used, available }`（均为瓦特原值，不随 dt 变化）；`SupportPreview.power` 是研究/观测预留前的边界余额。
-- UI 以 `production.power` 显示“可用电力 / 总发电量”；建筑提示中的电力数字不带 `/s`（其他资源保留）。旧储能站已从注册表、分组与类型移除，历史已研究的 `energyStorage`/`batteryConcentrationRing` 保留 ID 但不可再研究且无效果；旧档中的电池建筑/停用/工人/队列定向清理，其他进度不变。
+- UI 以 `production.power` 显示“剩余 / 总值”；建筑提示中的电力数字不带 `/s`（其他资源保留）。旧储能站已从注册表、分组与类型移除，历史已研究的 `energyStorage`/`batteryConcentrationRing` 保留 ID 但不可再研究且无效果；旧档中的电池建筑/停用/工人/队列定向清理，其他进度不变。
 - 建造、科技与工程的一次性电力费用由 `one-time-cost` 过滤掉（报价、支付、队列与注资共用），每秒运行消耗不变。
+
+#### 电力的三个“可用”数字（易混淆，勿混用）
+
+固定电力下有三个名字相近但含义不同的数值，**三者仅在全部已开启负载都获得供电时相等**：
+
+| 数值 | 定义 | 是否可为负 | 用途 |
+|---|---|---|---|
+| `PowerGrid.available` | `generated - requested`（余量） | 是 | 公开的 `ProductionResult.power.available` 与 `rates.energy`；UI 显示“剩余” |
+| `PowerBudget.available` | 结算后未用预算，钳制 `>= 0`；`used` 由它反推 | 否 | 仅 `power.ts` 内部 |
+| `ResourceBreakdown.net` | `income + expense`，即 `generated - used`（实际流量） | 否（电力行） | 悬浮详情的收支明细 |
+
+`requested` 统计**所有已开启**建筑的用电需求，与实际是否供上电无关；`used` 只统计实际获得供电的部分。因此当需求超过发电时，`available` 为负而 `net` 仍为该次实际净流量。模拟层不得把 `available` 当作可支配电量使用。
+
+### 工业化与光伏电站（beta 0.7.3）
+
+- `industrialization`（工业化）为 T8 节点科技，42k知识，pre `electricity`/`automation`/`titaniumSmelting`，列于 `KEY_TECHNOLOGIES`（金色边框）。`factory` 的 `tech` 由 `automation` 改为 `industrialization`，工厂与生产线随之改由工业化解锁。
+- `solarPower`（太阳能发电）为 T8 科技，50k知识，pre `electronics`，解锁 `solarFarm`。
+- `solarFarm`（光伏电站）位于 `energy` 分组：`powerPlant: true`，`output.energy = 4`，无 `input`、无岗位；成本 cash 10000 / copper 1000 / iron 1000 / metal 100，四项蠕变 1.225。作为 `powerPlant` 由 `settlePowerPlants` 直接注入固定电力预算，不经过库存。
+- `electronics` 改为 T8（42k知识，pre `industrialization`/`electricity`）；`oilTechnology` 改为 T8（45k知识，pre `industrialization`）；`alloyDrill`/`alloyChainsaw` 的 pre 改为 `industrialization`。
+- 存档兼容：`validate-unlocks` 中的 `RETARGETED_PREREQUISITE_TECH` 与 `RETARGETED_BUILDING_TECH` 只为上述改动作历史豁免——缺失的父级仅允许是 `industrialization`（工厂额外允许旧 `automation`），其余不满足的前置仍报错，`isTechnologyUnlocked` 对新研究保持严格。`solarFarm` 加入 `save-compatibility` 的 `ADDITIVE_BUILDING_IDS`。
 
 ### 戴森球与量子平衡（beta 0.7.0）
 

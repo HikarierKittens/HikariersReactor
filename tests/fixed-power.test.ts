@@ -9,6 +9,8 @@ import { settlePowerPlants } from '../src/simulation/power';
 import { advanceGameTick } from '../src/simulation/tick';
 import { calculateMorale } from '../src/simulation/morale';
 import { calculatePoweredWaystations } from '../src/simulation/space-fuel';
+import { allocateAsrielSupport } from '../src/simulation/asriel';
+import { settleStageThreeSupport } from '../src/simulation/stage-three-support';
 
 test('direct morale fallback ignores saved electricity', () => {
   const state = fresh();
@@ -60,14 +62,15 @@ test('fixed generation and priority allocations do not scale with dt', () => {
   state.buildings.solarSatellite = 1; // fixed +5
   state.buildings.biologyLab = 2; // first -4
   state.buildings.observatory = 1; // cannot fund -3
+  state.powerActivationOrder = [{ id: 'biologyLab', count: 2 }, { id: 'observatory', count: 1 }];
   for (const dt of [.1, .2, 1, 5]) {
     const result = calculateProduction(state, dt);
     near(result.power.generated, 5);
     near(result.power.used, 4);
-    near(result.power.available, 1);
+    near(result.power.available, -2); // +5 generated -7 requested; actual spend remains 4
     assert.equal(result.inputUnits.biologyLab, 2);
     assert.equal(result.inputUnits.observatory, 0);
-    near(result.rates.energy, 1);
+    near(result.rates.energy, -2);
     assert.equal(result.pool.energy, 0);
     const ledger = buildSettlementLedger(state, dt);
     near(replaySettledPool(state, ledger, dt, result.morale.happiness).pool.energy, dt);
@@ -79,12 +82,13 @@ test('AI supercores receive newly generated power before digital consumers', () 
   state.buildings.solarSatellite = 20; // +100
   state.buildings.aiSupercore = 100; // one complete segmented core, -100
   state.buildings.gatewayRouter = 1;
+  state.powerActivationOrder = [{ id: 'aiSupercore', count: 1 }, { id: 'gatewayRouter', count: 1 }];
   state.resources.helium3 = 1000;
   for (const dt of [.2, 1, 2]) {
     const result = calculateProduction(state, dt);
     assert.equal(result.inputUnits.aiSupercore, 1);
     assert.equal(result.digital.gatewayUnits, 0);
-    assert.deepEqual(result.power, { generated: 100, used: 100, available: 0 });
+    assert.deepEqual(result.power, { generated: 100, used: 100, available: -25 });
     near(result.rates.helium3, -25);
     assert.equal(buildSettlementLedger(state, dt).aiSupercoreUnits, 1);
   }
@@ -101,6 +105,50 @@ test('power plants reset scratch supply but their non-energy fuel still scales w
     near(plants.energy, 70);
     near(pool.energy, 70 * dt);
     near(pool.water, 100 - 4 * dt);
+  }
+});
+
+test('negative scratch power cannot allocate negative Asriel support or create fuel', () => {
+  const state = fresh();
+  state.buildings.asrielSpaceport = 1;
+  state.buildings.asrielControlTower = 1;
+  state.buildings.asrielResidence = 1;
+  const pool = { ...state.resources, energy: -1, helium3: 10, food: 100 };
+  const before = { ...pool };
+  const result = allocateAsrielSupport(state, pool, 1, 0, 1);
+  assert.equal(result.ports, 0);
+  assert.equal(result.towers, 0);
+  assert.equal(result.capacity, 0);
+  assert.ok(Object.values(result.allocations).every(units => units === 0));
+  assert.deepEqual(pool, before, 'allocation remains read-only');
+});
+
+test('negative scratch power cannot reverse stage-three maintenance into resource credits', () => {
+  const state = fresh();
+  state.tech.push('fieldConstraintTheory', 'accessPointBeacon', 'dimensionBeaconDeployment');
+  const pool = { ...state.resources, energy: -1, e710: 10, helium3: 10, food: 100 };
+  const result = settleStageThreeSupport(state, pool, 1);
+  assert.ok(Object.values(result).every(value => value === 0));
+  assert.equal(pool.energy, 0);
+  assert.equal(pool.e710, 10);
+  assert.equal(pool.helium3, 10);
+  assert.equal(pool.food, 100);
+});
+
+test('support allocators reject invalid timesteps and nonfinite funding before mutations', () => {
+  const state = fresh();
+  for (const dt of [0, -1, NaN, Infinity]) {
+    const pool = { ...state.resources };
+    assert.throws(() => allocateAsrielSupport(state, pool, dt, 0, 1), RangeError);
+    assert.throws(() => settleStageThreeSupport(state, pool, dt), RangeError);
+    assert.deepEqual(pool, state.resources);
+  }
+  for (const energy of [NaN, Infinity, -Infinity]) {
+    const pool = { ...state.resources, energy };
+    const before = { ...pool };
+    assert.throws(() => allocateAsrielSupport(state, pool, 1, 0, 1), RangeError);
+    assert.throws(() => settleStageThreeSupport(state, pool, 1), RangeError);
+    assert.deepEqual(pool, before);
   }
 });
 

@@ -34,6 +34,13 @@ export interface ResourceBreakdown {
   entries: BreakdownEntry[];
   income: number;
   expense: number;
+  /**
+   * `income + expense` — the settled flow. For `energy` this is
+   * `generated - used`, i.e. what was actually generated and consumed. It is NOT
+   * `ProductionResult.power.available`, which is the signed headroom
+   * `generated - requested` and goes negative for enabled-but-unfunded loads.
+   * The two are equal only when every enabled load received power.
+   */
   net: number;
   /** Community centre doubles as a food-saving note in the expense tooltip. */
   communityCenter: boolean;
