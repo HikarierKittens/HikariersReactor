@@ -19,10 +19,8 @@ import { estimateQueueTimes } from './queue-estimates';
 import { changeCraftAssignment } from '../simulation/crafting';
 import { setAutoWorkersEnabled, setAutoWorkerEnabled, setAutoWorkerLimit, moveAutoWorkerPriority, applyAutoWorkerAssignment } from '../simulation/auto-workers';
 import { trimFactoryAssignments } from '../simulation/factory';
-import { fillNuclearProject, launchNuclearPrestige, launchEscapePrestige, launchBlackHolePrestige, calculateBlackHolePrestigeRewards, launchDigitalAscension, calculateDigitalAscensionRewards } from '../simulation/prestige';
-import { calculateEscapePrestigeReward, calculateCasimirReward, calculateTechCost } from '../simulation/government';
+import { fillNuclearProject, launchNuclearPrestige, launchEscapePrestige, launchBlackHolePrestige, launchDigitalAscension } from '../simulation/prestige';
 import { TECHNOLOGIES } from '../data/technologies';
-import { canPayCost } from '../simulation/costs';
 import { calculateContainerCapacity, calculateAlloyContainerCapacity } from '../simulation/containers';
 import { changeEjectionAllocation } from '../simulation/black-hole';
 import { investInProject } from '../simulation/projects';
@@ -229,8 +227,8 @@ function gather(id: 'food' | 'wood' | 'stone'): void {
 }
 
 function research(id: TechnologyId, forceQueue = false): void {
-  // 奇异失控 never queues: it opens the 黑洞重置 confirmation instead.
-  if (TECHNOLOGIES[id].prestigeReset) { blackHoleConfirm.value = true; return; }
+  // 奇异失控 never queues: the click itself triggers the black-hole reset.
+  if (TECHNOLOGIES[id].prestigeReset) { confirmBlackHole(); return; }
   props.store.mutate(s => { requestPurchaseModule(s, 'tech', id, () => moonSnapshot(s).available, forceQueue); });
   afterAction();
 }
@@ -269,7 +267,7 @@ function resetRun(kind: 'soft' | 'hard', done?: (success: boolean) => void): voi
   let success = false;
   try { success = props.store.runtime.reset(kind); actionError.value = ''; }
   catch { actionError.value = '重置失败，请导出备份后重试。'; }
-  if (success) { worldView.value = 'home'; techView.value = 'available'; factoryOpen.value = false; smelterOpen.value = false; synthesisOpen.value = false; shipModal.value = false; escapeConfirm.value = false; }
+  if (success) { worldView.value = 'home'; techView.value = 'available'; factoryOpen.value = false; smelterOpen.value = false; synthesisOpen.value = false; shipModal.value = false; }
   props.store.refresh();
   done?.(success && !props.store.runtime.saveFailed);
 }
@@ -354,21 +352,17 @@ function fillNuclear(percent: number): void {
   afterAction();
 }
 
-const escapeConfirm = ref(false);
-const escapeDialog = ref<HTMLDialogElement | null>(null);
-const escapeReward = computed(() => { props.store.revision(); return calculateEscapePrestigeReward(state.value); });
-const casimirReward = computed(() => calculateCasimirReward(escapeReward.value));
-watch(escapeConfirm, async open => { if (open) { await nextTick(); escapeDialog.value?.showModal(); } });
+// Prestige resets run immediately on click; the trigger buttons carry a hover
+// preview of the exact rewards instead of a confirmation dialog. SpaceshipModal
+// keeps its modal open until the launch actually succeeds.
 function launchShip(): void {
-  shipModal.value = false;
-  escapeConfirm.value = true;
+  confirmEscape();
 }
 function confirmEscape(): void {
   const result = launchEscapePrestige(props.store.state(), sampleEventInterval(Math.random), Date.now());
   if (!result) return;
   if (!replaceRun(result.next)) return;
   props.store.mutate(s => addLog(s, `ESS-喵星号已离开太阳系，获得 ${result.reward} 粒子与 ${result.casimirReward} 卡西米尔晶体。新的文明开始了。`, 'system'));
-  escapeConfirm.value = false;
   shipModal.value = false;
   factoryOpen.value = false;
   smelterOpen.value = false;
@@ -379,17 +373,11 @@ function confirmEscape(): void {
   afterAction();
 }
 
-const blackHoleConfirm = ref(false);
-const blackHoleDialog = ref<HTMLDialogElement | null>(null);
-const blackHoleRewards = computed(() => { props.store.revision(); return calculateBlackHolePrestigeRewards(state.value); });
-const canAffordRunaway = computed(() => { props.store.revision(); return canPayCost(state.value.resources, calculateTechCost('exoticRunaway', state.value)); });
-watch(blackHoleConfirm, async open => { if (open) { await nextTick(); blackHoleDialog.value?.showModal(); } });
 function confirmBlackHole(): void {
   const result = launchBlackHolePrestige(props.store.state(), sampleEventInterval(Math.random), Date.now());
   if (!result) return;
   if (!replaceRun(result.next)) return;
   props.store.mutate(s => addLog(s, `奇异失控引发了黑洞爆炸，一切归于虚无。获得 ${result.reward} 粒子、${result.casimirReward} 卡西米尔晶体与 ${result.darkEnergyReward} 暗能量。新的文明开始了。`, 'system'));
-  blackHoleConfirm.value = false;
   shipModal.value = false;
   factoryOpen.value = false;
   smelterOpen.value = false;
@@ -404,16 +392,11 @@ function changeEjection(id: ResourceId, delta: number): void {
   afterAction();
 }
 
-const digitalAscensionConfirm = ref(false);
-const digitalAscensionDialog = ref<HTMLDialogElement | null>(null);
-const digitalAscensionRewards = computed(() => { props.store.revision(); return calculateDigitalAscensionRewards(state.value); });
-watch(digitalAscensionConfirm, async open => { if (open) { await nextTick(); digitalAscensionDialog.value?.showModal(); } });
 function confirmDigitalAscension(): void {
   const result = launchDigitalAscension(props.store.state(), sampleEventInterval(Math.random), Date.now());
   if (!result) return;
   if (!replaceRun(result.next)) return;
   props.store.mutate(s => addLog(s, `数字化飞升完成，获得 ${result.reward} 粒子、${result.casimirReward} 卡西米尔晶体与 ${result.harmonyReward} 和谐晶体。新的文明开始了。`, 'system'));
-  digitalAscensionConfirm.value = false;
   shipModal.value = false;
   factoryOpen.value = false;
   smelterOpen.value = false;
@@ -425,16 +408,11 @@ function confirmDigitalAscension(): void {
   afterAction();
 }
 
-const nuclearConfirm = ref(false);
-function launchNuclear(): void {
-  nuclearConfirm.value = true;
-}
 function confirmNuclear(): void {
   const result = launchNuclearPrestige(props.store.state(), sampleEventInterval(Math.random), Date.now());
   if (!result) return;
   if (!replaceRun(result.next)) return;
   props.store.mutate(s => addLog(s, `核弹已发射，获得 ${result.reward} 粒子。新的文明开始了。`, 'system'));
-  nuclearConfirm.value = false;
   worldView.value = 'home';
   activeTab.value = 'buildings';
   afterAction();
@@ -467,9 +445,7 @@ function dismissShipBackdrop(event: MouseEvent): void {
   const bounds = dialog.getBoundingClientRect();
   if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) shipModal.value = false;
 }
-const nuclearDialog = ref<HTMLDialogElement | null>(null);
 watch(factoryOpen, async open => { if (open) { await nextTick(); factoryDialog.value?.showModal(); } });
-watch(nuclearConfirm, async open => { if (open) { await nextTick(); nuclearDialog.value?.showModal(); } });
 
 function dismissFactoryBackdrop(event: MouseEvent): void {
   const dialog = factoryDialog.value;
@@ -549,10 +525,10 @@ onUnmounted(() => {
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.7.0</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.7.1</span>
     </header>
 
-    <p v-if="actionError && !escapeConfirm && !blackHoleConfirm && !nuclearConfirm" class="action-error" role="alert">{{ actionError }}</p>
+    <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
     <div class="layout">
       <aside class="col-left">
         <CivilizationPanel :state="state" :revision="store.revision()" />
@@ -604,7 +580,7 @@ onUnmounted(() => {
               @synthesis-settings="synthesisOpen = true"
               @ship-settings="shipModal = true"
                @download-settings="downloadOpen = true"
-               @digital-ascension="digitalAscensionConfirm = true"
+               @digital-ascension="confirmDigitalAscension"
               @world-view="worldView = $event"
               @mission="mission"
             />
@@ -637,7 +613,7 @@ onUnmounted(() => {
               @reform="reform"
               @tax="setTax"
               @fill="fillNuclear"
-              @nuclear="launchNuclear"
+              @nuclear="confirmNuclear"
             />
             <ArpaPanel
               v-else-if="activeTab === 'arpa'"
@@ -745,34 +721,6 @@ onUnmounted(() => {
     <footer><span>{{ guide }}</span></footer>
     <TooltipPanel :state="state" :revision="store.revision()" />
 
-    <dialog v-if="escapeConfirm" ref="escapeDialog" id="escapeConfirm" aria-labelledby="escapeConfirmTitle" @cancel="escapeConfirm = false">
-      <h2 id="escapeConfirmTitle">确认发射ESS-喵星号</h2>
-      <p>离开太阳系将结束本周目，保留威望资源、CRISPR修饰、成就与重置记录，重新开始文明。</p>
-      <p>预计获得：<strong>{{ escapeReward }} 粒子</strong> · <strong>{{ casimirReward }} 卡西米尔晶体</strong></p>
-      <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
-      <div class="actions"><button @click="escapeConfirm = false">取消</button><button id="confirmEscapeLaunch" class="danger" @click="confirmEscape">确认发射</button></div>
-    </dialog>
-    <dialog v-if="blackHoleConfirm" ref="blackHoleDialog" id="blackHoleConfirm" aria-labelledby="blackHoleConfirmTitle" @cancel="blackHoleConfirm = false">
-      <h2 id="blackHoleConfirmTitle">确认研究奇异失控</h2>
-      <p>向不稳定的黑洞投入奇异物质将引发黑洞重置：结束本周目，保留威望资源、CRISPR修饰、成就与重置记录，重新开始文明。</p>
-      <p class="danger">警告：这可能会导致无法预料的爆炸，毁灭一切，无限，永恒</p>
-      <p>预计获得：<strong>{{ blackHoleRewards.reward }} 粒子</strong> · <strong>{{ blackHoleRewards.casimirReward }} 卡西米尔晶体</strong> · <strong>{{ blackHoleRewards.darkEnergyReward }} 暗能量</strong></p>
-      <p v-if="!canAffordRunaway" class="small subtle">资源不足，无法支付奇异失控的研究费用。</p>
-      <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
-      <div class="actions"><button @click="blackHoleConfirm = false">取消</button><button id="confirmBlackHoleReset" class="danger" :disabled="!canAffordRunaway" @click="confirmBlackHole">确认研究</button></div>
-    </dialog>
-    <dialog v-if="digitalAscensionConfirm" ref="digitalAscensionDialog" id="digitalAscensionConfirm" aria-labelledby="digitalAscensionConfirmTitle" @cancel="digitalAscensionConfirm = false">
-      <h2 id="digitalAscensionConfirmTitle">确认数字化飞升</h2>
-      <p>数字化飞升将结束当前文明并开启新的周目，保留永久威望奖励、基因修饰与历史统计。</p>
-      <p>预计获得 {{ digitalAscensionRewards.reward }} 粒子、{{ digitalAscensionRewards.casimirReward }} 卡西米尔晶体与 {{ digitalAscensionRewards.harmonyReward }} 和谐晶体。</p>
-      <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
-      <div class="actions"><button @click="digitalAscensionConfirm = false">取消</button><button id="confirmDigitalAscension" class="danger" @click="confirmDigitalAscension">确认飞升</button></div>
-    </dialog>
-    <dialog v-if="nuclearConfirm" ref="nuclearDialog" id="nuclearConfirm" @cancel="nuclearConfirm = false">
-      <h2>确认发射核弹</h2><p>发射会结束本周目，保留粒子、成就与重置记录。</p>
-      <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
-      <div class="actions"><button @click="nuclearConfirm = false">取消</button><button id="confirmNuclearLaunch" class="danger" @click="confirmNuclear">确认发射</button></div>
-    </dialog>
     <dialog v-if="shipModal" ref="shipDialog" id="spaceshipModal" class="factory-modal spaceship-modal" aria-labelledby="spaceshipTitle" @cancel="shipModal = false" @click="dismissShipBackdrop">
       <div class="panel-head"><h2 id="spaceshipTitle">ESS-喵星号</h2><button aria-label="关闭飞船建造设置" @click="shipModal = false">关闭</button></div>
       <SpaceshipModal :state="state" :revision="store.revision()" @invest="investShip" @queue="queueShip" @launch="launchShip" />

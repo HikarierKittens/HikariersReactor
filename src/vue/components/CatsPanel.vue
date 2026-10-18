@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { GameState } from '../../types/state';
 import type { BuildingId } from '../../types/buildings';
 import type { CraftId } from '../../types/economy';
@@ -66,15 +66,37 @@ function jobAutoEnabled(id: BuildingId): boolean {
 function jobAutoLimit(id: BuildingId): number {
   return props.state.autoWorkers?.jobs[id]?.limit ?? -1;
 }
+// Ticks re-render the rows while the user is typing or spinning; a draft keeps the
+// focused field stable until the change event submits. A draft is dropped only when
+// the committed limit changes elsewhere, so a tick never resets an in-flight edit.
+const autoLimitDrafts = ref<Partial<Record<BuildingId, { value: number; base: number }>>>({});
+watch(() => props.revision, () => {
+  for (const id of Object.keys(autoLimitDrafts.value) as BuildingId[]) {
+    const draft = autoLimitDrafts.value[id];
+    if (draft && jobAutoLimit(id) !== draft.base) delete autoLimitDrafts.value[id];
+  }
+});
+function autoLimitValue(id: BuildingId): number {
+  const draft = autoLimitDrafts.value[id];
+  return draft ? draft.value : jobAutoLimit(id);
+}
 function changeAutoLimit(id: BuildingId, event: Event): void {
   const input = event.target as HTMLInputElement;
-  if (input.value.trim() === '' || !Number.isFinite(input.valueAsNumber)) {
-    input.value = String(jobAutoLimit(id));
-    return;
-  }
-  const limit = Math.max(-1, Math.floor(input.valueAsNumber));
+  const limit = Number.isFinite(input.valueAsNumber) ? Math.min(1e9, Math.max(-1, Math.floor(input.valueAsNumber))) : autoLimitValue(id);
+  delete autoLimitDrafts.value[id];
   input.value = String(limit);
   emit('autoWorkerLimit', id, limit);
+}
+function setAutoLimitDraft(id: BuildingId, event: Event): void {
+  const input = event.target as HTMLInputElement;
+  // Plain digits (or a leading minus) are accepted as they are typed; anything
+  // unparseable snaps back to the last committed value instead of erasing it.
+  const raw = input.value.trim();
+  if (!/^-?\d*$/.test(raw)) { input.value = String(autoLimitValue(id)); return; }
+  if (raw === '' || raw === '-') return;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) { input.value = String(autoLimitValue(id)); return; }
+  autoLimitDrafts.value[id] = { value: parsed > 1e9 ? 1e9 : Math.max(-1, Math.floor(parsed)), base: jobAutoLimit(id) };
 }
 function startPriorityDrag(id: BuildingId, event: DragEvent): void {
   draggedJob.value = id;
@@ -165,7 +187,7 @@ const craftRows = computed(() => {
         </span>
         <span v-if="autoEnabled && isAutoJob(row.id)" class="auto-worker-settings">
           <button :data-auto-worker="row.id" :aria-pressed="jobAutoEnabled(row.id)" :aria-label="`${row.building.name}自动分配`" @click="emit('autoWorkerEnabled', row.id, !jobAutoEnabled(row.id))">自动分配</button>
-          <label>上限 <input type="number" min="-1" step="1" :data-auto-worker-limit="row.id" :value="jobAutoLimit(row.id)" :aria-label="`${row.building.name}自动分配上限，-1 不限`" @change="changeAutoLimit(row.id, $event)"></label>
+          <label>上限 <input type="number" min="-1" max="1000000000" step="1" :data-auto-worker-limit="row.id" :value="autoLimitValue(row.id)" :aria-label="`${row.building.name}自动分配上限，-1 不限`" @input="setAutoLimitDraft(row.id, $event)" @change="changeAutoLimit(row.id, $event)"></label>
         </span>
       </div>
       </div>

@@ -222,6 +222,23 @@ try {
   autoLimit.value = '2'; autoLimit.dispatchEvent(new Event('input', { bubbles: true })); autoLimit.dispatchEvent(new Event('change', { bubbles: true })); await flush();
   click($('[data-auto-worker="forage"]')); await flush();
   log(S().workers.forage === 2 && S().autoWorkers.jobs.forage.limit === 2, '岗位自动开关立即补员至设定上限');
+  // Typed digits survive re-renders caused by ticks, and revert commands snap back instead of clearing.
+  autoLimit.focus(); autoLimit.value = ''; autoLimit.dispatchEvent(new Event('input', { bubbles: true }));
+  autoLimit.value = '4'; autoLimit.dispatchEvent(new Event('input', { bubbles: true })); await flush();
+  autoLimit.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+  log(autoLimit.value === '4' && S().autoWorkers.jobs.forage.limit === 4, '上限输入实时更新草稿且change提交到存档');
+  autoLimit.value = '2000000000'; autoLimit.dispatchEvent(new Event('input', { bubbles: true })); autoLimit.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+  log(autoLimit.value === '1000000000' && S().autoWorkers.jobs.forage.limit === 1000000000, '超大输入钳制到1e9并提交');
+  autoLimit.value = ''; autoLimit.dispatchEvent(new Event('input', { bubbles: true })); await flush();
+  log(autoLimit.value === '', '清空输入保留空槽等待提交');
+  autoLimit.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+  log(autoLimit.value === '1000000000' && S().autoWorkers.jobs.forage.limit === 1000000000, '空值change回退到最近提交值，不清空设置');
+  autoLimit.value = '-1'; autoLimit.dispatchEvent(new Event('input', { bubbles: true })); autoLimit.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+  log(autoLimit.value === '-1' && S().autoWorkers.jobs.forage.limit === -1, '显式-1提交为不限');
+  // Arrow-key increments emit input drafts and committed change events.
+  autoLimit.focus(); autoLimit.select?.(); autoLimit.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+  autoLimit.value = '1'; autoLimit.dispatchEvent(new Event('input', { bubbles: true })); autoLimit.dispatchEvent(new Event('change', { bubbles: true })); await flush();
+  log(autoLimit.value === '1' && S().autoWorkers.jobs.forage.limit === 1, '箭头递增产生的change正常提交新上限');
   const prioritySchool = $('[data-auto-priority="school"]'), priorityForage = $('[data-auto-priority="forage"]');
   const dragData = new DataTransfer();
   prioritySchool.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dragData }));
@@ -313,6 +330,9 @@ try {
   }); await flush();
   await showTip('[data-building-tip="energy"][data-tip-kind="resource"]');
   log($$('.expense-list .resource-factor').length > 15 && $('#gameTooltip').classList.contains('energy-expense-split') && getComputedStyle($('.expense-list')).columnCount === '2', '电力消耗超过15项时自动分两列');
+  const powerExpenseNames = $$('.expense-list .resource-factor').map(row => row.firstElementChild?.textContent.trim());
+  log(powerExpenseNames.length > 0 && powerExpenseNames.every(name => name && !/(?:占用|消耗)$/.test(name)), '电力详情耗电条目直接显示名称，不附加占用或消耗后缀');
+  log(Object.values(energyLayoutBuildings.coreCooler.costScales).every(scale => scale === 1.1), '核心散热器四项基础成本蠕变均为1.1');
   const energyRow = $('[data-resource-id="energy"]');
   log(!!energyRow && energyRow.querySelector('.power-label')?.textContent.includes('可用电力 / 总发电量') && !energyRow.querySelector('.res-fill') && energyRow.querySelector('.res-amount')?.getAttribute('data-tip-kind') === 'resource' && !Object.hasOwn(energyLayoutBuildings, 'energyStorage') && !Object.hasOwn(energyLayoutBuildings, 'batteryConcentrationRing'), '电力资源行只显示可用电力/总发电量，无库存条且储能站已删除');
   await escapeTip();
@@ -862,16 +882,17 @@ try {
   log(retiredTech.every(id => !$(`[data-completed-tech="${id}"]`)), '已研究科技树无退休天星节点');
   click($('[data-tab="buildings"]')); await flush();
   click($('[data-ship-settings]')); await flush();
-  click($('#launchSpaceship')); await flush();
-  log(!!$('#escapeConfirm')?.open && !S().prestige.escapeResets, '发射前显示逃离重置确认及奖励');
-  log(getComputedStyle($('#confirmEscapeLaunch')).borderTopWidth === '2px' && getComputedStyle($('#confirmEscapeLaunch')).backgroundColor !== getComputedStyle($('#escapeConfirm .actions button')).backgroundColor, '危险操作以加粗边框和背景区分，按钮文字仍遵循主题色');
+  log(!!$('[data-building-tip="escape"][data-tip-kind="prestige-reset"]'), '发射按钮携带威望重置悬停提示');
+  await showTip('#launchSpaceship');
+  log($('#gameTooltip').textContent.includes('粒子') && $('#gameTooltip').textContent.includes('卡西米尔晶体'), '逃离悬停显示粒子与卡西米尔奖励');
+  await escapeTip();
   const replaceStateBeforeFailure = store.runtime.replaceState;
   const stateBeforeRejectedEscape = S(), logsBeforeRejectedEscape = S().logs.length;
   store.runtime.replaceState = () => { throw new Error('acceptance validation rejection'); };
-  try { click($('#confirmEscapeLaunch')); await flush(); }
+  try { click($('#launchSpaceship')); await flush(); }
   finally { store.runtime.replaceState = replaceStateBeforeFailure; }
-  log(S() === stateBeforeRejectedEscape && S().logs.length === logsBeforeRejectedEscape && !S().prestige.escapeResets && $('#escapeConfirm')?.open && $('[role="alert"]')?.textContent.includes('未通过校验'), '新周目校验异常有可见反馈，保持当前周目和确认窗口且不记录成功日志');
-  click($('#confirmEscapeLaunch')); await flush();
+  log(S() === stateBeforeRejectedEscape && S().logs.length === logsBeforeRejectedEscape && !S().prestige.escapeResets && $('[role="alert"]')?.textContent.includes('未通过校验'), '新周目校验异常有可见反馈，保持当前周目且不记录成功日志');
+  click($('#launchSpaceship')); await flush();
   log(S().prestige.escapeResets === 1 && S().prestige.casimir >= 13 && !S().buildings.interstellarDock && !$('#spaceshipModal'), '确认发射执行逃离重置保留卡西米尔并清空本周目船坞');
   log(!!$('[data-building-tip="casimir"][data-tip-kind="prestige"]'), '卡西米尔位于威望资源列表');
   log(S().story.unlocked.includes('firstEscape') && !S().story.read.includes('firstEscape'), '真正逃离后立即收录未读附录，不受新周目主线进度限制');
@@ -1116,14 +1137,12 @@ try {
   store.runtime.importSave(JSON.stringify(nuclear)); store.refresh();
   click($('[data-tab="internal"]')); await flush();
   click($('[data-internal-view="military"]')); await flush();
+  await showTip('#launchNuclear');
+  log($('#gameTooltip').textContent.includes('粒子'), '核爆悬停显示本次粒子奖励');
+  await escapeTip();
   click($('#launchNuclear')); await flush();
-  log($('#nuclearConfirm')?.matches(':modal') && S().nuclearProgress === 100, '核爆首次点击打开模态确认且不重置');
-  click($('#nuclearConfirm .actions button')); await flush();
-  log(!$('#nuclearConfirm') && S().nuclearProgress === 100 && S().prestige.nuclearResets === 0, '取消核爆保留本周目');
-  click($('#launchNuclear')); await flush();
-  click($('#confirmNuclearLaunch')); await flush();
   disk = JSON.parse(localStorage.getItem(saveKey));
-  log(!$('#nuclearConfirm') && S().nuclearProgress === 0 && S().prestige.nuclearResets === 1 && S().prestige.particles > 0 && disk.prestige.nuclearResets === 1, '确认核爆执行重置与粒子奖励并持久化');
+  log(S().nuclearProgress === 0 && S().prestige.nuclearResets === 1 && S().prestige.particles > 0 && disk.prestige.nuclearResets === 1, '点击核爆立即执行重置与粒子奖励并持久化');
   // Exercise the shared, real TooltipPanel for every building, not just unlocked cards.
   // A temporary anchor uses the same delegated pointer listener as the live UI.
   const { BUILDINGS } = await import('/src/data/buildings.ts');
@@ -1330,7 +1349,9 @@ try {
       log($('[data-building-group="ethernet"]').contains($('[data-buy="softRouterNode"]')) && $('[data-building-group="npu"]').contains($('[data-buy="aesComputeModule"]')) && $('[data-building-group="npu"]').contains($('[data-buy="worldSimulator"]')), '软路由位于Ethernet，AES与世界模拟器位于NPU');
       log($$('[data-building-group]').at(-1)?.dataset.buildingGroup === 'agi-core' && $('[data-region-description="agi-core"]').textContent.includes('"Hikarier.Execute"的内心世界'), 'AI超级核心区域位于NPU之后且说明正确');
       log($('[data-buy="agiAscensionCore"] .building-count').textContent === '100/100' && !$('[data-digital-ascension]'), '完整飞升核心显示100/100且关闭时隐藏飞升按钮');
-      const coreControl = $('[data-buy="agiAscensionCore"]').closest('.building-control');
+      const stoppedCore = $('[data-buy="agiAscensionCore"]');
+      const stoppedCoreRect = stoppedCore.getBoundingClientRect();
+      const coreControl = stoppedCore.closest('.building-control');
       log(coreControl.querySelector('.building-toggle.stop').textContent === '1' && coreControl.querySelector('.building-toggle.start').textContent === '0', '分段核心开关使用完整单位而非分段数量');
       $('[data-buy="aesComputeModule"]').dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' })); await flush();
       log($$('#gameTooltip .resource-factor').filter(row => row.firstElementChild?.textContent === '知识产量').length === 1, 'AES算力模块知识加成只显示一次');
@@ -1342,14 +1363,27 @@ try {
       log($('#gameTooltip').textContent.includes('量子水平') && $('#gameTooltip').textContent.includes('字节产量') && $('#gameTooltip').textContent.includes('+50%'), 'AGI组件提示展示量子水平与字节产量+50%效果');
       await escapeTip();
       store.mutate(state => { state.stoppedBuildings.agiAscensionCore = 0; }); await flush();
-      log(!!$('[data-digital-ascension]'), '完整启用且供能的核心显示数字化飞升按钮');
-      click($('[data-digital-ascension]')); await flush();
-      log(visible($('#digitalAscensionConfirm')) && $('#digitalAscensionConfirm').textContent.includes('和谐晶体'), '数字化飞升动作打开明确奖励与重置确认框');
-      click($('#digitalAscensionConfirm .actions button')); await flush();
-      log(!$('#digitalAscensionConfirm') && S().buildings.agiAscensionCore === 100, '取消数字化飞升不更改文明进度');
+      const ascension = $('[data-digital-ascension]');
+      const ascensionControl = ascension?.closest('.building-control');
+      const coreRect = $('[data-buy="agiAscensionCore"]').getBoundingClientRect();
+      const ascensionRect = ascension?.getBoundingClientRect();
+      log(!!ascension && ascensionControl && ascensionControl.previousElementSibling === coreControl && ascensionControl.parentElement === coreControl.parentElement,
+        '数字化飞升是核心右侧同网格的独立建筑按钮');
+      const sameRowRight = Math.abs(ascensionRect.top - coreRect.top) < 1 && ascensionRect.left > coreRect.right - 1;
+      const nextRowStart = ascensionRect.top > coreRect.bottom + 1;
+      log(sameRowRight || nextRowStart, `飞升按钮与核心同尺寸，同行右侧或自然换行到下一行 ${JSON.stringify({ a: ascensionRect, c: coreRect })}`);
+      log(Math.abs(coreRect.width - stoppedCoreRect.width) < 1 && Math.abs(coreRect.height - stoppedCoreRect.height) < 1,
+        `核心供电后按钮形状不变（尺寸与停止时一致） ${JSON.stringify({ before: stoppedCoreRect, after: coreRect })}`);
+      log(!!ascension && !ascension.querySelector('.building-count') && !ascension.querySelector('.building-pending'),
+        '飞升按钮不显示建筑数量或预约角标');
+      await showTip('[data-digital-ascension]');
+      log($('#gameTooltip').textContent.includes('粒子') && $('#gameTooltip').textContent.includes('和谐晶体'), '飞升悬停显示粒子与和谐晶体奖励');
+      await escapeTip();
       const gear = $('[data-download-settings]'); const building = $('[data-buy="downloadExecutable"]');
-      const gearRect = gear.getBoundingClientRect(); const buildingRect = building.getBoundingClientRect();
-      log(gear.textContent === '⚙' && gear.classList.contains('building-gear') && Math.abs(gearRect.left - buildingRect.left) < 5 && Math.abs(gearRect.top - buildingRect.top) < 5, 'dl.exe复用工厂齿轮图标并位于建筑按钮左上角');
+      const gearRect = gear?.getBoundingClientRect(); const buildingRect = building?.getBoundingClientRect();
+      log(gear && gear.textContent === '⚙' && gear.classList.contains('building-gear') && gearRect && buildingRect && Math.abs(gearRect.left - buildingRect.left) < 5 && Math.abs(gearRect.top - buildingRect.top) < 5, 'dl.exe复用工厂齿轮图标并位于建筑按钮左上角');
+      click(ascension); await flush();
+      log(S().prestige.ascensionResets === 1 && S().buildings.agiAscensionCore === 0, '点击飞升立即执行数字化飞升重置');
     } finally {
       if ($('#downloadModal [aria-label="关闭下载配置"]')) click($('#downloadModal [aria-label="关闭下载配置"]'));
       await escapeTip();

@@ -118,7 +118,7 @@ function setTax(event: Event): void {
       </div>
       <p>{{ nuclearProgress }}%</p>
       <div class="actions">
-        <button v-if="nuclearProgress === 100" id="launchNuclear" class="danger" :disabled="!canLaunch" @click="emit('nuclear')">发射核弹</button>
+        <button v-if="nuclearProgress === 100" id="launchNuclear" class="danger" :disabled="!canLaunch" data-building-tip="nuclear" data-tip-kind="prestige-reset" @click="emit('nuclear')">发射核弹</button>
         <template v-else>
           <button v-for="option in nuclearOptions" :key="option.amount" :data-nuclear-fill="option.amount" :disabled="option.affordable < 1" :title="`当前可投入 ${option.affordable}%`" @click="emit('fill', option.amount)">填充 {{ option.amount }}%</button>
         </template>

@@ -24,6 +24,9 @@ import { getBuildingEffectRows, calculateFreightCapacityMultiplier, SPACE_RIPPER
 import { calculateStorageBonuses } from '../../simulation/storage-bonuses';
 import { calculateStorageDetails, calculateDarkEnergyStorageBonus } from '../../simulation/storage';
 import { calculateHousingDetails } from '../../simulation/housing';
+import { calculateEscapePrestigeReward, calculateCasimirReward, calculateBlackHolePrestigeRewards, calculateDigitalAscensionRewards } from '../../simulation/prestige';
+import { calculatePrestigeReward } from '../../simulation/government';
+import { canPayCost } from '../../simulation/costs';
 import { calculateQuantumSnapshot, calculateQuantumLevel, calculateQuantumSwarmFactoryReduction } from '../../simulation/quantum';
 import { uiPreview } from '../preview-cache';
 import { calculateGravityConversionEnergy, formatBlackHoleMass } from '../../simulation/black-hole';
@@ -36,8 +39,8 @@ import { calculateEffectiveParticleCount, isChallengeGeneActive } from '../../si
 import { duration, fmt, moraleSnapshot, orderedCostEntries, percent, storageSnapshot } from '../format';
 
 const props = defineProps<{ state: GameState; revision: number }>();
-type TipKind = 'building' | 'tech' | 'storage' | 'resource' | 'morale' | 'housing' | 'prestige' | 'crispr' | 'job' | 'craftJob' | 'arpa' | 'mission' | 'ship' | 'quantum' | 'government';
-const kinds: TipKind[] = ['building', 'tech', 'storage', 'resource', 'morale', 'housing', 'prestige', 'crispr', 'job', 'craftJob', 'arpa', 'mission', 'ship', 'quantum', 'government'];
+type TipKind = 'building' | 'tech' | 'storage' | 'resource' | 'morale' | 'housing' | 'prestige' | 'prestige-reset' | 'crispr' | 'job' | 'craftJob' | 'arpa' | 'mission' | 'ship' | 'quantum' | 'government';
+const kinds: TipKind[] = ['building', 'tech', 'storage', 'resource', 'morale', 'housing', 'prestige', 'prestige-reset', 'crispr', 'job', 'craftJob', 'arpa', 'mission', 'ship', 'quantum', 'government'];
 const selector = '[data-building-tip][data-tip-kind]';
 const anchor = shallowRef<HTMLElement | null>(null);
 const panel = shallowRef<HTMLElement | null>(null);
@@ -383,6 +386,11 @@ const content = computed<TipContent | null>(() => {
     if (tech.buildingRequired) add('所需建筑', BUILDINGS[tech.buildingRequired].name);
     if (tech.resourceRequired) add('所需解锁资源', RESOURCES[tech.resourceRequired].name);
     if (tech.arpaPre) add('所需已建工程', `${ARPA_PROJECTS[tech.arpaPre].name} ×${tech.arpaRequiredCount || 1}`);
+    if (tech.prestigeReset) {
+      const rewards = calculateBlackHolePrestigeRewards(state);
+      add('本次重置获得', `粒子 +${number(rewards.reward)} · 卡西米尔晶体 +${number(rewards.casimirReward)} · 暗能量 +${number(rewards.darkEnergyReward)}`);
+      tip.footnote = '点击研究按钮立即执行黑洞重置并结束本周目。';
+    }
   } else if ((target.kind === 'storage' || target.kind === 'resource') && Object.hasOwn(RESOURCES, target.id)) {
     const id = target.id as ResourceId;
     if (id === 'energy') {
@@ -394,7 +402,7 @@ const content = computed<TipContent | null>(() => {
       add('已占用电力', formatResourceNumber(result.power.used));
       add('可用电力', formatResourceNumber(result.power.available));
       const powerRows = (kind: 'income' | 'expense') => breakdown.entries.filter(row => row.kind === kind && row.value !== 0).map(row => ({
-        name: row.name.replace(/产出$/, '供给').replace(/消耗$/, '占用'),
+        name: row.name.replace(/产出$/, '供给').replace(/(?:消耗|占用)$/, ''),
         value: `${row.value < 0 ? '−' : '+'}${formatResourceNumber(Math.abs(row.value))}`,
         negative: row.value < 0,
         note: row.note.replace(/\/s/g, '').replace(/产量/g, '供给'),
@@ -475,6 +483,38 @@ const content = computed<TipContent | null>(() => {
     add('当前猫口 / 容量', `${number(state.population)} / ${number(floorWithPrecision(housing.reduce((sum, row) => sum + row.value, 0)))}`);
     for (const row of housing) add(row.name, `+${number(row.value)}`);
 
+  } else if (target.kind === 'prestige-reset') {
+    // Hover preview of exactly what this reset run will award; the simulation
+    // calculators are pure and stay authoritative over any hard-coded text.
+    const kind = target.id;
+    if (kind === 'nuclear') {
+      const reward = calculatePrestigeReward(state);
+      tip.title = '发射核弹';
+      tip.description = '立即结束本周目并开启新的周目，保留威望资源、CRISPR修饰、成就与重置记录。';
+      add('粒子', `+${number(reward)}`);
+    } else if (kind === 'escape') {
+      const reward = calculateEscapePrestigeReward(state), casimir = calculateCasimirReward(reward);
+      tip.title = '发射ESS-喵星号';
+      tip.description = '离开太阳系将结束本周目，保留威望资源、CRISPR修饰、成就与重置记录，重新开始文明。';
+      add('粒子', `+${number(reward)}`);
+      add('卡西米尔晶体', `+${number(casimir)}`);
+    } else if (kind === 'blackHole') {
+      const rewards = calculateBlackHolePrestigeRewards(state);
+      tip.title = '奇异失控：黑洞重置';
+      tip.description = '向不稳定的黑洞投入奇异物质将引发黑洞重置：结束本周目，保留威望资源、CRISPR修饰、成就与重置记录，重新开始文明。警告：这可能会导致无法预料的爆炸，毁灭一切，无限，永恒。';
+      add('粒子', `+${number(rewards.reward)}`);
+      add('卡西米尔晶体', `+${number(rewards.casimirReward)}`);
+      add('暗能量', `+${number(rewards.darkEnergyReward)}`);
+      if (!canPayCost(state.resources, calculateTechCost('exoticRunaway', state))) tip.warning = '资源不足，无法支付奇异失控的研究费用。';
+    } else if (kind === 'ascension') {
+      const rewards = calculateDigitalAscensionRewards(state);
+      tip.title = '数字化飞升';
+      tip.description = '数字化飞升将结束当前文明并开启新的周目，保留永久威望奖励、基因修饰与历史统计。';
+      add('粒子', `+${number(rewards.reward)}`);
+      add('卡西米尔晶体', `+${number(rewards.casimirReward)}`);
+      add('和谐晶体', `+${number(rewards.harmonyReward)}`);
+    } else return null;
+    tip.footnote = '点击按钮立即执行重置；奖励按当前文明状态计算，执行时可能略有变化。';
   } else if (target.kind === 'prestige' && target.id === 'harmonyCrystals') {
     tip.title = '和谐晶体';
     tip.description = '通过数字化飞升获得的永久威望资源，跨周目保留。';

@@ -44,7 +44,7 @@ const displayPercent = (value: number) => Number(value.toFixed(2));
     <p class="ship-summary" role="status">{{ completedCount === 6 ? 'ESS-喵星号已完成' : `飞船部件：${completedCount} / 6 已完成` }}</p>
     <p class="ship-description">搭载了行星规模生态系统的超级飞船，船体长1859英里，或许可以带我们离开太阳系。</p>
     <div class="actions ship-launch-actions">
-      <button v-if="completedCount === 6" id="launchSpaceship" class="primary" @click="emit('launch')">发射ESS-喵星号</button>
+      <button v-if="completedCount === 6" id="launchSpaceship" class="primary" data-building-tip="escape" data-tip-kind="prestige-reset" @click="emit('launch')">发射ESS-喵星号</button>
     </div>
     <p class="small subtle">各项资源独立投入；1%、10%、100% 按总需求追加，资源不足时投入当前可用量。最大投入会填充所有可负担的剩余需求。</p>
     <div class="ship-sections">
