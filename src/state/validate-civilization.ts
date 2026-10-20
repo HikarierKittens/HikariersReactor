@@ -22,6 +22,12 @@ export function validateCivilization(raw: Record<string, unknown>, state: GameSt
   for (const id of state.tech) if (state.prestige.nuclearResets + state.prestige.escapeResets + state.prestige.blackHoleResets + state.prestige.ascensionResets < (TECHNOLOGIES[id].prestigeResetsRequired || 0)) throw Error('科技需要威望重置；软重置不计入。');
   state.soldiers = validateSaveNumber(raw.soldiers, 0, calculateSoldierCapacity(state), '士兵');
   if (!Number.isSafeInteger(state.soldiers)) throw Error('士兵数量无效。');
+  // Wounded soldiers are outside the deployable pool and may exceed the barracks cap,
+  // so they get their own safe-integer bound instead of the capacity check.
+  state.wounded = validateSaveNumber(raw.wounded, 0, Number.MAX_SAFE_INTEGER, '伤兵');
+  if (!Number.isSafeInteger(state.wounded)) throw Error('伤兵数量无效。');
+  // Healing carry stays below one soldier; anything else means a corrupted record.
+  state.hospitalProgress = validateSaveNumber(raw.hospitalProgress, 0, 1, '医院治疗进度');
   state.trainingProgress = validateSaveNumber(raw.trainingProgress, 0, 30, '训练进度');
   if (state.trainingProgress >= 30 || (state.trainingProgress > 0 && (!state.tech.includes('military') || state.soldiers >= calculateSoldierCapacity(state)))) throw Error('训练进度无效。');
   state.nuclearProgress = validateSaveNumber(raw.nuclearProgress, 0, 100, '核弹进度');

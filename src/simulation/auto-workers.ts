@@ -1,5 +1,6 @@
 import { BUILDINGS } from '../data/buildings';
-import { calculateWorkerCapacity, countUsedWorkers } from './building-production';
+import { calculateWorkerCapacity } from './building-production';
+import { countSparePopulation } from './ship-crew';
 import type { BuildingId } from '../types/buildings';
 import type { AutoWorkersState, GameState } from '../types/state';
 
@@ -56,7 +57,9 @@ export function moveAutoWorkerPriority(state: GameState, sourceId: string, targe
 /** Fill only idle civilian population, respecting physical slots and configured total limits. */
 export function applyAutoWorkerAssignment(state: GameState): number {
   if (!state.autoWorkers.enabled) return 0;
-  let idle = Math.max(0, state.population - countUsedWorkers(state));
+  // Mining-ship crews are drawn from the same idle pool; automatic filling must
+  // not starve them, so only the cats beyond the crew count are assignable.
+  let idle = countSparePopulation(state);
   let assigned = 0;
   for (const id of state.autoWorkers.priority) {
     if (idle <= 0) break;

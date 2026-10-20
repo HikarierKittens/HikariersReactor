@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { GameState, GovernmentId } from '../../types/state';
-import { GOVERNMENTS, reformCooldown, calculateSoldierCapacity, calculateOperationalSoldierCapacity, calculateCombatPower, calculateSoldierPressure, calculateTrainingDuration, calculatePrestigeReward, calculateTrainingBoost, calculateBankerTaxRate } from '../../simulation/government';
+import { GOVERNMENTS, reformCooldown, calculateSoldierCapacity, calculateOperationalSoldierCapacity, calculateCombatPower, calculateSoldierPressure, calculateTrainingDuration, calculatePrestigeReward, calculateTrainingBoost } from '../../simulation/government';
 import { NUCLEAR_PROJECT, calculateNuclearAffordablePercent } from '../../simulation/prestige';
 import { RESOURCES } from '../../data/resources';
 import { fmt, percent, storageCap, orderedCostEntries } from '../format';
 import { uiPreview } from '../preview-cache';
+import {
+  NEIGHBORS, NEIGHBOR_IDS, RAID_ACTIONS, OCCUPATION_SOLDIERS, OCCUPATION_OUTPUT_BONUS,
+  OCCUPATION_TAX_PENALTY, type NeighborId, type RaidTier,
+} from '../../data/neighbors';
+import { isNeighborsUnlocked, previewRaid, neighborStrength, garrisonedSoldiers } from '../../simulation/neighbors';
+import { hospitalHealPerDay } from '../../simulation/hospital';
+import { buildRaidEconomy } from '../../simulation/neighbor-economy';
 
 const props = defineProps<{ state: GameState; revision: number }>();
 const emit = defineEmits<{
@@ -13,6 +20,8 @@ const emit = defineEmits<{
   tax: [rate: number];
   fill: [percent: number];
   nuclear: [];
+  raid: [id: string, tier: number, soldiers: number];
+  withdraw: [id: string];
 }>();
 
 const view = ref<'government' | 'military'>('government');
@@ -25,9 +34,9 @@ const alternatives = computed(() => {
   return (Object.entries(GOVERNMENTS) as [GovernmentId, typeof GOVERNMENTS[GovernmentId]][])
     .filter(([id, g]) => id !== props.state.government && props.state.tech.includes(g.tech));
 });
-const bankerRate = computed(() => { props.revision; return Number((calculateBankerTaxRate(props.state) * 100).toFixed(2)); });
 const cashCap = computed(() => { props.revision; return storageCap('cash', props.state, props.revision); });
 const soldierCap = computed(() => { props.revision; return calculateSoldierCapacity(props.state); });
+const healedPerDay = computed(() => { props.revision; return hospitalHealPerDay(props.state); });
 const trainingCap = computed(() => {
   props.revision;
   const result = uiPreview.production(props.state, props.revision);
@@ -72,6 +81,65 @@ function reform(id: GovernmentId): void {
   reformOpen.value = false;
 }
 
+// ---- 临近势力 ----
+/** Per-neighbour draft state: chosen action tier and how many soldiers to send. */
+const raidTier = ref<Record<string, RaidTier>>({});
+const raidSoldiers = ref<Record<string, number>>({});
+const raidOpen = ref(false);
+
+const neighborsUnlocked = computed(() => {
+  props.revision;
+  return isNeighborsUnlocked(props.state);
+});
+const garrison = computed(() => { props.revision; return garrisonedSoldiers(props.state); });
+const availableSoldiers = computed(() => {
+  props.revision;
+  return Math.max(0, props.state.soldiers - garrison.value);
+});
+/** Soldiers not locked in a garrison can be sent. */
+function soldierDraft(id: NeighborId): number {
+  const raw = raidSoldiers.value[id];
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return 0;
+  return Math.min(Math.max(0, Math.floor(raw)), availableSoldiers.value);
+}
+function tier(id: NeighborId): RaidTier {
+  return raidTier.value[id] ?? 0;
+}
+function setTier(id: NeighborId, value: RaidTier): void {
+  raidTier.value = { ...raidTier.value, [id]: value };
+}
+function setSoldiers(id: NeighborId, event: Event): void {
+  if (!(event.currentTarget instanceof HTMLInputElement)) return;
+  const value = event.currentTarget.valueAsNumber;
+  raidSoldiers.value = { ...raidSoldiers.value, [id]: Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0 };
+}
+function maxSoldiers(id: NeighborId): void {
+  raidSoldiers.value = { ...raidSoldiers.value, [id]: availableSoldiers.value };
+}
+function dispatchRaid(id: NeighborId): void {
+  const count = soldierDraft(id);
+  if (count <= 0) return;
+  emit('raid', id, tier(id), count);
+  raidSoldiers.value = { ...raidSoldiers.value, [id]: 0 };
+}
+/** Rebuilt once per view revision: the panel calls preview() for every row and keystroke. */
+const raidEconomy = computed(() => { props.revision; return buildRaidEconomy(props.state, props.revision); });
+function preview(id: NeighborId) {
+  props.revision;
+  return previewRaid(props.state, id, tier(id), soldierDraft(id), raidEconomy.value);
+}
+function strength(id: NeighborId) {
+  props.revision;
+  return neighborStrength(id, props.state);
+}
+function isOccupied(id: NeighborId): boolean {
+  props.revision;
+  return props.state.neighbors.occupied.includes(id);
+}
+function withdraw(id: NeighborId): void {
+  emit('withdraw', id);
+}
+
 function setTax(event: Event): void {
   if (!(event.currentTarget instanceof HTMLInputElement)) return;
   const value = Number(event.currentTarget.value);
@@ -85,7 +153,8 @@ function setTax(event: Event): void {
     <button data-internal-view="military" :class="{ active: view === 'military' }" :aria-pressed="view === 'military'" @click="view = 'military'">军事</button>
   </nav>
 
-  <div v-if="view === 'government'" class="settings">
+  <div v-if="view === 'government'" class="settings government-layout">
+    <div class="government-col">
     <section>
       <h3>政府体制：{{ current.name }}</h3>
       <p>{{ current.desc }}</p>
@@ -103,9 +172,57 @@ function setTax(event: Event): void {
       <label for="taxRateInput">调整税率</label>
       <input id="taxRateInput" type="range" min="0" max="30" step="1" :value="state.taxRate" @input="setTax">
       <p>相对20%税率的幸福度影响：{{ state.taxRate > 20 ? '−' : '+' }}{{ Math.abs(20 - state.taxRate) }}个百分点。</p>
-      <p>20%税率时，每只猫基础税收1$/s。银行家每位税收+{{ bankerRate }}%（基础5%，每个证券交易所+2%）；资金正常应用幸福度、粒子与体制加成。</p>
+      <p>20%税率时，每只猫基础税收1$/s。</p>
       <p>累计资金：<span id="governmentCash">{{ fmt(state.resources.cash) }} / {{ fmt(cashCap) }}</span></p>
     </section>
+    </div>
+
+    <aside class="government-side">
+      <section v-if="!neighborsUnlocked">
+        <h3>临近势力</h3>
+        <p class="subtle">研究政府，并拥有至少一名士兵后解锁。</p>
+      </section>
+      <section v-else data-neighbors>
+        <h3>临近势力</h3>
+        <p class="small subtle">敌对行动会降低好感度，归零时对方会反击。被占领的城市提供全局产量加成，但需要驻军并降低税收。</p>
+        <p class="small" data-garrison-summary>驻军占用：{{ garrison }} 名 · 可派遣：{{ availableSoldiers }} 名</p>
+        <div v-for="id in NEIGHBOR_IDS" :key="id" class="neighbor" :data-neighbor="id">
+          <div class="neighbor-head">
+            <strong>{{ NEIGHBORS[id].name }}</strong>
+            <span v-if="isOccupied(id)" class="neighbor-tag" data-neighbor-occupied>已占领</span>
+          </div>
+          <p class="small subtle">{{ isOccupied(id) ? NEIGHBORS[id].capturedDesc : NEIGHBORS[id].desc }}</p>
+          <p class="small" :data-neighbor-stats="id">
+            军事 {{ fmt(state.neighbors.values[id].military) }} · 经济 {{ fmt(state.neighbors.values[id].economy) }}
+            · 好感 {{ fmt(state.neighbors.values[id].opinion) }}% · 守备 {{ fmt(strength(id)) }}
+          </p>
+          <template v-if="isOccupied(id)">
+            <p class="small">提供全局产量 +{{ OCCUPATION_OUTPUT_BONUS * 100 }}%，占用 {{ OCCUPATION_SOLDIERS }} 名驻军，税收 −{{ OCCUPATION_TAX_PENALTY }}%。</p>
+            <button :data-neighbor-withdraw="id" @click="withdraw(id)">撤出城市</button>
+          </template>
+          <template v-else>
+            <div class="actions neighbor-actions">
+              <button v-for="action in [0, 1, 2, 3]" :key="action" :data-neighbor-action="id" :data-tier="action"
+                :class="{ active: tier(id) === action }" :aria-pressed="tier(id) === action"
+                :data-building-tip="`raid-${action}`" data-tip-kind="neighbor" @click="setTier(id, action as 0 | 1 | 2 | 3)">{{ RAID_ACTIONS[action as 0 | 1 | 2 | 3].name }}</button>
+            </div>
+            <p class="small subtle">{{ RAID_ACTIONS[tier(id)].desc }}</p>
+            <label :for="`raid-soldiers-${id}`">派遣士兵</label>
+            <div class="actions neighbor-send">
+              <input :id="`raid-soldiers-${id}`" :data-neighbor-soldiers="id" type="number" min="0" :max="availableSoldiers" :value="soldierDraft(id)" @input="setSoldiers(id, $event)">
+              <button :data-neighbor-max="id" @click="maxSoldiers(id)">最大</button>
+              <button :data-neighbor-raid="id" :disabled="availableSoldiers < 1 || soldierDraft(id) < 1 || !preview(id).available" @click="dispatchRaid(id)">执行{{ RAID_ACTIONS[tier(id)].name }}</button>
+            </div>
+            <p class="small" :data-neighbor-preview="id">
+              我方战力 {{ fmt(preview(id).strength) }} / 需要 {{ fmt(preview(id).required) }}；预计伤亡 {{ fmt(Math.round(preview(id).expectedLosses)) }}
+              <template v-if="tier(id) === 3">；占领需存活 {{ RAID_ACTIONS[3].minSurvivors }} 名以上</template>
+              <template v-if="preview(id).reason"> · {{ preview(id).reason }}</template>
+            </p>
+            <p class="small subtle" data-neighbor-loot>可掠夺：<template v-for="[resource, amount] in Object.entries(preview(id).loot)" :key="resource">{{ RESOURCES[resource as keyof typeof RESOURCES].name }} {{ fmt(amount as number) }} </template></p>
+          </template>
+        </div>
+      </section>
+    </aside>
   </div>
 
   <div v-else class="settings">
@@ -130,6 +247,11 @@ function setTax(event: Event): void {
     <section>
       <h3>士兵管理</h3>
       <p>士兵：{{ state.soldiers }} / {{ soldierCap }}（拥有容量）</p>
+      <p v-if="state.wounded > 0 || healedPerDay > 0" data-wounded-line>
+        伤兵：{{ fmt(state.wounded) }} 名（不可参战）
+        <template v-if="healedPerDay > 0">；医院每游戏日治愈 {{ fmt(healedPerDay) }} 名</template>
+        <template v-else>；建造医院后可治愈</template>
+      </p>
       <p data-soldier-training-cap>当前可训练容量：{{ trainingCap }}。太空驻军营仅按完整支付维护的运行座数计入；停机不移除已有士兵。</p>
       <p>{{ trainingStatus }}</p>
       <div class="q-bar" role="progressbar" aria-label="士兵自动训练进度" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="trainingRatio">
@@ -142,3 +264,17 @@ function setTax(event: Event): void {
     </section>
   </div>
 </template>
+
+<style scoped>
+.government-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 1.25fr); gap: 20px; align-items: start; }
+.neighbor { border-bottom: 1px solid #514e42; padding: 8px 0; }
+.neighbor:last-child { border-bottom: 0; }
+.neighbor-head { display: flex; align-items: baseline; gap: 8px; }
+.neighbor-tag { color: #8bc77b; font-size: 12px; }
+.neighbor-actions { gap: 6px; margin: 4px 0; }
+.neighbor-actions button.active { border-color: #8bc77b; color: #8bc77b; }
+.neighbor-send { align-items: center; gap: 6px; }
+.neighbor-send input { width: 80px; }
+/* Collapse only where the app itself goes single-column (style.css max-width:860px). */
+@media (max-width: 860px) { .government-layout { grid-template-columns: minmax(0, 1fr); } }
+</style>

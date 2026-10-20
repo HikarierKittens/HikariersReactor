@@ -41,6 +41,8 @@ import BuildingsPanel from './components/BuildingsPanel.vue';
 import TechPanel from './components/TechPanel.vue';
 import CatsPanel from './components/CatsPanel.vue';
 import InternalPanel from './components/InternalPanel.vue';
+import { abandonOccupation } from '../simulation/neighbors';
+import { raidNeighbor as raidNeighborCommand } from '../simulation/commands';
 import ArpaPanel from './components/ArpaPanel.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
 import StatsPanel from './components/StatsPanel.vue';
@@ -346,6 +348,17 @@ function setTax(rate: number): void {
   afterAction();
 }
 
+function raidNeighbor(id: string, tier: number, soldiers: number): void {
+  // One command boundary owns economy resolution, so the UI cannot forget to pass it.
+  props.store.mutate(s => { raidNeighborCommand(s, id, tier, soldiers); });
+  afterAction();
+}
+
+function withdrawFromNeighbor(id: string): void {
+  props.store.mutate(s => { abandonOccupation(s, id); });
+  afterAction();
+}
+
 function fillNuclear(percent: number): void {
   props.store.mutate(s => { fillNuclearProject(s, percent); });
   afterAction();
@@ -524,7 +537,7 @@ onUnmounted(() => {
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.7.3</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.9.4</span>
     </header>
 
     <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
@@ -617,6 +630,8 @@ onUnmounted(() => {
               @tax="setTax"
               @fill="fillNuclear"
               @nuclear="confirmNuclear"
+              @raid="raidNeighbor"
+              @withdraw="withdrawFromNeighbor"
             />
             <ArpaPanel
               v-else-if="activeTab === 'arpa'"
@@ -656,6 +671,7 @@ onUnmounted(() => {
               v-else-if="activeTab === 'settings'"
               :save-blocked="store.runtime.saveBlocked"
               :export-protected-save="store.runtime.exportProtectedSave"
+              :export-save="store.runtime.exportSave"
               :state="state"
               :revision="store.revision()"
               @save="saveNow"

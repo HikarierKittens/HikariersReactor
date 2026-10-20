@@ -1,12 +1,5 @@
 import { fmt } from '../format';
 
-/** Shared used/capacity meter contract so every region displays the same way. */
-export interface RegionBalance {
-  used: number;
-  capacity: number;
-  label: string;
-}
-
 type MeterSource = { used: number; capacity: number };
 
 /** Common aria/title bindings for a "当前已用 / 总量" region meter. */

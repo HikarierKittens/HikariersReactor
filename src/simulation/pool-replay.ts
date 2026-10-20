@@ -103,6 +103,7 @@ export function replaySettledPool(
     inputUnits.e710Warehouse = outputs.e710Warehouse = warehouses;
     const consumers = settleResearchAndCulture(state, pool, dt);
     ledger.biologyUnits = consumers.biologyUnits; ledger.dataCenterUnits = consumers.dataUnits;
+    ledger.labUnits = consumers.labUnits;
     Object.assign(inputUnits, consumers.inputs); Object.assign(outputs, consumers.outputs);
     return { pool, inputUnits, outputs };
   }
@@ -124,6 +125,11 @@ export function replaySettledPool(
   const dataUnits = ledger.dataCenterUnits;
   pool.energy = Math.max(0, pool.energy - dataUnits * 3 * dt);
   inputUnits.observatory = outputs.observatory = dataUnits;
+  const labUnits = ledger.labUnits;
+  pool.energy = Math.max(0, pool.energy - labUnits * 2 * dt);
+  // Every running 实验室 settles its 猫猫科学家; `labUnits` only counts the powered
+  // capacity upgrade on top of the 1000 base.
+  inputUnits.lab = outputs.lab = Math.max(0, (state.buildings.lab || 0) - (state.stoppedBuildings?.lab || 0));
   for (const id of ['broadcast', 'touristStation'] as const) {
     const recipe = Object.entries(calculateBuildingInput(id, state)) as [ResourceId, number][];
     let actual = 0;

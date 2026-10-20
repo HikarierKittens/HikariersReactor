@@ -22,5 +22,4 @@ export const ACHIEVEMENTS: Record<AchievementId, AchievementDefinition> = {
   spaceDestroyer: { name: '空间毁灭者', icon: '', desc: '我说了不行，它会带来灾难的！——引爆黑洞进行黑洞重置', test: s => s.prestige.blackHoleResets > 0 },
 };
 export const EVENTS: { id: string; name: string; tech: TechnologyId }[] = [];
-export const ERAS = ['生存时代', '农业时代', '工业时代', '能源时代', '太空时代'];
 export const LOG_TYPES: LogType[] = ['queue', 'progress', 'event', 'achievement', 'system'];

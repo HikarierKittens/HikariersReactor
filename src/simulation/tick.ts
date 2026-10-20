@@ -9,6 +9,8 @@ import { recordGameDays } from './statistics';
 import { applyMassEjection, BLACK_HOLE_UNSTABLE_LOG } from './black-hole';
 import { applyGeneSynthesis } from './genes';
 import { applyAutoWorkerAssignment } from './auto-workers';
+import { advanceNeighbors } from './neighbors';
+import { advanceHospital } from './hospital';
 import type { GameState } from '../types/state';
 
 /** Transitional application hooks keep UI, queue notifications and previews outside simulation. */
@@ -32,6 +34,8 @@ export function advanceGameTick(state: GameState, dt: number, hooks: TickHooks):
   state.resources.energy = 0;
   if (applyMassEjection(state, result.ejected, dt)) addLog(state, BLACK_HOLE_UNSTABLE_LOG, 'progress');
   applyGeneSynthesis(state, result.geneSynthesis, dt);
+  advanceNeighbors(state, dt);
+  advanceHospital(state, dt);
   const corePreviouslyActivated = state.stageThree.coreActivated;
   updateStageThreeProgress(state, result);
   updateStoryProgress(state);

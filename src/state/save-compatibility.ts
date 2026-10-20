@@ -9,12 +9,32 @@
  * the field itself is absent, and only for the three count records, so an
  * explicitly malformed value still reaches strict validation untouched.
  */
+import { createNeighborsState } from '../simulation/neighbors';
+
 const ADDITIVE_BUILDING_IDS = [
   'dysonSphere', 'hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage',
   'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder',
   'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule',
-  'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore', 'solarFarm',
+  'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore', 'solarFarm', 'hospital',
 ] as const;
+
+/** Small deterministic PRNG (mulberry32) seeded from the save's own stable fields. */
+function seededFromSave(raw: Record<string, unknown>): () => number {
+  const source = `${String(raw.eventIn)}|${String(raw.lastSaved)}|${String(raw.time)}|${String(raw.clicks)}|${String(raw.soldiers)}`;
+  let hash = 2166136261;
+  for (let i = 0; i < source.length; i++) {
+    hash ^= source.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  let seed = hash >>> 0;
+  return () => {
+    seed = (seed + 1831565813) >>> 0;
+    let t = seed;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 export function normalizeSchema31Save(raw: Record<string, unknown>): Record<string, unknown> {
   if (raw.version !== 31) return raw;
@@ -40,6 +60,15 @@ export function normalizeSchema31Save(raw: Record<string, unknown>): Record<stri
     }
   }
   if (!Object.hasOwn(raw, 'downloadAllocation')) normalized.downloadAllocation = 0;
+  // 临近势力 arrived after the first schema31 saves; only absent fields get defaults so an
+  // explicitly malformed record still fails strict validation instead of being repaired.
+  if (!Object.hasOwn(raw, 'wounded')) normalized.wounded = 0;
+  // 医院 arrived later; its carry-over progress is meaningless without the building.
+  if (!Object.hasOwn(raw, 'hospitalProgress')) normalized.hospitalProgress = 0;
+  // Upgrading an old save must be deterministic: validating the same raw record twice has
+  // to produce the same neighbours, or the first load would differ from every re-load.
+  // Seed from fields the save already owns; a brand-new game still rolls with Math.random.
+  if (!Object.hasOwn(raw, 'neighbors')) normalized.neighbors = createNeighborsState(seededFromSave(raw));
   if (!Object.hasOwn(raw, 'powerActivationOrder')) normalized.powerActivationOrder = [];
   removeRetiredPowerContent(normalized);
   return normalized;

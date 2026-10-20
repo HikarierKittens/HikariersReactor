@@ -2,6 +2,7 @@ import type { BuildingId } from './buildings';
 import type { RegionalMissionId } from '../simulation/space-missions';
 import type { CraftId, FactoryLineId, ResourceAmounts, ResourceId, ResourceRecipe } from './economy';
 import type { TechnologyId } from './technologies';
+import type { NeighborId } from '../data/neighbors';
 
 export type CrisprUpgradeId = 'materialEfficiency' | 'innovativeMaterials' | 'structuralReinforcement' | 'physicsLaws' | 'halfLife3' | 'geneOptimization' | 'spatialReasoning' | 'dimensionCompression' | 'dimensionDistortion' | 'casimirEffect' | 'coreReplication' | 'technician' | 'masterArtisan' | 'architect' | 'challengeGene' | 'geneSplicing';
 export type PrestigeResourceId = 'particles' | 'casimir' | 'darkEnergy' | 'harmonyCrystals';
@@ -88,6 +89,25 @@ export interface AutoWorkersState {
   jobs: Partial<Record<BuildingId, AutoWorkerJobState>>;
 }
 
+/** One neighbouring power's live attributes. */
+export interface NeighborState {
+  /** 10–100 at spawn, slowly climbing. */
+  military: number;
+  /** 10–100 at spawn, slowly climbing; scales what a raid can plunder. */
+  economy: number;
+  /** 0–100. Hostile actions lower it; at 0 the neighbour retaliates. */
+  opinion: number;
+}
+
+/** 临近势力: three rivals unlocked by 政府 once the player fields soldiers. */
+export interface NeighborsState {
+  values: Record<NeighborId, NeighborState>;
+  /** Occupied neighbours; each grants output and costs garrison soldiers and tax. */
+  occupied: NeighborId[];
+  /** Time of the last raid, for UI cooldown display; null until the first one. */
+  lastActionTime: number | null;
+}
+
 export interface GameState {
   autoWorkers: AutoWorkersState;
   stageThree: StageThreeState;
@@ -109,6 +129,11 @@ export interface GameState {
   crispr: CrisprUpgradeId[];
   geneModification: GeneModificationState;
   soldiers: number;
+  /** Wounded during raids; counted separately and unusable in combat until treated. */
+  wounded: number;
+  /** Fractional healing accumulated toward the next recovered soldier. */
+  hospitalProgress: number;
+  neighbors: NeighborsState;
   trainingProgress: number;
   nuclearProgress: number;
   arpaProgress: Record<ArpaProjectId, number>;

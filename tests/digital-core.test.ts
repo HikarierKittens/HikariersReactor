@@ -142,7 +142,9 @@ test('neural quantum bonus boosts both byte sources; layer3 bandwidth grants who
   state.tech.push('layer3Switch');
   const upgraded = calculateDigitalSupport(state, 50);
   near(upgraded.capacity, 7.5); assert.equal(upgraded.quantumStorageUnits, 6);
-  state.buildings.quantumStorage = 0; state.buildings.lab = 1; state.workers.lab = 1;
+  // 实验室 holds 1000 knowledge each since the balance pass; 300 keeps the
+  // logarithmic quantum level safely above 1 so the neural bonus applies.
+  state.buildings.quantumStorage = 0; state.buildings.lab = 300; state.workers.lab = 1;
   state.tech.push('artificialIntelligenceII');
   const before = structuredClone(state);
   for (const dt of [.2, 1, 3]) {

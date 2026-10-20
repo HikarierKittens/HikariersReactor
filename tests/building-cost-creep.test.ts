@@ -143,21 +143,21 @@ test('cost creep precedes additive CRISPR, industrialism and neutron material di
 
 test('balance pass: 17 ground buildings carry +0.02 base creep in both registries', () => {
   const raised: Partial<Record<BuildingId, number>> = {
-    school: 1.19, library: 1.19, lab: 1.19, observatory: 1.19, biologyLab: 1.19, trainingCamp: 1.19,
+    school: 1.265, library: 1.19, lab: 1.2, observatory: 1.19, biologyLab: 1.19, trainingCamp: 1.19,
     cementWorkshop: 1.215, smelter: 1.19, foundry: 1.19, refinery: 1.19, factory: 1.19, generator: 1.19,
-    theater: 1.19, broadcast: 1.19, bank: 1.27, oilGenerator: 1.19, fissionGenerator: 1.19,
+    theater: 1.265, broadcast: 1.19, bank: 1.27, oilGenerator: 1.19, fissionGenerator: 1.19,
   };
   for (const [id, scale] of Object.entries(raised) as [BuildingId, number][]) {
     for (const [resource, raw] of Object.entries(BUILDINGS[id].costScales!)) {
-      // 实验室 knowledge kept its own lower creep (1.15 → 1.17).
-      close(raw, id === 'lab' && resource === 'knowledge' ? 1.17 : scale);
+      // 实验室 knowledge kept its own lower creep (1.17 → 1.18).
+      close(raw, id === 'lab' && resource === 'knowledge' ? 1.18 : scale);
       assert.equal(BUILDING_COST_SCALES[id]![resource as ResourceId], raw, `${id}/${resource}`);
     }
   }
 });
 
 test('balance pass: 农场 +0.03, 伐木场/采石场/采矿场/煤矿/住宅楼 +0.01 base creep in both registries', () => {
-  const raised: Partial<Record<BuildingId, number>> = { forage: 1.2, lumber: 1.18, quarry: 1.18, mine: 1.18, coalMine: 1.18, apartment: 1.18 };
+  const raised: Partial<Record<BuildingId, number>> = { forage: 1.2, lumber: 1.185, quarry: 1.185, mine: 1.185, coalMine: 1.19, apartment: 1.18 };
   for (const [id, scale] of Object.entries(raised) as [BuildingId, number][]) {
     for (const [resource, raw] of Object.entries(BUILDINGS[id].costScales!)) {
       close(raw, scale);

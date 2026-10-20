@@ -285,6 +285,29 @@ try {
   click($('[data-internal-view="military"]')); await flush();
   log(document.body.textContent.includes('士兵管理'), '军事分类可以切换');
   log($('[data-soldier-training-cap]')?.textContent.includes('完整支付维护') && $('[data-soldier-training-cap]')?.textContent.includes('停机不移除已有士兵'), '军事UI区分拥有容量和维护支持的训练容量，不误称停机删除士兵');
+  // 医院 heals raid casualties; without one the wounded line must still explain the gap.
+  // Snapshot first: later cases depend on the exact tech/army this fixture had.
+  const hospitalSnapshot = JSON.parse(JSON.stringify(S()));
+  store.mutate(state => {
+    state.tech = state.tech.filter(id => id !== 'fieldHospital');
+    state.wounded = 3; state.buildings.hospital = 0; state.stoppedBuildings.hospital = 0;
+  }); await flush();
+  log($('[data-wounded-line]')?.textContent.includes('伤兵') && $('[data-wounded-line]')?.textContent.includes('建造医院后可治愈'),
+    '没有医院时仍显示伤兵数量，并提示需要医院');
+  store.mutate(state => {
+    state.tech.push('fieldHospital');
+    state.buildings.hospital = 2;
+    state.stoppedBuildings.hospital = 0;
+  }); await flush();
+  log($('[data-wounded-line]')?.textContent.includes('医院每游戏日治愈'), '拥有医院后显示每日治愈数量');
+  log($('[data-wounded-line]')?.textContent.includes('2'), '两座医院显示每日治愈 2 名');
+  const woundedBefore = S().wounded, soldiersBeforeHeal = S().soldiers;
+  const { advanceHospital } = await import('/src/simulation/hospital.ts');
+  store.mutate(state => { advanceHospital(state, 5 * 5); });
+  store.refresh(); await flush();
+  log(S().wounded < woundedBefore && S().soldiers > soldiersBeforeHeal, '医院实际把伤兵治愈回士兵序列');
+  // Restore the exact pre-test state: later cases depend on its tech and army.
+  store.runtime.replaceState(hospitalSnapshot); store.refresh(); await flush();
 
   const showTip = async (selector, focus = false) => {
     const element = $(selector);
@@ -304,6 +327,56 @@ try {
   const governmentTipSnapshot = JSON.parse(JSON.stringify(S()));
   store.mutate(state => { state.tech.push('government', 'advancedGovernment'); state.lastReformTime = null; state.government = 'none'; }); await flush();
   click($('[data-internal-view="government"]')); await flush();
+  // 临近势力 needs 政府 researched plus at least one soldier.
+  log(!$('[data-neighbors]'), '临近势力在没有士兵时隐藏');
+  // Raid loot is a share of the player's own output, so the fixture needs real production.
+  store.mutate(state => {
+    state.soldiers = 200; state.resources.food = 5000;
+    state.buildings.forage = Math.max(state.buildings.forage || 0, 6);
+    state.workers.forage = Math.max(state.workers.forage || 0, 6);
+    state.buildings.lumber = Math.max(state.buildings.lumber || 0, 6);
+    state.workers.lumber = Math.max(state.workers.lumber || 0, 6);
+  }); await flush();
+  const neighborIds = ['commonwealth', 'zeroers', 'mikaros'];
+  log(neighborIds.every(id => !!$(`[data-neighbor="${id}"]`)), '临近势力三名国家按序显示');
+  log($$('[data-neighbor]').length === 3, '临近势力恰好三个');
+  log(neighborIds.every(id => $(`[data-neighbor-stats="${id}"]`)?.textContent.includes('军事')), '每个国家显示军事/经济/好感属性');
+  // Two columns only where the app itself is multi-column; below 860px it collapses.
+  const layoutEl = $('.government-layout');
+  const grid = getComputedStyle(layoutEl);
+  const columns = grid.gridTemplateColumns.split(' ').filter(Boolean).length;
+  const expectedColumns = innerWidth > 860 ? 2 : 1;
+  log(layoutEl !== null && grid.display === 'grid' && columns === expectedColumns,
+    `政府页按视口宽度排列 [display=${grid.display}, columns=${columns}, expect=${expectedColumns}, innerWidth=${innerWidth}]`);
+  const side = $('.government-side'), col = $('.government-col');
+  const sideBox = side?.getBoundingClientRect(), colBox = col?.getBoundingClientRect();
+  log(sideBox && colBox && (expectedColumns === 2
+    ? sideBox.left > colBox.left
+    : sideBox.top > colBox.top),
+    `临近势力排在主栏之后 [side=(${sideBox?.left},${sideBox?.top}), col=(${colBox?.left},${colBox?.top})]`);
+  // The neighbour list carries three countries, so it must not be the narrower column.
+  log(!sideBox || !colBox || expectedColumns === 1 || sideBox.width >= colBox.width,
+    `临近势力栏宽度不小于主栏 [side=${sideBox?.width?.toFixed(0)}, col=${colBox?.width?.toFixed(0)}]`);
+  log(!$('#taxRateValue')?.parentElement || !document.querySelector('.government-col')?.textContent.includes('每个证券交易所'),
+    '税收区不再显示银行家与证券交易所说明');
+  // A raid shows its strength preview and only fires once soldiers are assigned.
+  click($('[data-neighbor-action="commonwealth"][data-tier="0"]')); await flush();
+  log($('[data-neighbor-preview="commonwealth"]')?.textContent.includes('我方战力'), '选择行动后显示战力预估');
+  log($('[data-neighbor-raid="commonwealth"]')?.disabled === true, '未派遣士兵时执行按钮禁用');
+  const soldiersInput = $('[data-neighbor-soldiers="commonwealth"]');
+  soldiersInput.value = '100'; soldiersInput.dispatchEvent(new Event('input', { bubbles: true })); await flush();
+  log($('[data-neighbor-preview="commonwealth"]')?.textContent.includes('预计伤亡'), '填写士兵后显示预计伤亡');
+  log($('[data-neighbor-raid="commonwealth"]')?.disabled === false, '满足战力后可执行偷袭');
+  const soldiersBeforeRaid = S().soldiers;
+  click($('[data-neighbor-raid="commonwealth"]')); await flush();
+  log(S().soldiers < soldiersBeforeRaid, '偷袭实际消耗士兵');
+  // The log must name the resources the raid actually carried home.
+  const lootLog = S().logs.find(entry => entry.text.includes('掠夺'));
+  log(!!lootLog, `偷袭后在日志中记录掠夺资源 [${S().logs.slice(0, 2).map(l => l.text).join(' / ')}]`);
+  log(lootLog?.text.includes(RESOURCES.food.name) === true, '掠夺日志包含猫粮及其数量');
+  store.mutate(state => { state.soldiers = 0; }); await flush();
+  log(!$('[data-neighbors]'), '士兵归零且无占领后临近势力重新隐藏');
+  store.mutate(state => { state.soldiers = 200; }); await flush();
   click($('#openGovernmentReform')); await flush();
   const { GOVERNMENTS } = await import('/src/simulation/government.ts');
   for (const id of ['democracy', 'militaryRule', 'oligarchy', 'technocracy', 'industrialism']) {
@@ -343,8 +416,58 @@ try {
     log($('[data-power-deficit]')?.textContent === '−6' && bioStart().getAttribute('data-power-failed') === '3', '发电燃料断供使全部开启负载显示供电不足');
     click(bioStop()); await flush();
     log(bioStart().textContent === '2' && S().stoppedBuildings.biologyLab === 1, '供电失效建筑仍可通过关闭按钮减少请求');
+    // 实验室: the powered capacity must be visible in the storage detail and update live,
+    // and 猫猫科学家 keep producing while unpowered.
+    store.mutate(state => {
+      state.settings.paused = true;
+      state.tech = Object.keys(TECHNOLOGIES);
+      for (const id of Object.keys(state.buildings)) { state.buildings[id] = 0; state.stoppedBuildings[id] = 0; }
+      state.resources.coal = 100; state.resources.food = 1000; state.resources.knowledge = 0;
+      // No power plant at all: the labs are fully unpowered for the first check.
+      state.resources.coal = 0;
+      state.buildings.lab = 2; state.workers.lab = 2;
+      state.population = 10; state.powerActivationOrder = [];
+    }); await flush();
+    const { calculateSupportPreview: labPreview } = await import('/src/simulation/support-preview.ts');
+    const { calculateProduction: labProduction } = await import('/src/simulation/production.ts');
+    const readKnowledgeCap = async () => {
+      // The knowledge row may not exist yet in this fixture; drive the tooltip from a
+      // detached anchor with the same data attributes the resource panel uses.
+      const anchor = document.createElement('button');
+      anchor.dataset.buildingTip = 'knowledge';
+      anchor.dataset.tipKind = 'storage';
+      document.body.append(anchor);
+      try {
+        anchor.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }));
+        await flush();
+        const panel = $('#gameTooltip');
+        return panel ? panel.textContent : '';
+      } finally {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        anchor.remove();
+        await flush();
+      }
+    };
+    const darkCap = await readKnowledgeCap();
+    log(darkCap.includes('实验室 ×2') && !darkCap.includes('（供电）'), `未供电实验室只提供基础知识容量 [${darkCap.slice(0, 90)}]`);
+    const darkProduction = labProduction(S());
+    log(labPreview(S()).labUnits === 0 && darkProduction.rates.knowledge > 0, `未供电实验室的猫猫科学家照常产出知识 [labUnits=${labPreview(S()).labUnits}, knowledge=${darkProduction.rates.knowledge}]`);
+    await showTip('[data-buy="lab"][data-tip-kind="building"]');
+    const labTipRows = [...$('#gameTooltip').querySelectorAll('.resource-factor')].map(row => row.textContent.replace(/\s+/g, ''));
+    log(labTipRows.includes('猫猫科学家+1') && labTipRows.includes('知识容量+1000') && labTipRows.includes('供能时知识容量+2000，电力-2') && !$('#gameTooltip .tip-desc')?.textContent.includes('知识容量'), `实验室三条效果位于建筑效果区而非描述 [${labTipRows.join('|')}]`);
+    await escapeTip();
+    store.mutate(state => { state.buildings.solarFarm = 1; }); await flush();
+    const litCap = await readKnowledgeCap();
+    log(litCap.includes('（供电）') && litCap.includes('2k'), `供电后知识储量明细实时出现供电容量行 [${litCap.replace(/\s+/g, ' ').slice(0, 100)}]`);
+    store.mutate(state => { state.buildings.solarFarm = 0; }); await flush();
+    const offCap = await readKnowledgeCap();
+    log(!offCap.includes('（供电）'), `断电后知识储量明细实时移除供电容量行 [${offCap.replace(/\s+/g, ' ').slice(0, 100)}]`);
     store.mutate(state => {
       state.buildings.biologyLab = 0; state.stoppedBuildings.biologyLab = 0;
+      state.buildings.lab = 0; state.workers.lab = 0; state.stoppedBuildings.lab = 0;
+      state.buildings.solarFarm = 0;
+      // Restore the original two-generator budget so one of the two 软路由节点 is funded.
+      state.buildings.generator = 2;
       state.buildings.softRouterNode = 2;
       state.resources.coal = 100;
       state.powerActivationOrder = [{ id: 'softRouterNode', count: 2 }];
@@ -402,7 +525,7 @@ try {
   click($('[data-tab="tech"]')); await flush();
   await showTip('[data-building-tip="moonExploration"][data-tip-kind="tech"]');
   log(!!$('#gameTooltip .is-cap-blocked'), '科技tooltip将超过仓储上限的价格标红');
-  log(!!$('#gameTooltip .tip-desc') && !$('#gameTooltip .resource-footnote') && $('#gameTooltip').textContent.includes('前置科技') && !$('#gameTooltip').textContent.includes('效果与描述') && $$('#gameTooltip .tip-label').map(row => row.textContent.trim()).join('|') === '当前价格', '科技tooltip保留描述、价格和前置科技，移除底部价格说明');
+  log($('#gameTooltip').textContent.includes('前置科技') && $$('#gameTooltip .tip-label').map(row => row.textContent.trim()).includes('科技效果') && $$('#gameTooltip .resource-factor').length > 0, '科技tooltip保留价格与前置科技，效果独立成科技效果区');
   await escapeTip();
 
   const { advancedFixture } = await import('./fixtures.js');
@@ -433,7 +556,7 @@ try {
   store.mutate(state => Object.assign(state, JSON.parse(JSON.stringify(beforeGatherAutomation)))); await flush();
   await showTip('[data-buy="observatory"]');
   const dataCenterEffects = $$('#gameTooltip .resource-factor').map(row => row.textContent.replace(/\s/g, ''));
-  log(dataCenterEffects.includes('知识产量+10%'), '数据中心显示知识产量+10%');
+  log(dataCenterEffects.includes('知识产量+5%'), '数据中心显示知识产量+5%');
   log(dataCenterEffects.at(-1) === '电力-3', '数据中心维护费用位于所有效果最下方');
   await escapeTip();
   click($('[data-tab="arpa"]')); await flush();
@@ -502,6 +625,37 @@ try {
   log($$('[data-resource-id]').every(row => row.querySelector('.res-name')?.textContent.trim() === RESOURCES[row.dataset.resourceId].name), '所有资源行名称严格等于资源名，不带emoji');
   log(['1', '10', '100', 'max'].every(count => craftButton(count) && !craftButton(count).disabled), '左栏锻造提供始终可用的1/10/100/max按钮');
   log(!$('[data-crafted-resource="plank"] .res-rate'), '无工匠产出时不显示锻造速率');
+  // A recipe that lost its unlock (秘银 now also needs 合金) must stay reachable when a
+  // save still holds artisans there, otherwise those slots can never be reclaimed.
+  {
+    const locked = advancedFixture();
+    // foundry capacity is workersPerBuilding * built, so the fixture's 2 foundries hold exactly 2.
+    locked.population = 20;
+    locked.workers.foundry = 2;
+    locked.craftWorkers = { ...locked.craftWorkers, plank: 0, mithril: 2 };
+    store.runtime.replaceState(locked); store.refresh(); await flush();
+    // Park the artisans first, then remove the unlock underneath them via the live store so we
+    // reproduce an older save without fighting the strict loader's prerequisite checks.
+    store.mutate(state => {
+      state.tech = state.tech.filter(id => id !== 'iridiumMining' && id !== 'iridiumRefining');
+      state.buildings.iridiumMine = 0; state.workers.iridiumMine = 0;
+      state.buildings.iridiumMiningShip = 0; state.workers.iridiumMiningShip = 0;
+      state.craftWorkers.mithril = 2;
+    }); await flush();
+    const { isResourceUnlocked: mithrilLocked } = await import('/src/simulation/unlocks.ts');
+    log(!mithrilLocked('mithril', S()), '自检：fixture 中秘银确实处于锁定状态');
+    click($('[data-tab="cats"]')); await flush();
+    const mithrilAssign = $('[data-craft-assign="mithril"][data-delta="1"]');
+    const mithrilWithdraw = $('[data-craft-assign="mithril"][data-delta="-1"]');
+    log(!!mithrilAssign && !!mithrilWithdraw, '锁定配方的滞留工匠仍显示在工匠分配中，可被撤回');
+    log(!!$('[data-craft-locked]'), '锁定配方标注「未解锁」');
+    log(mithrilAssign?.disabled === true && mithrilWithdraw?.disabled === false, '锁定配方只禁止继续分配，允许撤回');
+    const beforeWithdraw = S().craftWorkers.mithril;
+    click(mithrilWithdraw); await flush();
+    log(S().craftWorkers.mithril === beforeWithdraw - 1, '点击撤回实际释放锁定配方的工匠');
+    store.runtime.replaceState(advancedFixture()); store.refresh(); await flush();
+    click($('[data-tab="cats"]')); await flush();
+  }
 
   // Each case enters through real validation; never mutate a user's saved state.
   const restoreCraftFixture = async (wood = 1000, workers = 0) => {
@@ -644,6 +798,30 @@ try {
   const e710Buildings = $$('[data-building-group="asteroidBelt"] [data-buy]').map(button => button.dataset.buy);
   log(e710Buildings.join(',') === 'iridiumMiningShip,ironMiningShip,e710MiningShip,e710Container', `E-710采矿船与容器按指定顺序位于小行星带 [${e710Buildings.join(',')}]`);
   log(!!$('[data-resource-id="e710"]') && !!$('[data-buy="miningDrone"]') && !!$('[data-buy="oilExtractor"]'), 'E-710资源与塔卫二扫描建筑即时解锁');
+  // Mining ships need one idle cat each (E-710 two): the merged read-only job row and
+  // the yellow toggle for the last ship that lost its crew must both be visible.
+  const beforeShipCrew = JSON.parse(JSON.stringify(S()));
+  store.mutate(state => {
+    for (const id of Object.keys(state.workers)) state.workers[id] = 0;
+    state.population = 1;
+    state.buildings.iridiumMiningShip = 1; state.buildings.ironMiningShip = 1;
+    state.stoppedBuildings.iridiumMiningShip = 0; state.stoppedBuildings.ironMiningShip = 0;
+    state.resources.helium3 = 50000; state.settings.paused = true;
+  }); await flush();
+  click($('[data-tab="cats"]')); await flush();
+  const crewRow = $('[data-ship-crew-row]');
+  log(!!crewRow && crewRow.textContent.includes('采矿船操作员'), '工作列表把采矿船合并为采矿船操作员一行');
+  log(!!crewRow && /1\s*\/\s*2/.test(crewRow.querySelector('.worker-count').textContent.trim()) && crewRow.querySelectorAll('button').length === 0, `采矿船操作员只读且显示在岗/需求 [${crewRow?.textContent}]`);
+  log(crewRow.closest('section').querySelector('h3').textContent.includes('空闲 0'), '空闲猫口统计扣除采矿船操作员');
+  click($('[data-tab="buildings"]')); await flush();
+  click($('[data-world-view="space"]')); await flush();
+  const ironToggle = $('[data-buy="ironMiningShip"]').closest('.building-control').querySelector('.building-toggle.start');
+  const iridiumToggle = $('[data-buy="iridiumMiningShip"]').closest('.building-control').querySelector('.building-toggle.start');
+  log(ironToggle.classList.contains('is-shortage') && ironToggle.dataset.crewShort === '1' && !iridiumToggle.classList.contains('is-shortage'), `空闲猫口不足时最后启用的采矿船开关显示黄色 [iron=${ironToggle.className},crewShort=${ironToggle.dataset.crewShort}]`);
+  await showTip('[data-buy="ironMiningShip"]');
+  log($('#gameTooltip').textContent.includes('采矿船操作员不足') && $('#gameTooltip').textContent.includes('采矿船操作员（每座）'), `停机采矿船悬停提示操作员不足且效果行列出占用 [${$('#gameTooltip').textContent.slice(0, 140)}]`);
+  await escapeTip();
+  store.mutate(state => Object.assign(state, JSON.parse(JSON.stringify(beforeShipCrew)))); await flush();
   log(!!$('#launchMisenMission') && ! $('[data-buy="e710Warehouse"]'), '米神星发现显示任务且完成前建筑不可见');
   await showTip('#launchMisenMission');
   log($('#gameTooltip').textContent.includes('30k') && $('#gameTooltip').textContent.includes('E-710'), `米神星任务悬停显示两种费用 [${$('#gameTooltip').textContent}]`);
@@ -803,7 +981,7 @@ try {
   log(!!$('[data-building-group="dimensionalBoundary"] [data-buy="spaceRipper"]'),'空间撕裂者位于维度边界');
   log(!!$('[data-building-group="e710Enrichment"] [data-buy="e710ResearchStation"]'),'710研究站位于710富集区');
   await showTip('[data-building-tip="e710ResearchStation"][data-tip-kind="building"]');
-  log($('#gameTooltip')?.textContent.includes('猫猫科学家上限+1. 知识容量+50k， 电力-25，氘-1/s')&&$('#gameTooltip')?.textContent.includes('猫猫科学家上限'),'710研究站详情显示原文效果与科学家上限（电力无/s，氘仍为/s）');await escapeTip();
+  log($('#gameTooltip')?.textContent.includes('猫猫科学家上限+1')&&$('#gameTooltip')?.textContent.includes('知识容量+50k')&&$('#gameTooltip')?.textContent.includes('氘-1/s'),'710研究站把效果列在建筑效果区');await escapeTip();
   await showTip('[data-building-tip="spaceRipper"][data-tip-kind="building"]');
   {
     const tip=$('#gameTooltip'),desc=tip?.querySelector('.tip-desc')?.textContent||'',rows=[...(tip?.querySelectorAll('.resource-factor')||[])].map(row=>row.textContent.replace(/\s+/g,''));
@@ -1018,9 +1196,9 @@ try {
       // Export/import traverses real save validation, unlike the UI-only knowledge injection.
       const purchased = [...S().crispr], particles = S().prestige.particles;
       log(store.runtime.save(), 'CRISPR购买后的合法状态可真实保存');
-      const exported = store.runtime.exportSave();
+      const exported = await store.runtime.exportSave();
       store.runtime.replaceState(advancedFixture());
-      log(store.runtime.importSave(exported) && JSON.stringify(S().crispr) === JSON.stringify(purchased) && S().prestige.particles === particles, 'CRISPR七项升级与剩余粒子经真实导出导入完整往返');
+      log(await store.runtime.importSave(exported) && JSON.stringify(S().crispr) === JSON.stringify(purchased) && S().prestige.particles === particles, 'CRISPR七项升级与剩余粒子经真实导出导入完整往返');
       const scale = calculateBuildingScale('nest', 'wood', S());
       log(store.runtime.reset('soft'), 'CRISPR测试通过真实runtime执行软重置');
       store.refresh(); await flush();
@@ -1033,9 +1211,9 @@ try {
       store.runtime.replaceState(nextRun); store.refresh(); await flush();
       click($('[data-tab="arpa"]')); await flush();
       log((!$('[data-arpa-view="crispr"]') || $('[data-arpa-view="crispr"]').disabled) && !$$('[data-crispr-purchase]').length, '新周目即使保留全部永久效果，未研究crispr16仍锁定ARPA入口与购买');
-      const persistent = store.runtime.exportSave();
+      const persistent = await store.runtime.exportSave();
       store.runtime.replaceState(advancedFixture());
-      log(store.runtime.importSave(persistent) && JSON.stringify(S().crispr) === JSON.stringify(purchased) && !S().tech.includes('crispr16'), '无本周目CRISPR科技的永久升级存档仍可合法往返');
+      log(await store.runtime.importSave(persistent) && JSON.stringify(S().crispr) === JSON.stringify(purchased) && !S().tech.includes('crispr16'), '无本周目CRISPR科技的永久升级存档仍可合法往返');
       // 基因剪切 + 基因修饰: real CRISPR purchase, DNA crafting and gene upgrade through the UI.
       const geneRun = crisprFixture();
       const tech = new Set(geneRun.tech); tech.add('crispr16'); geneRun.tech = [...tech];
@@ -1098,8 +1276,8 @@ try {
   log(S().challenge.genes.length === 0 && S().prestige.softResets === 0, '点选挑战基因不会立即改变当前周目');
   click($('#launchChallenges')); await flush();
   log(S().challenge.genes.length === 2 && S().challenge.particleBaseline === 100 && S().prestige.softResets === 1 && !S().tech.length, '启动挑战执行软重置并携带组合基因与粒子基线');
-  const challengeSaved = store.runtime.exportSave();
-  log(store.runtime.importSave(challengeSaved) && S().challenge.genes.length === 2, '挑战状态实际导出导入保留');
+  const challengeSaved = await store.runtime.exportSave();
+  log(await store.runtime.importSave(challengeSaved) && S().challenge.genes.length === 2, '挑战状态实际导出导入保留');
   store.runtime.reset('soft'); store.refresh(); await flush();
   log(!S().challenge.genes.length && S().crispr.includes('challengeGene'), '普通软重置退出挑战但保留永久升级');
 
@@ -1142,18 +1320,41 @@ try {
   store.mutate(state => { state.prestige.particles = 1; }); await flush();
   log($('.col-left').lastElementChild === $('#prestigeResources') && !!$('[data-prestige-row="particles"]') && !$('[data-prestige-row="casimir"]'), '获得粒子后威望资源位于左侧资源区最下方，未获得的卡西米尔仍隐藏');
   await showTip('#prestigeResources [data-tip-kind="prestige"]');
-  log($('#gameTooltip').textContent.includes('当前持有1粒子，当前实际加成为普通资源产量 +0.5%，锻造物产量 +0.125%'), '粒子数字悬停显示精确持有效果');
+  log($('#gameTooltip').textContent.includes('当前持有1粒子，当前实际加成为普通资源产量 +0.5%，锻造物产量 +0.062%'), '粒子数字悬停显示精确持有效果');
   log(!$('#gameTooltip').textContent.includes('产量有效粒子数') && !$('#gameTooltip').textContent.includes('每个有效粒子储量'), '粒子悬停不再显示产量有效粒子数与单个修饰储量行');
   store.mutate(state => { state.prestige.particles = 2; }); await flush();
-  log($('#gameTooltip').textContent.includes('当前持有2粒子，当前实际加成为普通资源产量 +1%，锻造物产量 +0.25%'), '粒子数量与悬停效果实时更新');
+  log($('#gameTooltip').textContent.includes('当前持有2粒子，当前实际加成为普通资源产量 +1%，锻造物产量 +0.125%'), '粒子数量与悬停效果实时更新');
   await escapeTip();
   click($('#saveNow')); await flush();
   log(JSON.parse(localStorage.getItem(saveKey)).clicks === 73 && !store.runtime.saveFailed, '保存按钮实际写入有效存档');
   click($('#exportSave')); await flush();
-  log($('#importSaveText').value.length > 100, '导出按钮生成存档 JSON');
+  const exportedText = $('#importSaveText').value;
+  log(exportedText.length > 100 && /^MEOE1\.1\./.test(exportedText) && !exportedText.includes('"clicks"'), '导出按钮生成 AES-256-GCM 加密存档而非明文 JSON');
+  // localStorage keeps the plaintext save: encryption applies to export/import only.
+  log(localStorage.getItem(saveKey).includes('"clicks"'), '本地存储仍为明文，加密只作用于导出与导入');
   store.mutate(state => { state.clicks = 1; });
   click($('#importSave')); await flush();
-  log(S().clicks === 73 && !/失败/.test($('#saveStatus').textContent), '有效导出→导入恢复状态并报告成功');
+  log(S().clicks === 73 && !/失败/.test($('#saveStatus').textContent), '有效加密导出→导入恢复状态并报告成功');
+  // A tampered ciphertext must be rejected without touching the live state.
+  const beforeTamper = S(), beforeTamperDisk = localStorage.getItem(saveKey);
+  const [envelopePrefix, envelopeVersion, envelopePayload] = exportedText.split('.');
+  // Browsers have no Buffer: decode/encode base64 with atob/btoa.
+  const rawBytes = atob(envelopePayload);
+  const flipped = new Uint8Array(rawBytes.length);
+  for (let i = 0; i < rawBytes.length; i++) flipped[i] = rawBytes.charCodeAt(i);
+  flipped[flipped.length - 20] ^= 0xff;
+  let flippedText = '';
+  for (let i = 0; i < flipped.length; i += 0x8000) flippedText += String.fromCharCode(...flipped.subarray(i, i + 0x8000));
+  $('#importSaveText').value = `${envelopePrefix}.${envelopeVersion}.${btoa(flippedText)}`;
+  $('#importSaveText').dispatchEvent(new Event('input', { bubbles: true })); await flush();
+  click($('#importSave')); await flush();
+  log(S() === beforeTamper && S().clicks === 73 && localStorage.getItem(saveKey) === beforeTamperDisk && $('#saveStatus').textContent.includes('导入失败'), '被篡改的加密存档拒绝载入且不破坏当前存档');
+  // Legacy plaintext backups must keep importing. Restore the same clicks value so the
+  // assertions that follow still observe 73.
+  $('#importSaveText').value = JSON.stringify({ ...beforeTamper, clicks: 73 });
+  $('#importSaveText').dispatchEvent(new Event('input', { bubbles: true })); await flush();
+  click($('#importSave')); await flush();
+  log(S().clicks === 73 && !/失败/.test($('#saveStatus').textContent), '旧版明文存档仍可正常导入');
   const beforeInvalid = S(), beforeInvalidDisk = localStorage.getItem(saveKey);
   $('#importSaveText').value = '{"version":999}';
   $('#importSaveText').dispatchEvent(new Event('input', { bubbles: true })); await flush();
@@ -1175,7 +1376,7 @@ try {
   const addNuclear = id => { if (nuclearTech.has(id)) return; TECHNOLOGIES[id].pre.forEach(addNuclear); nuclearTech.add(id); };
   addNuclear('nuclearProgram'); nuclear.tech = [...nuclearTech]; nuclear.nuclearProgress = 100;
   // JSON crosses the actual validation/import boundary, not Object.assign into live state.
-  store.runtime.importSave(JSON.stringify(nuclear)); store.refresh();
+  await store.runtime.importSave(JSON.stringify(nuclear)); store.refresh();
   click($('[data-tab="internal"]')); await flush();
   click($('[data-internal-view="military"]')); await flush();
   await showTip('#launchNuclear');

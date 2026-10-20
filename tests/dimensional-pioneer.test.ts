@@ -187,7 +187,8 @@ test('high-tech factory adds 2 lines and 2 cement worker slots, costing 10 energ
     const s = eraState();
     s.tech.push('highTechFactory');
     const def = BUILDINGS.highTechFactory;
-    assert.equal(def.desc, '工厂生产线+2，水泥工人上限+2, 电力-10/s，氘-0.5/s');
+    assert.equal(def.lines, 2);
+    assert.deepEqual(def.jobSlots, { cementWorkshop: 2 });
     assert.equal(def.costScales?.cash, 1.25);
     s.buildings.highTechFactory = 1;
     assert.equal(calculateFactoryCapacity(s), calculateFactoryCapacity({ ...s, buildings: { ...s.buildings, highTechFactory: 0 } }) + 2);
@@ -219,7 +220,7 @@ test('710 research station: tech, +1 scientist slot, +50k funded knowledge cap, 
   assert.deepEqual(TECHNOLOGIES.e710ResearchStation.cost, { knowledge: 850000 });
   assert.deepEqual(TECHNOLOGIES.e710ResearchStation.pre, ['hyperspaceMiningSurvey', 'gasCloudAccretion']);
   const def = BUILDINGS.e710ResearchStation;
-  assert.equal(def.desc, '猫猫科学家上限+1. 知识容量+50k， 电力-25/s，氘-1/s');
+  assert.deepEqual(def.jobSlots, { lab: 1 });
   for (const scale of Object.values(def.costScales || {})) assert.equal(scale, 1.25);
   const locked = createMilestoneState('beacon');
   locked.tech.push('hyperspaceMiningSurvey');

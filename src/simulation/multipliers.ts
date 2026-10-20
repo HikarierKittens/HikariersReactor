@@ -22,8 +22,17 @@ export function calculateChallengeAcceleratorMultiplier(id: string, state: Pick<
     && id !== 'energy'
     ? 1 + (RESOURCES[id as ResourceId].crafted ? .0125 : .05) * (state.buildings.particleAccelerator || 0) : 1;
 }
+/**
+ * 幸福度产量倍率. Below the 100% baseline every point still costs 1% output; the
+ * part above 100% is deliberately flatter: each point grants +0.5% global output
+ * (150% → ×1.25, 200% → ×1.5). Energy and crafted goods never use this multiplier.
+ */
+export function calculateHappinessMultiplier(happiness: number): number {
+  if (!Number.isFinite(happiness)) return 1;
+  return happiness <= 100 ? Math.max(0, happiness) / 100 : 1 + (happiness - 100) * .005;
+}
 export function calculateProductionMultiplier(id: string, happiness: number, state: GameState): number {
-  return happiness / 100 * calculateCommunityMultiplier(id, state) * calculateRefiningMultiplier(id, state)
+  return calculateHappinessMultiplier(happiness) * calculateCommunityMultiplier(id, state) * calculateRefiningMultiplier(id, state)
     * (id === 'cash' ? 1 : calculateGovernmentMultiplier(id, state)) * calculateChallengeAcceleratorMultiplier(id, state);
 }
 export function calculateFactoryOutputMultiplier(id: ResourceId, happiness: number, state: GameState, knowledge: number): number {

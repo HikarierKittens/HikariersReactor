@@ -13,14 +13,15 @@ const close=(a:number,b:number)=>assert.ok(Math.abs(a-b)<1e-8,`${a} != ${b}`);
 function stage(){const s=fresh();s.tech.push('fieldConstraintTheory');return s;}
 
 test('subsecond quantum-funded satellite generation uses the same interval as core and stability maintenance',()=>{
-  const s=stage();s.tech.push('artificialIntelligenceII','quantumSwarm');s.buildings.lab=600;s.buildings.aiSupercore=100;s.buildings.swarmControlStation=1;s.buildings.swarmSatellite=25;s.buildings.constraintArray=1;
+  const s=stage();s.tech.push('artificialIntelligenceII','quantumSwarm');s.buildings.lab=1200;s.buildings.aiSupercore=100;s.buildings.swarmControlStation=1;s.buildings.swarmSatellite=25;s.buildings.constraintArray=1;
   // The retired 27.55 stock over this 0.2 s step is a fixed 137.75 W supply.
   Object.assign(s.resources,{helium3:5,e710:1});supplyPower(s,27.55/.2);
   // Settle the AI core before the stability array, matching the documented chain.
   s.powerActivationOrder=[{id:'aiSupercore',count:1},{id:'constraintArray',count:1}];
   const before=JSON.stringify(s);const preview=calculateSupportPreview(s,.2);const actual=calculateProduction(s,.2);
-  // Logarithmic knowledge scaling needs 600 labs to straddle the 25th-satellite threshold:
-  // the funded core lifts base <5 to final >=5, without changing the upkeep boundary.
+  // Logarithmic knowledge scaling needs 1200 labs (1000 knowledge each since the
+  // balance pass) to straddle the 25th-satellite threshold: the funded core lifts
+  // base <5 to final >=5, without changing the upkeep boundary.
   assert.equal(actual.inputUnits.aiSupercore,1);assert.ok(actual.quantum.base<5);assert.ok(actual.quantum.level>=5);
   close(actual.quantum.base,Math.log1p(.1*actual.quantum.knowledgeCapacity/250000)/Math.log1p(.1));
   assert.equal(actual.quantum.level,Math.floor(actual.quantum.base*1.25*100)/100);
@@ -45,7 +46,9 @@ test('relay support reaches Asriel allocation housing knowledge storage and purc
 });
 
 test('quantum feedback with relays and Asriel knowledge terminates purely and charges upkeep exactly once',()=>{
-  const s=stage();s.tech.push('artificialIntelligenceII','quantumSwarm');s.buildings.swarmControlStation=5;s.buildings.swarmSatellite=200;s.buildings.lab=600;s.buildings.constraintArray=1;s.buildings.shortRangeRelay=2;s.buildings.asrielResidence=1;s.buildings.alienMaterialLab=3;s.population=2;s.workers.asrielResidence=2;s.resources.e710=1;
+  // 实验室 base capacity is 1000 per building since the balance pass, so 1200
+  // unpowered labs restore the logarithmic quantum this scenario needs.
+  const s=stage();s.tech.push('artificialIntelligenceII','quantumSwarm');s.buildings.swarmControlStation=5;s.buildings.swarmSatellite=200;s.buildings.lab=1200;s.buildings.constraintArray=1;s.buildings.shortRangeRelay=2;s.buildings.asrielResidence=1;s.buildings.alienMaterialLab=3;s.population=2;s.workers.asrielResidence=2;s.resources.e710=1;
   // Sufficient logarithmic base quantum must fund the original array + one-relay feedback case.
   const before=JSON.stringify(s);const preview=calculateSupportPreview(s),actual=calculateProduction(s);
   close(actual.quantum.base,Math.log1p(.1*actual.quantum.knowledgeCapacity/250000)/Math.log1p(.1));

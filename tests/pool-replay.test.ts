@@ -8,6 +8,7 @@ import { settlePowerPlants } from '../src/simulation/power';
 import { allocateMoonSupport } from '../src/simulation/moon';
 import { settleSpaceProduction } from '../src/simulation/space-settlement';
 import { settleE710WarehousePower, settleResearchAndCulture } from '../src/simulation/power-consumers';
+import { calculatePowerGrid } from '../src/simulation/power-grid';
 import { buildSettlementLedger, type SettlementLedger } from '../src/simulation/support-preview';
 import { replaySettledPool } from '../src/simulation/pool-replay';
 import { createMilestoneState } from './fixtures/milestones';
@@ -19,6 +20,9 @@ function legacySequentialPool(state: GameState, ledger: SettlementLedger, dt: nu
   const pool = { ...state.resources };
   const inputUnits: Record<string, number> = {}, outputs: Record<string, number> = {};
   const plants = settlePowerPlants(pool, dt, state);
+  // The fixed-power grid gates every enabled load before core funding, so apply
+  // its stopped-building view exactly as the ledger does.
+  state = calculatePowerGrid(state, dt, 0, plants.energy).state;
   const aiSupercoreUnits = settleQuantumCores(state, pool, dt);
   inputUnits.aiSupercore = outputs.aiSupercore = aiSupercoreUnits;
   Object.assign(outputs, plants.outputs); Object.assign(inputUnits, plants.inputUnits);
@@ -45,6 +49,8 @@ function scenarios(): [string, GameState, number][] {
   const rich = createMilestoneState('postBeacon');
   Object.assign(rich.resources, { energy: 1e6, water: 1e5, helium3: 1e5, oil: 1e5, food: 1e5 });
   rich.buildings.ironMiningShip = 5; rich.buildings.hydrogenPowerPlant = 3; rich.buildings.e710Container = 4;
+  // Crew for the four enabled iron ships comes out of the idle population.
+  rich.population = 4;
   rich.buildings.e710Warehouse = 2; rich.buildings.biologyLab = 3; rich.buildings.observatory = 2;
   rich.buildings.aiSupercore = 100; rich.buildings.broadcast = 2; rich.buildings.touristStation = 2;
   rich.stoppedBuildings.ironMiningShip = 1; rich.stoppedBuildings.biologyLab = 1;

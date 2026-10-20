@@ -52,12 +52,12 @@ export const RESOURCES: Record<ResourceId, ResourceDefinition> = {
 };
 
 export const CRAFT_RECIPES: Record<CraftId, { input: ResourceRecipe; rate: number }> = {
-  plank: { input: { wood: 10 }, rate: .1 },
-  brick: { input: { cement: 5 }, rate: .1 },
-  wroughtIron: { input: { iron: 10 }, rate: .1 },
-  metalPlate: { input: { aluminum: 10 }, rate: .1 },
-  mithril: { input: { iridium: 10 }, rate: .1 },
-  aerogel: { input: { graphene: 10, nanoAlloy: 5 }, rate: .1 },
+  plank: { input: { wood: 10 }, rate: .05 },
+  brick: { input: { cement: 5 }, rate: .05 },
+  wroughtIron: { input: { iron: 10 }, rate: .05 },
+  metalPlate: { input: { aluminum: 10 }, rate: .05 },
+  mithril: { input: { alloy: 25, iridium: 10 }, rate: .05 },
+  aerogel: { input: { graphene: 10, nanoAlloy: 5 }, rate: .05 },
 };
 
 export interface FactoryOption {

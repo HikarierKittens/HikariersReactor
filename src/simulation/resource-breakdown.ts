@@ -1,19 +1,22 @@
 import { HYPERSPACE_SOURCE_IDS, calculateHyperspaceOutputFactor, calculateHyperspaceLocalMultiplier } from './hyperspace-output';
 import { calculateRefiningMultiplier, withPoweredMetalRefining } from './refining';
+import { RESEARCH_SATELLITE_LAB_OUTPUT } from './building-effects';
 import { BUILDINGS } from '../data/buildings';
 import { calculateQuantumManufacturingMultiplier } from './quantum';
 import { RESOURCES, CRAFT_RECIPES, FACTORY_OPTIONS } from '../data/resources';
 import { calculateBuildingName, calculateBuildingInput, calculateBuildingOutput, calculateToolMultiplier, calculateGrantedJobSlots } from './building-production';
 import { calculateFactoryRecipe, calculateSmelterSlotCapacity, calculateRunningSmelterSlots } from './factory';
-import { calculateProductionMultiplier, calculateAluminumMultiplier, calculateKnowledgeMultiplier, calculateFactoryOutputMultiplier } from './multipliers';
+import { calculateHappinessMultiplier, calculateProductionMultiplier, calculateAluminumMultiplier, calculateKnowledgeMultiplier, calculateFactoryOutputMultiplier } from './multipliers';
 import { calculateSpaceMultiplier, isSpaceResourceSource } from './asriel';
 import { calculateParticleMultiplier, calculateGlobalOutputMultiplier, calculateMasteryMultiplier } from './crafting';
 import { calculateChallengeAcceleratorMultiplier } from './multipliers';
 import { calculateFoodPerCat } from './population';
+import { soldierFoodUpkeep } from './neighbors';
+import { SOLDIER_FOOD_UPKEEP } from '../data/neighbors';
 import { isPowerProducer } from './power';
 import { countRunningBuildings } from './housing';
 import { calculateGovernmentMultiplier, calculateTaxBase, calculateBankerMultiplier, calculateFurMultiplier } from './government';
-import { calculateFoundryMultiplier, calculateStellarForgeCraftMultiplier, calculateOverclockCraftMultiplier } from './crafting';
+import { calculateForgingToolBonus, calculateOverclockCraftMultiplier, artisanCraftRate } from './crafting';
 import { geneExtraBonus } from './genes';
 import { CONFIG } from '../data/config';
 import { formatNumber, formatRateNumber, formatByteNumber } from '../shared/format';
@@ -54,8 +57,6 @@ export function calculateResourceBreakdown(
 ): ResourceBreakdown {
   return withPoweredMetalRefining(state, result.inputUnits.metalRefinery || 0, state => {
   const entries: BreakdownEntry[] = [];
-  const runningOf = (id: BuildingId): number =>
-    Math.max(0, (state.buildings[id] || 0) - (state.stoppedBuildings?.[id] || 0));
 
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
     if (id === 'cpuDecoder') continue; // Fixed digital output is accounted separately, without global multipliers.
@@ -74,7 +75,7 @@ export function calculateResourceBreakdown(
     if (b.boostResource && n) notes.push(`${calculateBuildingName(id, state)} ×${(1 + n * ((id === 'lumber' || id === 'quarry') ? .02 : .05)).toFixed(2)}`);
     if (b.morale) notes.push(`固定耗电，供能率 ${(result.morale.ratio * 100).toFixed(2)}%`);
     else if (!isPowerProducer(id) && Math.abs(result.morale.happiness - 100) > 1e-9) {
-      notes.push(`幸福度 ×${(result.morale.happiness / 100).toFixed(2)}`);
+      notes.push(`幸福度 ×${calculateHappinessMultiplier(result.morale.happiness).toFixed(2)}`);
     }
     if (id === 'forage' && state.tech.includes('agriculture')) notes.push('农业 ×1.5');
     if (id === 'forage' && state.tech.includes('agriculturalMachinery')) notes.push('农业机械 ×2');
@@ -140,7 +141,7 @@ export function calculateResourceBreakdown(
     if (resource === id) {
       entries.push({
         id: `craft:${id}`, kind: 'income', name: `${RESOURCES[id].name}工匠产出`, value: amount,
-        note: `每位基础 ${recipe.rate}/s，应用粒子与锻造工具升级加成`,
+        note: `每位工匠 ${recipe.rate}/s（工匠大师使速率翻倍），应用技工、粒子与锻造工具加成`,
       });
     }
     if (recipe.input?.[resource]) {
@@ -182,12 +183,15 @@ export function calculateResourceBreakdown(
   if (resource === 'bytes' && result.digital.byteProduction > 0) entries.push({ id: 'digitalDownload', kind: 'income', name: 'dl.exe 下载', value: result.digital.byteProduction, note: '实际知识产出 × 分配比例 × 0.001 × 下载缓存器 × 神经网络 × 字节产量倍率' });
   if (resource === 'knowledge' && result.digital.divertedKnowledge > 0) entries.push({ id: 'digitalDownload', kind: 'expense', name: 'dl.exe 下载消耗', value: -result.digital.divertedKnowledge, note: '仅分配本次实际正向知识产出，不转换库存或负收入' });
   const synthesisRate = resource === 'knowledge' ? result.geneSynthesis?.knowledge || 0 : 0;
-  if (synthesisRate > 0) entries.push({ id: 'geneSynthesis', kind: 'expense', name: '基因合成消耗', value: -synthesisRate, note: '生物科学实验室按合成速率把知识转化为DNA碱基' });
+  if (synthesisRate > 0) entries.push({ id: 'geneSynthesis', kind: 'expense', name: '基因合成消耗', value: -synthesisRate, note: '按分配比例抽取本次实际正向知识产出；不使用库存' });
   const ejectedRate = result.ejected?.[resource] || 0;
   if (ejectedRate > 0) entries.push({ id: 'massEjection', kind: 'expense', name: '质量喷射消耗', value: -ejectedRate, note: '按喷射分配与可用库存实际喷入黑洞的数量' });
   if (resource === 'food') {
     const perCat = calculateFoodPerCat(state);
     entries.push({ id: 'population', kind: 'expense', name: '猫口口粮', value: -state.population * perCat, note: `${state.population} 只猫 × ${perCat}/s（包含工作猫与闲置猫）` });
+    // The army eats too; without this row the tooltip would disagree with `rates.food`.
+    const upkeep = soldierFoodUpkeep(state);
+    if (upkeep > 0) entries.push({ id: 'soldierUpkeep', kind: 'expense', name: '军粮', value: -upkeep, note: `${state.soldiers} 名士兵 × ${SOLDIER_FOOD_UPKEEP}/s` });
   }
 
   const income = entries.filter(e => e.kind === 'income').reduce((sum, e) => sum + e.value, 0);
@@ -230,7 +234,7 @@ export function calculateResourceFactorRows(
     pct('AGI核心组件', 1 + .5 * result.digital.agiComponentUnits);
     pct('粒子', calculateParticleMultiplier(resource, state));
     pct('粒子加速器', calculateChallengeAcceleratorMultiplier(resource, state));
-    pct('幸福度', result.morale.happiness / 100);
+    pct('幸福度', calculateHappinessMultiplier(result.morale.happiness));
     return { rows };
   }
   if (resource === 'encryptedData') {
@@ -239,7 +243,7 @@ export function calculateResourceFactorRows(
     pct('数据解密模块产量加成', 1 + .25 * result.digital.decryptionUnits);
     pct('粒子', calculateParticleMultiplier(resource, state));
     pct('粒子加速器', calculateChallengeAcceleratorMultiplier(resource, state));
-    pct('幸福度', result.morale.happiness / 100);
+    pct('幸福度', calculateHappinessMultiplier(result.morale.happiness));
     pct('精通', calculateMasteryMultiplier('encryptedData', state));
     return { rows };
   }
@@ -264,12 +268,13 @@ export function calculateResourceFactorRows(
     }
     if (e.id.startsWith('craft:')) {
       const craftId = e.id.slice(6) as keyof typeof CRAFT_RECIPES;
-      const expected = (state.craftWorkers[craftId] || 0) * CRAFT_RECIPES[craftId].rate;
-      const baseAmount = (result.inputUnits[e.id] || 0) / (state.crispr.includes('masterArtisan') ? 2 : 1);
+      // 工匠大师 doubles the artisan throughput, so it is already inside the base amount.
+      const baseAmount = result.inputUnits[e.id] || 0;
       add(e.name, signedRate(baseAmount));
+      const expected = (state.craftWorkers[craftId] || 0) * artisanCraftRate(CRAFT_RECIPES[craftId].rate, state);
       if (expected && baseAmount < expected - 1e-9) pct('原料供应', baseAmount / expected, true);
+      // 技工 is an independent crafted-output bonus, so it gets its own row.
       if (state.crispr.includes('technician')) pct('技工', 2, true);
-      if (state.crispr.includes('masterArtisan')) pct('工匠大师', 2, true);
       pct('超频锻造（工匠）', 1 + geneExtraBonus(state, 'overclockForging'), true);
       continue;
     }
@@ -304,7 +309,7 @@ export function calculateResourceFactorRows(
     const sourceValue = (globalFactor > 0 ? e.value / globalFactor : e.value)
       / (id === 'cementWorkshop' ? 1 + (result.inputUnits.cementMixer || 0) * .05 : 1)
       / (id === 'lumber' || id === 'quarry' ? 1 + (result.inputUnits[id === 'lumber' ? 'automatedLumber' : 'automatedQuarry'] || 0) * .05 : 1)
-      / (id === 'lab' ? 1 + .02 * (state.buildings.researchSatellite || 0) : 1)
+      / (id === 'lab' ? 1 + RESEARCH_SATELLITE_LAB_OUTPUT * (state.buildings.researchSatellite || 0) : 1)
       / (id === 'catCafe' ? (state.tech.includes('masterpieceCat') ? 1.2 : 1) : 1)
       / (id === 'iridiumMine' && resource === 'iridium' ? 1 + .05 * (result.inputUnits.geothermalPlant || 0) : 1)
       / (id === 'talosMoonMiningStation' && resource === 'neutron' ? 1 + .05 * (state.buildings.miningDrone || 0) : 1)
@@ -335,7 +340,7 @@ export function calculateResourceFactorRows(
     }
 
     if (id === 'catCafe') { const f = state.tech.includes('masterpieceCat') ? 1.2 : 1; pct('绝世好猫', f, true); local *= f; }
-    if (id === 'lab') { const f = 1 + .02 * (state.buildings.researchSatellite || 0); pct('科研卫星', f, true); local *= f; }
+    if (id === 'lab') { const f = 1 + RESEARCH_SATELLITE_LAB_OUTPUT * (state.buildings.researchSatellite || 0); pct('科研卫星', f, true); local *= f; }
     if (id === 'cementWorkshop') { const f = 1 + (result.inputUnits.cementMixer || 0) * .05; pct('供能水泥工匠', f, true); local *= f; }
     if (b.workerOutput) {
       if (b.boostResource) { const f = 1 + n * ((id === 'lumber' || id === 'quarry') ? .02 : .05); pct(calculateBuildingName(id, state), f, true); local *= f; }
@@ -370,10 +375,16 @@ export function calculateResourceFactorRows(
   pct('精通', calculateMasteryMultiplier(resource, state));
   pct('粒子加速器', calculateChallengeAcceleratorMultiplier(resource, state));
   if (RESOURCES[resource].crafted) {
-    pct('锻造工具升级', calculateFoundryMultiplier(state));
-    pct('恒星熔炉', calculateStellarForgeCraftMultiplier(state));
+    // 锻造工具加成 is one additive pool: the total is a single independent factor,
+    // and every contributing source is listed beneath it as a child row.
+    const planetaryResidents = state.buildings.planetaryFoundry
+      ? Math.min(state.population, state.workers.asrielResidence || 0, result.asriel.allocations.asrielResidence * 2) : 0;
+    const planetaryAllocated = state.buildings.planetaryFoundry ? result.asriel.allocations.planetaryFoundry || 0 : 0;
+    // Left column: the pooled total only. Per-source detail lives in the right
+    // column's 锻造工具加成 section, so the two never show the same rows twice.
+    const tool = calculateForgingToolBonus(state, planetaryResidents, planetaryAllocated);
+    if (tool.total > 0) pct('锻造工具加成', 1 + tool.total);
     pct('超频锻造', calculateOverclockCraftMultiplier(state));
-    pct('行星铸造厂', 1 + .03 * (result.asriel.allocations.planetaryFoundry || 0) * Math.min(state.population, state.workers.asrielResidence || 0, result.asriel.allocations.asrielResidence * 2));
   }
   if (['aluminum', 'metal', 'iridium'].includes(resource)) pct('金属精炼厂', calculateRefiningMultiplier(resource, state));
   if (resource === 'knowledge') {
@@ -381,7 +392,7 @@ export function calculateResourceFactorRows(
     pct('数据中心', 1 + (result.inputUnits.observatory || 0) * (BUILDINGS.observatory.knowledgeBoost || .1));
     pct('AES计算模块', 1 + result.digital.aesUnits * (BUILDINGS.aesComputeModule.knowledgeBoost || 0));
   }
-  if (resource !== 'energy' && !RESOURCES[resource].crafted) pct('幸福度', happiness / 100);
+  if (resource !== 'energy' && !RESOURCES[resource].crafted) pct('幸福度', calculateHappinessMultiplier(happiness));
   return { rows };
   });
 }

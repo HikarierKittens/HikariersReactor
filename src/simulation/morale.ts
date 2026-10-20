@@ -11,6 +11,8 @@ export interface MoralePowerSnapshot {
   moonBaseUnits: number;
   biologyUnits: number;
   dataCenterUnits: number;
+  /** Funded 实验室 units; each draws 2 power after 电力 is known. */
+  labUnits?: number;
   waystationUnits?: number;
   navigationBeaconUnits?: number;
   /** Asriel-supported VR中心 units (+2.5 happiness each, within the existing cap). */
@@ -40,7 +42,7 @@ export function calculateMorale(state: GameState, dt: number, power: MoralePower
   const monumentCap = (state.arpaBuildings.monument || 0) * 2, cap = 100 + theaterCap + broadcastCap + stationCap + catCafeCap + monumentCap + worldSimulator;
   const broadcastRunning = countRunningBuildings('broadcast', state), stationRunning = countRunningBuildings('touristStation', state);
   const demand = broadcastRunning * 2 + stationRunning * 5;
-  const ratio = demand ? Math.min(1, Math.max(0, Math.max(0, power.generatorEnergy - (power.navigationBeaconUnits || 0) * (calculateBuildingInput('navigationBeacon', state).energy || 2) - (power.waystationUnits || 0) * 5 - power.moonBaseUnits * 4 - power.biologyUnits * 2 - power.dataCenterUnits * 3) / demand)) : 1;
+  const ratio = demand ? Math.min(1, Math.max(0, Math.max(0, power.generatorEnergy - (power.navigationBeaconUnits || 0) * (calculateBuildingInput('navigationBeacon', state).energy || 2) - (power.waystationUnits || 0) * 5 - power.moonBaseUnits * 4 - power.biologyUnits * 2 - power.dataCenterUnits * 3 - (power.labUnits || 0) * 2) / demand)) : 1;
   const oilPerStation = calculateBuildingInput('touristStation', state).oil || 0;
   const stationRatio = oilPerStation ? Math.min(ratio, Math.max(0, state.resources.oil) / (oilPerStation * stationRunning * dt || 1)) : ratio;
   const broadcastUnits = power.broadcastUnits ?? broadcastRunning * ratio;

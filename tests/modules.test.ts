@@ -309,11 +309,13 @@ test('ring bonuses affect only space sources and appear beneath each source with
     state.buildings.starRingStation = 10;
     const detail = calculateResourceBreakdown(resource, state, boosted);
     const income = detail.entries.find(row => row.id === source && row.kind === 'income')!;
-    assert.ok(before && Math.abs(income.value / baseline.value - 1.1) < 1e-8);
+    // 10 stations × 2 Asriel residents × 0.25% base (星环优化 not researched here).
+    assert.ok(before && Math.abs(income.value / baseline.value - (1 + 0.0025 * 10 * 2)) < 1e-8);
     assert.ok(Math.abs(detail.net - boosted.rates[resource]) < 1e-8);
     const rows = calculateResourceFactorRows(resource, state, boosted).rows;
     const index = rows.findIndex(row => row.name === BUILDINGS[source].name);
-    assert.deepEqual(rows[index + 1], { name: '星环空间站', value: '+10%', child: true });
+    // 10 stations × 2 residents × 0.25% = +5%.
+    assert.deepEqual(rows[index + 1], { name: '星环空间站', value: '+5%', child: true });
   }
   assert.equal(calculateResourceFactorRows('metal', state, boosted).rows.some(row => row.name === '星环空间站'), false);
 });
@@ -327,7 +329,8 @@ test('ARPA institutes gate technologies and scale only targeted storage and outp
   assert.equal(isTechnologyUnlocked('dimensionCompression', state), false);
   state.arpaBuildings.arpaResearchInstitute = 2;
   assert.equal(isTechnologyUnlocked('dimensionCompression', state), true);
-  assert.equal(calculateStorageBonuses('lab', state, null).knowledge, 2160);
+  // 实验室 base 1000 × (1 + 2 institutes × 4%) = 1080; unpowered here (no 电力).
+  assert.equal(calculateStorageBonuses('lab', state, null).knowledge, 1080);
   assert.equal(calculateStorageBonuses('school', state, null).knowledge, 540);
   assert.equal(calculateStorageBonuses('warehouse', state, null).wood, 250);
   state.tech.push('dimensionCompression');
@@ -340,6 +343,47 @@ test('ARPA institutes gate technologies and scale only targeted storage and outp
   assert.ok(Math.abs(calculateBuildingOutput('smelter', state).metal! - .6) < 1e-8);
   assert.deepEqual(calculateFactoryRecipe('alloy', state).input, recipe.input);
   assert.ok(Math.abs(calculateFactoryRecipe('alloy', state).output.alloy! / recipe.output.alloy! - 1.1) < 1e-8);
+});
+
+test('实验室 holds 1000 knowledge per building and doubles to 2000 only while funded after 电力', () => {
+  const labKnowledge = (state: ReturnType<typeof createInitialState>) => {
+    const support = calculateSupportPreview(state);
+    return calculateStorageDetails('knowledge', state, { ...support, moonBaseUnits: support.moon.baseUnits }).rows
+      .filter(row => row.name.startsWith('实验室')).reduce((sum, row) => sum + row.value, 0);
+  };
+  // Before 电力 the laboratory is a free building: 5 × 1000, no power requested.
+  const free = createInitialState(CONFIG.version, 60, 0);
+  free.buildings.lab = 5; free.workers.lab = 5;
+  assert.equal(labKnowledge(free), 5000);
+  assert.deepEqual(calculateProduction(free).power, { generated: 0, used: 0, available: 0 });
+
+  // After 电力 each lab requests 2 power; with none supplied it keeps the base 1000,
+  // but 猫猫科学家 keep their jobs and output regardless of power.
+  const dark = createInitialState(CONFIG.version, 60, 0);
+  dark.tech.push('electricity'); dark.buildings.lab = 5; dark.workers.lab = 5;
+  assert.equal(labKnowledge(dark), 5000);
+  assert.equal(calculateProduction(dark).power.available, -10, 'five unfunded labs request 10 watts');
+  assert.equal(calculateProduction(dark).rates.knowledge, 10, 'unfunded labs still settle their scientists');
+
+  // Three funded labs out of five: 5000 base + 3 × 1000 powered. Every lab still
+  // works, so all five scientists keep producing.
+  const partial = createInitialState(CONFIG.version, 60, 0);
+  partial.tech.push('electricity'); partial.buildings.lab = 5; partial.workers.lab = 5;
+  supplyPower(partial, 6);
+  const partialProduction = calculateProduction(partial);
+  assert.equal(partialProduction.inputUnits.lab, 5, 'unpowered labs keep their 猫猫科学家');
+  assert.equal(labKnowledge(partial), 8000);
+  assert.equal(partialProduction.power.used, 6);
+  assert.equal(partialProduction.rates.knowledge, 10, 'scientist output never depends on funding');
+
+  // Fully funded: every building reaches 2000 and scientist output is unpenalised.
+  const lit = createInitialState(CONFIG.version, 60, 0);
+  lit.tech.push('electricity'); lit.buildings.lab = 5; lit.workers.lab = 5;
+  supplyPower(lit, 100);
+  const litProduction = calculateProduction(lit);
+  assert.equal(litProduction.inputUnits.lab, 5);
+  assert.equal(litProduction.rates.knowledge, 10, '猫猫科学家 produce 2 knowledge each');
+  assert.equal(litProduction.power.used, 10);
 });
 
 test('stock capacity uses live population, bonds replace stocks and exchanges scale subtotal', () => {
@@ -596,7 +640,6 @@ test('late space technologies use exact prices and vault base capacity additions
   assert.deepEqual(TECHNOLOGIES.spaceTransitStation.cost, { knowledge: 210000, metal: 1000, alloy: 1000 });
   assert.equal(TECHNOLOGIES.spaceTransitStation.tier, 13);
   assert.equal(TECHNOLOGIES.spaceTransitStation.name, '电磁弹射系统');
-  assert.equal(TECHNOLOGIES.spaceTransitStation.desc, '研究电磁弹射系统，解锁电磁发射器以节约太空区域的燃料。');
   assert.equal(BUILDINGS.spaceWaystation.name, '电磁发射器');
   assert.equal(BUILDINGS.spaceWaystation.asrielSupport, undefined);
   assert.equal(BUILDING_GROUPS.at(-1)?.name, '公共事业部门');
@@ -657,7 +700,7 @@ test('particle production follows a continuous decreasing-marginal-return curve'
   const state = createInitialState(CONFIG.version, 60, 0);
   state.prestige.particles = 1000;
   assert.equal(calculateParticleMultiplier('food', state), 1 + effective(1000) * .005);
-  assert.equal(calculateParticleMultiplier('plank', state), 1 + effective(1000) * .00125);
+  assert.equal(calculateParticleMultiplier('plank', state), 1 + effective(1000) * .000625);
   assert.equal(calculateParticleMultiplier('energy', state), 1);
   assert.equal(state.prestige.particles, 1000);
   assert.ok(Number.isFinite(effective(Number.MAX_SAFE_INTEGER)));

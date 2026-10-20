@@ -54,7 +54,7 @@ test('光伏电站 is a clean 4-power plant in the energy group', () => {
   assert.equal(building.name, '光伏电站');
   assert.equal(building.tech, 'solarPower');
   assert.deepEqual(building.cost, { cash: 10000, copper: 1000, iron: 1000, metal: 100 });
-  assert.deepEqual(building.costScales, { cash: 1.225, copper: 1.225, iron: 1.225, metal: 1.225 });
+  assert.deepEqual(building.costScales, { cash: 1.21, copper: 1.21, iron: 1.21, metal: 1.21 });
   assert.deepEqual(building.output, { energy: 4 });
   assert.equal(building.powerPlant, true);
   assert.equal(building.input, undefined, 'a solar farm burns no fuel');

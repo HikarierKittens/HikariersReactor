@@ -27,8 +27,11 @@ export function percent(n: number): string {
 
 /** Display-only storage snapshot: identical reservations to the settlement tick. */
 export function storageSnapshot(state: GameState, dt: number = 1, revision?: number): DeepReadonly<StorageSnapshot> {
-  const { moon, asriel, biologyUnits, dataCenterUnits, e710ContainerUnits, e710WarehouseUnits, researchStationUnits, blackHoleStationUnits, stageThree, digital } = revision === undefined ? calculateSupportPreview(state, dt) : uiPreview.support(state, revision, dt);
-  return { biologyUnits, dataCenterUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits, e710WarehouseUnits, researchStationUnits, blackHoleStationUnits, stageThree, digital };
+  const { moon, asriel, biologyUnits, dataCenterUnits, labUnits, e710ContainerUnits, e710WarehouseUnits, researchStationUnits, blackHoleStationUnits, stageThree, digital } = revision === undefined ? calculateSupportPreview(state, dt) : uiPreview.support(state, revision, dt);
+  // 实验室 knowledge capacity depends on the funded (powered) count. Omitting it made
+  // the storage detail fall back to the unpowered 1000 forever, even while the
+  // settlement had already funded those labs.
+  return { biologyUnits, dataCenterUnits, labUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits, e710WarehouseUnits, researchStationUnits, blackHoleStationUnits, stageThree, digital };
 }
 
 export function storageCap(resource: ResourceId, state: GameState, revision?: number): number {

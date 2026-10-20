@@ -19,6 +19,15 @@ export function settleResearchAndCulture(state: GameState, pool: ResourceAmounts
   const dataUnits = Math.min(countRunningBuildings('observatory', state), Math.floor((Math.max(0, pool.energy) + 1e-8) / (3 * dt)));
   inputs.observatory = outputs.observatory = dataUnits;
   pool.energy = Math.max(0, pool.energy - dataUnits * 3 * dt);
+  // 实验室 requests 2 power per unit once 电力 is known, but the power is an
+  // *upgrade* only: it raises that unit's knowledge capacity from 1000 to 2000.
+  // 猫猫科学家 keep their jobs and output whether or not the lab is funded, so the
+  // whole running count stays in `inputUnits.lab` while `labUnits` counts funded
+  // upgrades only. It is funded after the data centre so this live path matches the
+  // ledger/replay reservation order (biology → data → lab) under power scarcity.
+  const labUnits = Math.min(countRunningBuildings('lab', state), Math.floor((Math.max(0, pool.energy) + 1e-8) / (2 * dt)));
+  pool.energy = Math.max(0, pool.energy - labUnits * 2 * dt);
+  inputs.lab = outputs.lab = countRunningBuildings('lab', state);
   for (const id of ['broadcast', 'touristStation'] as const) {
     const recipe = Object.entries(calculateBuildingInput(id, state)) as [ResourceId, number][];
     let actual = countRunningBuildings(id, state);
@@ -26,7 +35,7 @@ export function settleResearchAndCulture(state: GameState, pool: ResourceAmounts
     inputs[id] = outputs[id] = actual;
     for (const [resource, amount] of recipe) pool[resource] = Math.max(0, pool[resource] - amount * actual * dt);
   }
-  return { inputs, outputs, biologyUnits, dataUnits };
+  return { inputs, outputs, biologyUnits, labUnits, dataUnits };
 }
 
 /** Runs after factory maintenance; preserves the original upgrade priority. */

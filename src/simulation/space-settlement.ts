@@ -5,6 +5,7 @@ import { BUILDINGS } from '../data/buildings';
 import { HYPERSPACE_SOURCE_IDS, HYPERSPACE_CONSUMER_IDS, calculateHyperspaceOutputFactor, calculateHyperspaceLocalMultiplier } from './hyperspace-output';
 import { reserveWaystationPower, calculateSpaceFuelMultiplier } from './space-fuel';
 import { calculateBuildingInput, calculateBuildingOutput } from './building-production';
+import { allocateShipCrew, SHIP_CREW_SIZE } from './ship-crew';
 import { allocateMoonSupport } from './moon';
 import { allocateAsrielSupport, countAsrielResidents, calculateSpaceMultiplier } from './asriel';
 import { calculateProductionMultiplier } from './multipliers';
@@ -114,8 +115,12 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
   }
   // Outer-system sources do not consume lunar or Asriel support. Reserve their
   // maintenance from the same working pool and apply source-local ring bonuses.
+  // 采矿船 additionally needs cat crew; ships without one stop before upkeep.
+  const shipCrew = allocateShipCrew(state);
   for (const id of ['atmosphericCollector', 'talosMoonMiningStation', 'iridiumMiningShip', 'ironMiningShip', 'e710MiningShip', 'oilExtractor'] as const) {
-    const running = Math.max(0, (state.buildings[id] || 0) - (state.stoppedBuildings[id] || 0));
+    const running = Object.hasOwn(SHIP_CREW_SIZE, id)
+      ? shipCrew.working[id as keyof typeof shipCrew.working]
+      : Math.max(0, (state.buildings[id] || 0) - (state.stoppedBuildings[id] || 0));
     if (!running) continue;
     const recipe = Object.fromEntries(Object.entries(BUILDINGS[id].input || {}).map(([resource, amount]) => [resource,
       resource === 'oil' || resource === 'helium3' ? amount * fuelMultiplier : amount]));

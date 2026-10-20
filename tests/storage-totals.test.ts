@@ -39,7 +39,8 @@ test('knowledge inheritance requires both technologies and scales only library c
   assert.equal(calculateStorageBonuses('library', s, null).knowledge, 130);
   s.tech.push('internet');
   assert.equal(calculateStorageBonuses('library', s, null).knowledge, 195);
-  assert.equal(calculateStorageBonuses('lab', s, null).knowledge, 2000);
+  // 实验室 base capacity is 1000 (a further 1000 requires funding after 电力).
+  assert.equal(calculateStorageBonuses('lab', s, null).knowledge, 1000);
   s.buildings.library = 4;
   const snapshot = snapshotOf(s);
   assert.equal(calculateStorageDetails('knowledge', s, snapshot).total, calculateStorageTotals(s, snapshot).knowledge);
@@ -215,7 +216,7 @@ test('partial storage snapshots resolve support once and preserve supplied zeroe
   Object.assign(state.resources, { energy: 1e6, helium3: 1e6, oil: 1e6 });
   const support = calculateSupportPreview(state);
   const full: StorageSnapshot = { ...support, moonBaseUnits: support.moon.baseUnits, e710ContainerUnits: 0 };
-  const partial: StorageSnapshot = { moon: support.moon, asriel: support.asriel, moonBaseUnits: support.moon.baseUnits, biologyUnits: support.biologyUnits, dataCenterUnits: support.dataCenterUnits, e710ContainerUnits: 0 };
+  const partial: StorageSnapshot = { moon: support.moon, asriel: support.asriel, moonBaseUnits: support.moon.baseUnits, biologyUnits: support.biologyUnits, dataCenterUnits: support.dataCenterUnits, labUnits: support.labUnits, e710ContainerUnits: 0 };
   const before = structuredClone(partial);
   let reads = 0;
   const tracked = new Proxy(state, { get(target, key, receiver) { if (key === 'resources') reads++; return Reflect.get(target, key, receiver); } });

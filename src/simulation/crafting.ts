@@ -1,4 +1,5 @@
 import { getAchievementMasteryBonus } from './achievement-tracking';
+import { occupationOutputMultiplier } from './neighbors';
 import { CONFIG } from '../data/config';
 import { CRAFT_RECIPES, RESOURCES } from '../data/resources';
 import { isResourceUnlocked } from './unlocks';
@@ -22,7 +23,7 @@ export function calculateEffectiveParticles(particles: number, softCap: number =
 }
 export function calculateParticleMultiplier(id: ResourceId, state: Pick<GameState, 'prestige'> & Partial<GameState>): number {
   const softCap = CONFIG.particleProductionSoftCap + (state.prestige?.casimir || 0);
-  const originalBonus = calculateEffectiveParticles(calculateEffectiveParticleCount(state), softCap) * (RESOURCES[id]?.crafted ? .00125 : .005);
+  const originalBonus = calculateEffectiveParticles(calculateEffectiveParticleCount(state), softCap) * (RESOURCES[id]?.crafted ? .000625 : .005);
   // Only raw particle holdings pass through diminishing returns. Accelerator
   // additions are linear on that original bonus and never softened again.
   const acceleratorBonus = isChallengeGeneActive(state, 'particleImbalance') ? 0 : originalBonus * .1 * (state.buildings?.particleAccelerator || 0);
@@ -34,24 +35,67 @@ export function calculateMasteryMultiplier(id: ResourceId, state: Pick<GameState
 }
 /** Shared final resource factor, applied once at each production credit boundary. */
 export function calculateGlobalOutputMultiplier(id: ResourceId, state: Pick<GameState, 'prestige'> & Partial<GameState>): number {
-  return calculateParticleMultiplier(id, state) * calculateMasteryMultiplier(id, state);
+  // 占领: each occupied neighbour is a flat +5% to every resource, applied as one factor.
+  const occupation = state.neighbors ? occupationOutputMultiplier(state as GameState) : 1;
+  return calculateParticleMultiplier(id, state) * calculateMasteryMultiplier(id, state) * occupation;
 }
+/**
+ * 锻造工具加成: a single additive pool of *building-sourced* tool bonuses —
+ * 铸造厂 (with 锻造工具加成 tech), 恒星熔炉 and 行星铸造厂. The pool is applied as
+ * one independent factor, so two tool sources never multiply each other.
+ *
+ * The 技工/工匠大师 CRISPR upgrades are deliberately NOT here: they raise the
+ * artisan's base output (see `calculateAutomaticCraftingMultipliers`), so they are
+ * part of the base figure rather than a listed bonus.
+ */
+export interface ForgingToolBonus {
+  /** Total additive bonus, 0.03 = +3%. */
+  total: number;
+  /** Per-source breakdown, in a stable display order. */
+  entries: { id: string; name: string; value: number }[];
+}
+
+export function calculateForgingToolBonus(
+  state: Pick<GameState, 'tech' | 'buildings'> & Partial<GameState>,
+  planetaryResidents = 0,
+  planetaryAllocated = 0,
+): ForgingToolBonus {
+  const entries: { id: string; name: string; value: number }[] = [];
+  const foundries = state.buildings.foundry || 0;
+  if (state.tech.includes('castingToolUpgrade') && foundries > 0) {
+    entries.push({ id: 'foundry', name: '铸造厂', value: foundries * .03 });
+  }
+  const stellar = state.buildings.stellarForge || 0;
+  if (stellar > 0) entries.push({ id: 'stellarForge', name: '恒星熔炉', value: stellar * .1 });
+  if (planetaryAllocated > 0 && planetaryResidents > 0) {
+    entries.push({ id: 'planetaryFoundry', name: '行星铸造厂', value: .03 * planetaryAllocated * planetaryResidents });
+  }
+  return { total: entries.reduce((sum, entry) => sum + entry.value, 0), entries };
+}
+
+/** 行星铸造厂 residents are only counted once the support preview is available. */
+function planetaryResidentCount(state: GameState, support?: AsrielSupport): number {
+  if (!state.resources || !state.workers || state.population === undefined || !state.stoppedBuildings) return 0;
+  const allocation = support || calculateSupportPreview(state).asriel;
+  return countAsrielResidents(state, allocation);
+}
+
+/** Additive tool bonus as a single independent multiplier (1 + Σ sources). */
+export function calculateForgingToolMultiplier(state: GameState, support?: AsrielSupport): number {
+  const planetaryResidents = state.buildings.planetaryFoundry ? planetaryResidentCount(state, support) : 0;
+  const planetaryAllocated = state.buildings.planetaryFoundry
+    ? (support?.allocations.planetaryFoundry ?? calculateSupportPreview(state).asriel.allocations.planetaryFoundry ?? 0) : 0;
+  return 1 + calculateForgingToolBonus(state, planetaryResidents, planetaryAllocated).total;
+}
+
 export function calculateFoundryMultiplier(state: Pick<GameState, 'tech' | 'buildings'>): number {
   return state.tech.includes('castingToolUpgrade') ? 1 + (state.buildings.foundry || 0) * .03 : 1;
 }
-/** 恒星熔炉: +10% crafted output per forge (passive, no upkeep). */
-export function calculateStellarForgeCraftMultiplier(state: Pick<GameState, 'buildings'>): number {
-  return 1 + .1 * (state.buildings.stellarForge || 0);
-}
 export function calculateCraftingMultiplier(id: ResourceId, state: GameState, support?: AsrielSupport): number {
-  let planetary = 1;
-  if (state.resources && state.workers && state.population !== undefined && state.stoppedBuildings && state.buildings.planetaryFoundry) {
-    const allocation = support || calculateSupportPreview(state).asriel;
-    planetary += .03 * (allocation.allocations.planetaryFoundry || 0) * countAsrielResidents(state, allocation);
-  }
   const accelerator = isChallengeGeneActive(state, 'particleImbalance') && RESOURCES[id]?.crafted
     ? 1 + .0125 * (state.buildings.particleAccelerator || 0) : 1;
-  return calculateGlobalOutputMultiplier(id, state) * calculateFoundryMultiplier(state) * planetary * accelerator * calculateStellarForgeCraftMultiplier(state)
+  // 锻造工具加成 is one additive pool; 超频锻造 stays an independent multiplier.
+  return calculateGlobalOutputMultiplier(id, state) * calculateForgingToolMultiplier(state, support) * accelerator
     * calculateOverclockCraftMultiplier(state);
 }
 /** 超频锻造: +2% crafted output per level, for manual forging and artisans alike. */
@@ -61,9 +105,16 @@ export function calculateOverclockCraftMultiplier(state: Partial<Pick<GameState,
 export function countCraftWorkers(state: Pick<GameState, 'craftWorkers'>): number {
   return Object.values(state.craftWorkers).reduce((sum, count) => sum + count, 0);
 }
-/** Player craft assignment: bounded by foundry workers, unlocked recipes, and integer steps. */
+/**
+ * Player craft assignment: bounded by foundry workers, unlocked recipes, and integer steps.
+ *
+ * Withdrawing (`delta < 0`) is always allowed. A recipe can lose its unlock between
+ * releases (秘银 now also needs 合金), and stopping production ahead of the unlock gate
+ * would strand those artisans in a slot the player can no longer clear.
+ */
 export function changeCraftAssignment(state: GameState, id: string, delta: number): number {
-  if (!Object.hasOwn(CRAFT_RECIPES, id) || !isResourceUnlocked(id, state) || !Number.isSafeInteger(delta) || !delta) return 0;
+  if (!Object.hasOwn(CRAFT_RECIPES, id) || !Number.isSafeInteger(delta) || !delta) return 0;
+  if (delta > 0 && !isResourceUnlocked(id, state)) return 0;
   const craft = id as CraftId;
   const amount = delta > 0
     ? Math.min(delta, Math.max(0, state.workers.foundry - countCraftWorkers(state)))
@@ -72,24 +123,48 @@ export function changeCraftAssignment(state: GameState, id: string, delta: numbe
   state.craftWorkers[craft] += amount;
   return amount;
 }
+/**
+ * Clamp artisan assignments to the available workshop slots.
+ *
+ * Locked recipes keep their artisans on purpose. A recipe can lose its unlock between
+ * releases (秘银 now also requires 合金), and the panel exposes those stranded rows so the
+ * player can reclaim them; clearing them here would make that row vanish before it renders.
+ * Only the slot count is enforced, which is what this function is named for.
+ */
 export function trimAssignedCraftWorkers(state: Pick<GameState, 'workers' | 'craftWorkers'>): void {
   let spare = state.workers.foundry;
   for (const id of Object.keys(CRAFT_RECIPES) as CraftId[]) {
-    state.craftWorkers[id] = Math.min(state.craftWorkers[id], spare);
+    // A partial or legacy assignment map may omit a recipe; treat it as zero so the
+    // spare-slot arithmetic cannot turn into NaN and corrupt every later recipe.
+    const assigned = Number.isFinite(state.craftWorkers[id]) ? state.craftWorkers[id] : 0;
+    state.craftWorkers[id] = Math.min(assigned, spare);
     spare -= state.craftWorkers[id];
   }
 }
-/** These bonuses apply only to assigned artisans, never to manual forging. */
-export function calculateAutomaticCraftingMultipliers(state: Pick<GameState, 'crispr'> & Partial<Pick<GameState, 'geneModification'>>) {
-  return {
-    input: state.crispr.includes('masterArtisan') ? 2 : 1,
-    // 超频锻造's artisan bonus raises output only; ingredient use is unchanged.
-    output: (state.crispr.includes('technician') ? 2 : 1) * (state.crispr.includes('masterArtisan') ? 2 : 1)
-      * (1 + geneExtraBonus(state, 'overclockForging')),
-  };
+/**
+ * These bonuses apply only to assigned artisans, never to manual forging.
+ *
+ * 技工 is an independent 锻造物 multiplier (+100%), shown in the crafted-output
+ * detail as its own row. 工匠大师 instead doubles the artisan's throughput
+ * (0.05 → 0.1 per second), so both output AND ingredient use double from the rate
+ * itself rather than from a modifier — that is what makes it self-balancing.
+ *
+ * Ingredients are charged from the widened `amount` (see `settleAutomaticCrafting`),
+ * so there is deliberately no input multiplier: every artisan bonus here is
+ * output-only by construction, and the rate carries the throughput change.
+ */
+export function calculateAutomaticCraftingMultipliers(state: Pick<GameState, 'crispr'> & Partial<Pick<GameState, 'geneModification'>>): number {
+  // 技工 doubles output only; 超频锻造's artisan bonus raises output only too.
+  const technician = state.crispr.includes('technician') ? 2 : 1;
+  return technician * (1 + geneExtraBonus(state, 'overclockForging'));
+}
+
+/** Artisan throughput per second: 0.05 by default, 0.1 with 工匠大师. */
+export function artisanCraftRate(baseRate: number, state: Pick<GameState, 'crispr'>): number {
+  return state.crispr.includes('masterArtisan') ? baseRate * 2 : baseRate;
 }
 export function settleAutomaticCrafting(state: GameState, pool: ResourceAmounts, dt: number, support?: AsrielSupport) {
-  const artisan = calculateAutomaticCraftingMultipliers(state);
+  const outputMultiplier = calculateAutomaticCraftingMultipliers(state);
   const inputs: Partial<Record<`craft:${CraftId}`, number>> = {};
   const outputs: Partial<Record<`craft:${CraftId}`, number>> = {};
   const allocation = support || calculateSupportPreview(state).asriel;
@@ -98,14 +173,15 @@ export function settleAutomaticCrafting(state: GameState, pool: ResourceAmounts,
     const recipe = CRAFT_RECIPES[id], count = Math.min(state.craftWorkers[id] || 0, availableWorkers);
     availableWorkers -= count;
     if (!count || !isResourceUnlocked(id, state)) continue;
-    let amount = count * recipe.rate * dt;
+    // 工匠大师 doubles the artisan's throughput, so output and ingredients scale together.
+    let amount = count * artisanCraftRate(recipe.rate, state) * dt;
     const ingredients = Object.entries(recipe.input) as [ResourceId, number][];
-    for (const [resource, value] of ingredients) amount = Math.min(amount, pool[resource] / (value * artisan.input));
+    for (const [resource, value] of ingredients) amount = Math.min(amount, pool[resource] / value);
     amount = Math.max(0, amount);
-    for (const [resource, value] of ingredients) pool[resource] -= value * amount * artisan.input;
-    const output = amount * calculateCraftingMultiplier(id, state, support) * artisan.output;
+    for (const [resource, value] of ingredients) pool[resource] -= value * amount;
+    const output = amount * calculateCraftingMultiplier(id, state, support) * outputMultiplier;
     pool[id] += output;
-    inputs[`craft:${id}`] = amount * artisan.input / dt;
+    inputs[`craft:${id}`] = amount / dt;
     outputs[`craft:${id}`] = output / dt;
   }
   return { inputs, outputs };

@@ -22,7 +22,7 @@ export type BuildingId =
   | 'talosMoonMiningStation' | 'iridiumMiningShip' | 'ironMiningShip'
   | 'moonBase' | 'iridiumMine' | 'helium3Mine' | 'navigationBeacon' | 'orbitalFuelDepot'
   | 'solarSatellite' | 'researchSatellite' | 'granary' | 'biologyLab' | 'bank'
-  | 'barracks' | 'trainingCamp' | 'metalRefinery' | 'cementWorkshop' | 'fuelDepot'
+  | 'barracks' | 'trainingCamp' | 'hospital' | 'metalRefinery' | 'cementWorkshop' | 'fuelDepot'
   | 'containerWarehouse' | 'communityCenter' | 'coalMine' | 'mine'
   | 'nestMKII' | 'apartment' | 'warehouse' | 'storageHub' | 'nest' | 'catHut' | 'forage'
   | 'lumber' | 'quarry' | 'theater' | 'broadcast' | 'touristStation' | 'foundry'
@@ -37,6 +37,11 @@ export interface BuildingDefinition {
   icon: string;
   cost: ResourceRecipe;
   tech: TechnologyId;
+  /**
+   * Flavor text only, rendered under the building name. Effects are derived from
+   * the registry's mechanics (`building-tooltip-rows.ts`), so no text here may
+   * describe numbers; most buildings have no description at all.
+   */
   desc?: string;
   input?: ResourceRecipe;
   output?: ResourceRecipe;
@@ -59,6 +64,12 @@ export interface BuildingDefinition {
   craftSlots?: boolean;
   asrielSource?: boolean;
   spaceSource?: boolean;
+  /**
+   * Building whose production (or upkeep) is owned by the space, digital,
+   * power-grid or prestige settlement rather than the ground pass. Ground
+   * settlement skips it; the flag is data-only and never persisted in saves.
+   */
+  settledByOtherSystem?: boolean;
   moonSupport?: number;
   swarmSupport?: number;
   /** Digital-world bandwidth supplied / required while running. */

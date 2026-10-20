@@ -74,7 +74,7 @@ test('explicit malformed legacy energy and retired records are not silently repa
   assert.throws(() => validateCurrentSave(unknown, context), /经济/);
 });
 
-test('previous-release power load/import/reload and protected-save recovery retain non-power progress', t => {
+test('previous-release power load/import/reload and protected-save recovery retain non-power progress', async t => {
   const storage = new Map<string, string>();
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
@@ -101,7 +101,7 @@ test('previous-release power load/import/reload and protected-save recovery reta
   const protectedRuntime = createRuntime(); protectedRuntime.load();
   assert.equal(protectedRuntime.saveBlocked, true); assert.equal(protectedRuntime.save(), false);
   assert.equal(storage.get(CONFIG.saveKey), badBytes); assert.equal(protectedRuntime.exportProtectedSave(), badBytes);
-  assert.throws(() => protectedRuntime.importSave(badBytes));
-  assert.equal(protectedRuntime.importSave(json), true); assert.equal(protectedRuntime.saveBlocked, false); check(protectedRuntime.state);
+  await assert.rejects(() => protectedRuntime.importSave(badBytes));
+  assert.equal(await protectedRuntime.importSave(json), true); assert.equal(protectedRuntime.saveBlocked, false); check(protectedRuntime.state);
   const recovered = createRuntime(); recovered.load(); check(recovered.state);
 });

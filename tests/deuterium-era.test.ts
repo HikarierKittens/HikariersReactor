@@ -56,6 +56,7 @@ test('maintenance rebalance charges exact helium and energy per funded unit once
     // Mining ships helium 2/s, e710 ship helium 3/s.
     const belt = beaconState();
     belt.buildings.iridiumMiningShip = 1; belt.buildings.ironMiningShip = 1; belt.buildings.e710MiningShip = 1;
+    belt.population = 4; // 1 + 1 + 2 采矿船操作员 for the three enabled ships
     belt.buildings.aiSupercore = 0; // exclude quantum core helium from this comparison.
     supplyPower(belt, 1e6); belt.resources.helium3 = 1e4;
     const beltPreview = calculateSupportPreview(belt, dt);

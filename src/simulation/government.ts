@@ -5,6 +5,7 @@ import type { GameState, GovernmentId } from '../types/state';
 import type { TechnologyId } from '../types/technologies';
 import type { ResourceRecipe } from '../types/economy';
 import { geneBonus } from './genes';
+import { occupationTaxRate } from './neighbors';
 
 export const GOVERNMENTS: Record<GovernmentId, { name: string; tech: TechnologyId; desc: string }> = {
   none: { name: '无政府体制', tech: 'government', desc: '没有额外效果。' },
@@ -15,9 +16,6 @@ export const GOVERNMENTS: Record<GovernmentId, { name: string; tech: TechnologyI
   industrialism: { name: '工业至上', tech: 'advancedGovernment', desc: '工厂所有产量+25%；仅地面工厂成本递增系数降低0.005。' },
 };
 export const GOVERNMENT_COOLDOWN = 2000;
-export function availableGovernments(state: Pick<GameState, 'tech'>) {
-  return (Object.keys(GOVERNMENTS) as GovernmentId[]).filter(id => state.tech.includes(GOVERNMENTS[id].tech)).map(id => ({ id, ...GOVERNMENTS[id] }));
-}
 export function reformCooldown(state: Pick<GameState, 'lastReformTime' | 'time'>): number {
   return state.lastReformTime === null ? 0 : Math.max(0, GOVERNMENT_COOLDOWN - (state.time - state.lastReformTime));
 }
@@ -51,7 +49,11 @@ export function calculateBankerTaxRate(state: Pick<GameState, 'arpaBuildings'>):
   return BANKER_TAX_BONUS + STOCK_EXCHANGE_BANKER_BONUS * (state.arpaBuildings?.stockExchange || 0);
 }
 export function calculateBankerMultiplier(state: Pick<GameState, 'workers' | 'arpaBuildings'>): number { return 1 + (state.workers.bank || 0) * calculateBankerTaxRate(state); }
-export function calculateTaxBase(state: Pick<GameState, 'population' | 'taxRate'>): number { return state.population * state.taxRate / 20; }
+export function calculateTaxBase(state: Pick<GameState, 'population' | 'taxRate'> & Partial<Pick<GameState, 'neighbors'>>): number {
+  // 占领 costs order: each occupied city lowers the collected rate (see `occupationTaxRate`).
+  const rate = state.neighbors ? occupationTaxRate(state as Pick<GameState, 'taxRate' | 'neighbors'>) : state.taxRate;
+  return state.population * rate / 20;
+}
 /** Per-camp training effect in percent: 5%, or 8% after 虚拟训练. */
 export function calculateTrainingBoost(state: Partial<Pick<GameState, 'tech'>>): number { return state.tech?.includes('virtualTraining') ? 8 : BUILDINGS.trainingCamp.trainingBoost ?? 0; }
 export function calculateTrainingDuration(state: Pick<GameState, 'buildings' | 'government'> & Partial<Pick<GameState, 'tech'>>): number { return 30 / 2 ** ((state.buildings.trainingCamp || 0) * calculateTrainingBoost(state) / 100) / (state.government === 'militaryRule' ? 1.3 : 1); }

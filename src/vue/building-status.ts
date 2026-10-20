@@ -1,9 +1,17 @@
 import { BUILDINGS } from '../data/buildings';
 import { countRunningBuildings } from '../simulation/housing';
 import { calculateRunningSmelterSlots } from '../simulation/factory';
+import { allocateShipCrew, SHIP_CREW_SIZE } from '../simulation/ship-crew';
 import type { BuildingId } from '../types/buildings';
 import type { GameState } from '../types/state';
 import type { ProductionResult } from '../simulation/production';
+
+/** Enabled mining ships that lost their crew to a population shortage. */
+export function countUndercrewedShips(id: BuildingId, state: GameState): number {
+  if (!Object.hasOwn(SHIP_CREW_SIZE, id)) return 0;
+  const crew = allocateShipCrew(state);
+  return Math.max(0, countRunningBuildings(id, state) - (crew.working[id as keyof typeof crew.working] || 0));
+}
 
 /** Compare enabled units with the actual allocation, never with boosted output. */
 export function isBuildingUnderworking(id: BuildingId, state: GameState, result: ProductionResult): boolean {

@@ -69,6 +69,7 @@ export type TechnologyId =
   | 'ironEquipment'
   | 'military'
   | 'recruitTraining'
+| 'fieldHospital'
   | 'nuclearProgram'
   | 'automatedMining'
   | 'metalRefining'
@@ -149,7 +150,17 @@ export interface TechnologyDefinition {
   knowledgeCost?: number;
   cost: ResourceRecipe;
   pre: TechnologyId[];
-  desc: string;
+  /**
+   * Flavor text only, rendered under the technology name. Unlock conditions and
+   * numeric effects belong in `effects`; most technologies have no description.
+   */
+  desc?: string;
+  /**
+   * Effect sentences rendered in the 科技效果 block below the price divider.
+   * Technologies keep these hand-written lines: their unlocks and multipliers are
+   * spread across several systems, so there is nothing to derive them from.
+   */
+  effects?: string[];
   /** Extra warning line rendered in red below the description. */
   warning?: string;
   /** Special techs that can be researched again after their gate re-opens. */

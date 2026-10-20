@@ -18,6 +18,7 @@ import { calculateProductionMultiplier } from '../src/simulation/multipliers';
 import { withPoweredMetalRefining } from '../src/simulation/refining';
 import { calculateSupportPreview } from '../src/simulation/support-preview';
 import { calculateSpaceFuelMultiplier } from '../src/simulation/space-fuel';
+import { allocateShipCrew } from '../src/simulation/ship-crew';
 import { calculateProduction, previewMorale, type ProductionResult } from '../src/simulation/production';
 import { createMilestoneState } from './fixtures/milestones';
 import type { GameState } from '../src/types/state';
@@ -57,15 +58,13 @@ function oracleProduction(state: GameState, dt = 1): ProductionResult {
     const crafting = settleAutomaticCrafting(state, pool, dt, asriel);
     Object.assign(inputUnits, crafting.inputs); Object.assign(outputs, crafting.outputs);
     Object.assign(outputs, settlePopulationIncome(state, pool, morale.happiness, dt));
-    const geneSynthesis = settleGeneSynthesis(state, pool, dt, biologyUnits);
     const ejected = settleMassEjection(state, pool, dt, inputUnits.massEjector || 0);
     const power = { ...calculatePowerBudget(mainPlants.energy, pool.energy, dt), available: grid.available };
     const final = finalizeProduction(state, pool, before, dt, { stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits });
-    return { ...final, rates: { ...final.rates, energy: power.available }, power, powerGrid: { requested: grid.requested, allocated: grid.allocated, failed: grid.failed }, digital: calculateDigitalProduction(state, calculateDigitalSupport(state, 0, dt), Math.max(0, final.rates.knowledge)), outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis };
+    return { ...final, rates: { ...final.rates, energy: power.available }, power, powerGrid: { requested: grid.requested, allocated: grid.allocated, failed: grid.failed }, digital: calculateDigitalProduction(state, calculateDigitalSupport(state, 0, dt), Math.max(0, final.rates.knowledge)), outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis: { knowledge: 0, dna: {}, knowledgeProduction: 0, share: 0 } };
   });
 }
 import { settleMassEjection } from '../src/simulation/black-hole';
-import { settleGeneSynthesis } from '../src/simulation/genes';
 
 /** Inline quantum snapshot import avoided to keep the oracle byte-identical to the old chain. */
 import { calculateQuantumSnapshot } from '../src/simulation/quantum';
@@ -90,12 +89,18 @@ function oracleSupportPreview(state: GameState, dt = 1) {
   pool.energy = Math.max(0, pool.energy - biologyUnits * 2 * dt);
   const dataRunning = Math.max(0, (state.buildings.observatory || 0) - (state.stoppedBuildings?.observatory || 0));
   const dataCenterUnits = Math.min(dataRunning, Math.floor((Math.max(0, pool.energy) + 1e-8) / (3 * dt)));
+  // 实验室 joins the fixed-power chain once 电力 is known, after the data centre.
+  const labRunning = Math.max(0, (state.buildings.lab || 0) - (state.stoppedBuildings?.lab || 0));
+  const labPool = Math.max(0, pool.energy - dataCenterUnits * 3 * dt);
+  const labUnits = state.tech.includes('electricity')
+    ? Math.min(labRunning, Math.floor((labPool + 1e-8) / (2 * dt))) : 0;
   return {
     power: { ...calculatePowerBudget(plants.energy, pool.energy, dt), available: grid.available },
     stageThree: space.stageThree, pool, moon: space.moon, asriel: space.asriel, metalRefineryUnits: space.metalRefineryUnits,
-    biologyUnits, dataCenterUnits, waystations: space.inputs.spaceWaystation || 0,
+    biologyUnits, dataCenterUnits, labUnits, waystations: space.inputs.spaceWaystation || 0,
     e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, aiSupercoreUnits,
     ironMiningShips: space.inputs.ironMiningShip || 0,
+    shipCrew: allocateShipCrew(state),
     researchStationUnits: space.inputs.e710ResearchStation || 0,
     blackHoleStationUnits: space.inputs.blackHoleStation || 0,
   };

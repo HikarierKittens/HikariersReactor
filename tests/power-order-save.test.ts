@@ -82,7 +82,7 @@ test('explicit malformed activation order is rejected, not silently reset', () =
   assert.throws(() => validateCurrentSave(raw, context), /供电开启顺序/);
 });
 
-test('ordered activation batches survive save/load/import and protected recovery', t => {
+test('ordered activation batches survive save/load/import and protected recovery', async t => {
   const storage = new Map<string, string>();
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
@@ -109,8 +109,8 @@ test('ordered activation batches survive save/load/import and protected recovery
   assert.equal(protectedRuntime.save(), false);
   assert.equal(protectedRuntime.exportProtectedSave(), badBytes);
   assert.equal(storage.get(CONFIG.saveKey), badBytes);
-  assert.throws(() => protectedRuntime.importSave(badBytes));
-  assert.equal(protectedRuntime.importSave(json), true);
+  await assert.rejects(() => protectedRuntime.importSave(badBytes));
+  assert.equal(await protectedRuntime.importSave(json), true);
   assert.deepEqual(protectedRuntime.state.powerActivationOrder, raw.powerActivationOrder);
   assert.equal(protectedRuntime.save(), true);
   const recovered = createRuntime(); recovered.load();

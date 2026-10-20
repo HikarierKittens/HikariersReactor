@@ -7,6 +7,14 @@ import type { GameState } from '../types/state';
 
 export interface PowerActivation { id: BuildingId; count: number }
 const IDS = Object.keys(BUILDINGS) as BuildingId[];
+/**
+ * Loads whose power is an optional upgrade rather than a prerequisite: a brownout
+ * only withholds the upgrade, it must never stop the building. 实验室 keeps its
+ * 猫猫科学家 jobs and output while unpowered (only capacity drops to 1000), so it
+ * requests power and reports `failed` for the shortage marker, but the grid must
+ * not add its units to the effective `stoppedBuildings`.
+ */
+const POWER_DEMAND_ONLY_IDS: readonly BuildingId[] = ['lab'];
 const GRID = Symbol('powerGrid');
 type GridState = GameState & { [GRID]?: PowerGrid };
 export interface PowerGrid {
@@ -36,6 +44,7 @@ export function getBuildingPowerDemand(id: BuildingId, state: GameState): number
   if (id === 'refinery') return state.tech.includes('crudeOilRefiningOptimization') ? 2 : BUILDINGS.refinery.input?.energy || 0;
   if (['mine', 'coalMine', 'lumber', 'quarry'].includes(id)) return state.tech.includes('automatedMining') ? 1 : 0;
   if (id === 'cementWorkshop') return state.tech.includes('cementMixer') ? 2 : 0;
+  if (id === 'lab') return state.tech.includes('electricity') ? 2 : 0;
   return BUILDINGS[id].input?.energy || 0;
 }
 /** Older saves and programmatic fixtures get a deterministic registry-order fallback. */
@@ -76,7 +85,10 @@ export function calculatePowerGrid(state: GameState, dt = 1, quantumLevel = 0, g
     }
   }
   const stoppedBuildings = { ...state.stoppedBuildings };
-  for (const [id, count] of Object.entries(failed) as [BuildingId, number][]) stoppedBuildings[id] = (stoppedBuildings[id] || 0) + count;
+  for (const [id, count] of Object.entries(failed) as [BuildingId, number][]) {
+    if (POWER_DEMAND_ONLY_IDS.includes(id)) continue;
+    stoppedBuildings[id] = (stoppedBuildings[id] || 0) + count;
+  }
   const effective = { ...state, stoppedBuildings } as GridState;
   const grid: PowerGrid = { generated, requested, used: generated - remaining, available: generated - requested, allocated, failed, state: effective };
   effective[GRID] = grid;

@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { CONFIG } from '../src/data/config';
 import { createInitialState } from '../src/state/create-state';
 import { advanceGameTick, simulateElapsed, type TickHooks } from '../src/simulation/tick';
+import { createNeighborsState } from '../src/simulation/neighbors';
 import { advanceStarvation, enforcePopulationCapacity } from '../src/simulation/population';
 import { advanceSoldierTraining } from '../src/simulation/military';
 
@@ -11,9 +12,16 @@ const hooks: TickHooks = {
   happiness: () => 100, capacity: () => 1000, event: () => {},
   projects: () => {}, purchases: () => {}, unlocks: () => {},
 };
+/** Fixed neighbours so two fixtures are comparable in the offline/live parity test. */
+function seeded() {
+  let value = 1;
+  return () => { value = (value * 16807) % 2147483647; return value / 2147483647; };
+}
+
 function fixture(population = 5) {
   const state = createInitialState(CONFIG.version, 1e9, 0);
   state.population = population;
+  state.neighbors = createNeighborsState(seeded());
   return state;
 }
 
@@ -62,13 +70,16 @@ test('the depletion step counts only seconds after stored food runs out', () => 
 
 test('deaths immediately trim workers and craft assignments without killing unrelated soldiers', () => {
   const state = fixture(3);
+  // 木板 is the recipe a fresh save can already work; a still-locked recipe would
+  // release its artisans instead of trimming them by available slots.
+  state.buildings.foundry = 1;
   state.workers.foundry = 3;
-  state.craftWorkers.brick = 3;
+  state.craftWorkers.plank = 3;
   state.soldiers = 1;
   advanceStarvation(state, 10, -1);
   assert.equal(state.population, 2);
   assert.equal(state.workers.foundry, 2);
-  assert.equal(state.craftWorkers.brick, 2);
+  assert.equal(state.craftWorkers.plank, 2);
   assert.equal(state.soldiers, 1);
   assert.equal(state.statistics.run.soldierDeaths, 0);
   advanceStarvation(state, 10, -1);
@@ -77,7 +88,7 @@ test('deaths immediately trim workers and craft assignments without killing unre
   assert.equal(state.population, 0);
   assert.equal(state.soldiers, 1);
   assert.equal(state.workers.foundry, 0);
-  assert.equal(state.craftWorkers.brick, 0);
+  assert.equal(state.craftWorkers.plank, 0);
   assert.equal(state.statistics.run.soldierDeaths, 0);
   assert.equal(state.statistics.lifetime.soldierDeaths, 0);
 });
@@ -129,14 +140,14 @@ test('cats above housing capacity leave at once, trimming jobs but not soldiers'
   const state = fixture(8);
   state.resources.food = 1e6;
   state.workers.foundry = 6;
-  state.craftWorkers.brick = 2;
+  state.craftWorkers.plank = 2;
   state.soldiers = 4;
   advanceGameTick(state, .1, { ...hooks, capacity: () => 5 });
   assert.equal(state.population, 5);
   assert.equal(state.soldiers, 4);
   // Craft workers are a subset of foundry workers.
   assert.equal(state.workers.foundry, 5);
-  assert.ok(state.craftWorkers.brick <= state.workers.foundry);
+  assert.ok(state.craftWorkers.plank <= state.workers.foundry);
   assert.equal(state.logs[0]!.text, '猫口超出住房上限，3只猫猫离开了文明。');
   // At the cap nothing more is lost and no further log is written.
   advanceGameTick(state, .1, { ...hooks, capacity: () => 5 });

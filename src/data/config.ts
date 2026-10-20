@@ -7,3 +7,15 @@ export const CONFIG = {
   /** Live settlement horizon; previews that must match the next tick use this step. */
   uiStepSeconds: .2,
 };
+
+/**
+ * Exported-save encryption keys, one 64-hex-character (32-byte) AES-256 key per
+ * version. Bump the version to rotate: never edit or delete an existing entry, or
+ * every backup a player already holds becomes unreadable.
+ *
+ * This key ships in the client bundle, so it prevents hand-edited saves from loading;
+ * it is not a secret and not anti-cheat.
+ */
+export const SAVE_EXPORT_KEYS: Readonly<Record<number, string>> = {
+  1: 'e97db546d5e9e5ab7964eda94ad5983079a34654a798c30e59ef76e0753ecdb7',
+};

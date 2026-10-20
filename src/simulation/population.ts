@@ -40,9 +40,6 @@ export function sampleGrowthTarget(state: Pick<GameState, 'population'>, random:
     ? CONFIG.growthFastMin + random() * (CONFIG.growthFastMax - CONFIG.growthFastMin)
     : CONFIG.growthMin + random() * (CONFIG.growthMax - CONFIG.growthMin);
 }
-export function averageGrowthTarget(state: Pick<GameState, 'population'>): number {
-  return state.population < 20 ? (CONFIG.growthFastMin + CONFIG.growthFastMax) / 2 : (CONFIG.growthMin + CONFIG.growthMax) / 2;
-}
 export function calculateFoodPerCat(state: Pick<GameState, 'buildings'>): number {
   return CONFIG.foodPerCat * (state.buildings.communityCenter ? .9 : 1);
 }

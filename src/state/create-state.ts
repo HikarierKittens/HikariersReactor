@@ -6,6 +6,7 @@ import { createGeneModificationState } from '../simulation/genes';
 import { createBlackHoleState } from '../simulation/black-hole';
 import { createAutoWorkersState } from '../simulation/auto-workers';
 import { createAchievementTracking } from '../simulation/achievement-tracking';
+import { createNeighborsState } from '../simulation/neighbors';
 import { DEFAULT_GAME_SETTINGS } from '../types/state';
 import type { GameState } from '../types/state';
 
@@ -28,7 +29,7 @@ export function createInitialState(version: number, eventIn: number, now: number
     furUnlocked: false, unlockedResources: [],
     prestige: { particles: 0, nuclearResets: 0, softResets: 0, casimir: 0, escapeResets: 0, darkEnergy: 0, blackHoleResets: 0, harmonyCrystals: 0, ascensionResets: 0 }, prestigeUnlocked: [], crispr: [],
     geneModification: createGeneModificationState(),
-    soldiers: 0, trainingProgress: 0, nuclearProgress: 0,
+    soldiers: 0, wounded: 0, hospitalProgress: 0, neighbors: createNeighborsState(), trainingProgress: 0, nuclearProgress: 0,
     arpaResourceProgress: {},
     shipResourceProgress: {},
     shipComponents: { hull: false, energyCore: false, computer: false, ecosystem: false, electromagneticEngine: false, fuel: false },

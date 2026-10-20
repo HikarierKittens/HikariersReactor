@@ -1,5 +1,5 @@
 import { DNA_BASE_IDS, GENE_DEFINITIONS } from '../data/genes';
-import { MAX_GENE_LEVEL, MAX_GENE_SYNTHESIS_RATE, createGeneModificationState } from '../simulation/genes';
+import { MAX_GENE_LEVEL, MAX_GENE_SYNTHESIS_RATE, MAX_GENE_SYNTHESIS_TOTAL, createGeneModificationState } from '../simulation/genes';
 import { PRESTIGE_RESOURCE_IDS } from '../simulation/prestige-unlocks';
 import type { GameState, GeneId, PrestigeResourceId } from '../types/state';
 
@@ -39,6 +39,9 @@ export function validateGeneModification(raw: Record<string, unknown>, state: Ga
     if (!Number.isSafeInteger(rate) || (rate as number) < 0 || (rate as number) > MAX_GENE_SYNTHESIS_RATE) throw Error('基因合成速率无效。');
     fresh.synthesis[id] = rate as number;
   }
+  // The four sliders share one 100% budget; oversubscribed saves are rejected
+  // rather than silently clamped, so the player's配置 never changes behind their back.
+  if (DNA_BASE_IDS.reduce((sum, id) => sum + fresh.synthesis[id], 0) > MAX_GENE_SYNTHESIS_TOTAL) throw Error('基因合成速率总和超过100%。');
   for (const id of Object.keys(GENE_DEFINITIONS) as GeneId[]) {
     const level = levels[id];
     if (!Number.isSafeInteger(level) || (level as number) < 0 || (level as number) > MAX_GENE_LEVEL) throw Error('基因等级无效。');

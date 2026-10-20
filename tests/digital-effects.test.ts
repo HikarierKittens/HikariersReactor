@@ -11,6 +11,7 @@ import { calculateOperationalSoldierCapacity, calculateSoldierCapacity } from '.
 import { calculateKnowledgeMultiplier, calculateProductionMultiplier, calculateChallengeAcceleratorMultiplier, calculateFactoryOutputMultiplier } from '../src/simulation/multipliers';
 import { calculateQuantumSnapshot } from '../src/simulation/quantum';
 import { calculateResourceBreakdown } from '../src/simulation/resource-breakdown';
+import { BUILDINGS } from '../src/data/buildings';
 import { supplyPower } from './support/power';
 
 const fresh = () => createInitialState(CONFIG.version, 60, 0);
@@ -42,9 +43,11 @@ test('funded simulator grants five morale and cap; funded AGI grants twenty-five
 test('AES knowledge bonus requires explicit funded context and preserves ordinary library bonuses', () => {
   const s = fresh(); s.buildings.aesComputeModule = 5; s.buildings.library = 2;
   const ordinary = calculateKnowledgeMultiplier(s, 0);
+  // The funded data-centre row contributes the observatory's balance-passed 5% exactly once.
+  const dataCenter = BUILDINGS.observatory.knowledgeBoost!;
   near(calculateKnowledgeMultiplier(s, 0, { aesUnits: 0 }), ordinary);
   near(calculateKnowledgeMultiplier(s, 0, { aesUnits: 2 }), ordinary + .2);
-  near(calculateKnowledgeMultiplier(s, 1, { aesUnits: 2 }), ordinary + .3);
+  near(calculateKnowledgeMultiplier(s, 1, { aesUnits: 2 }), ordinary + .2 + dataCenter);
 });
 
 test('AES funded knowledge bonus reaches actual production and resource breakdown exactly once', () => {

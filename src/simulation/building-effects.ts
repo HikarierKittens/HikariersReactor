@@ -10,6 +10,10 @@ export const REPEATER_BONUS_PER_ARRAY = .25;
 export const SPACEPORT_STABILITY = 4;
 export const SPACEPORT_ASTEROID_SUPPORT = 2;
 export const ASTEROID_UNIT_SUPPORT_COST = 1;
+/** 科研卫星: per-satellite 实验室 scientist output bonus (settlement, breakdown and tooltip all read this). */
+export const RESEARCH_SATELLITE_LAB_OUTPUT = .02;
+/** 科研卫星: per-satellite 实验室 knowledge capacity bonus. */
+export const RESEARCH_SATELLITE_LAB_CAPACITY = .05;
 export const ASTEROID_BASE_FREIGHT_BONUS = .05;
 
 export interface EffectSnapshot { repeaters?: number | undefined; asteroidBases?: number | undefined; blackHoleStations?: number | undefined }
@@ -38,7 +42,7 @@ export function getBuildingEffectRows(id: BuildingId, state: Pick<GameState, 'te
       ];
     case 'iceMiningShip':
     case 'asteroidBase':
-      return [{ label: '占用喷发小行星群支持', value: '1' }];
+      return [{ label: '占用喷发小行星群支持', value: `${ASTEROID_UNIT_SUPPORT_COST}` }];
     case 'massEjector':
       return [{ label: '喷射容量', value: '+1000/s', note: '在资源管理 → 质量喷射中分配。' }];
     case 'spaceRipper': {
@@ -49,12 +53,6 @@ export function getBuildingEffectRows(id: BuildingId, state: Pick<GameState, 'te
     default:
       return [];
   }
-}
-
-/** Long-form stacking explanation that follows the numeric value on its own row. */
-export function getBuildingEffectNotes(id: BuildingId): string[] {
-  if (id === 'asteroidBase') return ['仅运行时生效，按运行基地数量累加。'];
-  return [];
 }
 
 /** Freight capacity multiplier contributed by running asteroid bases (additive per base). */

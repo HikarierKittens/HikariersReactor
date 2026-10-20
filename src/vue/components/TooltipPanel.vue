@@ -17,26 +17,26 @@ import { calculateFoodPerCat } from '../../simulation/population';
 import { withoutPowerCost } from '../../simulation/one-time-cost';
 import { calculateBuildingCost, calculateHarmonyCreepReduction, isBuildingFullyBuilt } from '../../simulation/costs';
 import { describeQueuedPurchases } from '../../simulation/purchases';
-import { calculateTechCost, calculateTrainingBoost, calculateBankerTaxRate, BANKER_TAX_BONUS, STOCK_EXCHANGE_BANKER_BONUS, GOVERNMENTS } from '../../simulation/government';
+import { calculateTechCost, calculateBankerTaxRate, BANKER_TAX_BONUS, STOCK_EXCHANGE_BANKER_BONUS, GOVERNMENTS } from '../../simulation/government';
 import { SPACE_MISSIONS, REGIONAL_MISSIONS, calculateRegionalMissionCost, isRegionalMissionCompleted, type RegionalMissionId } from '../../simulation/space-missions';
-import { calculateBuildingInput, calculateBuildingOutput, calculateToolMultiplier, calculateBuildingName } from '../../simulation/building-production';
-import { getBuildingEffectRows, calculateFreightCapacityMultiplier, SPACE_RIPPER_OVERCLOCK_DESC } from '../../simulation/building-effects';
-import { calculateStorageBonuses } from '../../simulation/storage-bonuses';
+import { calculateBuildingOutput, calculateToolMultiplier, calculateBuildingName } from '../../simulation/building-production';
+import { SPACE_RIPPER_OVERCLOCK_DESC } from '../../simulation/building-effects';
 import { calculateStorageDetails, calculateDarkEnergyStorageBonus } from '../../simulation/storage';
 import { calculateHousingDetails } from '../../simulation/housing';
 import { calculateEscapePrestigeReward, calculateCasimirReward, calculateBlackHolePrestigeRewards, calculateDigitalAscensionRewards } from '../../simulation/prestige';
 import { calculatePrestigeReward } from '../../simulation/government';
 import { canPayCost } from '../../simulation/costs';
-import { calculateQuantumSnapshot, calculateQuantumLevel, calculateQuantumSwarmFactoryReduction } from '../../simulation/quantum';
+import { calculateQuantumSnapshot } from '../../simulation/quantum';
 import { uiPreview } from '../preview-cache';
 import { calculateGravityConversionEnergy, formatBlackHoleMass } from '../../simulation/black-hole';
 import { calculateResourceBreakdown, calculateResourceFactorRows, calculateResourceExpenseRows, signedRate } from '../../simulation/resource-breakdown';
 import { calculateArtistEffect } from '../../simulation/morale';
-import { calculateParticleMultiplier } from '../../simulation/crafting';
-import { calculateBuildingContainerCap, calculateBuildingAlloyContainerCap } from '../../simulation/containers';
+import { calculateParticleMultiplier, calculateForgingToolBonus, artisanCraftRate } from '../../simulation/crafting';
 import { calculateCrisprStorageBonus } from '../../simulation/crispr';
 import { calculateEffectiveParticleCount, isChallengeGeneActive } from '../../simulation/challenges';
 import { duration, fmt, moraleSnapshot, orderedCostEntries, percent, storageSnapshot } from '../format';
+import { addBuildingEffectRows } from '../building-tooltip-rows';
+import { allocateShipCrew, SHIP_CREW_SIZE, SHIP_CREW_JOB_NAME, type ShipCrewId } from '../../simulation/ship-crew';
 
 const props = defineProps<{ state: GameState; revision: number }>();
 type TipKind = 'building' | 'tech' | 'storage' | 'resource' | 'morale' | 'housing' | 'prestige' | 'prestige-reset' | 'crispr' | 'job' | 'craftJob' | 'arpa' | 'mission' | 'ship' | 'quantum' | 'government';
@@ -56,6 +56,10 @@ interface TipContent {
   description: string;
   costs: { id: string; name: string; amount: number; missing: boolean; blocked: boolean }[];
   rows: DetailRow[];
+  /** 科技效果 sentences from the registry (`effects`), one per line. */
+  effects: string[];
+  /** 锻造物 only: additive tool-bonus sources shown under the upkeep column. */
+  toolBonus?: { total: string; entries: { id: string; name: string; value: string }[] };
   requirements: DetailRow[];
   income: DetailRow[];
   expense: DetailRow[];
@@ -72,7 +76,7 @@ const content = computed<TipContent | null>(() => {
   const target = selected.value;
   if (!target) return null;
   const state = props.state;
-  const tip: TipContent = { title: '', description: '', costs: [], rows: [], requirements: [], income: [], expense: [], footnote: '', resourceTiming: '' };
+  const tip: TipContent = { title: '', description: '', costs: [], rows: [], effects: [], requirements: [], income: [], expense: [], footnote: '', resourceTiming: '' };
   const add = (name: string, value: string, negative = false, note?: string, effectType: EffectRowType = 'detail') => {
     // A resource can have both flat production and a percentage multiplier.
     // Only identical typed effects are duplicates; display names are not row identities.
@@ -106,11 +110,13 @@ const content = computed<TipContent | null>(() => {
     tip.footnote = '量子水平截断到小数点后两位；未完成或缺少氦-3的核心不提供加成。';
   } else if (target.kind === 'craftJob' && Object.hasOwn(CRAFT_RECIPES, target.id)) {
     const id = target.id as CraftId, recipe = CRAFT_RECIPES[id];
+    // 工匠大师 doubles throughput, so show the effective rate rather than the recipe base.
+    const rate = artisanCraftRate(recipe.rate, state);
     tip.title = `${RESOURCES[id].name}工匠`;
     tip.description = '每人基础产出与岗位消耗';
-    add(RESOURCES[id].name, `+${number(recipe.rate)}/s`);
+    add(RESOURCES[id].name, `+${number(rate)}/s`);
     for (const [resource, amount] of orderedCostEntries(recipe.input)) {
-      add(RESOURCES[resource as ResourceId].name, `-${number(amount * recipe.rate)}/s`, true);
+      add(RESOURCES[resource as ResourceId].name, `-${number(amount * rate)}/s`, true);
     }
   } else if (target.kind === 'job' && Object.hasOwn(BUILDINGS, target.id)) {
     const id = target.id as BuildingId, building = BUILDINGS[id];
@@ -126,7 +132,7 @@ const content = computed<TipContent | null>(() => {
       }
     }
     else if (id === 'foundry') {
-      add('锻造物', '+0.1/s');
+      add('锻造物', `+${number(artisanCraftRate(CRAFT_RECIPES[id as CraftId].rate, state))}/s`);
       add('原料消耗', '按所分配的制作配方');
     } else if (id === 'asrielResidence') {
       const mines = snapshot.asriel.allocations.asrielMine || 0;
@@ -151,11 +157,12 @@ const content = computed<TipContent | null>(() => {
     const id = target.id as BuildingId, building = BUILDINGS[id];
     const count = state.buildings[id] || 0;
     tip.title = calculateBuildingName(id, state);
-    if (['alienMaterialLab', 'aiSupercore', 'swarmFactory', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'signalRepeater', 'hydrogenPowerPlant', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'vrCenter', 'stellarForge', 'blackHoleStation', 'penroseSphere', 'dysonSphere', 'massEjector'].includes(id)) tip.description = building.desc || '';
+    // Every building renders its own description; `desc` is flavor-only data, so no
+    // per-id allowlist is needed (the old one silently hid most descriptions).
+    tip.description = building.desc || '';
     // 质量喷射 reveals the black hole's masses on the sphere it feeds.
     if (id === 'penroseSphere' && (state.buildings.massEjector || 0) > 0) tip.description += `\n黑洞质量：${formatBlackHoleMass(state.blackHole.mass)}\n奇异质量：${formatBlackHoleMass(state.blackHole.exoticMass)}`;
     if (id === 'penroseSphere' && state.tech.includes('gravityConversion')) tip.description += `\n引力转化：电力+${formatEffectNumber(calculateGravityConversionEnergy(state))}`;
-    if (id === 'iceMiningShip' && state.tech.includes('icebreakingPlan')) tip.description = (building.desc || '').replace('水产量+1/s', '水产量+1.25/s');
     if (id === 'aiSupercore') tip.description = `world.exection(cat);\n分段进度： ${Math.min(count, building.segmentedRequired!)} /${building.segmentedRequired}\n量子水平 +25%\n氦-3 - 25/s\n电力 - 100`;
     const queueUid = Number(anchor.value?.dataset.queueUid);
     // Resolve by stable uid, but recompute the ordinal price from the current queue.
@@ -183,154 +190,12 @@ const content = computed<TipContent | null>(() => {
       tip.footnote = '';
       if (state.tech.includes('ripperOverclock')) tip.description = `${tip.description}\n${SPACE_RIPPER_OVERCLOCK_DESC}`;
     }
-    for (const [job, slots] of Object.entries(building.jobSlots || {}) as [BuildingId, number][]) add(`${BUILDINGS[job].workerName}上限`, `+${number(slots)}`);
-    if (id === 'swarmFactory') {
-      const reduction = calculateQuantumSwarmFactoryReduction(state, calculateQuantumLevel(state));
-      add('每座蜂群卫星价格', `-${percent(reduction * 100)}%`, false, '各工厂折扣复合计算；蜂群卫星总成本最多降低95%。');
-    }
-    // Building effects only: worker production belongs in the worker/resource details.
-    // 冶炼厂 only grants 冶炼厂工位; the slot recipe lives in the smelter settings modal.
-    if (!building.workerOutput && !building.asrielSource && id !== 'smelter') {
-      for (const [resource, amount] of orderedCostEntries(calculateBuildingOutput(id, state))) {
-        add(RESOURCES[resource as ResourceId].name, `+${resource === 'bytes' ? formatByteNumber(amount, false, 10000) : number(amount)}${resource === 'energy' ? '' : '/s'}`, false, undefined, 'production');
-      }
-    }
-    if ((building.workerOutput || building.artistSlots || building.craftSlots) && !building.unlimited) {
-      const slots = building.slots ?? building.artistSlots ?? CONFIG.workersPerBuilding;
-      if (slots > 0) add(`${building.workerName || (building.artistSlots ? '艺术家' : building.craftSlots ? '工匠' : '工作猫')}容量`, `+${number(slots)}`);
-    }
-    if (building.boostResource) {
-      add(`${RESOURCES[building.boostResource].name}产量`, `+${id === 'lumber' || id === 'quarry' ? 2 : 5}%`);
-    }
-    if (id === 'touristCenter') {
-      add('每座剧场', '+2$/s');
-      add('每座运行中的猫咖', '+5$/s');
-      add('每座纪念碑', '+4$/s');
-    }
-    if (id === 'foundry' && state.tech.includes('castingToolUpgrade')) add('锻造物产量', '+3%');
-    if (id === 'asrielControlTower') add('火星支持', '+1');
-    if (id === 'anchorFreightStation' || id === 'civilianRouteStation') add('占用稳定度', '2');
-    for (const row of getBuildingEffectRows(id, state, { repeaters: snapshot.stageThree?.repeaters ?? 0, asteroidBases: snapshot.stageThree?.asteroidBases ?? 0, blackHoleStations: snapshot.blackHoleStationUnits ?? 0 })) {
-      add(row.label, row.value, false, row.note);
-    }
-    if (id === 'asteroidBase') add('锚点货运站容量', '+5%', false, '仅运行时生效，按运行基地数量累加。');
-    if (id === 'shortRangeRelay') { add('运行时：Asriel支持', '+2'); add('占用稳定度', '2'); }
-    if (id === 'metalRefinery') {
-      const advanced = state.tech.includes('advancedMetalRefining');
-      add(advanced ? '供能时：铝产量' : '铝产量', advanced ? '+8%' : '+6%');
-      if (advanced) { add('供能时：钢产量', '+1%'); add('供能时：铱产量', '+0.5%'); }
-    }
-    if (id === 'moonObservatory') add('学校知识容量', '+5%');
-    if (id === 'particleAccelerator') {
-      if (isChallengeGeneActive(state, 'particleImbalance')) {
-        const bonus = 0.05;
-        add('普通资源产量（含知识，不含电力）', `+${number(bonus * 100)}%`);
-        add('锻造物产量', `+${number(bonus * 25)}%`);
-      }
-      else add('粒子产量加成', '+10%');
-    }
-    if (id === 'researchSatellite') {
-      add('科学家知识产量', '+1%');
-      add('实验室知识容量', '+5%');
-    }
-    if (id === 'asrielMine') {
-      add('每行星居民铜产量', '+0.25/s');
-      add('每行星居民钛产量', '+0.05/s');
-    }
-    if (id === 'ecologicalDome') add('每行星居民猫粮产量', '+0.25/s');
-    if (id === 'planetaryFoundry') add('每行星居民锻造物产量加成', '+3%');
-    if (id === 'miningDrone') add('塔卫二采矿站产量', '+5%');
-    if (id === 'geothermalPlant') add('月球铱矿产量', '+5%');
-    if (id === 'ecologicalDome') add('每座Asriel居住站猫口容量', '+0.05');
-    if (building.cap) add('猫口容量', `+${number(building.cap + (id === 'asrielResidence' ? .05 * snapshot.asriel.allocations.ecologicalDome : 0))}`);
-    if (building.soldierCap) add('士兵容量', `+${number(building.soldierCap)}`);
-    if (building.trainingBoost) add('训练效果', `+${percent(calculateTrainingBoost(state))}%`);
-    if (building.lines) add('生产线容量', `+${number(building.lines)}`);
-    if (id === 'smelter') add('冶炼厂工位', '+1', false, '冶炼厂本身不产出也不消耗资源；资源由钢冶炼工位产出和消耗，可在设置中查看配方并分配。');
-    if (id === 'stellarForge') { add('冶炼厂工位', '+2'); add('工匠上限', '+2'); add('锻造物产量', '+10%'); }
-    if (id === 'adamantiteProcessor') add('精金采矿船产量', '+20%');
-    if (id === 'vrCenter') add('幸福度', '+2.5%', false, '仍受幸福度上限限制。');
-    if (id === 'blackHoleStation') add('空间撕裂者知识容量效果', '+1%');
-    const containerCap = calculateBuildingContainerCap(id, state);
-    const alloyContainerCap = calculateBuildingAlloyContainerCap(id, state);
-    if (containerCap) add('集装箱容量', `+${number(containerCap)}`);
-    if (alloyContainerCap) add('合金集装箱容量', `+${number(alloyContainerCap)}`);
-    if (building.moraleCap) add('幸福度上限', `+${percent(building.moraleCap)}%`);
-    if (building.morale) add('幸福度', `+${percent(building.morale)}%`);
-    if (id === 'navigationBeacon' && state.tech.includes('spaceBroadcasting')) add('幸福度', '+3%');
-    if (id === 'moonBase' || id === 'navigationBeacon') add('月球支持', `+${id === 'moonBase' ? 2 : 1}`);
-    if (id === 'asrielSpaceport') add('Asriel支持', '+4');
-    if (id === 'swarmControlStation') add('戴森群支持', `+${formatEffectNumber(20 + (state.tech.includes('quantumSwarm') ? calculateQuantumSnapshot(state).level : 0))}`);
-    if (building.knowledgeBoost) add('知识产量', `+${percent(building.knowledgeBoost * 100)}%`);
-    if (building.jobs) add('Asriel居民容量', `+${number(building.jobs)}`);
-    if (id === 'starRingStation') {
-      const coefficient = state.tech.includes('starRingOptimization') ? .6 + .01 * (snapshot.asriel.allocations.alienMaterialLab || 0) : .5;
-      add('每Asriel行星居民使太空资源产量', `+${percent(coefficient)}%`);
-    }
-    if (id === 'spaceWaystation') {
-      add('太空区域石油消耗量', '-5%', false, '不作用于超空间/遥远星际的建筑与探索任务。');
-      add('太空区域氦-3消耗量', '-5%');
-    }
-    if (id === 'communityCenter') {
-      add('人口增长速率', '+10%');
-      add('幸福度', '+25%');
-      add('只能建造一个', '');
-    }
-    const miningPowered = (id === 'mine' || id === 'coalMine') && state.tech.includes('automatedMining');
-    const gatheringPowered = (id === 'lumber' || id === 'quarry') && state.tech.includes('automatedMining');
-    if (gatheringPowered) add(id === 'lumber' ? '每座供能伐木场：伐木工人产量' : '每座供能采石场：石工产量', '+5%');
-    const mixerPowered = id === 'cementWorkshop' && state.tech.includes('cementMixer');
-    if (miningPowered) add(id === 'mine' ? '每座供电矿井：矿工产量' : '每座供电煤矿：煤矿工人产量', '+5%');
-    if (mixerPowered) add('每座供电水泥工坊：水泥工人产量', '+5%');
-    if (building.cpuCompute) add('CPU算力', `+${number(id === 'cellCore' && state.tech.includes('cellMultithreading') ? 4 : building.cpuCompute)}`);
-    if (id === 'dataCompression') {
-      add('锚点货运站容量', '+20%', false, '按有效运行数量累加。');
-      add('量子存储器容量', '+25%', false, '按有效运行数量累加。');
-      if (state.tech.includes('deepCore')) add('记忆核心容量', '+15%', false, '按有效运行数量累加。');
-    }
-    if (id === 'cpuDecoder') add('量化压缩模块知识容量', '+10%', false, '按有效运行数量累加。');
-    if (id === 'gatewayRouter') {
-      add('数据带宽', state.tech.includes('layer3Switch') ? '+7.5' : '+5');
-      if (state.tech.includes('layer3Switch')) tip.description = (building.desc || '').replace('提供5带宽', '提供7.5带宽');
-    }
-    if (id === 'memoryCore') {
-      add('字节容量', `+${formatByteNumber(building.bytesCap! * (1 + .15 * (snapshot.digital?.dataCompressionUnits ?? 0)), false, 10000)}`, false, '包含有效运行数据压缩的加成。');
-      if (state.tech.includes('encryptedDataAnalysis')) add('加密数据容量', `+${number(25000)}`);
-    }
-    if (id === 'softRouterNode') add('数据带宽', '+4');
-    if (id === 'agiCoreComponent') { add('量子水平', '+50%', false, '完整建成并运行时生效。'); add('字节产量', '+50%', false, '完整建成并运行时生效。', 'multiplier'); }
-    if (id === 'coreCooler') add('AGI飞升核心电力占用', '-100', false, '按有效运行数量累加，最低为0。');
-    if (id === 'agiAscensionCore') tip.footnote = '默认关闭；完整建成、启用且获得完整供能后可数字化飞升。';
-    if (id === 'ethMiner') add('现金容量', `+${number(building.cashCap!)}`);
-    if (id === 'dataDecryptionModule') add('加密数据产量', '+25%', false, '按有效运行数量累加。', 'multiplier');
-    if (id === 'quantumStorage') add('字节容量', `+${formatByteNumber(building.bytesCap! * (1 + .25 * (snapshot.digital?.dataCompressionUnits ?? 0)), false, 10000)}`, false, '包含有效运行数据压缩的加成。');
-    if (id === 'downloadCache') add('字节产量', '+10%');
-    if (id === 'downloadExecutable') add('数据下载', '1k知识/s → 1B/s', false, '配置0%～100%的实际知识产出用于下载；不主动消耗知识库存。');
-    if (building.bandwidthUse) add('数据带宽', `−${number(building.bandwidthUse)}`, true);
-    if (building.cpuComputeUse) add('CPU算力', `−${number(building.cpuComputeUse)}`, true);
-    const storage = calculateStorageBonuses(id, state, snapshot.moon, snapshot.asriel, snapshot.digital);
-    for (const [resource, amount] of orderedCostEntries(storage)) {
-      if ((id === 'memoryCore' && (resource === 'bytes' || resource === 'encryptedData')) || (id === 'ethMiner' && resource === 'cash') || (id === 'quantumStorage' && resource === 'bytes')) continue;
-      const effectiveAmount = id === 'anchorFreightStation' ? amount * calculateFreightCapacityMultiplier(state, snapshot.stageThree?.asteroidBases || 0, (snapshot.digital?.dataCompressionUnits ?? 0)) : amount;
-      add(`${RESOURCES[resource as ResourceId].name}容量`, `+${number(effectiveAmount)}`, false, id === 'quantizedCompressionModule' ? '当前每座容量，包含有效运行CPU解码器加成。' : undefined);
-    }
-    // Worker recipe ingredients are not per-building maintenance.
-    // Maintenance always follows all benefits and capacity effects.
-    if (building.asrielSupport && id !== 'asrielSpaceport') add('Asriel支持', `-${number(building.asrielSupport)}`, true);
-    if (building.moonSupport) add('月球支持', `-${number(building.moonSupport)}`, true);
-    if (id === 'swarmSatellite') add('戴森群支持', '-1', true);
-    if (!building.workerOutput && id !== 'smelter') for (const [resource, amount] of orderedCostEntries(calculateBuildingInput(id, state))) {
-      add(RESOURCES[resource as ResourceId].name, `-${number(amount)}${resource === 'energy' ? '' : '/s'}`, true);
-    }
-    if (miningPowered || gatheringPowered || mixerPowered) add('电力', `-${mixerPowered ? 2 : 1}`, true);
-    if (id === 'aiSupercore') {
-      tip.description = `world.exection(cat);\n当前量子水平：${calculateQuantumLevel(state).toFixed(2)}`;
-      tip.rows = [];
-      tip.footnote = '';
-      add('分段进度', `${Math.min(count, building.segmentedRequired!)} /${building.segmentedRequired}`);
-      add('量子水平', '+25%');
-      add('氦-3', '-25/s', true);
-      add('电力', '-100', true);
+    addBuildingEffectRows({ id, building, state, snapshot, count, tip, add, number, percent, formatEffectNumber });
+    // Mining ships stop when the idle cats run out; surface that above the generic rows.
+    if (Object.hasOwn(SHIP_CREW_SIZE, id)) {
+      const crew = allocateShipCrew(state), working = crew.working[id as ShipCrewId] || 0;
+      const enabled = Math.max(0, count - (state.stoppedBuildings?.[id] || 0));
+      if (enabled > working) tip.warning = `${SHIP_CREW_JOB_NAME}不足：空闲猫口只够 ${working} 座，${enabled - working} 座已停机；减少工作猫分配或增加猫口后自动恢复。`;
     }
   } else if (target.kind === 'mission' && Object.hasOwn(REGIONAL_MISSIONS, target.id)) {
     const id = target.id as RegionalMissionId, mission = REGIONAL_MISSIONS[id];
@@ -375,9 +240,12 @@ const content = computed<TipContent | null>(() => {
   } else if (target.kind === 'tech' && Object.hasOwn(TECHNOLOGIES, target.id)) {
     const id = target.id as TechnologyId, tech = TECHNOLOGIES[id];
     tip.title = tech.name;
-    tip.description = tech.desc;
+    // 描述 = flavor only; every unlock/number lives in `effects`, rendered as its own
+    // block below the price divider so the two never mix.
+    tip.description = tech.desc ?? '';
     if (tech.warning) tip.warning = tech.warning;
     tip.costs = prices(calculateTechCost(id, state));
+    tip.effects = [...(tech.effects ?? [])];
     add('状态', state.tech.includes(id) ? '已研究' : state.queue.some(item => item.kind === 'tech' && item.id === id) ? '已在研究队列' : '未研究');
     if (tech.prestigeResetsRequired) add('所需威望重置次数（不含软重置）', String(tech.prestigeResetsRequired));
     if (tech.pre.length) add('前置科技', tech.pre.map(parent => TECHNOLOGIES[parent].name).join(' · '));
@@ -435,6 +303,20 @@ const content = computed<TipContent | null>(() => {
         }
       }
       tip.income = calculateResourceFactorRows(id, state, result).rows.map(row => ({ ...row, negative: row.value.startsWith('−') }));
+      // 锻造物: the additive 锻造工具加成 sources share one column with upkeep.
+      if (RESOURCES[id].crafted) {
+        const planetaryResidents = state.buildings.planetaryFoundry
+          ? Math.min(state.population, state.workers.asrielResidence || 0, result.asriel.allocations.asrielResidence * 2) : 0;
+        const planetaryAllocated = state.buildings.planetaryFoundry ? result.asriel.allocations.planetaryFoundry || 0 : 0;
+        const tool = calculateForgingToolBonus(state, planetaryResidents, planetaryAllocated);
+        if (tool.total > 0) {
+          const fmtPct = (value: number) => `+${percent(value * 100)}%`;
+          tip.toolBonus = {
+            total: fmtPct(tool.total),
+            entries: tool.entries.map(entry => ({ id: entry.id, name: entry.name, value: fmtPct(entry.value) })),
+          };
+        }
+      }
       tip.expense = calculateResourceExpenseRows(breakdown).map(row => {
         // The legacy helper's community note predates the current food rule.
         // Keep its row structure but derive the percentage from live rules.
@@ -532,7 +414,6 @@ const content = computed<TipContent | null>(() => {
     tip.description = '卡西米尔晶体可以推迟粒子的软上限，减轻粒子产量加成的衰减。通过发射ESS-喵星号离开太阳系获得，跨周目保留。';
     add('当前持有', number(state.prestige.casimir));
     add('每个卡西米尔', '粒子的软上限 +1');
-    add('当前粒子软上限', number(CONFIG.particleProductionSoftCap + state.prestige.casimir));
     const storageBonus = calculateCrisprStorageBonus(state);
     if (storageBonus.casimirRate > 0) {
       add('卡西米尔效应：每个晶体普通资源储量', `+${percent(storageBonus.casimirRate * 100)}%`);
@@ -660,14 +541,14 @@ onUnmounted(() => {
   <Teleport :to="anchor?.closest('dialog') || 'body'">
     <div v-if="content" ref="panel" id="gameTooltip" class="building-tooltip" :class="{ 'resource-detail': selected?.kind === 'resource', 'morale-detail': selected?.kind === 'morale', 'energy-expense-split': splitEnergyExpense }" role="tooltip" :style="position">
       <h3>{{ content.title }}</h3>
-      <p v-if="content.description" class="tip-desc" :style="selected?.kind === 'building' && ['aiSupercore', 'spaceRipper', 'penroseSphere'].includes(selected.id) ? { whiteSpace: 'pre-line' } : undefined">{{ content.description }}</p>
-      <p v-if="content.warning" class="tip-desc danger" data-tech-warning>{{ content.warning }}</p>
+      <p v-if="content.description" class="tip-desc" :style="selected?.kind === 'building' && ['aiSupercore', 'spaceRipper', 'penroseSphere'].includes(selected.id) ? { whiteSpace: 'pre-line' } : undefined">{{ content.description }}</p>      <p v-if="content.warning" class="tip-desc danger" data-tech-warning>{{ content.warning }}</p>
       <template v-if="content.costs.length">
         <p class="tip-label">{{ selected?.kind === 'arpa' || selected?.kind === 'ship' || anchor?.dataset.queueUid ? '剩余资源需求' : selected?.kind === 'building' && BUILDINGS[selected.id as BuildingId]?.segmentedRequired ? '每段固定价格' : '当前价格' }}</p>
         <div v-for="cost in content.costs" :key="cost.id" class="tip-cost" :class="{ 'is-cap-blocked': cost.blocked, 'is-missing': !cost.blocked && cost.missing }">{{ cost.name }} {{ selected?.kind === 'building' && ['swarmSatellite', 'swarmFactory'].includes(selected.id) && cost.amount < 1 ? '0' : cost.id === 'bytes' ? formatByteNumber(cost.amount, false, 10000) : formatCostNumber(cost.amount) }}</div>
         <hr>
       </template>
-      <p v-if="selected?.kind === 'building' && content.rows.length" class="tip-label">建筑效果</p>
+      <p v-if="selected?.kind === 'tech' || (selected?.kind === 'building' && content.rows.length)" class="tip-label">{{ selected?.kind === 'tech' ? '科技效果' : '建筑效果' }}</p>
+      <p v-for="(effect, index) in content.effects" :key="`effect-${index}`" class="tip-effect" data-tip-effect>{{ effect }}</p>
       <template v-if="selected?.kind !== 'morale'">
         <div v-for="(row, index) in content.rows" :key="index" class="resource-factor" :class="{ child: row.child }">
           <span>{{ row.name }}</span><span class="resource-factor-value" :class="{ 'is-negative': row.negative }">{{ row.value }}</span>
@@ -696,6 +577,12 @@ onUnmounted(() => {
             <div v-for="(row, index) in content.expense" :key="index" class="resource-factor" :class="{ child: row.child, 'last-child': row.child && !content.expense[index + 1]?.child }"><span>{{ row.name }}</span><span class="resource-factor-value" :class="{ 'is-negative': row.negative }">{{ row.value }}</span></div>
           </div>
           <p v-if="!content.expense.length" class="small subtle">{{ selected.id === 'energy' ? '暂无电力占用。' : '暂无消耗。' }}</p>
+          <!-- 锻造物: every additive 锻造工具加成 source, in the same column as upkeep. -->
+          <template v-if="content.toolBonus">
+            <div class="resource-column-title" data-tool-bonus-title>锻造工具加成</div>
+            <div class="resource-factor" data-tool-bonus-total><span>合计</span><span class="resource-factor-value">{{ content.toolBonus.total }}</span></div>
+            <div v-for="entry in content.toolBonus.entries" :key="entry.id" class="resource-factor" :class="{ child: true }" :data-tool-bonus="entry.id"><span>{{ entry.name }}</span><span class="resource-factor-value">{{ entry.value }}</span></div>
+          </template>
         </div>
       </div>
       <p v-if="content.footnote" class="resource-footnote">{{ content.footnote }}</p>

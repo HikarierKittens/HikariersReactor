@@ -19,6 +19,7 @@ import { validateProjectRecords } from './validate-projects';
 import { validateSaveSpaceship } from './validate-spaceship';
 import { validateSaveQueue } from './validate-queue';
 import { validateSaveNumber, validateStorageAssignments } from './validation';
+import { validateNeighbors } from './validate-neighbors';
 import { DEFAULT_GAME_SETTINGS, type GameSettings, type QueueSettingKey } from '../types/state';
 import type { GameState } from '../types/state';
 
@@ -60,6 +61,7 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
   validateGeneModification(raw, state);
   validateChallenges(raw, state);
   validateEconomyRecords(raw, state);
+  validateNeighbors(raw, state);
   validatePowerActivationOrder(raw, state);
   loadStageThreeState(raw, state);
   validateUnlockRecords(raw, state);

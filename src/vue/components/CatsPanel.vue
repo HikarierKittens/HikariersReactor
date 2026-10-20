@@ -6,10 +6,11 @@ import type { CraftId } from '../../types/economy';
 import { BUILDINGS } from '../../data/buildings';
 import { RESOURCES, CRAFT_RECIPES } from '../../data/resources';
 import { calculateWorkerCapacity, countUsedWorkers } from '../../simulation/building-production';
-import { countCraftWorkers } from '../../simulation/crafting';
+import { allocateShipCrew, SHIP_CREW_JOB_NAME, SHIP_CREW_IDS } from '../../simulation/ship-crew';
+import { artisanCraftRate, countCraftWorkers } from '../../simulation/crafting';
 import { AUTO_WORKER_JOBS } from '../../simulation/auto-workers';
 import { isResourceUnlocked } from '../../simulation/unlocks';
-import { clickMultiplier, fmt, orderedCostEntries } from '../format';
+import { clickMultiplier, fmt } from '../format';
 
 const props = defineProps<{ state: GameState; revision: number }>();
 const emit = defineEmits<{
@@ -25,9 +26,10 @@ const emit = defineEmits<{
 // Use the command boundary's capabilities, not merely a positive building count:
 // lumber and quarry are unlimited jobs even before their buildings are purchased.
 const JOB_ORDER: BuildingId[] = ['forage', 'lumber', 'quarry', 'cementWorkshop', 'mine', 'coalMine', 'theater', 'school', 'lab', 'foundry', 'bank', 'asrielResidence'];
+const SHIP_JOB_IDS: readonly BuildingId[] = SHIP_CREW_IDS;
 const WORK_BUILDINGS = (Object.keys(BUILDINGS) as BuildingId[]).filter(id => {
   const building = BUILDINGS[id];
-  return id !== 'catCafe' && id !== 'planetaryFoundry' && (building.workerOutput || building.output || building.artistSlots || building.craftSlots);
+  return id !== 'catCafe' && id !== 'planetaryFoundry' && !SHIP_JOB_IDS.includes(id) && (building.workerOutput || building.output || building.artistSlots || building.craftSlots);
 }).sort((a, b) => {
   const rank = (id: BuildingId) => JOB_ORDER.includes(id) ? JOB_ORDER.indexOf(id) : JOB_ORDER.length;
   return rank(a) - rank(b);
@@ -35,6 +37,11 @@ const WORK_BUILDINGS = (Object.keys(BUILDINGS) as BuildingId[]).filter(id => {
 
 const used = computed(() => { props.revision; return countUsedWorkers(props.state); });
 const total = computed(() => { props.revision; return props.state.population; });
+// 采矿船操作员 is derived from the enabled ships: one merged, read-only row that
+// consumes idle cats after the manual assignments above.
+const shipCrew = computed(() => { props.revision; return allocateShipCrew(props.state); });
+const showCrewRow = computed(() => shipCrew.value.required > 0);
+const spare = computed(() => Math.max(0, total.value - used.value - shipCrew.value.operators));
 const rows = computed(() => {
   props.revision;
   return WORK_BUILDINGS.map(id => ({
@@ -153,15 +160,16 @@ const craftUsed = computed(() => { props.revision; return countCraftWorkers(prop
 const craftRows = computed(() => {
   props.revision;
   return (Object.keys(CRAFT_RECIPES) as CraftId[])
-    .filter(id => isResourceUnlocked(id, props.state))
     .map(id => ({
       id,
       name: RESOURCES[id].name,
       assigned: props.state.craftWorkers[id] || 0,
-      rate: CRAFT_RECIPES[id].rate,
-      recipe: orderedCostEntries(CRAFT_RECIPES[id].input)
-        .map(([resource, amount]) => `${RESOURCES[resource as keyof typeof RESOURCES].name} ${fmt(amount)}`).join(' + '),
-    }));
+      rate: artisanCraftRate(CRAFT_RECIPES[id].rate, props.state),
+      locked: !isResourceUnlocked(id, props.state),
+    }))
+    // A locked recipe produces nothing, but a save made before the requirement changed can
+    // still hold its artisans. Keep those rows visible so the player can reclaim them.
+    .filter(row => !row.locked || row.assigned > 0);
 });
 
 </script>
@@ -169,15 +177,20 @@ const craftRows = computed(() => {
 <template>
   <div class="settings">
     <section>
-      <h3>工作猫分配 <span class="subtle">{{ fmt(used) }} / {{ fmt(total) }} · 空闲 {{ fmt(Math.max(0, total - used)) }}</span></h3>
+      <h3>工作猫分配 <span class="subtle">{{ fmt(used + shipCrew.operators) }} / {{ fmt(total) }} · 空闲 {{ fmt(spare) }}</span></h3>
       <label class="auto-workers-master">
         <input type="checkbox" data-auto-workers-toggle :checked="autoEnabled" @change="emit('autoWorkersEnabled', ($event.target as HTMLInputElement).checked)">
         自动分配空闲猫
       </label>
       <p v-if="autoEnabled" class="small subtle auto-workers-help">仅补充空闲猫，不抢其他岗位。上限为该岗总在岗数，仅约束自动分配；-1 不限。</p>
-      <div v-if="!rows.length" class="empty">尚无可用岗位，研究并建造生产建筑后可分配工作猫。</div>
+      <div v-if="!rows.length && !showCrewRow" class="empty">尚无可用岗位，研究并建造生产建筑后可分配工作猫。</div>
       <div class="allocation-layout" :class="{ 'with-auto': autoEnabled }">
       <div class="job-list" :class="{ 'with-auto': autoEnabled }">
+      <div v-if="showCrewRow" class="craft-row workers" data-ship-crew-row>
+        <span class="craft-name" data-ship-crew-name>{{ SHIP_CREW_JOB_NAME }}</span>
+        <span class="worker-count" :class="allocationClass(shipCrew.operators, shipCrew.required)">{{ fmt(shipCrew.operators) }} / {{ fmt(shipCrew.required) }}</span>
+        <span class="craft-actions"><span class="small subtle">自动</span></span>
+      </div>
       <div v-for="row in rows" :key="row.id" class="craft-row workers">
         <span class="craft-name" :data-building-tip="row.id" data-tip-kind="job" tabindex="0">{{ row.building.workerName || (row.id === 'theater' ? '猫猫艺术家' : row.building.name) }}</span>
         <span class="worker-count" :class="allocationClass(row.assigned, row.cap)">{{ fmt(row.assigned) }} / {{ Number.isFinite(row.cap) ? fmt(row.cap) : '∞' }}</span>
@@ -206,6 +219,7 @@ const craftRows = computed(() => {
       </aside>
       </div>
       <p class="small subtle">岗位分配受空闲猫口与岗位容量限制。伐木工人与石工在研究工具后即可分配，无需建造伐木场或采石场。Ctrl ×10、Shift ×25、Alt ×100，可组合相乘。</p>
+      <p v-if="showCrewRow" class="small subtle">采矿船操作员无法手动分配：每座铱/铁采矿船占用 1 个空闲猫口、每座 E-710 采矿船占用 2 个，启用的采矿船越多占用越多；空闲猫口不足时最后启用的采矿船停机。</p>
     </section>
 
     <section v-if="foundry && craftRows.length" class="craft-management">
@@ -214,15 +228,15 @@ const craftRows = computed(() => {
         <span>{{ fmt(craftUsed) }} / {{ fmt(foundryWorkers) }}</span>
         <span></span>
       </div>
-      <div v-for="row in craftRows" :key="row.id" class="craft-allocation">
-        <span :data-building-tip="row.id" data-tip-kind="craftJob" tabindex="0">{{ row.name }}</span>
+      <div v-for="row in craftRows" :key="row.id" class="craft-allocation" :class="{ locked: row.locked }">
+        <span :data-building-tip="row.id" data-tip-kind="craftJob" tabindex="0">{{ row.name }}<em v-if="row.locked" class="small subtle" data-craft-locked>（未解锁）</em></span>
         <span>{{ fmt(row.assigned) }}</span>
         <span>
           <button :data-craft-assign="row.id" :data-delta="-1" :disabled="row.assigned <= 0" :aria-label="`撤回${row.name}工匠`" @click="emit('craft', row.id, -clickMultiplier($event))">«</button>
-          <button :data-craft-assign="row.id" :data-delta="1" :disabled="craftUsed >= foundryWorkers" :aria-label="`分配${row.name}工匠`" @click="emit('craft', row.id, clickMultiplier($event))">»</button>
+          <button :data-craft-assign="row.id" :data-delta="1" :disabled="row.locked || craftUsed >= foundryWorkers" :aria-label="`分配${row.name}工匠`" @click="emit('craft', row.id, clickMultiplier($event))">»</button>
         </span>
       </div>
-      <p class="small subtle">先将工作猫分配到铸造厂，再分配制作种类。每位工匠按基础配方制作 0.1 份/s；产出应用粒子与铸造工具升级加成，不受幸福度和社区加成。</p>
+      <p class="small subtle">先将工作猫分配到铸造厂，再分配制作种类。每位工匠默认每秒制作 0.05 份锻造物（工匠大师使速率翻倍为 0.1）；产出应用技工、粒子与锻造工具加成，不受幸福度和社区加成。</p>
     </section>
   </div>
 </template>
@@ -235,6 +249,9 @@ const craftRows = computed(() => {
 .workers .worker-count { grid-column: 3; }
 .workers .craft-actions { grid-column: 4; flex-wrap: nowrap; }
 .craft-allocation { grid-template-columns: minmax(max-content, 2fr) 65px 60px minmax(0, 3fr); }
+/* A locked recipe can still hold artisans from an older save; dim it but keep it usable. */
+.craft-allocation.locked { opacity: .65; }
+.craft-allocation.locked em { font-style: normal; margin-left: 4px; }
 .auto-workers-master { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px; cursor: pointer; }
 .auto-workers-master input { width: auto; margin: 0; }
 .auto-workers-help { margin-top: 0; }

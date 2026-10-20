@@ -3,6 +3,7 @@ import { calculatePowerGrid, type PowerGrid } from './power-grid';
 import { settleDigitalSupport, type DigitalSupport } from './digital-world';
 import { settleQuantumCores } from './quantum';
 import { settleSpaceProduction } from './space-settlement';
+import { allocateShipCrew, type ShipCrew } from './ship-crew';
 import { settleE710WarehousePower } from './power-consumers';
 import type { MoonSupport } from './moon';
 import type { GameState } from '../types/state';
@@ -19,6 +20,8 @@ export interface SupportPreview {
   asriel: AsrielSupport;
   biologyUnits: number;
   dataCenterUnits: number;
+  /** Funded 实验室 units; each adds a second 1000 knowledge cap after 电力. */
+  labUnits: number;
   waystations: number;
   e710ContainerUnits: number;
   e710WarehouseUnits: number;
@@ -26,6 +29,8 @@ export interface SupportPreview {
   metalRefineryUnits: number;
   /** Funded outer-system mining ships, matching the production settlement inputs. */
   ironMiningShips: number;
+  /** 采矿船操作员: crew taken from the idle population by the enabled mining ships. */
+  shipCrew: ShipCrew;
   /** Whole funded 710研究站 units (knowledge storage). */
   researchStationUnits: number;
   /** Whole funded 黑洞星际站 units (raise the 空间撕裂者 knowledge-cap effect). */
@@ -74,16 +79,24 @@ export function buildSettlementLedger(state: GameState, dt = 1, quantumLevel?: n
   pool.energy = Math.max(0, pool.energy - biologyUnits * 2 * dt);
   const dataRunning = Math.max(0, (state.buildings.observatory || 0) - (state.stoppedBuildings?.observatory || 0));
   const dataCenterUnits = Math.min(dataRunning, Math.floor((Math.max(0, pool.energy) + 1e-8) / (3 * dt)));
+  // 实验室 consumes 2 power per funded unit once 电力 is known. Reserve the data
+  // centre first so this count matches the replay order (biology → data → lab),
+  // without changing the published boundary pool, which excludes observatories.
+  const labRunning = Math.max(0, (state.buildings.lab || 0) - (state.stoppedBuildings?.lab || 0));
+  const labPool = Math.max(0, pool.energy - dataCenterUnits * 3 * dt);
+  const labUnits = state.tech.includes('electricity')
+    ? Math.min(labRunning, Math.floor((labPool + 1e-8) / (2 * dt))) : 0;
   // Preserve the research-power API: pool reserves biology but not observatories.
   const result = {
     power: { ...calculatePowerBudget(plants.energy, pool.energy, dt), available: grid.available },
     digital,
     stageThree: space.stageThree,
     pool, moon: space.moon, asriel: space.asriel, metalRefineryUnits: space.metalRefineryUnits,
-    biologyUnits, dataCenterUnits,
+    biologyUnits, dataCenterUnits, labUnits,
     waystations: space.inputs.spaceWaystation || 0,
     e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, aiSupercoreUnits,
     ironMiningShips: space.inputs.ironMiningShip || 0,
+    shipCrew: allocateShipCrew(state),
     researchStationUnits: space.inputs.e710ResearchStation || 0,
     blackHoleStationUnits: space.inputs.blackHoleStation || 0,
     space,

@@ -5,6 +5,7 @@ import { calculateProductionMultiplier, calculateKnowledgeMultiplier, calculateA
 import { calculateGlobalOutputMultiplier } from './crafting';
 import { isPowerProducer } from './power';
 import { calculateSmelterSlotCapacity, calculateRunningSmelterSlots } from './factory';
+import { RESEARCH_SATELLITE_LAB_OUTPUT } from './building-effects';
 import type { GameState } from '../types/state';
 import type { BuildingId } from '../types/buildings';
 import type { ResourceId, ResourceAmounts, ResourceRecipe } from '../types/economy';
@@ -17,7 +18,7 @@ export function settleGroundProduction(state: GameState, pool: ResourceAmounts, 
     const running = id === 'smelter' ? calculateRunningSmelterSlots(state) : Math.max(0, n - (state.stoppedBuildings?.[id] || 0));
     const units = b.workerOutput ? Math.min(state.workers[id] || 0, b.unlimited ? Infinity : (['cementWorkshop', 'mine', 'coalMine'].includes(id) ? n : running) * (b.slots ?? b.artistSlots ?? CONFIG.workersPerBuilding) + calculateGrantedJobSlots(id, state)) : running;
     const out = calculateBuildingOutput(id, state, inputUnits);
-    if (id === 'metalRefinery' || id === 'aiSupercore' || id === 'e710Container' || id === 'e710Warehouse' || b.spaceSource || ['gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore', 'signalRepeater', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'stellarForge', 'blackHoleStation', 'penroseSphere', 'dysonSphere', 'massEjector', 'vrCenter', 'constraintArray', 'shortRangeRelay', 'anchorFreightStation', 'civilianRouteStation', 'navigationBeacon', 'moonBase', 'iridiumMine', 'helium3Mine', 'moonObservatory', 'asrielSpaceport', 'asrielControlTower', 'asrielResidence', 'asrielMine', 'ecologicalDome', 'hangar', 'spaceFactory', 'starRingStation', 'spaceWaystation', 'planetaryFoundry', 'factory', 'biologyLab', 'observatory', 'broadcast', 'touristStation'].includes(id) || (!n && !b.unlimited) || (!Object.keys(out).length && !b.input) || isPowerProducer(id)) continue;
+    if (b.settledByOtherSystem || b.spaceSource || (!n && !b.unlimited) || (!Object.keys(out).length && !b.input) || isPowerProducer(id)) continue;
     const inputs = entries(calculateBuildingInput(id, state));
     if (!Object.keys(out).length) {
       let ratio = 1;
@@ -34,7 +35,7 @@ export function settleGroundProduction(state: GameState, pool: ResourceAmounts, 
     if (id === 'lumber' || id === 'quarry') speed *= 1 + (id === 'lumber' ? boosts.lumberUnits : boosts.quarryUnits) * .05;
     if (id === 'forage') { if (state.tech.includes('agriculturalMachinery')) speed *= 2; if (state.tech.includes('agriculture')) speed *= 1.5; }
     if (out.knowledge) speed *= calculateKnowledgeMultiplier(state, boosts.dataUnits, boosts.digital);
-    if (id === 'lab') speed *= 1 + .02 * (state.buildings.researchSatellite || 0);
+    if (id === 'lab') speed *= 1 + RESEARCH_SATELLITE_LAB_OUTPUT * (state.buildings.researchSatellite || 0);
     let ratio = 1;
     for (const [r, v] of inputs) ratio = Math.min(ratio, pool[r] / (v * units * dt || 1));
     ratio = Math.max(0, ratio); speed *= ratio; inputUnits[id] = units * ratio;

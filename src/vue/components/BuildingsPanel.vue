@@ -14,7 +14,8 @@ import { floorWithPrecision, formatCostNumber } from '../../shared/format';
 import { REGIONAL_MISSIONS, calculateRegionalMissionCost, isRegionalMissionAvailable, isRegionalMissionCompleted, type RegionalMissionId, type SpaceMissionId } from '../../simulation/space-missions';
 import { uiPreview } from '../preview-cache';
 import { isHyperspaceUnlocked } from '../../simulation/stage-three';
-import { isBuildingUnderworking } from '../building-status';
+import { isBuildingUnderworking, countUndercrewedShips } from '../building-status';
+import { SHIP_CREW_JOB_NAME } from '../../simulation/ship-crew';
 import { isGeneSynthesisUnlocked } from '../../simulation/genes';
 import { fmt, buildingUnlocked, orderedCostEntries, moonSnapshot, clickMultiplier } from '../format';
 
@@ -148,6 +149,15 @@ const swarmBalance = computed(() => {
 const operationalSnapshot = computed(() => { props.revision; return uiPreview.production(props.state, props.revision); });
 function underworking(id: BuildingId): boolean {
   return (operationalSnapshot.value.powerGrid.failed[id] || 0) > 0 || isBuildingUnderworking(id, props.state, operationalSnapshot.value);
+}
+/** Mining ships stopped because the idle population ran out of crew. */
+function undercrewed(id: BuildingId): number {
+  return countUndercrewedShips(id, props.state);
+}
+function underworkReason(id: BuildingId): string {
+  return undercrewed(id) > 0
+    ? `${SHIP_CREW_JOB_NAME}不足：空闲猫口不够，最后启用的采矿船已停机。`
+    : '未完全正常工作：支持、电力或维护资源不足。';
 }
 function powerStatus(id: BuildingId): string {
   const grid = operationalSnapshot.value.powerGrid;
@@ -331,11 +341,12 @@ function canGather(id: string): boolean {
           >{{ completedCount(id) - runningCount(id) }}</button>
           <button
             class="building-toggle start"
-            :class="{ 'is-shortage': underworking(id) }"
+            :class="{ 'is-shortage': underworking(id) || undercrewed(id) > 0 }"
             :aria-label="`${toggleLabel(id) ? '开启一座供能：' : '启动一座'}${calculateBuildingName(id, state)}`"
              :aria-describedby="`building-power-${id}`"
              :data-power-failed="operationalSnapshot.powerGrid.failed[id] || undefined"
-             :title="`${powerStatus(id)}。${underworking(id) ? '未完全正常工作：支持、电力或维护资源不足。' : ''}开启供能：Ctrl ×10、Shift ×25、Alt ×100，可组合`"
+             :data-crew-short="undercrewed(id) || undefined"
+             :title="`${powerStatus(id)}。${underworking(id) || undercrewed(id) ? underworkReason(id) : ''}开启供能：Ctrl ×10、Shift ×25、Alt ×100，可组合`"
             :disabled="completedCount(id) === runningCount(id)"
              @click="emit('toggle', id, toggleDelta(id, $event, true))"
           >{{ runningCount(id) }}</button>

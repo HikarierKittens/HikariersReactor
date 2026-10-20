@@ -3,6 +3,7 @@ import { calculateProductionMultiplier } from './multipliers';
 import { calculateGlobalOutputMultiplier } from './crafting';
 import { calculateFoodPerCat } from './population';
 import { calculateStorageDetails, calculateStorageTotals } from './storage';
+import { soldierFoodUpkeep } from './neighbors';
 import type { StorageSnapshot } from './storage';
 import type { GameState } from '../types/state';
 import type { ResourceAmounts, ResourceId } from '../types/economy';
@@ -17,7 +18,11 @@ export function settlePopulationIncome(state: GameState, pool: ResourceAmounts, 
 }
 /** Net food reports full demand even when the actual pool reaches zero. */
 export function finalizeProduction(state: GameState, pool: ResourceAmounts, before: ResourceAmounts, dt: number, snapshot: StorageSnapshot) {
-  const foodBefore = pool.food, foodDemand = state.population * calculateFoodPerCat(state);
+  const foodBefore = pool.food;
+  // 军粮 is part of real food demand, so the reported net rate and the starvation
+  // check both account for the army instead of hiding it behind a silent subtraction.
+  const soldierUpkeep = soldierFoodUpkeep(state);
+  const foodDemand = state.population * calculateFoodPerCat(state) + soldierUpkeep;
   pool.food = Math.max(0, pool.food - foodDemand * dt);
   const rates = Object.fromEntries((Object.keys(pool) as ResourceId[]).map(id => [id, (pool[id] - before[id]) / dt])) as ResourceAmounts;
   rates.food = (foodBefore - before.food) / dt - foodDemand;

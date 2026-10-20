@@ -6,6 +6,7 @@ import { validateAndMigrateSave } from '../../state/validate-save';
 import { sampleEventInterval } from '../../simulation/events';
 import { clampResourcesToCaps } from '../../simulation/storage';
 import { storageSnapshot, capacity } from '../format';
+import { decodeSaveText } from '../../state/save-cipher';
 
 const GAME_SETTING_LABELS = {
   paused: '暂停游戏',
@@ -24,7 +25,7 @@ const GAME_SETTING_HINTS = {
   touchOptimization: '开启为触摸屏设计的UI交互优化',
 } as const;
 
-const props = defineProps<{ state: GameState; revision: number; saveBlocked?: boolean; exportProtectedSave?: () => string }>();
+const props = defineProps<{ state: GameState; revision: number; saveBlocked?: boolean; exportProtectedSave?: () => string; exportSave?: () => Promise<string> }>();
 // Emitting a request is not proof of persistence or state replacement. The
 // owner reports the actual result, including a successful load but failed save.
 const emit = defineEmits<{
@@ -55,12 +56,13 @@ function saveNow(): void {
   });
 }
 
-function exportSave(): void {
+async function exportSave(): Promise<void> {
+  if (!props.exportSave) { showStatus('导出不可用。', 'negative'); return; }
   try {
-    const text = JSON.stringify({ ...props.state, lastSaved: Date.now() }, null, 2);
+    const text = await props.exportSave();
     importText.value = text;
     confirmReset.value = null;
-    showStatus(`已生成 ${text.length} 字符的存档 JSON，请复制下面的内容备份。`, 'positive');
+    showStatus(`已生成 ${text.length} 字符的加密存档，请复制下面的内容备份。`, 'positive');
   } catch (error) {
     showStatus(`导出失败：${error instanceof Error ? error.message : String(error)}`, 'negative');
   }
@@ -78,10 +80,11 @@ function exportOldSave(): void {
   }
 }
 
-function importSave(): void {
+async function importSave(): Promise<void> {
   if (pending.value) return;
   try {
-    const raw: unknown = JSON.parse(importText.value);
+    const plaintext = await decodeSaveText(importText.value);
+    const raw: unknown = JSON.parse(plaintext);
     const next = validateAndMigrateSave(raw, {
       now: Date.now(),
       eventInterval: sampleEventInterval(Math.random),
@@ -151,13 +154,13 @@ function cancelReset(): void {
     </section>
     <section>
       <h3>导入存档</h3>
-      <textarea id="importSaveText" class="import-box" rows="6" placeholder="粘贴导出的存档 JSON" :disabled="pending" v-model="importText"></textarea>
+      <textarea id="importSaveText" class="import-box" rows="6" placeholder="粘贴加密存档或旧的明文存档 JSON" :disabled="pending" v-model="importText"></textarea>
       <div class="actions">
         <button id="exportProtectedSave" :disabled="pending || !saveBlocked" @click="exportOldSave">导出不兼容的旧版本存档</button>
         <button id="exportSave" :disabled="pending" @click="exportSave">导出存档</button>
         <button id="importSave" :disabled="pending || !importText.trim()" @click="importSave">导入</button>
       </div>
-      <p class="small subtle">导入前先校验存档；无效内容不会覆盖当前游戏。</p>
+      <p class="small subtle">导出为 AES-256-GCM 加密文本；导入同时接受加密存档与旧版明文 JSON。导入前先校验，无效内容不会覆盖当前游戏。</p>
     </section>
     <p v-if="status" id="saveStatus" class="small" role="status" aria-live="polite"><span :class="statusType">{{ status }}</span></p>
     <section>

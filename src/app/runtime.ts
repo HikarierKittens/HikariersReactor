@@ -11,6 +11,7 @@ import { simulateElapsed } from '../simulation/tick';
 import { updateProgression, addLog } from '../simulation/progression';
 import { persistGame } from '../state/persistence';
 import { validateAndMigrateSave } from '../state/validate-save';
+import { decodeSaveText, encryptSaveText } from '../state/save-cipher';
 import { calculateHousingDetails } from '../simulation/housing';
 import { calculateSupportPreview } from '../simulation/support-preview';
 import { ACHIEVEMENTS } from '../data/progression';
@@ -28,9 +29,15 @@ export interface Runtime {
   readonly saveBlocked: boolean;
   /** Validates before replacing; returns whether the accepted state was persisted. */
   replaceState: (value: unknown) => boolean;
-  /** Parsing/validation errors throw for callers to display; false means persistence failed. */
-  importSave: (text: string) => boolean;
-  exportSave: () => string;
+  /**
+   * Accepts an encrypted envelope or a legacy plaintext save. Parsing, decryption and
+   * validation errors throw for callers to display; false means persistence failed.
+   */
+  importSave: (text: string) => Promise<boolean>;
+  /** Encrypts the current game. Rejects when the page is not a secure context. */
+  exportSave: () => Promise<string>;
+  /** Plaintext export used only to show a preview inside the panel. */
+  exportSavePlaintext: () => string;
   /** Returns the untouched protected storage text, never the temporary game. */
   exportProtectedSave: () => string;
   save: () => boolean;
@@ -178,8 +185,10 @@ export function createRuntime(): Runtime {
     return save();
   }
 
-  function importSave(text: string): boolean {
-    return replaceState(JSON.parse(text));
+  async function importSave(text: string): Promise<boolean> {
+    // Decrypt first (no-op for legacy plaintext), then reuse the same JSON chain.
+    const plaintext = await decodeSaveText(text);
+    return replaceState(JSON.parse(plaintext));
   }
 
   function exportProtectedSave(): string {
@@ -195,9 +204,13 @@ export function createRuntime(): Runtime {
     }
   }
 
-  function exportSave(): string {
+  function exportSavePlaintext(): string {
     // lastSaved is kept as save metadata only; loading never replays time from it.
     return JSON.stringify({ ...state, lastSaved: Date.now() }, null, 2);
+  }
+
+  async function exportSave(): Promise<string> {
+    return encryptSaveText(exportSavePlaintext());
   }
 
   function reset(kind: 'soft' | 'hard'): boolean {
@@ -227,6 +240,7 @@ export function createRuntime(): Runtime {
     replaceState,
     importSave,
     exportSave,
+    exportSavePlaintext,
     exportProtectedSave,
     save,
     load,

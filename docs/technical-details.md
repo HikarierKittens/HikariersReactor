@@ -91,6 +91,10 @@ adamantiteMiningShip基础.25/s，adamantiteProcessor显示名精金精炼站，
 
 calculateMorale.raw为max(0,各项幸福度贡献之和)，无上限；happiness仍为max(40,min(cap,raw))，结算使用happiness因此不改变已有生产效果。TooltipPanel采用独立morale-columns：左列有效/实际/上限，右列有符号贡献，广播塔与观光站分开，不含容量来源或供能比例独立行。沿用实际供能预览，窄屏回退单列。
 
+### 幸福度产量倍率（beta 0.7.7）
+
+`calculateHappinessMultiplier(happiness)`（`src/simulation/multipliers.ts`）是幸福度对全局产量的唯一换算点：低于100%时仍为`happiness / 100`（每点−1%），**超出100%的部分每点只提供+0.5%**（150%→×1.25、200%→×1.5），即`1 + (happiness − 100) × .005`。`calculateProductionMultiplier`改用它，因此地面、工厂、太空、文化与数字世界产出自动一致；电力与锻造物不应用该倍率。`resource-breakdown.ts`的「幸福度」因子行、资源明细备注同一函数取值，避免显示与结算漂移。
+
 ### 人口基础增长（beta 0.6.2）
 
 CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5乘原有科技/社区中心/CRISPR/基因倍率，推进与界面ETA使用同一值。抽样目标5–10/10–20及存档进度单位不变，无需迁移；无其他加成时实际等待约3.33–6.67秒/6.67–13.33秒，食物与住房条件不变。
@@ -236,7 +240,7 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 2. `settleQuantumCores`：按完整AI核心结算维护，每座电力100/s与氦-3 25/s均需全额支付才运行；未完成分段不扣维护。
 3. `settlePowerPlants`：所有发电（含氢气发电站按整单位供水）。
 4. `settleSpaceProduction`：月球/Asriel 维护 → 超空间链（阵列 → 太空港 → 中继/货运/民用 → 采冰船 → 小行星基地）。
-5. `settleE710WarehousePower` → `settleResearchAndCulture`（生物/数据中心/广播/观光）。
+5. `settleE710WarehousePower` → `settleResearchAndCulture`（生物/数据中心/实验室/广播/观光）。实验室仅在已研究「电力」后计入固定电力链，每座请求2电力，排在数据中心之后。**供电只是容量升级**：`labUnits` 只统计获得供电的座数，用于把每座知识容量从 1000 提升到 2000（覆盖未供电的基础值）；`inputUnits.lab` 始终为运行中的实验室总数，未供电的实验室照常保留猫猫科学家岗位与产出。`PowerGrid` 中实验室属于 `POWER_DEMAND_ONLY_IDS`：供电不足只写入 `failed`（黄色标记），不会写入有效 `stoppedBuildings`。
 6. 工厂线 → 自动化 → 地面生产 → 自动锻造 → 人口收入 → `finalizeProduction`。
 
 ### 3.3 支持与稳定度
@@ -263,6 +267,7 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 - `hyperspace-output.ts`统一超空间来源判定与逐资源产量倍率：每座运行太空港给普通超空间来源+25%，多个港口加算；包括水、氦-3、氘，排除特殊／合成资源与电力。产量子项在对应来源下展示。
 - 多资源产出必须对每一种资源单独应用倍率，`outputs[building]`不能累加每种资源的开工速度；维护费只根据`inputUnits`扣一次。新增设施采用现有的连续原料供应比例减产，不额外占用支持。
 - 阵列维护50电力+0.25 E-710/s，太空港和采冰船各新增5氦-3/s；地热基准0.5氦-3/s、铱／铁采矿船2、E-710采矿船3，原有适用的燃料折扣保持。
+- 采矿船操作员（beta 0.7.6）：`src/simulation/ship-crew.ts` 以 `SHIP_CREW_SIZE`（铱/铁 1、E-710 2）与 `SHIP_CREW_IDS` 顺序推导配员；`allocateShipCrew(state)` 只读地按「总猫口 − `countUsedWorkers`」分配，返回 `working/operators/required/shortfall`。`space-settlement.ts` 的矿区船循环用 `working` 替代 `buildings − stoppedBuildings`，因此停机船不再扣维护、也不再产出；`support-preview.ts` 同时暴露 `shipCrew` 供界面读取，`pool-replay.ts` 沿用同一 `space.inputs`，无需另行改动。该岗位不写入 `state.workers`（存档字段与 schema31 不变），`countSparePopulation` 用于自动分配避免抢走操作员。
 - 猫猫社区移除直接普通资源+25%，人口增长乘1.10；其他原有幸福度与食物需求规则保持。
 
 - 超空间视图解锁：`isHyperspaceUnlocked`=`tech.includes('anomalyMapping')`，异常区域测绘只需全域观测校准，研究后立即显示世界导航及超空间分组。场约束理论直接前置异常区域测绘；深空干涉阵列、异常区探测任务、异常响应实验科技与深空实验平台移除。整块异常研究面板及信号/转移/远端实验也已移除，双端场耦合、有限孔径稳定、异常拓扑测绘科技与远端锚点工程退役。短程通信节点、锚点货运站、民用航线站直接用场约束理论解锁并参加运行，接入点信标/维度信标投放的前置也改为场约束理论。稳定度仍按设施正常分配、维护与停机；`stageThree`只保留`coreActivated`。不再清理旧档退役科技/工程/队列/标志；旧 schema 或退役内容均拒绝；剧情章节ID保留并按剩余科技与建设里程碑改写。`App.vue`在超空间锁定时仍回落到地面。
@@ -280,6 +285,7 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 - 710研究站T19（850k，前置超空间采矿探查+气体云吸积）：`jobSlots:{lab:1}`经`calculateGrantedJobSlots`计入`calculateWorkerCapacity`与地面结算／收支岗位上限（按已建座数）；属于`HYPERSPACE_CONSUMER_IDS`，在超空间来源循环之后按整座扣25电力+1氘，付费座数经`SupportPreview.researchStationUnits`进入储量快照，每座知识+50000（在CRISPR与空间撕裂者加成之前加入）。
 - 遥远星际（T20/T21）：
   - 超空间太空港的+25%已移除，`calculateHyperspaceOutputFactor`只保留`calculateProductionMultiplier`。星环加成经`isSpaceResourceSource`覆盖采冰船（水）、五类超空间来源、精金采矿船和石墨烯厂。
+  - 星环系数收敛在`asriel.ts`：`STAR_RING_RESIDENT_BONUS = .0025`（每名Asriel居民0.25%）、`STAR_RING_LAB_STEP = .0001`（研究星环优化后每座受支持外星材料实验室+0.01%），由`calculateStarRingCoefficient`统一计算，结算与悬停共用；星环优化不再提升基础值。
   - 设施本地倍率`calculateHyperspaceLocalMultiplier`：精金采矿船为`1+0.1×整座付费运行的精金加工站数`。精金加工站可开关，每座维护电力10/s，按整座全额付费分配；停机或未付费的站不提供加成，不按已建数或小数供能比例计算。结算、回放和收支明细必须复用同一付费运行数与倍率，维护只扣一次；明细里在采矿船下列出「精金加工站」子行。
   - 精金采矿船与石墨烯厂属于`HYPERSPACE_SOURCE_IDS`，按整座供能比例结算。黑洞星际站属于`HYPERSPACE_CONSUMER_IDS`，付费座数经`blackHoleStationUnits`进入储量快照。`calculateRipperKnowledgeBonus`=`0.2+0.01×付费站数`，作用于每座完整撕裂者。
   - 新建筑全部在地面结算的跳过列表里。

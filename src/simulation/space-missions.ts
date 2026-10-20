@@ -72,9 +72,6 @@ export function completeRegionalMissionNow(state: GameState, id: string): boolea
 export function isSpaceMissionCompleted(state: GameState, id: SpaceMissionId): boolean {
   return isRegionalMissionCompleted(state, id);
 }
-export function isSpaceMissionAvailable(state: GameState, id: SpaceMissionId): boolean {
-  return isRegionalMissionAvailable(state, id);
-}
 export function calculateSpaceMissionCost(state: GameState, id: SpaceMissionId): number {
   return calculateRegionalMissionCost(state, id).helium3!;
 }

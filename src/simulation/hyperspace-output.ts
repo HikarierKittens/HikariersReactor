@@ -7,9 +7,6 @@ import type { GameState } from '../types/state';
 export const HYPERSPACE_SOURCE_IDS: readonly BuildingId[] = ['comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'metalMiningShip', 'fuelMiningShip', 'adamantiteMiningShip', 'grapheneFactory'];
 /** Hyperspace buildings with maintenance but no resource output (settled after the sources). */
 export const HYPERSPACE_CONSUMER_IDS: readonly BuildingId[] = ['e710ResearchStation', 'blackHoleStation', 'massEjector'];
-export function isHyperspaceSource(id: BuildingId): boolean {
-  return id === 'iceMiningShip' || HYPERSPACE_SOURCE_IDS.includes(id);
-}
 /** Resource-local factor. The former 超空间太空港 +25% bonus was removed; fundedPorts is kept for call-site stability. */
 export function calculateHyperspaceOutputFactor(resource: ResourceId, state: GameState, happiness: number, fundedPorts: number): number {
   void fundedPorts;

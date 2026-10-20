@@ -53,7 +53,7 @@ test('distant-star technology chain matches the requested prerequisites and pric
   assert.deepEqual(TECHNOLOGIES.plasmaMining.cost, { knowledge: 1500000, graphene: 10000, nanoAlloy: 5000 });
   assert.deepEqual(TECHNOLOGIES.energyShield.cost, { knowledge: 1750000, nanoAlloy: 10000, aerogel: 10000 });
   assert.deepEqual(TECHNOLOGIES.penroseTheory.cost, { knowledge: 2000000, nanoAlloy: 10000, aerogel: 10000, e710: 2500 });
-  assert.equal(TECHNOLOGIES.overclocking13.desc.includes('极限超频吗，有意思'), true);
+  assert.equal(TECHNOLOGIES.overclocking13.desc!.includes('极限超频吗，有意思'), true);
   assert.equal(TECHNOLOGIES.stellarForge.spaceMissionRequired, 'neutronStar');
   assert.equal(TECHNOLOGIES.penroseTheory.spaceMissionRequired, 'blackHole');
 });
@@ -87,7 +87,7 @@ test('new resources: zero base caps, containers, anchor storage and unlock rules
   const s = fresh();
   for (const id of ['graphene', 'nanoAlloy', 'adamantite'] as ResourceId[]) assert.equal(RESOURCES[id].cap, 0);
   assert.equal(RESOURCES.aerogel.crafted, true);
-  assert.deepEqual(CRAFT_RECIPES.aerogel, { input: { graphene: 10, nanoAlloy: 5 }, rate: .1 });
+  assert.deepEqual(CRAFT_RECIPES.aerogel, { input: { graphene: 10, nanoAlloy: 5 }, rate: .05 });
   assert.deepEqual(FACTORY_OPTIONS.find(option => option.id === 'nanoAlloy')!.input, { graphene: 5, adamantite: 2 });
   assert.equal(isResourceUnlocked('adamantite', s), false);
   s.buildings.adamantiteMiningShip = 1; assert.equal(isResourceUnlocked('adamantite', s), true);
@@ -172,7 +172,8 @@ test('star-ring bonus applies to distant ordinary resources while the old port b
   Object.assign(s.resources, { helium3: 1e4, food: 1e4 });
   const p = calculateProduction(s, 1);
   const noRing = clone(s); noRing.buildings.starRingStation = 0;
-  near(p.rates.graphene, calculateProduction(noRing, 1).rates.graphene * (1 + .005 * 2 * 4), 'star ring boosts graphene');
+  // 0.25% base per resident: 2 stations × 4 residents.
+  near(p.rates.graphene, calculateProduction(noRing, 1).rates.graphene * (1 + .0025 * 2 * 4), 'star ring boosts graphene');
   near(calculateResourceBreakdown('graphene', s, p).net, p.rates.graphene);
 });
 
@@ -185,7 +186,7 @@ test('nano-alloy factory line and aerogel craft follow the shared factory and ar
   assert.equal(p.inputUnits.nanoAlloy, 2);
   near(calculateResourceBreakdown('nanoAlloy', s, p).net, p.rates.nanoAlloy);
   near(calculateResourceBreakdown('graphene', s, p).net, p.rates.graphene);
-  near(p.outputs['craft:aerogel'] || 0, .1 * calculateCraftingMultiplier('aerogel', s));
+  near(p.outputs['craft:aerogel'] || 0, .05 * calculateCraftingMultiplier('aerogel', s));
 });
 
 test('smelter slots keep legacy steel output, auto-assign steel and gain forge slots', () => {

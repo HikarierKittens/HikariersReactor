@@ -84,19 +84,24 @@ test('byte conversion applies ordinary production factors and active cache once;
   assert.ok(calculateResourceBreakdown('bytes', s, calculateProduction(s)).entries.some(row => row.id === 'digitalDownload'));
 });
 
-test('full allocation leaves ongoing synthesis negative, and starved costs cannot spend redirected production', () => {
+test('full allocation diverts only live production, and synthesis never draws on stored knowledge', () => {
   const s = digital(); s.buildings.lab = 1; s.workers.lab = 1; s.buildings.biologyLab = 1;
   s.tech.push('geneSynthesis'); s.crispr.push('geneSplicing'); s.arpaBuildings.geneSequencing = 1;
-  s.geneModification.synthesis.C = 1;
+  s.geneModification.synthesis.C = 100; // dl.exe takes everything, so synthesis sees nothing
   s.resources.knowledge = 100;
   const funded = calculateProduction(s);
-  near(funded.rates.knowledge, -100); near(funded.geneSynthesis.knowledge, 100);
+  // dl.exe diverts 100% of the knowledge that arrives, leaving nothing for synthesis.
+  near(funded.geneSynthesis.knowledge, 0);
   assert.ok(funded.rates.bytes > 0);
-  near(calculateResourceBreakdown('knowledge', s, funded).net, -100);
+  // Stored knowledge is never spent by synthesis: the pool still holds the reserve.
+  near(funded.pool.knowledge, s.resources.knowledge);
+  near(calculateResourceBreakdown('knowledge', s, funded).net, funded.rates.knowledge);
+  const before = s.resources.knowledge;
   s.resources.knowledge = 0;
   const starved = calculateProduction(s);
-  near(starved.rates.knowledge, 0); near(starved.geneSynthesis.knowledge, 0);
+  near(starved.geneSynthesis.knowledge, 0);
   near(starved.rates.bytes, funded.rates.bytes);
+  assert.equal(before, 100, 'fixture untouched');
 });
 
 test('CPU uses whole bandwidth-funded nodes and powers knowledge capacity only while supported', () => {

@@ -62,8 +62,8 @@ test('different resources of one building may use different base creeps', () => 
 
 test('prices compound from base + dynamic and the first purchase stays at raw cost', () => {
   const state = fresh();
-  // Theater base 1.19 (registry), no dynamics.
-  assert.equal(calculateBuildingCost('theater', 4, state).wood, Math.ceil(60 * 1.19 ** 4));
+  // Theater base 1.265 (+0.075 balance pass), no dynamics.
+  assert.equal(calculateBuildingCost('theater', 4, state).wood, Math.ceil(60 * 1.265 ** 4));
   // Warehouse fixed 1.25.
   assert.equal(calculateBuildingCost('warehouse', 4, state).wood, Math.ceil(80 * 1.25 ** 4));
   // Granary base 1.25.

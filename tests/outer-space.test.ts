@@ -79,6 +79,7 @@ import { completeSpaceMission } from '../src/simulation/commands';
 import { calculateSpaceMissionCost, calculateRegionalMissionCost } from '../src/simulation/space-missions';
 import { isTechnologyUnlocked, isBuildingUnlocked, isResourceUnlocked } from '../src/simulation/unlocks';
 import { calculateProduction } from '../src/simulation/production';
+import { calculateProductionMultiplier } from '../src/simulation/multipliers';
 import { calculateResourceBreakdown, calculateResourceFactorRows } from '../src/simulation/resource-breakdown';
 import { calculateStorageBonuses } from '../src/simulation/storage-bonuses';
 import { calculateBuildingOutput } from '../src/simulation/building-production';
@@ -152,9 +153,11 @@ test('alien labs require support for capacities and ring optimization uses suppo
   const preview = calculateSupportPreview(s);
   assert.equal(preview.asriel.allocations.alienMaterialLab, 7);
   assert.deepEqual(calculateStorageBonuses('alienMaterialLab', s, preview.moon, preview.asriel), { knowledge: 500, e710: 25 });
-  assert.equal(calculateSpaceMultiplier('oilExtractor', s, preview.asriel), 1.01);
+  // 0.25% base per resident: 2 residents × 1 station = +0.5%.
+  assert.ok(Math.abs(calculateSpaceMultiplier('oilExtractor', s, preview.asriel) - 1.005) < 1e-8);
   s.tech.push('starRingOptimization');
-  assert.ok(Math.abs(calculateSpaceMultiplier('oilExtractor', s, preview.asriel) - 1.0134) < 1e-8);
+  // 星环优化 adds 0.01% per supported lab (7 here) on top of the unchanged 0.25% base.
+  assert.ok(Math.abs(calculateSpaceMultiplier('oilExtractor', s, preview.asriel) - (1 + (0.0025 + 7 * 0.0001) * 2)) < 1e-8);
   assert.equal(calculateSpaceMultiplier('refinery', s, preview.asriel), 1);
 });
 test('AI core segments have immutable cost and grant quantum only when complete and fueled', () => {
@@ -220,6 +223,7 @@ test('swarm factory discounts compound and quantum swarm changes total support',
   s.buildings.swarmControlStation = 2;
   assert.equal(calculateSwarmSupportCapacity(s), 2 * (20 + calculateQuantumLevel(s)));
   const ship = fresh(); ship.tech.push('swarmFactoryOptimization'); ship.buildings.ironMiningShip = 2;
+  ship.population = 2; // 采矿船操作员 for both enabled iron ships
   Object.assign(ship.resources, { helium3: 100 });
   supplyPower(ship, 100);
   const liveDiscount = calculateBuildingCost('swarmFactory', 0, ship);
@@ -310,11 +314,13 @@ test('misen multi-resource mission queues atomically and discounts only helium f
 test('E-710 dedicated storage maintenance, space production and reactor settle once', () => {
   const s = fresh(); s.tech.push('exoticElementResearch');
   s.buildings.e710Container = 2; s.buildings.e710MiningShip = 1; s.buildings.aiSupercore = 0;
+  s.population = 2; // two 采矿船操作员 for the enabled E-710 ship
   s.resources.helium3 = 100; s.resources.e710 = 1;
   let p = calculateProduction(s);
   // E-710 mining ship helium upkeep is now 3/s, container 2 × .5 = 1 (total 4).
   assert.equal(p.rates.helium3, -4);
-  assert.ok(Math.abs(p.rates.e710 - .01) < 1e-8);
+  // Two working cats add population pressure, so the ship output carries the morale multiplier.
+  assert.ok(Math.abs(p.rates.e710 - .01 * calculateProductionMultiplier('e710', p.morale.happiness, s)) < 1e-8);
   assert.equal(calculateStorageDetails('e710', s, { ...calculateSupportPreview(s), moonBaseUnits: 0 }).total, 100);
   s.resources.helium3 = 0;
   assert.equal(calculateStorageDetails('e710', s, { ...calculateSupportPreview(s), moonBaseUnits: 0 }).total, 0);
@@ -402,7 +408,7 @@ test('outer sources settle maintenance once and attach independent ring bonuses'
   const s = fresh(); Object.assign(s.resources, { oil: 100, food: 100, helium3: 100 });
   supplyPower(s, 100);
   Object.assign(s.buildings, { asrielSpaceport: 1, asrielResidence: 1, starRingStation: 10, moonBase: 1, iridiumMine: 1, atmosphericCollector: 1, talosMoonMiningStation: 1, iridiumMiningShip: 1, ironMiningShip: 1 });
-  s.population = 2; s.workers.asrielResidence = 2;
+  s.population = 4; s.workers.asrielResidence = 2; // 2 residents + 2 采矿船操作员 (铱/铁各 1)
   const p = calculateProduction(s);
   assert.deepEqual(p.power, { generated: 100, used: 14, available: 86 });
   assert.equal(p.rates.energy, 86, 'energy reports the unused fixed budget');
@@ -411,7 +417,8 @@ test('outer sources settle maintenance once and attach independent ring bonuses'
   for (const resource of ['iridium', 'helium3', 'neutron', 'iron'] as const) {
     const detail = calculateResourceBreakdown(resource, s, p);
     assert.ok(Math.abs(detail.net - p.rates[resource]) < 1e-8, resource);
-    assert.ok(calculateResourceFactorRows(resource, s, p).rows.some(row => row.name === '星环空间站' && row.child && row.value === '+10%'));
+    // 10 stations × 2 residents × 0.25% base = +5%.
+    assert.ok(calculateResourceFactorRows(resource, s, p).rows.some(row => row.name === '星环空间站' && row.child && row.value === '+5%'));
   }
   const rows = calculateResourceFactorRows('iridium', s, p).rows;
   assert.equal(rows.filter(row => row.name === '星环空间站').length, 2);

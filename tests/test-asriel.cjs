@@ -14,7 +14,7 @@ const buildings={
  ecologicalDome:[{cash:40000,wood:50000,brick:1000},1.2],
  hangar:[{cash:25000,iron:10000,brick:2000,metalPlate:1000},1.2],
  spaceFactory:[{cash:50000,brick:5000,coal:5000,mithril:5},1.2035],
- starRingStation:[{cash:300000,stone:200000,aluminum:50000,mithril:250},1.25]
+ starRingStation:[{cash:300000,stone:200000,aluminum:50000,mithril:250},1.24]
 };
 for(const [id,[cost,scale]]of Object.entries(buildings)){assert.deepEqual(json(`BUILDINGS.${id}.cost`),cost);for(const resource of Object.keys(cost))assert.equal(run(`buildingCostScale('${id}','${resource}')`),scale,`${id}/${resource}`);}
 assert.deepEqual(json('BUILDINGS.asrielSpaceport.input'),{helium3:2,energy:5,food:25});

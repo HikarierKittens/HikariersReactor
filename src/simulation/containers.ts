@@ -25,9 +25,6 @@ export function calculateAlloyContainerCapacity(state: Pick<GameState, 'building
 export function countAssignedAlloyContainers(state: Pick<GameState, 'alloyContainerAssignments'>): number {
   return Object.values(state.alloyContainerAssignments).reduce((sum, count) => sum + count, 0);
 }
-export function calculateSpaceContainerCapacity(state: Pick<GameState, 'buildings'>): number {
-  return (Object.keys(BUILDINGS) as BuildingId[]).reduce((sum, id) => sum + (BUILDINGS[id].spaceContainerCap || 0) * state.buildings[id], 0);
-}
 export function countAssignedContainers(state: Pick<GameState, 'containerAssignments'>): number {
   return Object.values(state.containerAssignments).reduce((sum, count) => sum + count, 0);
 }

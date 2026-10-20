@@ -1,6 +1,7 @@
 import { DNA_BASE_IDS, DNA_KNOWLEDGE_COST, GENE_DEFINITIONS } from '../data/genes';
 import { recordKnowledgeSpent } from './statistics';
 import type { BuildingId } from '../types/buildings';
+import type { ResourceAmounts } from '../types/economy';
 import type { DnaId, GameState, GeneId, GeneModificationState } from '../types/state';
 
 /** Highest level whose next price still fits a safe-integer DNA stock (10·2^49 < 2^53). */
@@ -14,47 +15,110 @@ export function createGeneModificationState(): GeneModificationState {
   };
 }
 
-/** 基因合成 per powered 生物科学实验室 and per 1% rate: 2000 knowledge/s → 0.01 base/s (10% = 20k → 0.1). */
-export const GENE_SYNTHESIS_KNOWLEDGE_PER_PERCENT = 2000;
-export const GENE_SYNTHESIS_DNA_PER_PERCENT = .01;
-export const MAX_GENE_SYNTHESIS_RATE = 100;
+/**
+ * 基因合成 diverts a share of the knowledge that actually reaches the pool, the
+ * same way dl.exe funds bytes: the four sliders split one 100% budget between the
+ * bases and never touch stored knowledge. The conversion ratio is unchanged — one
+ * DNA base still costs `DNA_KNOWLEDGE_COST` knowledge.
+ */
+export const MAX_GENE_SYNTHESIS_TOTAL = 100;
+/** Kept for save validation of a single slider; the real cap is the shared total. */
+export const MAX_GENE_SYNTHESIS_RATE = MAX_GENE_SYNTHESIS_TOTAL;
+
+/** The panel shows this many bases; kept as the public ordering. */
+export { DNA_BASE_IDS };
 
 /** The lab panel needs the tech plus an active 基因修饰 (基因剪切 + this run's 基因测序). */
 export function isGeneSynthesisUnlocked(state: Pick<GameState, 'tech' | 'crispr' | 'arpaBuildings'>): boolean {
   return state.tech.includes('geneSynthesis') && isGeneModificationUnlocked(state);
 }
 
-/** Set one base's synthesis rate (integer percent, 0–100 each, independent of the others). */
+export function totalGeneSynthesisRate(state: Pick<GameState, 'geneModification'>): number {
+  const rates = state.geneModification?.synthesis;
+  return rates ? DNA_BASE_IDS.reduce((sum, id) => sum + Math.max(0, rates[id] || 0), 0) : 0;
+}
+
+/** Rate still available to the other bases; sliders share one 100% budget. */
+export function remainingGeneSynthesisBudget(state: Pick<GameState, 'geneModification'>, id: DnaId): number {
+  return Math.max(0, MAX_GENE_SYNTHESIS_TOTAL - (totalGeneSynthesisRate(state) - (state.geneModification.synthesis?.[id] || 0)));
+}
+
+/**
+ * Set one base's share (integer percent). The four rates share 100%, so raising one
+ * takes the budget from the others: the requested value is capped by what is left
+ * after the other three, which is what "互相牵制" means for the sliders.
+ */
 export function changeGeneSynthesisRate(state: GameState, id: string, value: number): boolean {
   if (!isGeneSynthesisUnlocked(state) || !(DNA_BASE_IDS as readonly string[]).includes(id)
     || !Number.isSafeInteger(value) || value < 0 || value > MAX_GENE_SYNTHESIS_RATE) return false;
   const base = id as DnaId;
-  if (state.geneModification.synthesis[base] === value) return false;
-  state.geneModification.synthesis[base] = value;
+  const capped = Math.min(value, remainingGeneSynthesisBudget(state, base));
+  if (state.geneModification.synthesis[base] === capped) return false;
+  state.geneModification.synthesis[base] = capped;
   return true;
 }
 
 export interface GeneSynthesisResult {
-  /** Knowledge actually consumed, per second. */
+  /** Knowledge actually diverted, per second. */
   knowledge: number;
   /** DNA actually produced per base, per second. */
   dna: Partial<Record<DnaId, number>>;
+  /** Knowledge per second that flowed into this settlement (after dl.exe diversion). */
+  knowledgeProduction: number;
+  /** Share of that production diverted, 0–1. */
+  share: number;
 }
 
-/** Withdraw synthesis knowledge from the pool for the powered labs; scales down evenly when knowledge is short. */
-export function settleGeneSynthesis(state: GameState, pool: { knowledge: number }, dt: number, labs: number): GeneSynthesisResult {
-  const result: GeneSynthesisResult = { knowledge: 0, dna: {} };
-  if (!isGeneSynthesisUnlocked(state) || labs <= 0 || dt <= 0) return result;
-  const rates = state.geneModification.synthesis;
-  const percent = DNA_BASE_IDS.reduce((sum, id) => sum + (rates?.[id] || 0), 0);
-  const demand = percent * labs * GENE_SYNTHESIS_KNOWLEDGE_PER_PERCENT * dt;
-  if (demand <= 0) return result;
-  const factor = Math.min(1, Math.max(0, pool.knowledge) / demand);
-  if (factor <= 0) return result;
-  pool.knowledge = Math.max(0, pool.knowledge - demand * factor);
-  result.knowledge = demand * factor / dt;
-  for (const id of DNA_BASE_IDS) if (rates[id]) result.dna[id] = rates[id] * labs * GENE_SYNTHESIS_DNA_PER_PERCENT * factor;
-  return result;
+/**
+ * Observe the knowledge credits that survive dl.exe and divert the configured share
+ * of them into DNA. Wrapping the settlement pool (instead of draining its stock)
+ * keeps synthesis proportional to production and unable to eat saved knowledge.
+ * Later upkeep can only spend knowledge that was actually retained.
+ */
+export function createGeneSynthesisPool(
+  state: GameState,
+  biologyUnits: number,
+  dt: number,
+  inner: ResourceAmounts,
+): { pool: ResourceAmounts; result: () => GeneSynthesisResult } {
+  const active = isGeneSynthesisUnlocked(state) && biologyUnits > 0 && dt > 0;
+  const rates = state.geneModification?.synthesis;
+  const share = active && rates ? Math.min(MAX_GENE_SYNTHESIS_TOTAL, totalGeneSynthesisRate(state)) / 100 : 0;
+  let production = 0;
+  const dna: Partial<Record<DnaId, number>> = {};
+  if (share <= 0) {
+    return { pool: inner, result: () => ({ knowledge: 0, dna: {}, knowledgeProduction: 0, share: 0 }) };
+  }
+  const pool = new Proxy(inner, {
+    set(target, property, value) {
+      if (property !== 'knowledge' || typeof value !== 'number') return Reflect.set(target, property, value);
+      const before = target.knowledge;
+      // Let the inner proxy apply its own diversion first, then take this share of
+      // whatever still reached knowledge. Writing a smaller value never re-triggers
+      // that diversion, because the inner trap only reacts to increases.
+      Reflect.set(target, property, value);
+      const gained = target.knowledge - before;
+      if (gained > 0) {
+        production += gained / dt;
+        const diverted = gained * share;
+        target.knowledge = target.knowledge - diverted;
+        for (const id of DNA_BASE_IDS) {
+          const rate = rates?.[id] || 0;
+          if (rate > 0) dna[id] = (dna[id] || 0) + (gained * rate / 100) / DNA_KNOWLEDGE_COST;
+        }
+      }
+      return true;
+    },
+  });
+  return {
+    pool,
+    result: () => ({
+      knowledge: (Object.values(dna).reduce((sum, amount) => sum + amount, 0) * DNA_KNOWLEDGE_COST) / dt,
+      dna: Object.fromEntries(Object.entries(dna).map(([id, amount]) => [id, amount / dt])) as Partial<Record<DnaId, number>>,
+      knowledgeProduction: production,
+      share,
+    }),
+  };
 }
 
 /** Credit settled synthesis to the DNA stock and record the knowledge spent. */

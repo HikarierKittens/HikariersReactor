@@ -86,7 +86,6 @@ test('retired power storage research remains earned but cannot unlock future pur
   for (const id of ['energyStorage', 'batteryConcentrationRing'] as const) {
     assert.equal(isTechnologyUnlocked(id, state), false);
     assert.equal(state.tech.includes(id), true);
-    assert.equal(TECHNOLOGIES[id].desc, '历史电力储存技术，不提供当前效果。');
   }
   assert.equal(RESOURCES.energy.cap, 0);
 });

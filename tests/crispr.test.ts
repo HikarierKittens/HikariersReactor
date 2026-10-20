@@ -7,7 +7,7 @@ import { RESOURCES } from '../src/data/resources';
 import { createInitialState } from '../src/state/create-state';
 import { validateAndMigrateSave } from '../src/state/validate-save';
 import { launchChallenges } from '../src/simulation/challenges';
-import { calculateAutomaticCraftingMultipliers } from '../src/simulation/crafting';
+import { calculateAutomaticCraftingMultipliers, calculateForgingToolBonus, artisanCraftRate } from '../src/simulation/crafting';
 import { purchaseQueueCapacity } from '../src/simulation/purchases';
 import { buildingQueueCapacity, researchQueueCapacity } from '../src/simulation/queue-settings';
 import { calculateCrisprStorageBonus, calculateCrisprCostReduction, purchaseCrisprUpgrade } from '../src/simulation/crispr';
@@ -28,10 +28,19 @@ test('new CRISPR storage tiers replace and casimir adds independently', () => {
   s.crispr.push('dimensionCompression'); assert.equal(calculateCrisprStorageBonus(s).multiplier, 1.6);
   s.crispr.push('dimensionDistortion', 'casimirEffect'); assert.ok(Math.abs(calculateCrisprStorageBonus(s).multiplier - 1.88) < 1e-8);
 });
-test('automatic artisan upgrades multiply independently and architect doubles both lanes', () => {
+test('技工 is an independent +100% and 工匠大师 doubles artisan throughput', () => {
   const s = fresh(); const b = buildingQueueCapacity(s), r = researchQueueCapacity(s);
-  s.crispr = ['technician']; assert.deepEqual(calculateAutomaticCraftingMultipliers(s), { input: 1, output: 2 });
-  s.crispr.push('masterArtisan', 'architect'); assert.deepEqual(calculateAutomaticCraftingMultipliers(s), { input: 2, output: 4 });
+  // 技工: an independent crafted-output multiplier, shown as its own row.
+  s.crispr = ['technician'];
+  assert.equal(calculateAutomaticCraftingMultipliers(s), 2);
+  // 工匠大师: the artisan makes 0.1/s instead of 0.05/s, so output AND ingredients double.
+  assert.equal(artisanCraftRate(.05, s), .05);
+  s.crispr.push('masterArtisan');
+  assert.equal(artisanCraftRate(.05, s), .1);
+  assert.equal(calculateAutomaticCraftingMultipliers(s), 2, 'throughput, not a modifier');
+  // Neither is a 锻造工具加成 entry.
+  assert.equal(calculateForgingToolBonus(s, 0).total, 0);
+  s.crispr.push('architect');
   assert.equal(buildingQueueCapacity(s), b * 2); assert.equal(researchQueueCapacity(s), r * 2);
   assert.equal(purchaseQueueCapacity(s, 'build'), b * 2); assert.equal(purchaseQueueCapacity(s, 'tech'), r * 2);
 });

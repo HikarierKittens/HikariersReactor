@@ -2,7 +2,7 @@ import { calculateSupportPreview } from './support-preview';
 import { calculateDigitalByteCapacity, type DigitalSupport } from './digital-world';
 import { BUILDINGS } from '../data/buildings';
 import { RESOURCES } from '../data/resources';
-import { calculateStorageBonuses } from './storage-bonuses';
+import { calculateStorageBonuses, calculateLabKnowledgeCapacity } from './storage-bonuses';
 import { CRISPR_UPGRADES } from '../data/crispr';
 import { calculateCrisprStorageBonus } from './crispr';
 import { isContainerAssignable, calculateContainerUnitCapacity } from './containers';
@@ -23,6 +23,8 @@ export interface StorageSnapshot {
   blackHoleStationUnits?: number;
   biologyUnits: number;
   dataCenterUnits: number;
+  /** Funded 实验室 units (powered AFTER 电力); each adds a further 1000 knowledge cap. */
+  labUnits?: number;
   moonBaseUnits: number;
   moon: MoonSupport;
   asriel: AsrielSupport;
@@ -50,6 +52,7 @@ function withStorageSupportFallback(state: GameState, snapshot: StorageSnapshot)
     },
     get e710ContainerUnits() { return snapshot.e710ContainerUnits ?? support().e710ContainerUnits; },
     get e710WarehouseUnits() { return snapshot.e710WarehouseUnits ?? support().e710WarehouseUnits; },
+    get labUnits() { return snapshot.labUnits ?? support().labUnits; },
     get researchStationUnits() { return snapshot.researchStationUnits ?? support().researchStationUnits; },
     get blackHoleStationUnits() { return snapshot.blackHoleStationUnits ?? support().blackHoleStationUnits; },
   };
@@ -77,25 +80,28 @@ function accumulateStorageRows(
   replayResource: ResourceId | null = null,
 ): void {
   const crispr = calculateCrisprStorageBonus(state);
+  // The caller always supplies a withStorageSupportFallback-wrapped snapshot, so
+  // every lazy `?? calculateSupportPreview(state)` here would be unreachable.
+  const stageThree = snapshot.stageThree!;
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
-    const count = id === 'anchorFreightStation' ? (state.buildings[id] ? snapshot.stageThree?.freight ?? calculateSupportPreview(state).stageThree.freight : 0)
-      : id === 'iceMiningShip' ? (state.buildings[id] ? snapshot.stageThree?.iceShips ?? calculateSupportPreview(state).stageThree.iceShips : 0)
-      : id === 'asteroidBase' ? (state.buildings[id] ? snapshot.stageThree?.asteroidBases ?? calculateSupportPreview(state).stageThree.asteroidBases : 0)
-      : id === 'civilianRouteStation' ? (state.buildings[id] ? snapshot.stageThree?.civilian ?? calculateSupportPreview(state).stageThree.civilian : 0)
-      : id === 'e710Container' ? (detailResource === 'e710' ? snapshot.e710ContainerUnits ?? calculateSupportPreview(state).e710ContainerUnits : 0)
-      : id === 'e710Warehouse' ? (detailResource === 'e710' ? snapshot.e710WarehouseUnits ?? calculateSupportPreview(state).e710WarehouseUnits : 0)
+    const count = id === 'anchorFreightStation' ? (state.buildings[id] ? stageThree.freight : 0)
+      : id === 'iceMiningShip' ? (state.buildings[id] ? stageThree.iceShips! : 0)
+      : id === 'asteroidBase' ? (state.buildings[id] ? stageThree.asteroidBases! : 0)
+      : id === 'civilianRouteStation' ? (state.buildings[id] ? stageThree.civilian : 0)
+      : id === 'e710Container' ? (detailResource === 'e710' ? snapshot.e710ContainerUnits! : 0)
+      : id === 'e710Warehouse' ? (detailResource === 'e710' ? snapshot.e710WarehouseUnits! : 0)
       : id === 'moonBase' ? snapshot.moonBaseUnits
-      : id === 'quantizedCompressionModule' ? (state.buildings[id] ? (snapshot.digital ?? calculateSupportPreview(state).digital).compressionUnits : 0)
-      : id === 'ethMiner' ? (snapshot.digital ?? calculateSupportPreview(state).digital).minerUnits
+      : id === 'quantizedCompressionModule' ? (state.buildings[id] ? snapshot.digital!.compressionUnits : 0)
+      : id === 'ethMiner' ? snapshot.digital!.minerUnits
       : id === 'biologyLab' ? snapshot.biologyUnits
       : id === 'observatory' ? snapshot.dataCenterUnits
       : id === 'moonObservatory' ? snapshot.moon.allocations.moonObservatory || 0
       : id === 'ecologicalDome' ? snapshot.asriel.allocations.ecologicalDome || 0
       : id === 'alienMaterialLab' ? snapshot.asriel.allocations.alienMaterialLab || 0
-      : id === 'hyperspaceSpaceport' ? (state.buildings[id] ? snapshot.stageThree?.ports ?? calculateSupportPreview(state).stageThree.ports : 0)
-      : id === 'e710ResearchStation' ? (state.buildings[id] ? snapshot.researchStationUnits ?? calculateSupportPreview(state).researchStationUnits : 0) : state.buildings[id];
+      : id === 'hyperspaceSpaceport' ? (state.buildings[id] ? stageThree.ports! : 0)
+      : id === 'e710ResearchStation' ? (state.buildings[id] ? snapshot.researchStationUnits! : 0) : state.buildings[id];
     const freightMultiplier = id === 'anchorFreightStation' && count > 0
-      ? calculateFreightCapacityMultiplier(state, snapshot.stageThree?.asteroidBases ?? (state.buildings.asteroidBase ? calculateSupportPreview(state).stageThree.asteroidBases : 0), (snapshot.digital ?? calculateSupportPreview(state).digital).dataCompressionUnits) : 1;
+      ? calculateFreightCapacityMultiplier(state, stageThree.asteroidBases!, snapshot.digital!.dataCompressionUnits) : 1;
     const bonuses = calculateStorageBonuses(id, state, snapshot.moon, snapshot.asriel, snapshot.digital);
     const record = (resource: ResourceId, value: number) => {
       if (!value) return;
@@ -106,6 +112,20 @@ function accumulateStorageRows(
       if (rows && resource === detailResource) rows.push({ name: BUILDINGS[id].name + ' ×' + formatNumber(count), value });
     };
     for (const [resource, base] of Object.entries(bonuses) as [ResourceId, number][]) record(resource, base * count * freightMultiplier);
+    // 实验室 is the one building whose per-unit capacity depends on funding:
+    // calculateStorageBonuses reports the base row and this adds only the funded
+    // difference through the shared helper, so every entry point agrees. The extra
+    // row needs its own label: an identically-named second row was deduplicated in
+    // the tooltip, which made the detail look like it never reacted to power.
+    if (id === 'lab' && bonuses.knowledge && (!replayResource || replayResource === 'knowledge')) {
+      const base = bonuses.knowledge * count;
+      const total = calculateLabKnowledgeCapacity(state, count, snapshot.labUnits ?? 0);
+      const extra = total - base;
+      if (extra) {
+        if (totals) totals.knowledge = (totals.knowledge || 0) + extra;
+        if (rows && detailResource === 'knowledge') rows.push({ name: BUILDINGS[id].name + ' ×' + formatNumber(count) + '（供电）', value: extra });
+      }
+    }
   }
   if (detailResource && isContainerAssignable(detailResource, state)) {
     for (const [label, assignments, multiplier] of [['集装箱', state.containerAssignments, 1], ['合金集装箱', state.alloyContainerAssignments, 4]] as const) {
@@ -187,9 +207,9 @@ function pushDarkEnergyRow(state: GameState, resource: ResourceId, totals: Parti
   rows.push({ name: '暗能量加成', value: subtotal * bonus });
 }
 
-/** Per completed 空间撕裂者: 20% plus 1% per funded 黑洞星际站. */
+/** Per completed 空间撕裂者: 20% plus 1% per funded 黑洞星际站. Callers pass an already-resolved snapshot. */
 export function calculateRipperKnowledgeBonus(state: GameState, snapshot: Pick<StorageSnapshot, 'blackHoleStationUnits'>): number {
-  const stations = state.buildings.blackHoleStation ? snapshot.blackHoleStationUnits ?? calculateSupportPreview(state).blackHoleStationUnits : 0;
+  const stations = state.buildings.blackHoleStation ? snapshot.blackHoleStationUnits ?? 0 : 0;
   return calculateRipperKnowledgeBonusValue(stations);
 }
 
@@ -197,14 +217,14 @@ export function calculateStorageDetails(resource: ResourceId, state: GameState, 
   if (resource === 'energy') return { rows: [], total: 0 };
   snapshot = withStorageSupportFallback(state, snapshot);
   if (resource === 'bytes') {
-    const digital = snapshot.digital ?? calculateSupportPreview(state).digital;
+    const digital = snapshot.digital!;
     const rows = [{ name: '基础储量', value: 10000 }];
     if (digital.quantumStorageUnits) rows.push({ name: '量子存储器 ×' + formatNumber(digital.quantumStorageUnits), value: digital.quantumStorageUnits * 10000 * (1 + .25 * digital.dataCompressionUnits) });
     if (digital.memoryUnits) rows.push({ name: '记忆核心 ×' + formatNumber(digital.memoryUnits), value: digital.memoryUnits * 50000 * (1 + .15 * digital.dataCompressionUnits) });
     return { rows, total: calculateDigitalByteCapacity(digital) };
   }
   if (resource === 'encryptedData') {
-    const digital = snapshot.digital ?? calculateSupportPreview(state).digital;
+    const digital = snapshot.digital!;
     const extra = state.tech.includes('encryptedDataAnalysis') ? digital.memoryUnits * 25000 : 0;
     return { rows: [{ name: '基础储量', value: 50000 }, ...(extra ? [{ name: '记忆核心 ×' + formatNumber(digital.memoryUnits), value: extra }] : [])], total: 50000 + extra };
   }
@@ -270,8 +290,8 @@ export function calculateStorageTotals(state: GameState, snapshot: StorageSnapsh
   // Same post-CRISPR subtotal as the detail row, so both paths agree exactly.
   const ripperCores = countRunningBuildings('spaceRipper', state);
   if (ripperCores) totals.knowledge = (totals.knowledge || 0) * (1 + calculateRipperKnowledgeBonus(state, snapshot) * ripperCores);
-  totals.bytes = calculateDigitalByteCapacity(snapshot.digital ?? calculateSupportPreview(state).digital);
-  totals.encryptedData = 50000 + (state.tech.includes('encryptedDataAnalysis') ? (snapshot.digital ?? calculateSupportPreview(state).digital).memoryUnits * 25000 : 0);
+  totals.bytes = calculateDigitalByteCapacity(snapshot.digital!);
+  totals.encryptedData = 50000 + (state.tech.includes('encryptedDataAnalysis') ? snapshot.digital!.memoryUnits * 25000 : 0);
   // Electricity is instantaneous supply; no storage source or multiplier may
   // turn this retained formula resource ID back into an inventory.
   totals.energy = 0;

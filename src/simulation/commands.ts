@@ -14,6 +14,8 @@ import { isFactoryLineUnlocked } from './factory-settlement';
 
 import { calculateContainerRecipe, calculateContainerCapacity, countAssignedContainers, isContainerAssignable, calculateAlloyContainerCapacity, countAssignedAlloyContainers, ALLOY_CONTAINER_RECIPE } from './containers';
 import { payResourceCost } from './costs';
+import { abandonOccupation, executeRaid } from './neighbors';
+import { buildRaidEconomy } from './neighbor-economy';
 import { SPACE_MISSIONS, completeRegionalMissionNow } from './space-missions';
 
 export function createContainers(state: GameState, count: number): number {
@@ -107,6 +109,16 @@ export function changeGovernment(state: GameState, id: string): boolean {
   state.government = government;
   state.lastReformTime = state.time;
   return true;
+}
+/** Sends soldiers on a raid; returns false when the action was rejected. */
+export function raidNeighbor(state: GameState, id: string, tier: number, soldiers: number): boolean {
+  // Loot is derived from the player's own output, so this boundary resolves it once
+  // rather than letting the pure raid logic reach back into production.
+  return executeRaid(state, id, tier, soldiers, Math.random, buildRaidEconomy(state)).ok;
+}
+/** Withdraws the garrison from an occupied city. */
+export function withdrawFromNeighbor(state: GameState, id: string): boolean {
+  return abandonOccupation(state, id);
 }
 export function craftManually(state: GameState, id: string, count: number | 'max'): number {
   if (isChallengeGeneActive(state, 'industrialFracture') || !Object.hasOwn(CRAFT_RECIPES, id) || !isResourceUnlocked(id, state)) return 0;

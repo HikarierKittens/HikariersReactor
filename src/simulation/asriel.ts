@@ -41,12 +41,23 @@ export function isSpaceResourceSource(id: string): boolean {
     'iceMiningShip', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'metalMiningShip', 'fuelMiningShip', 'adamantiteMiningShip', 'grapheneFactory'].includes(id);
 }
 
+/** 星环空间站: per-Asriel-resident output bonus, shared by settlement and tooltip. */
+export const STAR_RING_RESIDENT_BONUS = .0025;
+/**
+ * 星环优化 no longer raises the base ring value; it only adds this step for every
+ * supported 外星材料实验室 (0.01 percentage points each).
+ */
+export const STAR_RING_LAB_STEP = .0001;
+
+export function calculateStarRingCoefficient(state: Pick<GameState, 'tech'>, laboratories: number): number {
+  const labs = Math.max(0, laboratories);
+  return STAR_RING_RESIDENT_BONUS + (state.tech.includes('starRingOptimization') ? STAR_RING_LAB_STEP * labs : 0);
+}
+
 export function calculateSpaceMultiplier(id: string, state: Pick<GameState, 'population' | 'workers' | 'buildings' | 'tech'>, support: AsrielSupport): number {
   // Ring bonuses apply only at resource sources, never again to downstream production.
   // Stations are permanently active; laboratories must have remaining Asriel support.
   if (!isSpaceResourceSource(id)) return 1;
-  const coefficient = state.tech.includes('starRingOptimization')
-    ? .006 + .0001 * (support.allocations.alienMaterialLab || 0)
-    : .005;
+  const coefficient = calculateStarRingCoefficient(state, support.allocations.alienMaterialLab || 0);
   return 1 + coefficient * (state.buildings.starRingStation || 0) * countAsrielResidents(state, support);
 }

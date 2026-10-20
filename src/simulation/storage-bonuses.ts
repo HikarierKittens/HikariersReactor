@@ -4,12 +4,35 @@ import type { DigitalSupport } from './digital-world';
 import { BUILDINGS } from '../data/buildings';
 import type { BuildingId } from '../types/buildings';
 import { countAsrielResidents } from './asriel';
+import { SPACEPORT_HIGHER_DIMENSIONAL_WATER, RESEARCH_SATELLITE_LAB_CAPACITY } from './building-effects';
 import type { AsrielSupport, ResourceId, ResourceRecipe } from '../types/economy';
 import type { GameState } from '../types/state';
 import type { MoonSupport } from './moon';
 
 export const WAREHOUSE_RESOURCES: ResourceId[] = ['wood', 'stone', 'fur', 'copper', 'iron', 'aluminum', 'cement', 'coal', 'metal'];
 export const ADVANCED_STORAGE_RESOURCES: ResourceId[] = [...WAREHOUSE_RESOURCES, 'titanium', 'alloy'];
+
+/** Shared 实验室 per-building capacity multiplier for its base and powered rows. */
+export function calculateLabKnowledgeMultiplier(state: GameState): number {
+  return (1 + RESEARCH_SATELLITE_LAB_CAPACITY * (state.buildings.researchSatellite || 0)) * (1 + .04 * (state.arpaBuildings?.arpaResearchInstitute || 0));
+}
+
+/**
+ * 实验室 knowledge capacity for `count` owned buildings.
+ *
+ * After 电力 the building becomes a power consumer: every *funded* unit holds
+ * 2000 base capacity instead of 1000. `poweredUnits` is the funded count supplied
+ * by the shared settlement snapshot; unpowered or not-yet-powered units keep the
+ * 1000 base. The single helper keeps storage details, batched totals, quantum
+ * scaling and digital conversion on one formula.
+ */
+export function calculateLabKnowledgeCapacity(state: GameState, count: number, poweredUnits = 0): number {
+  if (!(count > 0)) return 0;
+  const perBuilding = 1000 * calculateLabKnowledgeMultiplier(state);
+  if (!state.tech.includes('electricity')) return perBuilding * count;
+  const powered = Math.min(count, Math.max(0, poweredUnits));
+  return perBuilding * (count + powered);
+}
 
 /** The caller supplies a support snapshot so sub-second simulation and UI agree. */
 export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: MoonSupport | null, asriel?: AsrielSupport | null, digital?: DigitalSupport): ResourceRecipe {
@@ -26,7 +49,7 @@ export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: 
   const dimensional = higherDimensional ? 2 : 1;
   if (id === 'hyperspaceSpaceport') return {
     helium3: 16000 * dimensional,
-    ...(higherDimensional ? { water: 16000 } : {}),
+    ...(higherDimensional ? { water: SPACEPORT_HIGHER_DIMENSIONAL_WATER } : {}),
     ...(isResourceUnlocked('deuterium', state) ? { deuterium: 8000 * dimensional } : {}),
   };
   if (id === 'iceMiningShip') return { water: 100 };
@@ -65,7 +88,7 @@ export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: 
   if (id === 'library') return { knowledge: (state.tech.includes('internet') ? 150 : 100)
     * (1 + (state.tech.includes('knowledgeInheritance') ? .1 * state.buildings.particleAccelerator : 0)) };
   if (id === 'school') return { knowledge: (state.tech.includes('internet') ? 750 : 500) * (1 + .05 * (moon?.allocations.moonObservatory || 0)) * instituteMultiplier };
-  if (id === 'observatory') return { knowledge: 3000 };
+  if (id === 'observatory') return { knowledge: 2500 };
   if (id === 'moonObservatory') return { knowledge: 5000 };
   if (id === 'ecologicalDome') return { food: 2500 };
   // Per supported lab: knowledge follows supported residents; E710 is flat.
@@ -78,7 +101,9 @@ export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: 
   if (id === 'talosMoonMiningStation') return { neutron: 100 };
   if (id === 'galacticFuelDepot') return { oil: 4000, helium3: 2500, uranium: 1500 };
   if (id === 'researchSatellite') return { knowledge: 1500 };
-  if (id === 'lab') return { knowledge: 2000 * (1 + .05 * (state.buildings.researchSatellite || 0)) * instituteMultiplier };
+  // Base 1000 per owned 实验室; the funded second 1000 is added by
+  // calculateLabKnowledgeCapacity through the shared storage pass (see storage.ts).
+  if (id === 'lab') return { knowledge: 1000 * calculateLabKnowledgeMultiplier(state) };
   if (id === 'storageHub') return Object.fromEntries(ADVANCED_STORAGE_RESOURCES.map(r => [r, (state.tech.includes('intelligentStorage') ? 2500 : 1500) * warehouseMultiplier]));
   if (id === 'moonBase') return { iridium: 100 };
   if (id === 'orbitalFuelDepot') return { oil: 2000, helium3: 1000, uranium: 500 };

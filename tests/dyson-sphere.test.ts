@@ -102,7 +102,7 @@ test('Dyson UI stays in alphaSector, outside ground, with segmented tooltip and 
   assert.match(panel, /const SPACE_IDS[^\n]*'dysonSphere'/);
   assert.match(panel, /id: 'alphaSector'[^\n]*'dysonSphere'/);
   const tooltip = readFileSync(new URL('../src/vue/components/TooltipPanel.vue', import.meta.url), 'utf8');
-  assert.match(tooltip, /'penroseSphere', 'dysonSphere', 'massEjector'\]\.includes\(id\)\) tip.description/);
+  assert.match(tooltip, /tip\.description = building\.desc \|\| ''/);
   assert.match(tooltip, /add\('分段进度'/);
   assert.match(tooltip, /orderedCostEntries\(calculateBuildingOutput\(id, state\)\)/);
 });
@@ -148,7 +148,7 @@ test('Dyson compatibility rejects explicitly malformed records and never restore
   assert.equal(normalizeSchema31Save(raw), raw); assert.throws(() => validateCurrentSave(raw, context));
 });
 
-test('previous-release load/import roundtrips and malformed Dyson data remains protected until recovery', t => {
+test('previous-release load/import roundtrips and malformed Dyson data remains protected until recovery', async t => {
   const storage = new Map<string, string>();
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
@@ -167,13 +167,13 @@ test('previous-release load/import roundtrips and malformed Dyson data remains p
   const runtime = createRuntime(); runtime.load(); assert.equal(runtime.saveBlocked, false); check(runtime.state);
   assert.equal(runtime.save(), true);
   const reload = createRuntime(); reload.load(); check(reload.state);
-  const imported = createRuntime(); assert.equal(imported.importSave(json), true); check(imported.state);
+  const imported = createRuntime(); assert.equal(await imported.importSave(json), true); check(imported.state);
   const malformed = fixture(); malformed.buildings.dysonSphere = '0';
   const badBytes = JSON.stringify(malformed); storage.set(CONFIG.saveKey, badBytes);
   const protectedRuntime = createRuntime(); protectedRuntime.load();
   assert.equal(protectedRuntime.saveBlocked, true); assert.equal(protectedRuntime.save(), false);
   assert.equal(storage.get(CONFIG.saveKey), badBytes); assert.equal(protectedRuntime.exportProtectedSave(), badBytes);
-  assert.throws(() => protectedRuntime.importSave(badBytes)); assert.equal(storage.get(CONFIG.saveKey), badBytes);
-  assert.equal(protectedRuntime.importSave(json), true); assert.equal(protectedRuntime.saveBlocked, false); check(protectedRuntime.state);
+  await assert.rejects(() => protectedRuntime.importSave(badBytes)); assert.equal(storage.get(CONFIG.saveKey), badBytes);
+  assert.equal(await protectedRuntime.importSave(json), true); assert.equal(protectedRuntime.saveBlocked, false); check(protectedRuntime.state);
   const recovered = createRuntime(); recovered.load(); check(recovered.state);
 });

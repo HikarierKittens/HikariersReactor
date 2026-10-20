@@ -92,6 +92,7 @@ test('refining applies to ground steel and lunar/outer space iridium before sour
   s.buildings.smelter = 1; s.resources.iron = 100; s.resources.coal = 100;
   s.buildings.moonBase = 1; s.buildings.iridiumMine = 1; s.resources.oil = 100;
   s.buildings.iridiumMiningShip = 1; s.resources.helium3 = 100;
+  s.population = 2; // one quarry worker + one 采矿船操作员 for the enabled iridium ship
   const original = calculateProduction(s);
   s.tech.push('advancedMetalRefining');
   const advanced = calculateProduction(s);

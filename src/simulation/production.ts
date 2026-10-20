@@ -18,7 +18,7 @@ import { countRunningBuildings } from './housing';
 import { buildSettlementLedger } from './support-preview';
 import { replaySettledPool } from './pool-replay';
 import { settleMassEjection } from './black-hole';
-import { settleGeneSynthesis } from './genes';
+import { createGeneSynthesisPool } from './genes';
 import type { BuildingId } from '../types/buildings';
 import type { GameState } from '../types/state';
 
@@ -39,7 +39,7 @@ export function previewMorale(state: GameState, dt = 1) {
       generatorSpeed: (Object.keys(BUILDINGS) as BuildingId[]).filter(isPowerProducer).reduce((sum, id) => sum + countRunningBuildings(id, state), 0),
       generatorEnergy: plants.energy, coalRatio: coalSpeed ? (plants.outputs.generator || 0) / coalSpeed : 1,
       moonBaseUnits: support.space.moon.baseUnits,
-      biologyUnits: support.biologyUnits, dataCenterUnits: support.dataCenterUnits,
+      biologyUnits: support.biologyUnits, dataCenterUnits: support.dataCenterUnits, labUnits: support.labUnits,
     });
   };
   let morale = derive(state.happiness);
@@ -69,16 +69,19 @@ export function calculateProduction(state: GameState, dt = 1) {
   const ledger = buildSettlementLedger(state, dt);
   state = ledger.grid.state;
   const digitalProduction = createDigitalProductionPool(state, ledger.digital, dt, morale.happiness);
-  const replay = replaySettledPool(state, ledger, dt, morale.happiness, digitalProduction.pool);
+  // 基因合成 diverts a share of the knowledge that survives dl.exe, exactly like the
+  // download does: it scales with production and never draws on stored knowledge.
+  const geneSynthesis = createGeneSynthesisPool(state, ledger.biologyUnits, dt, digitalProduction.pool);
+  const replay = replaySettledPool(state, ledger, dt, morale.happiness, geneSynthesis.pool);
   const pool = replay.pool, before = { ...state.resources };
   const outputs = replay.outputs, inputUnits = replay.inputUnits;
   const space = ledger.space;
   const { moon, asriel } = space;
   const aiSupercoreUnits = ledger.aiSupercoreUnits;
   const e710WarehouseUnits = ledger.e710WarehouseUnits;
-  const biologyUnits = ledger.biologyUnits, dataUnits = ledger.dataCenterUnits;
+  const biologyUnits = ledger.biologyUnits, dataUnits = ledger.dataCenterUnits, labUnits = ledger.labUnits;
   return withPoweredMetalRefining(state, space.metalRefineryUnits, state => {
-    const quantum = calculateQuantumSnapshot(state, { digital: ledger.digital, stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, blackHoleStationUnits: ledger.blackHoleStationUnits }, aiSupercoreUnits);
+    const quantum = calculateQuantumSnapshot(state, { digital: ledger.digital, stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, labUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, blackHoleStationUnits: ledger.blackHoleStationUnits }, aiSupercoreUnits);
     const factory = settleFactoryLines(state, pool, dt, morale.happiness, asriel, calculateSpaceFuelMultiplier(state, inputUnits.spaceWaystation || 0), quantum.level);
     Object.assign(inputUnits, factory.inputs); Object.assign(outputs, factory.outputs);
     const automation = settleAutomationPower(state, pool, dt);
@@ -91,16 +94,14 @@ export function calculateProduction(state: GameState, dt = 1) {
     const crafting = settleAutomaticCrafting(state, pool, dt, asriel);
     Object.assign(inputUnits, crafting.inputs); Object.assign(outputs, crafting.outputs);
     Object.assign(outputs, settlePopulationIncome(state, pool, morale.happiness, dt));
-    // 基因合成: powered labs convert same-step knowledge into DNA after every knowledge producer.
-    const geneSynthesis = settleGeneSynthesis(state, pool, dt, biologyUnits);
     // 质量喷射: withdraw after every producer so same-step output can be ejected.
     const ejected = settleMassEjection(state, pool, dt, inputUnits.massEjector || 0);
     const actualPower = calculatePowerBudget(ledger.plants.energy, pool.energy, dt);
     // Public power figures use the grid's signed headroom, not actualPower.available
     // (the clamped unspent budget); `used` still comes from the funded settlement.
     const power = { ...actualPower, available: ledger.grid.available };
-    const final = finalizeProduction(state, pool, before, dt, { digital: ledger.digital, stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, blackHoleStationUnits: ledger.blackHoleStationUnits });
-    return { ...final, rates: { ...final.rates, energy: power.available }, power, powerGrid: { requested: ledger.grid.requested, allocated: ledger.grid.allocated, failed: ledger.grid.failed }, digital: digitalProduction.result(), outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis };
+    const final = finalizeProduction(state, pool, before, dt, { digital: ledger.digital, stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, labUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, blackHoleStationUnits: ledger.blackHoleStationUnits });
+    return { ...final, rates: { ...final.rates, energy: power.available }, power, powerGrid: { requested: ledger.grid.requested, allocated: ledger.grid.allocated, failed: ledger.grid.failed }, digital: digitalProduction.result(), outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis: geneSynthesis.result() };
   });
 }
 export type ProductionResult = ReturnType<typeof calculateProduction>;

@@ -2,10 +2,6 @@ import { CRISPR_UPGRADES } from '../data/crispr';
 import type { CrisprUpgradeId, GameState } from '../types/state';
 import { calculateEffectiveParticleCount, isChallengeGeneActive } from './challenges';
 
-export function calculateCrisprUpgradeCost(state: GameState, id: CrisprUpgradeId): number {
-  return CRISPR_UPGRADES[id].cost;
-}
-
 /** Particle storage tiers replace each other; Casimir adds an independent bonus. */
 export function calculateCrisprStorageBonus(state: GameState) {
   const particleUpgrade: CrisprUpgradeId | null = state.crispr.includes('dimensionDistortion') ? 'dimensionDistortion'

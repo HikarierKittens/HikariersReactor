@@ -5,6 +5,7 @@ import { createRuntime } from '../src/app/runtime';
 import { createGameStore } from '../src/app/store';
 import { createInitialState } from '../src/state/create-state';
 import { CONFIG } from '../src/data/config';
+import { decodeSaveText } from '../src/state/save-cipher';
 import { TECHNOLOGIES } from '../src/data/technologies';
 import { enqueueProject } from '../src/simulation/project-queue';
 import { requestPurchaseModule } from '../src/simulation/purchases';
@@ -47,7 +48,7 @@ function environment(t: TestContext) {
   };
 }
 
-test('pre-beta0.6.5 load, import and protected-save recovery preserve earned progress', t => {
+test('pre-beta0.6.5 load, import and protected-save recovery preserve earned progress', async t => {
   const env = environment(t);
   const json = readFileSync(new URL('./fixtures/pre-beta0.6.5-schema31.json', import.meta.url), 'utf8');
   const original = JSON.parse(json);
@@ -72,13 +73,13 @@ test('pre-beta0.6.5 load, import and protected-save recovery preserve earned pro
   assert.equal(protectedRuntime.saveBlocked, true);
   assert.equal(protectedRuntime.save(), false);
   assert.equal(env.writes.get(CONFIG.saveKey), '{broken');
-  assert.equal(protectedRuntime.importSave(json), true);
+  assert.equal(await protectedRuntime.importSave(json), true);
   assert.equal(protectedRuntime.saveBlocked, false);
   check(protectedRuntime.state);
   const recovered = createRuntime(); recovered.load(); check(recovered.state);
 });
 
-test('ascension prestige roundtrips and malformed new fields preserve protected save bytes', t => {
+test('ascension prestige roundtrips and malformed new fields preserve protected save bytes', async t => {
   const env = environment(t);
   const state = env.state();
   state.prestige.harmonyCrystals = 8; state.prestige.ascensionResets = 3;
@@ -96,7 +97,7 @@ test('ascension prestige roundtrips and malformed new fields preserve protected 
   const protectedRuntime = createRuntime(); protectedRuntime.load();
   assert.equal(protectedRuntime.saveBlocked, true); assert.equal(protectedRuntime.save(), false);
   assert.equal(env.writes.get(CONFIG.saveKey), badBytes);
-  assert.equal(protectedRuntime.importSave(JSON.stringify(state)), true);
+  assert.equal(await protectedRuntime.importSave(JSON.stringify(state)), true);
   assert.equal(protectedRuntime.saveBlocked, false);
   const recovered = createRuntime(); recovered.load();
   assert.equal(recovered.state.prestige.harmonyCrystals, 8);
@@ -271,12 +272,12 @@ test('long background gaps settle at normal speed without accelerated catch-up',
   assert.equal(runtime.state.time, 0, 'import/reset cannot inherit another save’s pending simulation');
 });
 
-test('replacement validates atomically, persists, and clears previous clock debt', t => {
+test('replacement validates atomically, persists, and clears previous clock debt', async t => {
   const env = environment(t);
   const runtime = createRuntime();
   runtime.load();
   const previous = runtime.state;
-  assert.throws(() => runtime.importSave('{broken'));
+  await assert.rejects(() => runtime.importSave('{broken'));
   assert.throws(() => runtime.replaceState({ version: 999 }));
   assert.equal(runtime.state, previous);
   assert.equal(env.saves, 0);
@@ -290,19 +291,23 @@ test('replacement validates atomically, persists, and clears previous clock debt
   assert.equal(JSON.parse(env.writes.get(CONFIG.saveKey)!).clicks, 42);
   env.advance(2);
   const timestamp = runtime.state.lastSaved;
-  const exported = JSON.parse(runtime.exportSave());
+  const exported = JSON.parse(runtime.exportSavePlaintext());
   assert.equal(exported.lastSaved, timestamp + 2000);
   assert.equal(runtime.state.lastSaved, timestamp);
+  // The encrypted export decrypts back to the same payload.
+  const envelope = await runtime.exportSave();
+  assert.match(envelope, /^MEOE1\.1\./);
+  assert.equal(JSON.parse(await decodeSaveText(envelope)).clicks, 42);
 });
 
-test('accepted import exposes persistence failure without losing imported progress', t => {
+test('accepted import exposes persistence failure without losing imported progress', async t => {
   const env = environment(t);
   const runtime = createRuntime();
   runtime.load();
   const imported = env.state();
   imported.clicks = 22;
   env.failWrite = true;
-  assert.equal(runtime.importSave(JSON.stringify(imported)), false);
+  assert.equal(await runtime.importSave(JSON.stringify(imported)), false);
   assert.equal(runtime.state.clicks, 22);
   assert.equal(runtime.saveFailed, true);
 });

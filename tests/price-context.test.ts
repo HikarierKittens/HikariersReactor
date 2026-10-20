@@ -22,6 +22,8 @@ function lateState(): GameState {
   state.arpaBuildings.arpaResearchInstitute = 2;
   state.buildings.aiSupercore = 100;
   state.buildings.ironMiningShip = 5;
+  // Five enabled iron ships need five 采矿船操作员 out of the idle population.
+  state.population = 5;
   state.asteroidBeltMissionCompleted = true;
   state.buildings.swarmControlStation = 1;
   state.buildings.swarmFactory = 2;

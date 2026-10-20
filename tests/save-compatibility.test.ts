@@ -21,7 +21,7 @@ test('frozen pre-beta0.6.5 JSON upgrades only missing building entries and round
   const before = structuredClone(raw); freeze(raw);
   const state = validateCurrentSave(raw, context);
   const expected = structuredClone(before);
-  for (const field of fields) for (const id of ['dysonSphere', 'hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore', 'solarFarm']) expected[field][id] = 0;
+  for (const field of fields) for (const id of ['dysonSphere', 'hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore', 'solarFarm', 'hospital']) expected[field][id] = 0;
   for (const field of ['resources', 'containerAssignments', 'alloyContainerAssignments']) {
     expected[field].bytes = 0;
     expected[field].encryptedData = 0;
@@ -31,6 +31,10 @@ test('frozen pre-beta0.6.5 JSON upgrades only missing building entries and round
   expected.resources.energy = 0;
   expected.downloadAllocation = 0;
   expected.powerActivationOrder = [];
+  // 临近势力 arrived after this frozen snapshot: both new fields are backfilled.
+  expected.wounded = 0;
+  expected.hospitalProgress = 0;
+  expected.neighbors = { values: state.neighbors.values, occupied: [], lastActionTime: null };
   expected.prestige.harmonyCrystals = 0;
   expected.prestige.ascensionResets = 0;
   expected.statistics.lifetime.harmonyCrystalsEarned = 0;

@@ -15,6 +15,10 @@ const registry = [
   ['prestige-unlocks', 'simulation/prestige-unlocks'],
   ['gene-data', 'data/genes'],
   ['genes', 'simulation/genes'],
+  ['neighbor-data', 'data/neighbors'],
+  ['neighbors', 'simulation/neighbors'],
+  ['hospital', 'simulation/hospital'],
+  ['validate-neighbors', 'state/validate-neighbors'],
   ['auto-workers', 'simulation/auto-workers'],
   // Central grade/mastery/award helpers must be global before state, production and reset consumers.
   ['achievement-tracking', 'simulation/achievement-tracking'],
@@ -68,6 +72,7 @@ const registry = [
   ['production-finalize', 'simulation/production-finalize'],
   ['factory-settlement', 'simulation/factory-settlement'],
   ['e710-storage', 'simulation/e710-storage'],
+  ['ship-crew', 'simulation/ship-crew'],
   ['space-settlement', 'simulation/space-settlement'],
   ['power-consumers', 'simulation/power-consumers'],
   ['ground-settlement', 'simulation/ground-settlement'],

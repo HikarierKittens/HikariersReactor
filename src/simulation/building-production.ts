@@ -41,6 +41,8 @@ export function calculateToolMultiplier(id: BuildingId, state: Pick<GameState, '
 export function hasContinuousEnergyInput(id: BuildingId, state: Pick<GameState, 'tech'>): boolean {
   const building = BUILDINGS[id];
   if (id === 'metalRefinery') return state.tech.includes('advancedMetalRefining');
+  // 实验室 becomes a power consumer once 电力 is researched.
+  if (id === 'lab') return state.tech.includes('electricity');
   if (building.alwaysRunning) return false;
   if (building.moonSupport || building.support || building.toggleable) return true;
   if (id === 'mine' || id === 'coalMine' || id === 'lumber' || id === 'quarry') return state.tech.includes('automatedMining');
