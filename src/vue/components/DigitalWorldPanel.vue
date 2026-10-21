@@ -7,6 +7,7 @@ import { calculateBuildingCost, canPayCost, isBuildingFullyBuilt } from '../../s
 import { countRunningBuildings } from '../../simulation/housing';
 import { hasContinuousEnergyInput } from '../../simulation/building-production';
 import { buildingUnlocked, clickMultiplier, fmt } from '../format';
+import { withConstructionPhases } from '../construction-rows';
 import { uiPreview } from '../preview-cache';
 
 const props = defineProps<{ state: GameState; revision: number }>();
@@ -31,7 +32,7 @@ const sections = computed(() => {
       { id: 'npu', name: 'NPU', description: '我看到了她的意识和心灵。', list: ['ethMiner', 'aesComputeModule', 'worldSimulator'] as BuildingId[] },
     ] : []),
     ...(props.state.tech.includes('agi') ? [{ id: 'agi-core', name: 'AI超级核心', description: '"Hikarier.Execute"的内心世界', list: ['agiCoreComponent', 'coreCooler', 'agiAscensionCore'] as BuildingId[] }] : []),
-  ].map(section => ({ ...section, list: section.list.filter(id => buildingUnlocked(id, props.state)) }));
+  ].map(section => ({ ...section, list: withConstructionPhases(section.list.filter(id => buildingUnlocked(id, props.state)), props.state) }));
 });
 const qHeld = ref(false);
 function keyDown(event: KeyboardEvent): void { if (event.key.toLowerCase() === 'q') qHeld.value = true; }
@@ -40,8 +41,15 @@ function resetKey(): void { qHeld.value = false; }
 function visibility(): void { if (document.hidden) resetKey(); }
 onMounted(() => { window.addEventListener('keydown', keyDown); window.addEventListener('keyup', keyUp); window.addEventListener('blur', resetKey); document.addEventListener('visibilitychange', visibility); });
 onUnmounted(() => { window.removeEventListener('keydown', keyDown); window.removeEventListener('keyup', keyUp); window.removeEventListener('blur', resetKey); document.removeEventListener('visibilitychange', visibility); });
-function queued(id: BuildingId): number { return props.state.queue.filter(item => item.kind === 'build' && item.id === id).length; }
-function atLimit(id: BuildingId): boolean { return props.state.buildings[id] + queued(id) >= (BUILDINGS[id].max ?? Infinity); }
+function queued(id: BuildingId): number { return props.state.queue.reduce((sum, item) => sum + (item.kind === 'build' && item.id === id ? (item.segments ?? 1) : 0), 0); }
+function atLimit(id: BuildingId): boolean {
+  const building = BUILDINGS[id];
+  if (building.buildable === false) return true;
+  // A construction phase is capped by the completed building's unit limit (one AGI core).
+  const into = building.completesInto;
+  if (into && BUILDINGS[into].max !== undefined && (props.state.buildings[into] || 0) >= BUILDINGS[into].max!) return true;
+  return props.state.buildings[id] + queued(id) >= (building.segmentedRequired ?? building.max ?? Infinity);
+}
 function affordable(id: BuildingId): boolean { return canPayCost(props.state.resources, calculateBuildingCost(id, props.state.buildings[id], props.state)); }
 function running(id: BuildingId): number { return countRunningBuildings(id, props.state); }
 function effective(id: BuildingId): number {

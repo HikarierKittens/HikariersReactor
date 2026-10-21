@@ -2,9 +2,9 @@ import { CONFIG } from '../src/data/config';
 import assert from 'node:assert/strict';
 import { supplyPower } from './support/power';
 import { advanceSoldierTraining } from '../src/simulation/military';
-import { calculateSoldierCapacity, calculateOperationalSoldierCapacity } from '../src/simulation/government';
+import { calculateSoldierCapacity, calculateOperationalSoldierCapacity, calculateArmyLimit } from '../src/simulation/government';
 
-test('garrison training uses whole paid upkeep without shrinking the owned army ceiling', () => {
+test('garrison training uses whole paid upkeep while soldiers above the limit are removed', () => {
   for (const dt of [.2, 1]) {
     const s = createInitialState(CONFIG.version, 60, 0); s.tech.push('military');
     s.buildings.spaceGarrison = 2; s.stoppedBuildings.spaceGarrison = 1;
@@ -13,17 +13,22 @@ test('garrison training uses whole paid upkeep without shrinking the owned army 
     assert.equal(paid, 1); assert.equal(calculateOperationalSoldierCapacity(s, paid), 2);
     s.trainingProgress = 30 - dt; advanceSoldierTraining(s, dt);
     assert.equal(s.soldiers, 1);
+    // Unpaid upkeep pauses training but never deletes a soldier that is inside the limit.
     s.resources.oil = 0; s.trainingProgress = 30 - dt;
+    const limitWhileUnpaid = calculateArmyLimit(s);
+    assert.equal(limitWhileUnpaid, 2, 'the limit follows switched-on capacity, not payment');
     advanceSoldierTraining(s, dt); assert.equal(s.soldiers, 1); assert.equal(s.trainingProgress, 0);
-    s.soldiers = 4; s.stoppedBuildings.spaceGarrison = 2;
-    advanceSoldierTraining(s, dt); assert.equal(s.soldiers, 4); assert.equal(calculateSoldierCapacity(s), 4);
+    // Switching the garrison off lowers the limit and removes the surplus at once.
+    s.stoppedBuildings.spaceGarrison = 2;
+    assert.equal(calculateArmyLimit(s), 0);
+    advanceSoldierTraining(s, dt); assert.equal(s.soldiers, 0); assert.equal(calculateSoldierCapacity(s), 4);
     assert.equal(calculateOperationalSoldierCapacity(s, .5), 0);
   }
 });
 
 test('AI core pays both upkeep resources only when a whole core can run', () => {
   for (const dt of [.2, 1]) {
-    const s = createInitialState(CONFIG.version, 60, 0); s.tech.push('artificialIntelligenceII'); s.buildings.aiSupercore = 100;
+    const s = createInitialState(CONFIG.version, 60, 0); s.tech.push('artificialIntelligenceII'); s.buildings.aiSupercore = 1;
     s.resources.helium3 = 25 * dt; supplyPower(s, 100);
     let p = calculateProduction(s, dt);
     assert.equal(p.inputUnits.aiSupercore, 1);
@@ -42,7 +47,7 @@ test('AI core pays both upkeep resources only when a whole core can run', () => 
     assert.equal(p.inputUnits.aiSupercore, 0);
     assert.deepEqual(p.power, { generated: 100, used: 0, available: 0 });
     assert.equal(p.rates.energy, 0);
-    s.resources.helium3 = 25 * dt; s.buildings.aiSupercore = 99;
+    s.resources.helium3 = 25 * dt; s.buildings.aiSupercore = 0; s.buildings.aiSupercoreSegments = 99;
     p = calculateProduction(s, dt);
     assert.equal(p.inputUnits.aiSupercore, 0);
     assert.deepEqual(p.power, { generated: 100, used: 0, available: 100 });
@@ -53,7 +58,7 @@ test('AI core pays both upkeep resources only when a whole core can run', () => 
 test('AI power warning compares whole cores rather than construction segments', () => {
   const s = createInitialState(CONFIG.version, 60, 0);
   s.tech.push('artificialIntelligenceII');
-  s.buildings.aiSupercore = 100;
+  s.buildings.aiSupercore = 1;
   s.resources.helium3 = 25; supplyPower(s, 100);
   assert.equal(isBuildingUnderworking('aiSupercore', s, calculateProduction(s)), false);
   s.resources.helium3 = 24;
@@ -61,7 +66,7 @@ test('AI power warning compares whole cores rather than construction segments', 
   s.stoppedBuildings.aiSupercore = 1;
   assert.equal(isBuildingUnderworking('aiSupercore', s, calculateProduction(s)), false);
   s.stoppedBuildings.aiSupercore = 0;
-  s.buildings.aiSupercore = 99;
+  s.buildings.aiSupercore = 0; s.buildings.aiSupercoreSegments = 99;
   assert.equal(isBuildingUnderworking('aiSupercore', s, calculateProduction(s)), false);
 });
 import { calculateQuantumLevel, calculateQuantumSnapshot, calculateSwarmSupportCapacity } from '../src/simulation/quantum';
@@ -162,12 +167,12 @@ test('alien labs require support for capacities and ring optimization uses suppo
 });
 test('AI core segments have immutable cost and grant quantum only when complete and fueled', () => {
   const s = fresh(); s.tech.push('artificialIntelligenceII'); s.buildings.lab = 50;
-  s.buildings.aiSupercore = 99; s.resources.helium3 = 1000; supplyPower(s, 1000);
+  s.buildings.aiSupercore = 0; s.buildings.aiSupercoreSegments = 99; s.resources.helium3 = 1000; supplyPower(s, 1000);
   const base = calculateQuantumLevel(s);
   s.crispr.push('materialEfficiency');
-  assert.deepEqual(calculateBuildingCost('aiSupercore', 0, s), calculateBuildingCost('aiSupercore', 999, s));
-  assert.deepEqual(calculateBuildingCost('aiSupercore', 999, s), { cash: 100000, metal: 10000, alloy: 5000, e710: 10, nanotubes: 50000 });
-  s.buildings.aiSupercore = 100;
+  assert.deepEqual(calculateBuildingCost('aiSupercoreSegments', 0, s), calculateBuildingCost('aiSupercoreSegments', 999, s));
+  assert.deepEqual(calculateBuildingCost('aiSupercoreSegments', 999, s), { cash: 100000, metal: 10000, alloy: 5000, e710: 10, nanotubes: 50000 });
+  s.buildings.aiSupercore = 1; s.buildings.aiSupercoreSegments = 0;
   assert.equal(calculateQuantumLevel(s), Math.floor(calculateQuantumSnapshot(s).base * 1.25 * 100) / 100);
   assert.ok(Math.abs(calculateProduction(s).rates.helium3 + 25) < 1e-8);
   s.buildings.spaceWaystation = 1; supplyPower(s, 100);
@@ -176,10 +181,10 @@ test('AI core segments have immutable cost and grant quantum only when complete 
 });
 test('each segmented queue project reserves one slot and requests ten percent of total construction', () => {
   const s = fresh(); s.tech.push('artificialIntelligenceII'); s.talosMoonMissionCompleted = true;
-  for (let i = 0; i < 2; i++) assert.equal(requestPurchaseModule(s, 'build', 'aiSupercore', 0, true).status, 'queued');
+  for (let i = 0; i < 2; i++) assert.equal(requestPurchaseModule(s, 'build', 'aiSupercoreSegments', 0, true).status, 'queued');
   assert.equal(s.queue.length, 2); assert.equal(queueLength(s, 'build'), 2);
   assert.ok(s.queue.every(item => item.kind === 'build' && item.segments === 10));
-  assert.equal(requestPurchaseModule(s, 'build', 'aiSupercore', 0, true).status, 'queue-full');
+  assert.equal(requestPurchaseModule(s, 'build', 'aiSupercoreSegments', 0, true).status, 'queue-full');
   assert.equal(validateSaveQueue(s.queue, s).length, 2);
   const first = s.queue[0]; assert.ok(first);
   removeQueuedPurchase(s, first.uid); assert.equal(queueLength(s, 'build'), 1);
@@ -460,16 +465,16 @@ test('missing additive fields reject and explicit malformed outer fields reject'
   for (const mutate of [(s:any)=>s.solarMissionCompleted=null, (s:any)=>s.resources.neutron=-1, (s:any)=>s.containerAssignments.neutron=1, (s:any)=>s.stoppedBuildings.swarmSatellite=null]) {
     const bad = JSON.parse(JSON.stringify(fresh())); mutate(bad); assert.throws(() => validateAndMigrateSave(bad, context));
   }
-  const full = fresh(); full.tech = Object.keys(TECHNOLOGIES).filter(id => !['spaceControlTower', 'globalObservationCalibration', 'anomalyMapping', 'fieldConstraintTheory', 'dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','dysonSphere','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','hazardousMaterialStorage','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[]; full.prestige.nuclearResets = 1;
+  const full = fresh(); full.tech = Object.keys(TECHNOLOGIES).filter(id => !['spaceControlTower', 'globalObservationCalibration', 'anomalyMapping', 'fieldConstraintTheory', 'dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoArmor','nanoExoskeleton','advancedConcrete','nanoAlloy','dysonSphere','dysonSphereII','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','hazardousMaterialStorage','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[]; full.prestige.nuclearResets = 1;
   full.asrielMissionCompleted = full.kerberosMissionCompleted = full.solarMissionCompleted = full.talosMissionCompleted = full.talosMoonMissionCompleted = full.asteroidBeltMissionCompleted = full.misenMissionCompleted = true;
   full.arpaBuildings.rocketPlatform = full.arpaBuildings.monument = full.arpaBuildings.geneSequencing = 1; full.arpaBuildings.arpaResearchInstitute = 2;
-  full.buildings.aiSupercore = 137; full.stoppedBuildings.aiSupercore = 1;
+  full.buildings.aiSupercore = 1; full.stoppedBuildings.aiSupercore = 1;
   const restored = validateAndMigrateSave(JSON.parse(JSON.stringify(full)), context);
   assert.equal(restored.asteroidBeltMissionCompleted, true);
-  assert.equal(restored.buildings.aiSupercore, 137); assert.equal(restored.stoppedBuildings.aiSupercore, 1);
+  assert.equal(restored.buildings.aiSupercore, 1); assert.equal(restored.stoppedBuildings.aiSupercore, 1);
   full.stoppedBuildings.aiSupercore = 2;
   assert.throws(() => validateAndMigrateSave(JSON.parse(JSON.stringify(full)), context));
-  for (const id of ['alienMaterialLab', 'aiSupercore', 'swarmFactory']) {
+  for (const id of ['alienMaterialLab', 'spaceRipper', 'swarmFactory']) {
     const legacy = JSON.parse(JSON.stringify(fresh()));
     for (const field of ['buildings', 'workers', 'stoppedBuildings']) delete legacy[field][id];
     assert.throws(() => validateAndMigrateSave(legacy, context));

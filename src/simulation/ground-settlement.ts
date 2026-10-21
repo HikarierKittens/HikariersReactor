@@ -33,7 +33,7 @@ export function settleGroundProduction(state: GameState, pool: ResourceAmounts, 
     if (b.boostResource) speed *= 1 + n * (id === 'lumber' || id === 'quarry' ? .02 : .05);
     if (b.minerBoost) speed *= 1 + (id === 'coalMine' ? boosts.coalMiningUnits : boosts.miningUnits) * .05;
     if (id === 'lumber' || id === 'quarry') speed *= 1 + (id === 'lumber' ? boosts.lumberUnits : boosts.quarryUnits) * .05;
-    if (id === 'forage') { if (state.tech.includes('agriculturalMachinery')) speed *= 2; if (state.tech.includes('agriculture')) speed *= 1.5; }
+    if (id === 'forage' && state.tech.includes('agriculture')) speed *= 1.5;
     if (out.knowledge) speed *= calculateKnowledgeMultiplier(state, boosts.dataUnits, boosts.digital);
     if (id === 'lab') speed *= 1 + RESEARCH_SATELLITE_LAB_OUTPUT * (state.buildings.researchSatellite || 0);
     let ratio = 1;

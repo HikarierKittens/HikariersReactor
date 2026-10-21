@@ -154,6 +154,12 @@ export const OCCUPATION_OUTPUT_BONUS = .05;
 export const OCCUPATION_TAX_PENALTY = 10;
 /** Opinion regained per game day while occupied (order is restored). */
 export const OCCUPATION_OPINION_RECOVERY = .5;
+/**
+ * 世界统一 (the 统一计划 payoff) replaces every occupation effect: the rival states are gone,
+ * so the output bonus, garrison and tax penalty end and are replaced by these flat bonuses.
+ */
+export const UNIFICATION_OUTPUT_BONUS = .25;
+export const UNIFICATION_STORAGE_BONUS = .25;
 /** Opinion lost per game day per raid above zero? No: raids cost once. Retaliation needs 0. */
 export const RETALIATION_OPINION = 10;
 export const RETALIATION_LOSS = .12;

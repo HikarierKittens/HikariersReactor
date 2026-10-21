@@ -141,6 +141,9 @@ test('cats above housing capacity leave at once, trimming jobs but not soldiers'
   state.resources.food = 1e6;
   state.workers.foundry = 6;
   state.craftWorkers.plank = 2;
+  // Two barracks (limit 4) keep the soldiers below their own ceiling: population loss must not
+  // touch an army that fits.
+  state.buildings.barracks = 2;
   state.soldiers = 4;
   advanceGameTick(state, .1, { ...hooks, capacity: () => 5 });
   assert.equal(state.population, 5);

@@ -15,13 +15,16 @@ function freeze(value: any): void {
   if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); }
 }
 
-test('frozen pre-beta0.6.5 JSON upgrades only missing building entries and roundtrips without losing progress', () => {
+test('frozen pre-beta0.6.5 JSON upgrades missing building entries and the schema-32 segment split, then roundtrips without losing progress', () => {
   const raw = fixture();
   for (const field of fields) assert.equal(Object.hasOwn(raw[field], 'hazardousMaterialStorage'), false);
   const before = structuredClone(raw); freeze(raw);
   const state = validateCurrentSave(raw, context);
   const expected = structuredClone(before);
-  for (const field of fields) for (const id of ['dysonSphere', 'hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore', 'solarFarm', 'hospital']) expected[field][id] = 0;
+  const additive = ['dysonSphere', 'hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore', 'solarFarm', 'hospital',
+    // Schema 32 split each segmented project into completed + construction IDs.
+    'agiCoreComponentSegments', 'agiAscensionCoreSegments', 'spaceRipperSegments', 'dysonSphereSegments', 'penroseSphereSegments', 'aiSupercoreSegments', 'dysonSphereL2', 'dysonSphereL2Segments'];
+  for (const field of fields) for (const id of additive) expected[field][id] = 0;
   for (const field of ['resources', 'containerAssignments', 'alloyContainerAssignments']) {
     expected[field].bytes = 0;
     expected[field].encryptedData = 0;
@@ -29,6 +32,14 @@ test('frozen pre-beta0.6.5 JSON upgrades only missing building entries and round
   }
   for (const field of fields) delete expected[field].batteryStation;
   expected.resources.energy = 0;
+  expected.version = CONFIG.version;
+  // The old single counters become complete units on the old ID + the remainder on *Segments.
+  expected.buildings.spaceRipper = 0;
+  expected.buildings.spaceRipperSegments = 99;
+  expected.buildings.aiSupercore = 1;
+  expected.buildings.aiSupercoreSegments = 0;
+  // Pending construction now targets the construction phase ID.
+  expected.queue[0].id = 'spaceRipperSegments';
   expected.downloadAllocation = 0;
   expected.powerActivationOrder = [];
   // 临近势力 arrived after this frozen snapshot: both new fields are backfilled.
@@ -43,7 +54,14 @@ test('frozen pre-beta0.6.5 JSON upgrades only missing building entries and round
   assert.deepEqual(raw, before);
   const normalized = normalizeSchema31Save(raw);
   assert.notEqual(normalized, raw);
+  assert.equal(normalized.version, CONFIG.version);
+  assert.equal((normalized.buildings as Record<string, number>).spaceRipper, 0);
+  assert.equal((normalized.buildings as Record<string, number>).spaceRipperSegments, 99);
+  assert.equal((normalized.buildings as Record<string, number>).aiSupercore, 1);
+  assert.equal((normalized.buildings as Record<string, number>).aiSupercoreSegments, 0);
+  assert.deepEqual((normalized.queue as { id: string }[]).map(entry => entry.id), ['spaceRipperSegments']);
   for (const field of fields) assert.notEqual(normalized[field], raw[field]);
+  assert.deepEqual(raw, before, 'the upgrade never mutates the frozen input');
 });
 
 for (const count of [0, 99]) test(`historical ripperOverclock survives ${count} segments; new research stays gated`, () => {

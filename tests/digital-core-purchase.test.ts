@@ -16,13 +16,17 @@ for (const alwaysEnable of [false, true]) {
     const state = funded();
     state.settings.alwaysEnableNewBuildings = alwaysEnable;
     for (let segment = 1; segment < 100; segment++) {
-      constructBuildingState(state, 'agiAscensionCore', 0);
+      constructBuildingState(state, 'agiAscensionCoreSegments', 0);
+      assert.equal(state.buildings.agiAscensionCore, 0);
       assert.equal(state.stoppedBuildings.agiAscensionCore || 0, 0);
     }
-    constructBuildingState(state, 'agiAscensionCore', 0);
-    assert.equal(state.buildings.agiAscensionCore, 100);
+    assert.equal(state.buildings.agiAscensionCoreSegments, 99);
+    constructBuildingState(state, 'agiAscensionCoreSegments', 0);
+    assert.equal(state.buildings.agiAscensionCore, 1);
+    assert.equal(state.buildings.agiAscensionCoreSegments, 0);
     assert.equal(state.stoppedBuildings.agiAscensionCore, 1);
     state.stoppedBuildings.agiAscensionCore = 0;
+    // The completed form has no cost and is never bought directly.
     assert.equal(buyBuildingsInBatch(state, 'agiAscensionCore', 1, 0).bought, 0);
     assert.equal(state.stoppedBuildings.agiAscensionCore, 0, 'later rejected purchase must not switch an enabled core off');
   });
@@ -31,19 +35,23 @@ for (const alwaysEnable of [false, true]) {
 test('bulk ascension construction defaults completed core off', () => {
   const state = funded();
   state.settings.alwaysEnableNewBuildings = true;
-  assert.equal(buyBuildingsInBatch(state, 'agiAscensionCore', 100, 0).bought, 100);
+  assert.equal(buyBuildingsInBatch(state, 'agiAscensionCoreSegments', 100, 0).bought, 100);
+  assert.equal(state.buildings.agiAscensionCore, 1);
+  assert.equal(state.buildings.agiAscensionCoreSegments, 0);
   assert.equal(state.stoppedBuildings.agiAscensionCore, 1);
 });
 
 test('queue completion defaults ascension core off and does not repeat', () => {
   const state = funded();
-  state.buildings.agiAscensionCore = 99;
+  state.buildings.agiAscensionCoreSegments = 99;
   state.settings.alwaysEnableNewBuildings = true;
-  state.queue.push({ uid: 1, kind: 'build', id: 'agiAscensionCore' });
+  state.queue.push({ uid: 1, kind: 'build', id: 'agiAscensionCoreSegments' });
   settlePurchaseQueue(state, 0);
-  assert.equal(state.buildings.agiAscensionCore, 100);
+  assert.equal(state.buildings.agiAscensionCore, 1);
+  assert.equal(state.buildings.agiAscensionCoreSegments, 0);
   assert.equal(state.stoppedBuildings.agiAscensionCore, 1);
   state.stoppedBuildings.agiAscensionCore = 0;
   settlePurchaseQueue(state, 0);
+  assert.equal(state.buildings.agiAscensionCore, 1);
   assert.equal(state.stoppedBuildings.agiAscensionCore, 0);
 });

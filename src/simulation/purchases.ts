@@ -14,6 +14,7 @@ import { calculateTechCost } from './government';
 import { calculateBuildingCost, canPayCost, payResourceCost } from './costs';
 import { calculateProjectCost, calculateProjectRemainingCost, isProjectUnlocked, isProjectAtLimit } from './projects';
 import { isBuildingUnlocked, isTechnologyUnlocked } from './unlocks';
+import { applyWorldUnification } from './neighbors';
 import { hasContinuousEnergyInput, calculateBuildingName } from './building-production';
 import type { BuildingId } from '../types/buildings';
 import type { TechnologyId } from '../types/technologies';
@@ -52,9 +53,20 @@ export function isPurchaseAllowed(state: GameState, kind: string, id: string): b
   if (kind === 'build') {
     if (!Object.hasOwn(BUILDINGS, id)) return false;
     const building = id as BuildingId;
+    // Completed forms have no cost and are never bought directly.
+    if (BUILDINGS[building].buildable === false) return false;
+    if (isConstructionBlocked(state, building)) return false;
     return isBuildingUnlocked(id, state) && (state.buildings[building] || 0) < (BUILDINGS[building].segmentedRequired ?? BUILDINGS[building].max ?? Infinity);
   }
   return false;
+}
+
+/** A completed building with a unit cap (AGI cores: one) blocks further construction phases. */
+export function isConstructionBlocked(state: Pick<GameState, 'buildings'>, id: BuildingId): boolean {
+  const into = BUILDINGS[id].completesInto;
+  if (!into) return false;
+  const cap = BUILDINGS[into].max;
+  return cap !== undefined && (state.buildings[into] || 0) >= cap;
 }
 
 /** Current price for one queue step: remaining ARPA share, full tech cost, or scaled build cost. */
@@ -79,8 +91,10 @@ export type MoonAvailability = number | ((state: GameState) => number);
 /** Check free support before each construction; never displace existing enabled units. */
 export function constructBuildingState(state: GameState, id: BuildingId, moonAvailable: MoonAvailability): void {
   const building = BUILDINGS[id];
-  const required = building.segmentEffects ? undefined : building.segmentedRequired;
-  const beforeCompleted = required ? Math.floor(state.buildings[id] / required) : state.buildings[id];
+  // A capped completed project (one AGI core) stops accepting segments once it exists.
+  if (isConstructionBlocked(state, id)) return;
+  const required = building.segmentedRequired;
+  const beforeCompleted = required && !building.segmentEffects ? Math.floor(state.buildings[id] / required) : state.buildings[id];
   const beforeRunning = countRunningBuildings(id, state);
   const alwaysEnable = setting(state, 'alwaysEnableNewBuildings', false);
   let insufficient = false;
@@ -100,10 +114,20 @@ export function constructBuildingState(state: GameState, id: BuildingId, moonAva
     }
   }
   state.buildings[id] += 1;
-  // Ascension is destructive: completion always waits for an explicit player start,
-  // including queued/bulk purchases and regardless of the auto-enable preference.
-  if (id === 'agiAscensionCore' && state.buildings[id] === building.segmentedRequired) {
-    state.stoppedBuildings[id] = 1;
+  // Construction phase reached the required segments: consume them and place the completed
+  // building, which is a different registry entry with its own (full) effects and no cost.
+  if (building.completesInto && required && state.buildings[id] >= required) {
+    const complete = building.completesInto;
+    state.buildings[id] -= required;
+    const beforeComplete = countRunningBuildings(complete, state);
+    state.buildings[complete] += 1;
+    // Ascension is destructive: completion always waits for an explicit player start,
+    // including queued/bulk purchases and regardless of the auto-enable preference.
+    if (complete === 'agiAscensionCore' || (insufficient && !BUILDINGS[complete].alwaysRunning)) {
+      state.stoppedBuildings[complete] = (state.stoppedBuildings[complete] || 0) + 1;
+    }
+    if (countRunningBuildings(complete, state) > beforeComplete) registerBuiltPowerUnits(state, complete, beforeComplete);
+    addLog(state, `${calculateBuildingName(complete, state)}建造完成。`, 'progress');
   }
   if (insufficient) {
     state.stoppedBuildings[id] = (state.stoppedBuildings[id] || 0) + 1;
@@ -128,6 +152,9 @@ export interface ResearchSideEffects {
 export function applyResearchSideEffects(state: GameState, id: TechnologyId, previousTech: TechnologyId[]): ResearchSideEffects {
   if (id === 'dimensionBeaconDeployment' && !previousTech.includes(id)) addLog(state, '投放维度探测信标后，虚空之中传来了另一个信号');
   if (id === 'overclocking13' && !previousTech.includes(id)) addLog(state, OVERCLOCKING13_LOG, 'progress');
+  // 世界统一 dissolves the rival states: occupations are released and their effects end,
+  // replaced by the flat unification bonuses read from `tech`.
+  if (id === 'worldUnification' && !previousTech.includes(id)) applyWorldUnification(state);
   // 稳定黑洞 is repeatable: apply once, then drop it so it reappears on the next instability.
   if (id === 'stabilizeBlackHole') {
     stabilizeBlackHole(state);
@@ -231,6 +258,7 @@ export function requestPurchaseModule(state: GameState, kind: string, id: string
   const proposed = [...state.queue, { uid: nextQueueUid(state), kind: 'build', id: building } as QueueItem];
   if (buildingQueueUsage(proposed) > purchaseQueueCapacity(state, 'build')) return { status: 'queue-full' };
   const pending = queuedBuildingSegments(state.queue, building);
+  if (isConstructionBlocked(state, building)) return { status: 'rejected' };
   if (state.buildings[building] + pending >= (BUILDINGS[building].segmentedRequired ?? BUILDINGS[building].max ?? Infinity)) return { status: 'rejected' };
   if (!forceQueue && canPayCost(state.resources, calculateQueueCost(state, kind, id))) {
     const direct = buyBuildingNow(state, building, moonAvailable);

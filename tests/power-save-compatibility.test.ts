@@ -9,6 +9,14 @@ import { validateCurrentSave } from '../src/state/validate-save';
 
 const context = { now: 1_000_000, eventInterval: 60, housingCapacity: () => 1e6, clampResources: () => {} };
 const fields = ['buildings', 'workers', 'stoppedBuildings'] as const;
+/** Schema 32 rewrites queued segmented constructions to their construction-phase ID. */
+const SEGMENT_PHASES: Record<string, string> = {
+  agiCoreComponent: 'agiCoreComponentSegments', agiAscensionCore: 'agiAscensionCoreSegments',
+  spaceRipper: 'spaceRipperSegments', dysonSphere: 'dysonSphereSegments',
+  penroseSphere: 'penroseSphereSegments', aiSupercore: 'aiSupercoreSegments',
+};
+const upgradedQueue = (queue: any[]) => queue.map(entry => entry.kind === 'build' && SEGMENT_PHASES[entry.id]
+  ? { ...entry, id: SEGMENT_PHASES[entry.id] } : entry);
 function historicalSave() {
   // Derive a nonzero retirement case from the immutable previous-release artifact.
   const raw = JSON.parse(readFileSync(new URL('./fixtures/pre-beta0.6.5-schema31.json', import.meta.url), 'utf8'));
@@ -38,7 +46,7 @@ test('schema31 retires positive/stopped/queued battery stations without mutating
   reference.resources.energy = 0;
   reference.queue = reference.queue.filter((q: any) => q.id !== 'batteryStation');
   assert.deepEqual(loaded, validateCurrentSave(reference, context));
-  assert.deepEqual(loaded.queue, before.queue.filter((q: any) => q.id !== 'batteryStation'));
+  assert.deepEqual(loaded.queue, upgradedQueue(before.queue.filter((q: any) => q.id !== 'batteryStation')));
   assert.deepEqual(loaded.tech, before.tech);
   assert.deepEqual(raw, before);
   assert.deepEqual(validateCurrentSave(JSON.parse(JSON.stringify(loaded)), context), loaded);
@@ -49,7 +57,7 @@ test('pending retired research is removed, but already earned IDs remain histori
   raw.tech = raw.tech.filter((id: string) => id !== 'energyStorage' && id !== 'batteryConcentrationRing');
   raw.queue.push({ uid: 8002, kind: 'tech', id: 'energyStorage' }, { uid: 8003, kind: 'tech', id: 'batteryConcentrationRing' });
   const loaded = validateCurrentSave(raw, context);
-  assert.deepEqual(loaded.queue, raw.queue.filter((q: any) => !['batteryStation', 'energyStorage', 'batteryConcentrationRing'].includes(q.id)));
+  assert.deepEqual(loaded.queue, upgradedQueue(raw.queue.filter((q: any) => !['batteryStation', 'energyStorage', 'batteryConcentrationRing'].includes(q.id))));
   assert.equal(loaded.tech.includes('energyStorage'), false);
 });
 
@@ -88,9 +96,11 @@ test('previous-release power load/import/reload and protected-save recovery reta
     for (const field of fields) assert.equal(Object.hasOwn(state[field], 'batteryStation'), false);
     assert.equal(state.resources.energy, 0);
     assert.deepEqual(state.tech, raw.tech);
-    assert.deepEqual(state.queue, raw.queue.filter((q: any) => q.id !== 'batteryStation'));
+    assert.deepEqual(state.queue, upgradedQueue(raw.queue.filter((q: any) => q.id !== 'batteryStation')));
     for (const field of ['achievements', 'logs', 'stageThree', 'story'] as const) assert.deepEqual(state[field], raw[field]);
-    assert.equal(state.buildings.spaceRipper, raw.buildings.spaceRipper);
+    // Partially built segmented projects keep their segments and expose only completed units.
+    assert.equal(state.buildings.spaceRipper, Math.floor(raw.buildings.spaceRipper / 100));
+    assert.equal(state.buildings.spaceRipperSegments, raw.buildings.spaceRipper % 100);
   };
   storage.set(CONFIG.saveKey, json);
   const runtime = createRuntime(); runtime.load(); assert.equal(runtime.saveBlocked, false); check(runtime.state);

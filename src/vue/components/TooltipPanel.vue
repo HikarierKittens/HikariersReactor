@@ -17,7 +17,7 @@ import { calculateFoodPerCat } from '../../simulation/population';
 import { withoutPowerCost } from '../../simulation/one-time-cost';
 import { calculateBuildingCost, calculateHarmonyCreepReduction, isBuildingFullyBuilt } from '../../simulation/costs';
 import { describeQueuedPurchases } from '../../simulation/purchases';
-import { calculateTechCost, calculateBankerTaxRate, BANKER_TAX_BONUS, STOCK_EXCHANGE_BANKER_BONUS, GOVERNMENTS } from '../../simulation/government';
+import { calculateTechCost, calculateBankerTaxRate, BANKER_TAX_BONUS, STOCK_EXCHANGE_BANKER_BONUS, GOVERNMENTS, soldierStatBreakdown } from '../../simulation/government';
 import { SPACE_MISSIONS, REGIONAL_MISSIONS, calculateRegionalMissionCost, isRegionalMissionCompleted, type RegionalMissionId } from '../../simulation/space-missions';
 import { calculateBuildingOutput, calculateToolMultiplier, calculateBuildingName } from '../../simulation/building-production';
 import { SPACE_RIPPER_OVERCLOCK_DESC } from '../../simulation/building-effects';
@@ -36,11 +36,13 @@ import { calculateCrisprStorageBonus } from '../../simulation/crispr';
 import { calculateEffectiveParticleCount, isChallengeGeneActive } from '../../simulation/challenges';
 import { duration, fmt, moraleSnapshot, orderedCostEntries, percent, storageSnapshot } from '../format';
 import { addBuildingEffectRows } from '../building-tooltip-rows';
+import { isWorldUnified } from '../../simulation/neighbors';
+import { TECH_CATEGORY_META, techCategory } from '../tech-categories';
 import { allocateShipCrew, SHIP_CREW_SIZE, SHIP_CREW_JOB_NAME, type ShipCrewId } from '../../simulation/ship-crew';
 
 const props = defineProps<{ state: GameState; revision: number }>();
-type TipKind = 'building' | 'tech' | 'storage' | 'resource' | 'morale' | 'housing' | 'prestige' | 'prestige-reset' | 'crispr' | 'job' | 'craftJob' | 'arpa' | 'mission' | 'ship' | 'quantum' | 'government';
-const kinds: TipKind[] = ['building', 'tech', 'storage', 'resource', 'morale', 'housing', 'prestige', 'prestige-reset', 'crispr', 'job', 'craftJob', 'arpa', 'mission', 'ship', 'quantum', 'government'];
+type TipKind = 'building' | 'tech' | 'storage' | 'resource' | 'morale' | 'housing' | 'prestige' | 'prestige-reset' | 'crispr' | 'job' | 'craftJob' | 'arpa' | 'mission' | 'ship' | 'quantum' | 'government' | 'soldier';
+const kinds: TipKind[] = ['building', 'tech', 'storage', 'resource', 'morale', 'housing', 'prestige', 'prestige-reset', 'crispr', 'job', 'craftJob', 'arpa', 'mission', 'ship', 'quantum', 'government', 'soldier'];
 const selector = '[data-building-tip][data-tip-kind]';
 const anchor = shallowRef<HTMLElement | null>(null);
 const panel = shallowRef<HTMLElement | null>(null);
@@ -53,6 +55,10 @@ type EffectRowType = 'detail' | 'production' | 'multiplier';
 interface DetailRow { name: string; value: string; negative?: boolean; child?: boolean; note?: string; effectType?: EffectRowType }
 interface TipContent {
   title: string;
+  /** Short line directly under the title. 科技 uses it for the category name. */
+  subtitle?: string;
+  /** Category id, so the subtitle can reuse the tech-tree border colour. */
+  subtitleCategory?: string;
   description: string;
   costs: { id: string; name: string; amount: number; missing: boolean; blocked: boolean }[];
   rows: DetailRow[];
@@ -143,8 +149,7 @@ const content = computed<TipContent | null>(() => {
     } else {
       for (const [resource, amount] of orderedCostEntries(calculateBuildingOutput(id, state))) {
         const jobMultiplier = calculateToolMultiplier(id, state)
-          * (id === 'forage' && state.tech.includes('agriculture') ? 1.5 : 1)
-          * (id === 'forage' && state.tech.includes('agriculturalMachinery') ? 2 : 1);
+          * (id === 'forage' && state.tech.includes('agriculture') ? 1.5 : 1);
         if (amount) add(RESOURCES[resource as ResourceId].name, `+${number(amount * jobMultiplier)}${resource === 'energy' ? '' : '/s'}`);
       }
       for (const [resource, amount] of orderedCostEntries(building.input || {})) {
@@ -163,7 +168,9 @@ const content = computed<TipContent | null>(() => {
     // 质量喷射 reveals the black hole's masses on the sphere it feeds.
     if (id === 'penroseSphere' && (state.buildings.massEjector || 0) > 0) tip.description += `\n黑洞质量：${formatBlackHoleMass(state.blackHole.mass)}\n奇异质量：${formatBlackHoleMass(state.blackHole.exoticMass)}`;
     if (id === 'penroseSphere' && state.tech.includes('gravityConversion')) tip.description += `\n引力转化：电力+${formatEffectNumber(calculateGravityConversionEnergy(state))}`;
-    if (id === 'aiSupercore') tip.description = `world.exection(cat);\n分段进度： ${Math.min(count, building.segmentedRequired!)} /${building.segmentedRequired}\n量子水平 +25%\n氦-3 - 25/s\n电力 - 100`;
+    // The completed core keeps only its flavour line here: segment progress and the maintenance
+    // rows live in the effect block, where they read the real construction-phase record.
+    if (id === 'aiSupercore') tip.description = 'world.exection(cat);';
     const queueUid = Number(anchor.value?.dataset.queueUid);
     // Resolve by stable uid, but recompute the ordinal price from the current queue.
     // Removing an earlier duplicate shifts all later quotes without changing their identity.
@@ -240,6 +247,11 @@ const content = computed<TipContent | null>(() => {
   } else if (target.kind === 'tech' && Object.hasOwn(TECHNOLOGIES, target.id)) {
     const id = target.id as TechnologyId, tech = TECHNOLOGIES[id];
     tip.title = tech.name;
+    // Category line: derived from the same registry that colours the tree button, so the
+    // hover text and the border can never disagree. No per-technology string to maintain.
+    const category = techCategory(id);
+    const meta = TECH_CATEGORY_META.find(entry => entry.id === category);
+    if (meta) { tip.subtitle = meta.name; tip.subtitleCategory = meta.id; }
     // 描述 = flavor only; every unlock/number lives in `effects`, rendered as its own
     // block below the price divider so the two never mix.
     tip.description = tech.desc ?? '';
@@ -254,6 +266,12 @@ const content = computed<TipContent | null>(() => {
     if (tech.buildingRequired) add('所需建筑', BUILDINGS[tech.buildingRequired].name);
     if (tech.resourceRequired) add('所需解锁资源', RESOURCES[tech.resourceRequired].name);
     if (tech.arpaPre) add('所需已建工程', `${ARPA_PROJECTS[tech.arpaPre].name} ×${tech.arpaRequiredCount || 1}`);
+    // 世界统一 shows live occupation progress so the requirement is never a mystery.
+    if (tech.occupiedNeighborsRequired !== undefined) {
+      const occupied = isWorldUnified(state) ? 0 : state.neighbors.occupied.length;
+      add('所需占领敌对国家', `${occupied} / ${tech.occupiedNeighborsRequired}`);
+      tip.footnote = '占领全部敌对国家后即可研究；研究后敌对国家消失，占领加成替换为世界统一加成。';
+    }
     if (tech.prestigeReset) {
       const rewards = calculateBlackHolePrestigeRewards(state);
       add('本次重置获得', `粒子 +${number(rewards.reward)} · 卡西米尔晶体 +${number(rewards.casimirReward)} · 暗能量 +${number(rewards.darkEnergyReward)}`);
@@ -271,11 +289,13 @@ const content = computed<TipContent | null>(() => {
       add('实际耗电', formatResourceNumber(result.power.used));
       add('可用电力', formatResourceNumber(result.power.available), result.power.available < 0);
       if (result.power.available < 0) tip.warning = '供电不足：超额开启的建筑未获得供电，供能按钮以黄色标记；关闭超额负载或恢复发电后会重新分配供电。';
+      // Power rows name the generating building directly: the breakdown appends 产出/消耗 for the
+      // generic resource tooltips, which reads as noise inside a dedicated power breakdown.
       const powerRows = (kind: 'income' | 'expense') => breakdown.entries.filter(row => row.kind === kind && row.value !== 0).map(row => ({
-        name: row.name.replace(/产出$/, '供给').replace(/(?:消耗|占用)$/, ''),
+        name: row.name.replace(/(?:产出|消耗|占用)$/, ''),
         value: `${row.value < 0 ? '−' : '+'}${formatResourceNumber(Math.abs(row.value))}`,
         negative: row.value < 0,
-        note: row.note.replace(/\/s/g, '').replace(/产量/g, '供给'),
+        note: row.note.replace(/\/s/g, ''),
       }));
       tip.income = powerRows('income');
       tip.expense = powerRows('expense');
@@ -337,6 +357,28 @@ const content = computed<TipContent | null>(() => {
         tip.resourceTiming = `距离${duration(Math.ceil(amount / -rate))}到达0`;
       }
 
+    }
+  } else if (target.kind === 'soldier') {
+    // 单兵战斗力/防御力: every contributing source, derived from the same registries the
+    // calculators read, so the explained number is exactly the displayed one.
+    const stats = soldierStatBreakdown(state);
+    const signed = (value: number) => `+${formatEffectNumber(value)}`;
+    if (target.id === 'combatPower') {
+      tip.title = '单兵战斗力';
+      tip.description = '决定突袭时的我方战力（士兵数^0.75 × 单兵战斗力）。基础值为1，装备科技提供固定加算，军政与泰坦之力再按百分比放大。';
+      add('基础', formatEffectNumber(stats.combatPower.base));
+      for (const source of stats.combatPower.flat) add(source.name, signed(source.value));
+      for (const source of stats.combatPower.percent) add(source.name, `+${percent(source.value * 100)}%`);
+      add('当前单兵战斗力', formatEffectNumber(stats.combatPower.total));
+      tip.footnote = '百分比加成只放大固定部分；装备科技全部研究后固定值为 5。';
+    } else {
+      tip.title = '单兵防御力';
+      tip.description = '防御力只减少士兵伤亡，不改变战力：每点使突袭与反击中的伤亡乘以 1 / (1 + 防御力 × 0.1)。';
+      add('基础', formatEffectNumber(stats.defense.base));
+      for (const source of stats.defense.flat) add(source.name, signed(source.value));
+      add('当前单兵防御力', formatEffectNumber(stats.defense.total));
+      add('伤亡倍率', `×${formatEffectNumber(stats.defense.casualtyMultiplier)}`);
+      tip.footnote = '防御力递减叠加：4 点满装时伤亡约为无装备时的 71%。';
     }
   } else if (target.kind === 'morale') {
     const morale = moraleSnapshot(state, 1, props.revision);
@@ -541,6 +583,7 @@ onUnmounted(() => {
   <Teleport :to="anchor?.closest('dialog') || 'body'">
     <div v-if="content" ref="panel" id="gameTooltip" class="building-tooltip" :class="{ 'resource-detail': selected?.kind === 'resource', 'morale-detail': selected?.kind === 'morale', 'energy-expense-split': splitEnergyExpense }" role="tooltip" :style="position">
       <h3>{{ content.title }}</h3>
+      <p v-if="content.subtitle" class="tip-subtitle" :data-tech-category="content.subtitleCategory" data-tip-subtitle>{{ content.subtitle }}</p>
       <p v-if="content.description" class="tip-desc" :style="selected?.kind === 'building' && ['aiSupercore', 'spaceRipper', 'penroseSphere'].includes(selected.id) ? { whiteSpace: 'pre-line' } : undefined">{{ content.description }}</p>      <p v-if="content.warning" class="tip-desc danger" data-tech-warning>{{ content.warning }}</p>
       <template v-if="content.costs.length">
         <p class="tip-label">{{ selected?.kind === 'arpa' || selected?.kind === 'ship' || anchor?.dataset.queueUid ? '剩余资源需求' : selected?.kind === 'building' && BUILDINGS[selected.id as BuildingId]?.segmentedRequired ? '每段固定价格' : '当前价格' }}</p>
@@ -567,7 +610,7 @@ onUnmounted(() => {
       </div>
       <div v-if="selected?.kind === 'resource'" class="resource-columns">
         <div class="resource-column">
-          <div class="resource-column-title">{{ selected.id === 'energy' ? '固定供给' : '来源与产量倍率' }}</div>
+          <div class="resource-column-title">{{ selected.id === 'energy' ? '发电建筑' : '来源与产量倍率' }}</div>
           <div v-for="(row, index) in content.income" :key="index" class="resource-factor" :class="{ child: row.child, 'last-child': row.child && !content.income[index + 1]?.child }"><span>{{ row.name }}</span><span class="resource-factor-value" :class="{ 'is-negative': row.negative }">{{ row.value }}</span></div>
           <p v-if="!content.income.length" class="small subtle">{{ selected.id === 'energy' ? '暂无供电来源。' : '暂无生产来源。' }}</p>
         </div>

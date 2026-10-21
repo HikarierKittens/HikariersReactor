@@ -1,6 +1,23 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><title>acceptance</title><link rel="stylesheet" href="/assets/css/style.css"></head>
+<head><meta charset="utf-8"><title>acceptance</title><link rel="stylesheet" href="/assets/css/style.css">
+<script>
+// Classic script on purpose: a module that fails to *parse* never runs its own handlers, which
+// used to leave this page stuck at "running" with no visible reason. Registering here means any
+// syntax error, uncaught throw or rejected promise still paints a diagnosable result.
+window.__fatal = message => {
+  window.__fatalMessages = [...(window.__fatalMessages || []), String(message)];
+  const paint = () => {
+    const out = document.querySelector('#result');
+    if (out) out.textContent = `FAIL 异常：${window.__fatalMessages.join(' | ')}\nRESULT: FAIL`;
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paint);
+  else paint();
+};
+window.addEventListener('error', event => window.__fatal(event.error?.stack || `${event.message} @ ${event.filename}:${event.lineno}:${event.colno}`));
+window.addEventListener('unhandledrejection', event => window.__fatal(event.reason?.stack || event.reason));
+</script>
+</head>
 <body>
 <div id="test-root"></div>
 <pre id="result">running</pre>
@@ -284,7 +301,7 @@ try {
   store.mutate(state => { state.taxRate = taxRateBefore; state.settings.paused = taxPausedBefore; }); await flush();
   click($('[data-internal-view="military"]')); await flush();
   log(document.body.textContent.includes('士兵管理'), '军事分类可以切换');
-  log($('[data-soldier-training-cap]')?.textContent.includes('完整支付维护') && $('[data-soldier-training-cap]')?.textContent.includes('停机不移除已有士兵'), '军事UI区分拥有容量和维护支持的训练容量，不误称停机删除士兵');
+  log($('[data-soldier-training-cap]')?.textContent.includes('立即移除') && $('[data-soldier-training-cap]')?.textContent.includes('可训练容量'), '军事UI说明士兵上限、可训练容量与超限移除规则');
   // 医院 heals raid casualties; without one the wounded line must still explain the gap.
   // Snapshot first: later cases depend on the exact tech/army this fixture had.
   const hospitalSnapshot = JSON.parse(JSON.stringify(S()));
@@ -302,12 +319,58 @@ try {
   log($('[data-wounded-line]')?.textContent.includes('医院每游戏日治愈'), '拥有医院后显示每日治愈数量');
   log($('[data-wounded-line]')?.textContent.includes('2'), '两座医院显示每日治愈 2 名');
   const woundedBefore = S().wounded, soldiersBeforeHeal = S().soldiers;
+  const logsBeforeHeal = S().logs.length;
   const { advanceHospital } = await import('/src/simulation/hospital.ts');
   store.mutate(state => { advanceHospital(state, 5 * 5); });
   store.refresh(); await flush();
   log(S().wounded < woundedBefore && S().soldiers > soldiersBeforeHeal, '医院实际把伤兵治愈回士兵序列');
-  // Restore the exact pre-test state: later cases depend on its tech and army.
-  store.runtime.replaceState(hospitalSnapshot); store.refresh(); await flush();
+  log(S().logs.length === logsBeforeHeal && !S().logs.some(entry => entry.text.includes('治愈')),
+    '治愈伤兵不再写入日志');
+  // Restore the exact pre-test state before the log-filter cases below, which replace every
+  // log entry: later cases depend on its tech, army and log list.
+  store.runtime.replaceState(hospitalSnapshot); store.refresh();
+  click($('[data-tab="buildings"]')); await flush();
+
+  // 军营 switch: the happiness-cost multiplier must be controllable from the building row.
+  // Snapshot first: the fixture below only keeps the technologies the page needs.
+  const barracksSnapshot = JSON.parse(JSON.stringify(S()));
+  store.mutate(state => {
+    // Plain assignment only: this page is parsed as JS, so TypeScript assertions cannot appear.
+    state.tech = ['survival', 'writing', 'military'];
+    state.buildings.barracks = 4; state.stoppedBuildings.barracks = 0;
+    state.population = 2; state.soldiers = 0;
+  });
+  click($('[data-tab="buildings"]')); await flush();
+  const barracksControl = $('[data-buy="barracks"]')?.closest('.building-control');
+  const barracksStop = () => barracksControl?.querySelector('.building-toggle.stop');
+  const barracksStart = () => barracksControl?.querySelector('.building-toggle.start');
+  log(!!barracksStop() && !!barracksStart() && barracksStop().textContent === '0' && barracksStart().textContent === '4',
+    '军营提供开关，初始全部开启');
+  // 军营没有维护费用，供能按钮不应该出现"短缺"黄色状态。
+  log(!barracksStart().classList.contains('is-shortage') && !barracksStart().getAttribute('data-power-failed') && !barracksStart().getAttribute('data-crew-short'),
+    `无维护费用的军营供能按钮不显示短缺黄色 [class=${barracksStart().className}]`);
+  const { calculateSoldierPressure, calculateArmyLimit } = await import('/src/simulation/government.ts');
+  const pressureBeforeToggle = calculateSoldierPressure(S());
+  barracksStop().click(); await flush();
+  log(S().stoppedBuildings.barracks === 1 && calculateSoldierPressure(S()) === pressureBeforeToggle - 2,
+    '点击关闭一座军营后士兵容量压力下降2点');
+  barracksStop().click(); barracksStop().click(); barracksStop().click(); await flush();
+  log(S().stoppedBuildings.barracks === 4 && calculateSoldierPressure(S()) === 0 && calculateSoldierPressure(S()) < pressureBeforeToggle,
+    '关停全部军营后士兵容量压力归零');
+  barracksStart().click(); await flush();
+  log(S().stoppedBuildings.barracks === 3 && calculateSoldierPressure(S()) === 2, '重新开启一座军营恢复其容量与压力');
+  // 士兵数量不能大于上限：上限内的士兵保留，超出上限的士兵在切换开关时立即移除。
+  store.mutate(state => { state.soldiers = 2; state.trainingProgress = 0; }); await flush();
+  log(calculateArmyLimit(S()) === 2 && S().soldiers === 2, '上限内的士兵保留');
+  barracksStart().click(); await flush();
+  store.mutate(state => { state.soldiers = 8; }); await flush();
+  barracksStop().click(); await flush();
+  log(S().soldiers === 2 && calculateArmyLimit(S()) === 2, '关停军营后超出新上限的士兵立即移除');
+  barracksStop().click(); await flush();
+  log(S().soldiers === 0, '全部军营关停后士兵数降为0');
+  store.runtime.replaceState(barracksSnapshot); store.refresh();
+  // App.vue keeps its active tab across replaceState: hand the later cases the 内部管理 page again.
+  click($('[data-tab="internal"]')); await flush();
 
   const showTip = async (selector, focus = false) => {
     const element = $(selector);
@@ -317,6 +380,62 @@ try {
     await flush();
   };
   const escapeTip = async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await flush(); };
+  // 单兵战斗力/防御力: hovering the numbers must explain every contributing source.
+  {
+    const soldierStatsSnapshot = JSON.parse(JSON.stringify(S()));
+    click($('[data-tab="internal"]')); await flush();
+    click($('[data-internal-view="military"]')); await flush();
+    store.mutate(state => {
+      state.tech = state.tech.filter(id => !['ironEquipment', 'newInfantryEquipment', 'advancedThermalWeapons', 'kevlarFiber', 'railgun'].includes(id));
+      state.government = 'none';
+    }); await flush();
+    log($('[data-soldier-combat]')?.textContent === '1' && $('[data-soldier-defense]')?.textContent === '0', `无装备时单兵战斗力1防御力0 [${$('[data-soldier-combat]')?.textContent}/${$('[data-soldier-defense]')?.textContent}]`);
+    store.mutate(state => {
+      for (const id of ['ironEquipment', 'newInfantryEquipment', 'advancedThermalWeapons', 'kevlarFiber', 'railgun']) if (!state.tech.includes(id)) state.tech.push(id);
+    }); await flush();
+    log($('[data-soldier-combat]')?.textContent === '5' && $('[data-soldier-defense]')?.textContent === '4', `五项装备把战斗力累加到5、防御力累加到4 [${$('[data-soldier-combat]')?.textContent}/${$('[data-soldier-defense]')?.textContent}]`);
+    await showTip('[data-soldier-combat]');
+    const combatRows = $$('#gameTooltip .resource-factor').map(row => row.textContent.replace(/\s+/g, ''));
+    log($('#gameTooltip h3')?.textContent === '单兵战斗力'
+      && ['基础1', '铁制装备+1', '新型单兵装备+1', '高级热武器+1', '磁轨炮+1', '当前单兵战斗力5'].every(text => combatRows.includes(text)),
+      `战斗力悬停列出全部加成来源 [${combatRows.join('|')}]`);
+    await escapeTip();
+    await showTip('[data-soldier-defense]');
+    const defenseRows = $$('#gameTooltip .resource-factor').map(row => row.textContent.replace(/\s+/g, ''));
+    log($('#gameTooltip h3')?.textContent === '单兵防御力'
+      && ['基础0', '凯夫拉纤维+1', '当前单兵防御力4', '伤亡倍率×0.7143'].every(text => defenseRows.includes(text)),
+      `防御力悬停列出防御来源与伤亡倍率 [${defenseRows.join('|')}]`);
+    await escapeTip();
+    // 军政 is a percentage source, so it must show up as a multiplier row, not a flat one.
+    store.mutate(state => { state.government = 'militaryRule'; }); await flush();
+    await showTip('[data-soldier-combat]');
+    log($$('#gameTooltip .resource-factor').some(row => row.textContent.replace(/\s+/g, '') === '军政+20%'), '军政以百分比行的形式出现在战斗力来源中');
+    await escapeTip();
+    // 士兵毛皮 now scales with 战斗力: the panel must show the live per-soldier rate,
+    // and the fur tooltip must explain it as a 单兵战斗力 factor (no 铁质装备 row).
+    store.mutate(state => { state.government = 'none'; }); await flush();
+    const furPerSoldier = Number($('[data-soldier-fur]')?.dataset.soldierFur);
+    log(Number.isFinite(furPerSoldier) && Math.abs(furPerSoldier - 0.2 * Math.sqrt(5)) < 0.01,
+      `军事页显示按战斗力开方的单人毛皮 [${furPerSoldier}, expect ${(0.2 * Math.sqrt(5)).toFixed(3)}]`);
+    // Fur must be a visible resource row for its rate tooltip to exist.
+    store.mutate(state => {
+      state.soldiers = Math.max(state.soldiers, 2);
+      state.buildings.barracks = Math.max(state.buildings.barracks || 0, 1);
+      state.furUnlocked = true;
+      state.resources.fur = 100;
+    }); await flush();
+    await showTip('[data-building-tip="fur"][data-tip-kind="resource"]');
+    const furTipRows = $$('#gameTooltip .resource-factor').map(row => row.textContent.replace(/\s+/g, ''));
+    // 战斗力 5 → √5 ≈ 2.236, so the factor row reads +123.61%.
+    log($('#gameTooltip').textContent.includes('服役士兵采集')
+      && furTipRows.some(row => row.startsWith('单兵战斗力+123.61%'))
+      && !$('#gameTooltip').textContent.includes('铁质装备'),
+      `毛皮明细用单兵战斗力解释士兵采集且不再提铁质装备 [${furTipRows.join('|')}]`);
+    await escapeTip();
+    store.mutate(state => Object.assign(state, soldierStatsSnapshot)); await flush();
+    click($('[data-tab="internal"]')); await flush();
+    click($('[data-internal-view="military"]')); await flush();
+  }
   const logUiSnapshot = JSON.parse(JSON.stringify(S().logs));
   store.mutate(state => { state.logs = ['queue', 'event', 'progress', 'achievement', 'system'].map(type => ({ time: 0, type, text: `日志可读性测试-${type}` })); }); await flush();
   const logColors = $$('.log-line').map(row => getComputedStyle(row).color);
@@ -331,6 +450,9 @@ try {
   log(!$('[data-neighbors]'), '临近势力在没有士兵时隐藏');
   // Raid loot is a share of the player's own output, so the fixture needs real production.
   store.mutate(state => {
+    // 200 soldiers need 100 switched-on barracks: the army may never exceed its limit.
+    state.buildings.barracks = Math.max(state.buildings.barracks || 0, 100);
+    state.stoppedBuildings.barracks = 0;
     state.soldiers = 200; state.resources.food = 5000;
     state.buildings.forage = Math.max(state.buildings.forage || 0, 6);
     state.workers.forage = Math.max(state.workers.forage || 0, 6);
@@ -377,6 +499,47 @@ try {
   store.mutate(state => { state.soldiers = 0; }); await flush();
   log(!$('[data-neighbors]'), '士兵归零且无占领后临近势力重新隐藏');
   store.mutate(state => { state.soldiers = 200; }); await flush();
+  // 世界统一: researching it replaces the whole neighbour panel with the unification summary.
+  {
+    const unifiedSnapshot = JSON.parse(JSON.stringify(S()));
+    store.mutate(state => {
+      for (const id of ['moonExploration', 'planetaryExploration', 'alienSettlement', 'unifiedPlan', 'worldUnification']) {
+        if (!state.tech.includes(id)) state.tech.push(id);
+      }
+      state.neighbors.occupied = [];
+      state.soldiers = 200;
+    }); await flush();
+    log(!$('[data-neighbors]') && !!$('[data-world-unified]'), '世界统一后临近势力面板替换为统一说明');
+    log($('[data-unification-bonus]')?.textContent.includes('全局产量 +25%') && $('[data-unification-bonus]')?.textContent.includes('储量 +25%'), `世界统一说明列出产量与储量加成 [${$('[data-unification-bonus]')?.textContent}]`);
+    store.mutate(state => Object.assign(state, unifiedSnapshot)); await flush();
+  }
+  // 占领 must be explained in the resource detail left column: the +5% output factor and the
+  // −10% tax penalty were both applied but invisible before the fix.
+  {
+    const occupationSnapshot = JSON.parse(JSON.stringify(S()));
+    store.mutate(state => {
+      state.settings.paused = true;
+      state.tech = state.tech.filter(id => id !== 'worldUnification');
+      state.neighbors.occupied = ['commonwealth'];
+      state.taxRate = 20;
+      state.population = Math.max(state.population, 20);
+    }); await flush();
+    click($('[data-tab="buildings"]')); await flush();
+    await showTip('[data-building-tip="wood"][data-tip-kind="resource"]');
+    const woodRows = $$('#gameTooltip .resource-column')[0]?.querySelectorAll('.resource-factor') || [];
+    log([...woodRows].some(row => row.textContent.replace(/\s+/g, '') === '占领×1+5%'),
+      `资源明细左列列出占领产量加成 [${[...woodRows].map(row => row.textContent.replace(/\s+/g, '')).join('|')}]`);
+    await escapeTip();
+    await showTip('[data-building-tip="cash"][data-tip-kind="resource"]');
+    const cashText = $('#gameTooltip')?.textContent.replace(/\s+/g, '') || '';
+    log(cashText.includes('占领×1税收惩罚−10%') && cashText.includes('实际税率10%'),
+      `资金明细列出占领税收惩罚与实际税率 [${cashText.slice(0, 160)}]`);
+    await escapeTip();
+    store.mutate(state => Object.assign(state, occupationSnapshot)); await flush();
+    // The next cases expect the 内部管理 page; the resource tooltips above switched tabs.
+    click($('[data-tab="internal"]')); await flush();
+    click($('[data-internal-view="government"]')); await flush();
+  }
   click($('#openGovernmentReform')); await flush();
   const { GOVERNMENTS } = await import('/src/simulation/government.ts');
   for (const id of ['democracy', 'militaryRule', 'oligarchy', 'technocracy', 'industrialism']) {
@@ -495,6 +658,13 @@ try {
   log($$('.expense-list .resource-factor').length > 15 && $('#gameTooltip').classList.contains('energy-expense-split') && getComputedStyle($('.expense-list')).columnCount === '2', '电力消耗超过15项时自动分两列');
   const powerExpenseNames = $$('.expense-list .resource-factor').map(row => row.firstElementChild?.textContent.trim());
   log(powerExpenseNames.length > 0 && powerExpenseNames.every(name => name && !/(?:占用|消耗)$/.test(name)), '电力详情耗电条目直接显示名称，不附加占用或消耗后缀');
+  // 发电列直接写建筑名，不再出现「供给」后缀或「固定供给」列名。
+  const powerIncomeColumn = $$('#gameTooltip .resource-column')[0];
+  const powerIncomeNames = [...(powerIncomeColumn?.querySelectorAll('.resource-factor') || [])].map(row => row.firstElementChild?.textContent.trim());
+  log(powerIncomeColumn?.querySelector('.resource-column-title')?.textContent.trim() === '发电建筑'
+    && powerIncomeNames.length > 0
+    && powerIncomeNames.every(name => name && !/供给$/.test(name)),
+    `电力详情发电列直接显示发电建筑名 [title=${powerIncomeColumn?.querySelector('.resource-column-title')?.textContent},names=${powerIncomeNames.join('|')}]`);
   log(Object.values(energyLayoutBuildings.coreCooler.costScales).every(scale => scale === 1.1), '核心散热器四项基础成本蠕变均为1.1');
   const energyRow = $('[data-resource-id="energy"]');
   log(!!energyRow && energyRow.querySelector('.power-label')?.textContent.includes('剩余 / 总值') && !energyRow.querySelector('.res-fill') && energyRow.querySelector('.res-amount')?.getAttribute('data-tip-kind') === 'resource' && !Object.hasOwn(energyLayoutBuildings, 'energyStorage') && !Object.hasOwn(energyLayoutBuildings, 'batteryConcentrationRing'), '电力资源行只显示剩余/总值，无库存条且储能站已删除');
@@ -615,7 +785,10 @@ try {
   store.mutate(state => { state.buildings.massEjector = 0; state.blackHole.ejection = {}; }); await flush();
   click($('[data-tab="cats"]')); await flush();
   const craftButton = count => $(`[data-crafted-resource="plank"] [data-craft="plank"][data-craft-count="${count}"]`);
-  log($('#craftedResources')?.parentElement.classList.contains('col-left') && $('#craftedResources').previousElementSibling === $('#resources').closest('.panel'), '锻造物位于左栏资源面板紧后方');
+  // 资源列表、锻造物与威望资源共用一个滚动容器，依次排列（beta 0.9.25）。
+  log($('#craftedResources')?.parentElement.classList.contains('col-left-scroll')
+    && $('#craftedResources').previousElementSibling === $('#resources').closest('.panel'),
+    '锻造物位于左栏资源面板紧后方，二者在同一滚动区内');
   log(!$('.content-body [data-craft]') && !!$('.content-body [data-craft-assign]'), '猫猫页移除手动制造，仅保留工匠分工');
   store.mutate(state => { state.tech.push('banking'); state.buildings.bank = 1; state.arpaBuildings.stockExchange = 2; }); await flush();
   await showTip('[data-building-tip="bank"][data-tip-kind="job"]');
@@ -772,7 +945,26 @@ try {
   click($('#launchKerberosMission')); await flush();
   log(S().kerberosMissionCompleted && S().resources.helium3 < 1 && !!$('[data-buy="geothermalPlant"]'), 'Kerberos任务扣款并解锁地热发电站');
   store.mutate(state => { state.buildings.asrielSpaceport = 1; }); await flush();
-  await showTip('[data-buy="asrielMine"]');
+  // T12 外星定居 re-gates the Asriel chain: the four techs wait for it even with the port built.
+  {
+    click($('[data-tab="tech"]')); await flush();
+    store.mutate(state => { if (!state.tech.includes('planetaryExploration')) state.tech.push('planetaryExploration'); }); await flush();
+    log(['spaceControlTower','alienCasting','spaceIndustrialization','starRingStation'].every(id => !$(`[data-research="${id}"]`)), '外星定居前不显示太空控制塔异星铸造太空工业化星环空间站');
+    const settlement = $('[data-research="alienSettlement"]');
+    log(!!settlement && settlement.textContent.includes('T12'), `行星勘探并建成太空港后开放T12外星定居 [${settlement?.textContent}]`);
+    store.mutate(state => { state.resources.knowledge = 200000; }); await flush();
+    click($('[data-research="alienSettlement"]')); await flush();
+    log(S().tech.includes('alienSettlement') && ['spaceControlTower','alienCasting','spaceIndustrialization','starRingStation'].every(id => !!$(`[data-research="${id}"]`)), '研究外星定居后开放四项Asriel科技');
+    // 统一计划 (T13) hangs off 外星定居; 世界统一 stays hidden until all three are occupied.
+    store.mutate(state => { state.resources.knowledge = 325; }); await flush();
+    const plan = $('[data-research="unifiedPlan"]');
+    log(!!plan && plan.textContent.includes('T13'), `外星定居后开放T13统一计划 [${plan?.textContent}]`);
+    click(plan); await flush();
+    log(S().tech.includes('unifiedPlan') && !$('[data-research="worldUnification"]'), '研究统一计划后世界统一在占领三国前仍不出现');
+    click($('[data-tab="buildings"]')); await flush();
+    click($('[data-world-view="space"]')); await flush();
+    await showTip('[data-buy="asrielMine"]');
+  }
   log($('#gameTooltip').textContent.includes('每行星居民铜产量') && $('#gameTooltip').textContent.includes('每行星居民钛产量'), 'Asriel矿井显示居民铜钛效果');
   await escapeTip();
   // Exercise the new mission chain and production controls in the same live app.
@@ -829,19 +1021,33 @@ try {
   click($('#launchMisenMission')); await flush();
   const misenGroups = $$('[data-building-group]').map(group => group.dataset.buildingGroup);
   log(S().misenMissionCompleted && !!$('[data-buy="e710Warehouse"]') && !!$('[data-buy="e710Reactor"]') && misenGroups.indexOf('misen') > misenGroups.indexOf('asteroidBelt'), `米神星任务即时解锁仓库反应堆且区域位于小行星带下方 [complete=${S().misenMissionCompleted},e710=${S().resources.e710},helium=${S().resources.helium3},groups=${misenGroups}]`);
-  store.mutate(state => { state.tech.push('alienScienceResearch','artificialIntelligenceII','quantumManufacturing','quantumSwarm','swarmFactory','swarmFactoryOptimization','starRingOptimization'); state.buildings.aiSupercore = 0; }); await flush();
+  store.mutate(state => { state.tech.push('alienScienceResearch','artificialIntelligenceII','quantumManufacturing','quantumSwarm','swarmFactory','swarmFactoryOptimization','starRingOptimization'); state.buildings.aiSupercore = 0; state.buildings.aiSupercoreSegments = 0; }); await flush();
   const { requestPurchaseModule, settlePurchaseQueue } = await import('/src/simulation/purchases.ts');
-  const queuedCore = store.mutate(state => requestPurchaseModule(state, 'build', 'aiSupercore', 0, true)); await flush();
-  log(queuedCore.status === 'queued' && S().queue.filter(item => item.kind === 'build' && item.id === 'aiSupercore').length === 1 && S().queue.find(item => item.kind === 'build' && item.id === 'aiSupercore').segments === 10, '分段建筑一次入队建立10段项目且只有一个队列条目');
+  const queuedCore = store.mutate(state => requestPurchaseModule(state, 'build', 'aiSupercoreSegments', 0, true)); await flush();
+  log(queuedCore.status === 'queued' && S().queue.filter(item => item.kind === 'build' && item.id === 'aiSupercoreSegments').length === 1 && S().queue.find(item => item.kind === 'build' && item.id === 'aiSupercoreSegments').segments === 10, '分段建筑一次入队建立10段项目且只有一个队列条目');
   store.mutate(state => { Object.assign(state.resources,{cash:1000000,metal:100000,alloy:50000,e710:100,nanotubes:500000}); settlePurchaseQueue(state, 0); }); await flush();
-  log(S().buildings.aiSupercore === 10 && !S().queue.some(item => item.kind === 'build' && item.id === 'aiSupercore'), '分段队列项目完成10段后移除而非只建1段');
-  store.mutate(state => { state.buildings.aiSupercore = 99; }); await flush();
-  log(!!$('[data-building-group="asriel"] [data-buy="alienMaterialLab"]') && !!$('[data-building-group="solar"] [data-buy="swarmFactory"]') && !!$('[data-building-group="talosMoon"] [data-buy="aiSupercore"]'), '外星实验室蜂群工厂AI核心位于指定太空区域');
-  log($('[data-buy="aiSupercore"]').textContent.includes('99') && !$('[data-buy="aiSupercore"]').closest('.building-control').querySelector('.building-toggle'), '未完成100段的AI核心展示分段且不提供开关');
+  log(S().buildings.aiSupercoreSegments === 10 && S().buildings.aiSupercore === 0 && !S().queue.some(item => item.kind === 'build' && item.id === 'aiSupercoreSegments'), '分段队列项目完成10段后移除而非只建1段');
+  store.mutate(state => { state.buildings.aiSupercoreSegments = 99; state.buildings.aiSupercore = 0; }); await flush();
+  const coreSegmentRow = $('[data-building-group="talosMoon"] [data-buy="aiSupercoreSegments"]');
+  // 未完成时分段行是该项目唯一的行（beta 0.9.26：完成体在建成前不显示）。
+  log(!!$('[data-building-group="asriel"] [data-buy="alienMaterialLab"]') && !!$('[data-building-group="solar"] [data-buy="swarmFactory"]') && !!coreSegmentRow, '外星实验室蜂群工厂AI核心位于指定太空区域');
+  log(coreSegmentRow.textContent.includes('99') && !coreSegmentRow.closest('.building-control').querySelector('.building-toggle') && !$('[data-building-group="talosMoon"] [data-buy="aiSupercore"]'), '未完成100段的AI核心只展示分段行且不提供开关');
+  // 分段工程在建成前只显示建造行：完成体同名且计数同为 0，两行并存会被误读成重复建筑。
+  {
+    const duplicates = [...document.querySelectorAll('[data-buy] .building-name')]
+      .map(el => el.textContent.trim())
+      .filter((name, index, all) => all.indexOf(name) !== index);
+    log(duplicates.length === 0,
+      `建筑面板不存在同名重复行 [duplicates=${[...new Set(duplicates)].join(',') || 'none'}]`);
+    // 未完成的分段工程不显示完成体行。
+    log(!$('[data-buy="aiSupercore"]') && !!$('[data-buy="aiSupercoreSegments"]'),
+      `未完成的AI核心只显示分段行 [segment=${!!$('[data-buy="aiSupercoreSegments"]')}, completed=${!!$('[data-buy="aiSupercore"]')}]`);
+  }
   store.mutate(state => { Object.assign(state.resources,{cash:100000,metal:10000,alloy:5000,e710:10,nanotubes:50000,helium3:1000}); }); await flush();
-  click($('[data-buy="aiSupercore"]')); await flush();
-  log(S().buildings.aiSupercore === 100 && !!$('[data-buy="aiSupercore"]').closest('.building-control').querySelector('.building-toggle'), '第100段实际建成完整AI核心并开放运行开关');
-  log($('[data-buy="aiSupercore"]').getAttribute('aria-disabled') === 'true' && $('[data-buy="aiSupercore"] .building-count').textContent === '1' && !$('[id="quantumLevel"]'), '核心建满后数量显示1禁止继续建造且世界页面移除量子水平');
+  click(coreSegmentRow); await flush();
+  log(S().buildings.aiSupercore === 1 && !!$('[data-buy="aiSupercore"]').closest('.building-control').querySelector('.building-toggle'), '第100段实际建成完整AI核心并开放运行开关');
+  // 分段建筑是一次性工程：建成后建造行整体消失，完成态只显示座数，无法再开第二座。
+  log(!$('[data-buy="aiSupercoreSegments"]') && $('[data-buy="aiSupercore"] .building-count').textContent === '1' && !$('[id="quantumLevel"]'), `核心建满后移除建造行、完成态显示1座且世界页面移除量子水平 [segmentRow=${!!$('[data-buy="aiSupercoreSegments"]')},count=${$('[data-buy="aiSupercore"] .building-count')?.textContent}]`);
   const maxCore = $('[data-buy="aiSupercore"]');
   const maxCoreInfo = maxCore.closest('.building-control').querySelector('.building-info');
   const coreBeforeDisabledClick = S().buildings.aiSupercore;
@@ -878,6 +1084,21 @@ try {
   store.mutate(state => { state.resources.helium3 = 0; }); await flush();
   log(corePowerButton().classList.contains('is-shortage'), '完整AI核心缺少氦3时仍正确显示黄色');
   store.mutate(state => { state.resources.helium3 = 1000; }); await flush();
+  // The construction phase and the completed building are two registry entries: only the
+  // *Segments row is purchasable, and it disappears once the completed building exists.
+  {
+    const splitSnapshot = JSON.parse(JSON.stringify(S()));
+    store.mutate(state => {
+      state.buildings.aiSupercore = 0; state.buildings.aiSupercoreSegments = 0;
+      Object.assign(state.resources, { cash: 1000000, metal: 100000, alloy: 50000, e710: 100, nanotubes: 500000, helium3: 1000 });
+    }); await flush();
+    click($('[data-buy="aiSupercoreSegments"]')); await flush();
+    log(S().buildings.aiSupercore === 0 && S().buildings.aiSupercoreSegments === 1 && $('[data-buy="aiSupercoreSegments"] .building-count').textContent === '1' && !$('[data-buy="aiSupercore"]'), '购买一段AI超级核心只累积分段，未建成时不显示完成行');
+    store.mutate(state => { state.buildings.aiSupercoreSegments = 99; }); await flush();
+    click($('[data-buy="aiSupercoreSegments"]')); await flush();
+    log(S().buildings.aiSupercoreSegments === 0 && S().buildings.aiSupercore === 1 && $('[data-buy="aiSupercore"] .building-count').textContent === '1' && !$('[data-buy="aiSupercoreSegments"]'), '第100段建成后分段清零、生成完整AI超级核心并移除建造行');
+    store.mutate(state => Object.assign(state, splitSnapshot)); await flush();
+  }
   log(!$('[data-stage-three]') && !$('[data-building-group="anomaly"]'), '太空页不再展示第三阶段面板与专属设施');
   log(!$('[data-world-view="hyperspace"]'), '第三阶段激活但未研究异常区域测绘时超空间仍未解锁');
   click($('[data-tab="arpa"]')); await flush();
@@ -978,23 +1199,32 @@ try {
   }
   click($('[data-tab="buildings"]'));await flush();
   log(!!$('[data-building-group="e710Enrichment"] [data-buy="highTechFactory"]')&&!!$('[data-building-group="e710Enrichment"] [data-buy="highTechFactory"]').closest('.building-control').querySelector('.building-gear'),'高科技工厂位于710富集区并提供生产线设置按钮');
-  log(!!$('[data-building-group="dimensionalBoundary"] [data-buy="spaceRipper"]'),'空间撕裂者位于维度边界');
+  // beta 0.9.26：未完成的分段工程只显示建造行，完成体建成后才出现。
+  log(!!$('[data-building-group="dimensionalBoundary"] [data-buy="spaceRipperSegments"]')&&!$('[data-building-group="dimensionalBoundary"] [data-buy="spaceRipper"]'),'未完成的空间撕裂者只显示建造分段行');
   log(!!$('[data-building-group="e710Enrichment"] [data-buy="e710ResearchStation"]'),'710研究站位于710富集区');
   await showTip('[data-building-tip="e710ResearchStation"][data-tip-kind="building"]');
   log($('#gameTooltip')?.textContent.includes('猫猫科学家上限+1')&&$('#gameTooltip')?.textContent.includes('知识容量+50k')&&$('#gameTooltip')?.textContent.includes('氘-1/s'),'710研究站把效果列在建筑效果区');await escapeTip();
+  await showTip('[data-building-tip="spaceRipperSegments"][data-tip-kind="building"]');
+  {
+    const tip=$('#gameTooltip'),rows=[...(tip?.querySelectorAll('.resource-factor')||[])].map(row=>row.textContent.replace(/\s+/g,''));
+    log(tip.textContent.includes('每段固定价格')&&!tip.textContent.includes('完整核心')&&rows.includes('分段进度0/100'),'未完成的空间撕裂者分段显示固定分段价格与0/100进度');
+  }
+  await escapeTip();
+  // 完成体只在建成后渲染（beta 0.9.26），所以先建成再悬停它的详情。
+  const beforeRipperDone=JSON.parse(JSON.stringify(S()));
+  store.mutate(state=>{state.buildings.spaceRipper=1;state.buildings.spaceRipperSegments=0;});await flush();
   await showTip('[data-building-tip="spaceRipper"][data-tip-kind="building"]');
   {
     const tip=$('#gameTooltip'),desc=tip?.querySelector('.tip-desc')?.textContent||'',rows=[...(tip?.querySelectorAll('.resource-factor')||[])].map(row=>row.textContent.replace(/\s+/g,''));
-    log(desc.includes('这个巨大的装置撕开了空间的边界')&&!desc.includes('电力')&&tip.textContent.includes('每段固定价格')&&!tip.textContent.includes('完整核心'),'空间撕裂者描述只保留介绍文字，未完成时显示固定分段价格');
-    log(rows.includes('分段进度0/100')&&rows.includes('电力+100')&&rows.some(row=>row.startsWith('知识容量+20%')),'空间撕裂者效果列在建筑效果中');
+    log(desc.includes('这个巨大的装置撕开了空间的边界')&&!desc.includes('电力')&&!tip.querySelector('.tip-cost')&&rows.includes('电力+100')&&rows.some(row=>row.startsWith('知识容量+20%')),'空间撕裂者完成形态只保留介绍文字且效果列在建筑效果中');
   }
   await escapeTip();
-  const beforeRipperDone=JSON.parse(JSON.stringify(S()));
-  store.mutate(state=>{state.buildings.spaceRipper=100;});await flush();
+  // 一次性工程：建成后建造行被移除，只剩完成行。
+  log(!$('[data-building-group="dimensionalBoundary"] [data-buy="spaceRipperSegments"]')&&!!$('[data-building-group="dimensionalBoundary"] [data-buy="spaceRipper"]'),'空间撕裂者建成后移除建造分段行');
   await showTip('[data-building-tip="spaceRipper"][data-tip-kind="building"]');
   {
     const tip=$('#gameTooltip'),rows=[...(tip?.querySelectorAll('.resource-factor')||[])].map(row=>row.textContent.replace(/\s+/g,''));
-    log(rows.includes('分段进度100/100')&&!tip.textContent.includes('每段固定价格')&&!tip.querySelector('.tip-cost'),'建成后分段进度显示100/100且不再显示建造价格');
+    log($('[data-buy="spaceRipper"] .building-count').textContent==='1'&&!rows.some(row=>row.startsWith('分段进度'))&&!tip.textContent.includes('每段固定价格')&&!tip.querySelector('.tip-cost'),'建成后完成行数量显示1且不再显示分段进度与建造价格');
   }
   await escapeTip();
   store.mutate(state=>{state.tech.push('ripperOverclock');});await flush();
@@ -1015,11 +1245,23 @@ try {
     log($('[data-world-view="hyperspace"]')?.textContent.trim()==='遥远星际'&&groups.indexOf('alphaSector')>groups.indexOf('dimensionalBoundary'),'超空间更名为遥远星际且天元六alpha星区位于维度边界下方');
     log($('[data-region-description="alphaSector"]')?.textContent.includes('黑洞附近的可怜星系'),'天元六alpha星区显示区域描述');
   }
-  store.mutate(state=>{state.tech.push('superMetal','grapheneProcessing','nanoAlloy','plasmaResearch','virtualReality','aerogel','energyShield');});await flush();
+  store.mutate(state=>{state.tech.push('superMetal','grapheneProcessing','nanoAlloy','dysonSphere','plasmaResearch','virtualReality','aerogel','energyShield');});await flush();
   {
     const groups=$$('[data-building-group]').map(group=>group.dataset.buildingGroup);
     log(['adamantiteMiningShip','adamantiteProcessor','grapheneFactory'].every(id=>!!$(`[data-building-group="alphaSector"] [data-buy="${id}"]`))&&groups.indexOf('neutronStar')>groups.indexOf('alphaSector')&&groups.indexOf('blackHole')>groups.indexOf('neutronStar'),'精金与石墨烯设施位于alpha星区，卡尔维拉与DSR-8086依次出现');
     log(!!$('[data-building-group="neutronStar"] #launchNeutronStarMission')&&!!$('[data-building-group="blackHole"] #launchBlackHoleMission')&&!$('[data-buy="stellarForge"]')&&!$('[data-buy="blackHoleStation"]'),'中子星与黑洞探索任务按钮出现，完成前不显示区域建筑');
+    // The completed form is a display-only registry entry: the segment row buys, it does not.
+    // beta 0.9.26: while the project is unfinished only the segment row renders at all.
+    const dysonSegmentRow = $('[data-building-group="alphaSector"] [data-buy="dysonSphereSegments"]');
+    log(!!dysonSegmentRow && !dysonSegmentRow.hasAttribute('data-not-buildable')
+      && !$('[data-building-group="alphaSector"] [data-buy="dysonSphere"]'),
+      '未完成的戴森球只渲染可建造的分段行，完成形态尚未出现');
+    // 完成体不存在，所以无从点击；点击分段行只增加分段，不产生完整建筑。
+    const dysonQueueBefore = S().queue.length;
+    click(dysonSegmentRow); await flush();
+    log(S().queue.length > dysonQueueBefore || S().buildings.dysonSphereSegments > 0
+      ? S().buildings.dysonSphere === 0 : true,
+      '点击分段行不产生完整戴森球');
   }
   {
     const snapshot=structuredClone(S());
@@ -1030,8 +1272,8 @@ try {
     store.mutate(state=>Object.assign(state,snapshot));await flush();
   }
   store.mutate(state=>{state.blackHoleMissionCompleted=true;state.tech.push('penroseTheory');});await flush();
-  log(!$('#launchBlackHoleMission')&&!!$('[data-building-group="blackHole"] [data-buy="blackHoleStation"]')&&!!$('[data-building-group="blackHole"] [data-buy="penroseSphere"]'),'黑洞探索完成后显示黑洞星际站与彭罗斯球体');
-  store.mutate(state=>{state.buildings.spaceRipper=100;state.buildings.blackHoleStation=3;state.stoppedBuildings.blackHoleStation=0;state.buildings.solarSatellite=200000;});await flush();
+  log(!$('#launchBlackHoleMission')&&!!$('[data-building-group="blackHole"] [data-buy="blackHoleStation"]')&&!!$('[data-building-group="blackHole"] [data-buy="penroseSphereSegments"]'),'黑洞探索完成后显示黑洞星际站与彭罗斯球体建造分段');
+  store.mutate(state=>{state.buildings.spaceRipper=1;state.buildings.spaceRipperSegments=0;state.buildings.blackHoleStation=3;state.stoppedBuildings.blackHoleStation=0;state.buildings.solarSatellite=200000;});await flush();
   await showTip('[data-building-tip="spaceRipper"][data-tip-kind="building"]');
   {
     const rows=[...($('#gameTooltip')?.querySelectorAll('.resource-factor')||[])].map(row=>row.textContent.replace(/\s+/g,''));
@@ -1120,10 +1362,69 @@ try {
   store.runtime.replaceState(beforeOuter); store.refresh(); await flush();
   click($('[data-tab="tech"]')); await flush();
   log(! $('[data-research] .tech-price'), '可研究科技按钮不显示价格');
-  click($('[data-tech-view="completed"]')); await flush();
+  // 专注布局：已研究树占满右列空间，离开即恢复。
+  {
+    const layoutEl = () => $('.layout');
+    const rightVisible = () => { const right = $('.col-right'); return right && getComputedStyle(right).display !== 'none'; };
+    const midWidth = () => $('.col-mid')?.getBoundingClientRect().width ?? 0;
+    click($('[data-tech-view="available"]')); await flush();
+    const normalWidth = midWidth();
+    log(rightVisible() && !layoutEl().hasAttribute('data-focus-layout'), '可研究视图保留队列与日志右列');
+    click($('[data-tech-view="completed"]')); await flush();
+    log(layoutEl().getAttribute('data-focus-layout') === 'tech' && !rightVisible(), '已研究视图隐藏右列');
+    // 只有宽屏才真正多出横向空间：≤860px 布局已是单列，隐藏右列只减少纵向长度。
+    if (innerWidth > 860) {
+      log(midWidth() > normalWidth + 40, `已研究视图获得更多横向空间 [${normalWidth.toFixed(0)} → ${midWidth().toFixed(0)}]`);
+    } else {
+      log(Math.abs(midWidth() - normalWidth) < 2, `窄屏下不改变中间列宽度 [${normalWidth.toFixed(0)} → ${midWidth().toFixed(0)}]`);
+    }
+    // 每行最多 10 个：先看真实 DOM，再用全量科技验证换行本身。
+    const rowCounts = new Map();
+    for (const node of $$('.completed-tech-node')) {
+      const top = Math.round(node.getBoundingClientRect().top);
+      rowCounts.set(top, (rowCounts.get(top) ?? 0) + 1);
+    }
+    log(Math.max(...rowCounts.values()) <= 10, `已研究树同一行最多10个科技 [最宽=${Math.max(...rowCounts.values())}]`);
+    // 该夹具已研究的科技不足以触发换行，所以直接用布局函数验证全量科技树。
+    const { layoutTechTree, TECH_NODES_PER_ROW } = await import('/src/vue/tech-tree.ts');
+    const fullTree = layoutTechTree(Object.keys(TECHNOLOGIES));
+    const wrapped = fullTree.levels.filter(level => level.rows > 1);
+    const perRow = new Map();
+    for (const node of fullTree.nodes) perRow.set(`${node.tier}:${node.y}`, (perRow.get(`${node.tier}:${node.y}`) ?? 0) + 1);
+    log(TECH_NODES_PER_ROW === 10 && wrapped.length > 0 && Math.max(...perRow.values()) === 10,
+      `全量科技树按每行10个换行 [换行层级=${wrapped.map(level => `T${level.tier}×${level.rows}`).join(',')}, 最宽行=${Math.max(...perRow.values())}]`);
+    // 离开该视图后右列自动回来，不会被永久藏起来。
+    click($('[data-tech-view="available"]')); await flush();
+    log(rightVisible() && !layoutEl().hasAttribute('data-focus-layout'), '离开已研究视图后右列自动恢复');
+    click($('[data-tab="buildings"]')); await flush();
+    log(rightVisible(), '切换标签页后右列仍然可见');
+    click($('[data-tab="tech"]')); await flush();
+    click($('[data-tech-view="completed"]')); await flush();
+    log(!rightVisible(), '再次进入已研究视图重新隐藏右列');
+  }
   log(! $('[data-completed-tech] .tech-price'), '已研究科技树按钮不显示价格');
   await showTip('[data-completed-tech="survival"]');
   log(!!$('#gameTooltip .tip-cost'), '已研究科技价格仍显示在悬停信息中');
+  // 科技副标题：名字正下方一行，只写分类，颜色与科技树边框一致。
+  {
+    const subtitle = $('#gameTooltip .tip-subtitle');
+    const title = $('#gameTooltip h3');
+    log(subtitle?.textContent === '里程碑' && subtitle.dataset.techCategory === 'milestone',
+      `科技悬停显示分类副标题 [${subtitle?.textContent}]`);
+    log(subtitle && title && subtitle.getBoundingClientRect().top >= title.getBoundingClientRect().bottom - 1,
+      '分类副标题位于科技名字下方');
+    log(getComputedStyle(subtitle).color === 'rgb(224, 182, 74)', `副标题复用里程碑金色 [${getComputedStyle(subtitle).color}]`);
+    log(!/\d/.test(subtitle.textContent), '副标题只写类型，不含数字');
+  }
+  await escapeTip();
+  await showTip('[data-completed-tech="planetaryExploration"]');
+  log($('#gameTooltip .tip-subtitle')?.textContent === '太空与异星'
+    && getComputedStyle($('#gameTooltip .tip-subtitle')).color === 'rgb(91, 150, 221)',
+    `不同科技的副标题与颜色随之切换 [${$('#gameTooltip .tip-subtitle')?.textContent}]`);
+  await escapeTip();
+  // 建筑没有分类副标题，这一行只属于科技。
+  await showTip('[data-completed-tech="survival"]');
+  log(!$('#gameTooltip .tip-subtitle') || $('#gameTooltip h3')?.textContent === '基础生存', '分类副标题只出现在科技提示中');
   await escapeTip();
   log($('[data-tech-view="completed"]').classList.contains('active') && !$('[data-research]') && $('.content-body').textContent.includes('基础生存'), '已研究科技视图真实切换并显示已研究内容');
 
@@ -1169,6 +1470,36 @@ try {
       const specialNode = $('[data-completed-tech="crispr16"]')?.closest('.completed-tech-node');
       const initialNode = $('[data-completed-tech="survival"]')?.closest('.completed-tech-node');
       log($('[data-tech-tier="-1"]')?.textContent === '特殊' && specialNode && initialNode && specialNode.getBoundingClientRect().top < initialNode.getBoundingClientRect().top, '已研究科技树特殊层位于T0上方');
+      // 科技分类：每类一个边框色，颜色写在 data-tech-category 上，靠 CSS 变量落到 border-color。
+      const categoryOf = id => $(`[data-completed-tech="${id}"]`)?.dataset.techCategory;
+      const borderOf = id => getComputedStyle($(`[data-completed-tech="${id}"]`)).borderTopColor;
+      log(categoryOf('survival') === 'milestone' && categoryOf('mining') === 'production'
+        && categoryOf('planetaryExploration') === 'space' && categoryOf('electricity') === 'milestone',
+        `已研究科技按类别标记 [survival=${categoryOf('survival')}, mining=${categoryOf('mining')}, planetary=${categoryOf('planetaryExploration')}]`);
+      log(borderOf('survival') !== borderOf('mining') && borderOf('mining') !== borderOf('planetaryExploration')
+        && borderOf('survival') === 'rgb(224, 182, 74)' && borderOf('mining') === 'rgb(159, 174, 78)',
+        `不同类别使用不同边框色 [里程碑=${borderOf('survival')}, 生产=${borderOf('mining')}, 太空=${borderOf('planetaryExploration')}]`);
+      // 颜色不是唯一线索：按钮左上角有同色小圆点，色盲玩家也能区分。
+      const dot = getComputedStyle($('[data-completed-tech="mining"]'), '::before');
+      log(dot.content === '""' && dot.backgroundColor === 'rgb(159, 174, 78)', `分类色同时用于左上角圆点 [${dot.backgroundColor}]`);
+      // 已退役科技不再出现在任何一栏。
+      log(!$('[data-completed-tech="energyStorage"]') && !$('[data-completed-tech="batteryConcentrationRing"]')
+        && !$('[data-research="energyStorage"]') && !$('[data-research="batteryConcentrationRing"]'),
+        '退役科技已从可研究与已研究列表隐藏');
+      // 农业机械在本版退役：效果已删除，两个界面都不再显示，但注册表里仍保留 ID 让旧存档通过校验。
+      log(!$('[data-completed-tech="agriculturalMachinery"]') && !$('[data-research="agriculturalMachinery"]')
+        && Object.hasOwn(TECHNOLOGIES, 'agriculturalMachinery'),
+        '农业机械已退役：界面隐藏但注册表保留ID');
+      // 三个新科技存在于注册表并带正确分类与档位。它们是否出现在科技树取决于当前存档
+      // 是否已研究，因此分类断言直接读注册表对应的分类映射，不依赖存档状态。
+      log(['nanoArmor', 'nanoExoskeleton', 'advancedConcrete'].every(id => Object.hasOwn(TECHNOLOGIES, id)),
+        '三个新科技已注册');
+      log(TECHNOLOGIES.nanoArmor.tier === 20 && TECHNOLOGIES.nanoExoskeleton.tier === 20
+        && TECHNOLOGIES.advancedConcrete.tier === 16,
+        `新科技档位为T20/T20/T16 [${TECHNOLOGIES.nanoArmor.tier}/${TECHNOLOGIES.nanoExoskeleton.tier}/${TECHNOLOGIES.advancedConcrete.tier}]`);
+      // 已研究科技树只显示当前存档研究过的科技，所以这里只验证退役项确实缺席。
+      log(!$('[data-completed-tech="agriculturalMachinery"]'),
+        '已研究科技树不含退役的农业机械');
       click($('[data-tab="arpa"]')); await flush();
       click($('[data-arpa-view="crispr"]')); await flush();
       log($('[data-crispr-view="available"]')?.classList.contains('active') && !!$('[data-crispr-view="completed"]'), 'ARPA的CRISPR提供可修饰与已完成子页');
@@ -1318,7 +1649,10 @@ try {
   log(!$$('.content-body h3').some(heading => heading.textContent.trim() === '威望') && !$('.content-body [data-tip-kind="prestige"]'), '设置移除威望段落和粒子tooltip入口');
   log(!$('#prestigeResources'), '从未获得威望资源的新存档隐藏威望资源栏目');
   store.mutate(state => { state.prestige.particles = 1; }); await flush();
-  log($('.col-left').lastElementChild === $('#prestigeResources') && !!$('[data-prestige-row="particles"]') && !$('[data-prestige-row="casimir"]'), '获得粒子后威望资源位于左侧资源区最下方，未获得的卡西米尔仍隐藏');
+  log($('#prestigeResources')?.parentElement.classList.contains('col-left-scroll')
+    && $('#prestigeResources').parentElement.lastElementChild === $('#prestigeResources')
+    && !!$('[data-prestige-row="particles"]') && !$('[data-prestige-row="casimir"]'),
+    '获得粒子后威望资源位于同一滚动区最下方，未获得的卡西米尔仍隐藏');
   await showTip('#prestigeResources [data-tip-kind="prestige"]');
   log($('#gameTooltip').textContent.includes('当前持有1粒子，当前实际加成为普通资源产量 +0.5%，锻造物产量 +0.062%'), '粒子数字悬停显示精确持有效果');
   log(!$('#gameTooltip').textContent.includes('产量有效粒子数') && !$('#gameTooltip').textContent.includes('每个有效粒子储量'), '粒子悬停不再显示产量有效粒子数与单个修饰储量行');
@@ -1424,8 +1758,12 @@ try {
           '解密建筑的加密数据+0.01/s与+25%作为两个不同类型效果共存');
         log(rows.some(row => row.firstElementChild?.textContent === 'CPU算力' && row.querySelector('.resource-factor-value')?.textContent === '−2'), '解密建筑维护通用显示CPU算力−2');
       }
-      if (BUILDINGS[id].max === 1 && tip.querySelector('.tip-cost')) tooltipFailures.push(`${id}: completed one-off still quotes cost`);
-      if (BUILDINGS[id].max === 1) {
+      // Completed forms of segmented projects (buildable: false, cost {}) are never purchased,
+      // so only genuinely purchasable one-off buildings must quote a price while unbuilt.
+      const purchasable = BUILDINGS[id].buildable !== false;
+      if (!purchasable && tip.querySelector('.tip-cost')) tooltipFailures.push(`${id}: completed form quotes a build cost`);
+      if (BUILDINGS[id].max === 1 && purchasable && tip.querySelector('.tip-cost')) tooltipFailures.push(`${id}: completed one-off still quotes cost`);
+      if (BUILDINGS[id].max === 1 && purchasable) {
         store.mutate(state => { state.buildings[id] = 0; }); await flush();
         if (!tip.querySelector('.tip-cost')) tooltipFailures.push(`${id}: unbuilt one-off missing cost`);
         store.mutate(state => { state.buildings[id] = 1; }); await flush();
@@ -1582,15 +1920,17 @@ try {
         state.buildings.softRouterNode = 2;
         state.buildings.aesComputeModule = 1;
         state.buildings.worldSimulator = 1;
-        state.buildings.agiCoreComponent = 100;
-        state.buildings.agiAscensionCore = 100;
+        state.buildings.agiCoreComponent = 1;
+        state.buildings.agiCoreComponentSegments = 0;
+        state.buildings.agiAscensionCore = 1;
+        state.buildings.agiAscensionCoreSegments = 0;
         state.stoppedBuildings.agiAscensionCore = 1;
         state.buildings.solarSatellite = 200000;
         state.resources.water = 1000000;
       }); await flush();
       log($('[data-building-group="ethernet"]').contains($('[data-buy="softRouterNode"]')) && $('[data-building-group="npu"]').contains($('[data-buy="aesComputeModule"]')) && $('[data-building-group="npu"]').contains($('[data-buy="worldSimulator"]')), '软路由位于Ethernet，AES与世界模拟器位于NPU');
       log($$('[data-building-group]').at(-1)?.dataset.buildingGroup === 'agi-core' && $('[data-region-description="agi-core"]').textContent.includes('"Hikarier.Execute"的内心世界'), 'AI超级核心区域位于NPU之后且说明正确');
-      log($('[data-buy="agiAscensionCore"] .building-count').textContent === '100/100' && !$('[data-digital-ascension]'), '完整飞升核心显示100/100且关闭时隐藏飞升按钮');
+      log($('[data-buy="agiAscensionCore"] .building-count').textContent === '1' && !$('[data-digital-ascension]'), '完整飞升核心显示1并关闭时隐藏飞升按钮');
       const stoppedCore = $('[data-buy="agiAscensionCore"]');
       const stoppedCoreRect = stoppedCore.getBoundingClientRect();
       const coreControl = stoppedCore.closest('.building-control');
@@ -1642,6 +1982,160 @@ try {
       await escapeTip();
       store.mutate(state => Object.assign(state, digitalSnapshot)); await flush();
     }
+  }
+  // 资源明细弹窗：长数值不能被折成两行，而应把弹窗撑宽（玩家反馈的 UI 问题）。
+  {
+    // 构造 TooltipPanel 的等价标记，避免依赖某个存档里恰好有超长数值。
+    const tip = document.createElement('div');
+    tip.className = 'building-tooltip resource-detail';
+    tip.style.cssText = 'position:fixed;left:0;top:0;visibility:hidden';
+    const row = (name, value) => `<div class="resource-factor"><span>${name}</span><span class="resource-factor-value is-negative">${value}</span></div>`;
+    tip.innerHTML = '<h3>知识收支</h3><div class="resource-columns">'
+      + '<div class="resource-column"><div class="resource-column-title">来源与产量倍率</div>'
+      + row('猫猫教授', '+122/s') + row('粒子', '+1373.67%') + row('图书馆', '+350%') + '</div>'
+      + '<div class="resource-column"><div class="resource-column-title">消耗</div>'
+      + row('基因合成', '−9430.05/s') + '</div></div>';
+    document.body.append(tip);
+    await flush();
+    const valueCell = tip.querySelectorAll('.resource-factor-value')[3];
+    const valueStyle = getComputedStyle(valueCell);
+    const lineHeight = parseFloat(valueStyle.lineHeight);
+    const valueHeight = valueCell.getBoundingClientRect().height;
+    log(valueStyle.whiteSpace === 'nowrap' && valueHeight <= lineHeight * 1.5,
+      `资源明细长数值不换行 [whiteSpace=${valueStyle.whiteSpace}, h=${Math.round(valueHeight)}, lineH=${lineHeight.toFixed(1)}]`);
+    // 短内容时弹窗收缩到内容宽度，不能留出大块空白（玩家第二次反馈的问题）。
+    // 判据：弹窗内容盒宽度 - 两列实际占用宽度 <= padding + gap 级别的误差。
+    const base = tip.getBoundingClientRect();
+    const basePad = parseFloat(getComputedStyle(tip).paddingLeft) + parseFloat(getComputedStyle(tip).paddingRight);
+    const columnsWidth = tip.querySelector('.resource-columns').getBoundingClientRect().width;
+    const slack = Math.round(base.width - basePad - columnsWidth);
+    log(slack <= 2,
+      `资源明细弹窗不留空白 [tipW=${Math.round(base.width)}, columnsW=${Math.round(columnsWidth)}, slack=${slack}]`);
+    // 塞入超长名称与数值后，弹窗必须变宽而不是折行。
+    tip.querySelector('.resource-column:last-child .resource-factor span').textContent = '基因合成（加速批次全部产物）';
+    tip.querySelectorAll('.resource-factor-value')[3].textContent = '−9430999.054321/s';
+    await flush();
+    const grown = Math.round(tip.getBoundingClientRect().width);
+    const grownValue = tip.querySelectorAll('.resource-factor-value')[3].getBoundingClientRect();
+    log(grown > Math.round(base.width) && grownValue.height <= lineHeight * 1.5,
+      `内容更长时弹窗变宽而非折行 [${Math.round(base.width)} → ${grown}, valueH=${Math.round(grownValue.height)}]`);
+    // 变宽后同样不能留空白。
+    const grownPad = parseFloat(getComputedStyle(tip).paddingLeft) + parseFloat(getComputedStyle(tip).paddingRight);
+    const grownSlack = Math.round(tip.getBoundingClientRect().width - grownPad - tip.querySelector('.resource-columns').getBoundingClientRect().width);
+    log(grownSlack <= 2,
+      `变宽后仍无空白 [slack=${grownSlack}]`);
+    // 变宽不能突破视口。
+    log(tip.getBoundingClientRect().right <= innerWidth,
+      `资源明细弹窗不超出视口 [right=${Math.round(tip.getBoundingClientRect().right)}, viewport=${innerWidth}]`);
+    tip.remove();
+  }
+  // 滚轮边界：列表内的滚轮到顶/到底都不把滚动交给页面（需要真实脚本环境，故在主页面验证）。
+  {
+    const list = $('[data-isolated-scroll]');
+    if (!list) {
+      log(false, '资源面板未渲染，无法验证滚轮边界');
+    } else {
+      const originalMaxHeight = list.style.maxHeight;
+      list.style.maxHeight = '80px';
+      await flush();
+      const pageBefore = document.scrollingElement.scrollTop;
+      list.scrollTop = list.scrollHeight;
+      const pastEnd = new WheelEvent('wheel', { deltaY: 120, bubbles: true, cancelable: true });
+      list.dispatchEvent(pastEnd);
+      await flush();
+      log(pastEnd.defaultPrevented && document.scrollingElement.scrollTop === pageBefore,
+        `列表到底后不把滚动交给页面 [prevented=${pastEnd.defaultPrevented}, page ${pageBefore}→${document.scrollingElement.scrollTop}]`);
+      list.scrollTop = 0;
+      const pastTop = new WheelEvent('wheel', { deltaY: -120, bubbles: true, cancelable: true });
+      list.dispatchEvent(pastTop);
+      await flush();
+      log(pastTop.defaultPrevented && document.scrollingElement.scrollTop === pageBefore,
+        `列表到顶后同样不把滚动交给页面 [prevented=${pastTop.defaultPrevented}]`);
+      list.style.maxHeight = originalMaxHeight;
+      list.scrollTop = 0;
+      await flush();
+    }
+  }
+  // 左栏统一滚动（beta 0.9.25）：资源列表、锻造物与威望资源共用一个滚动容器，
+  // 一起滚动；资源列表本身永远完整展开、不被裁剪成一小块。
+  // 用独立 iframe 在真实宽度下验证布局本身，完全不依赖主应用当前标签页与状态。
+  {
+    const scroller = document.createElement('div');
+    scroller.style.cssText = 'position:fixed;left:-10000px;top:0;width:1500px;height:800px;border:0;overflow:hidden';
+    const frame = document.createElement('iframe');
+    frame.style.cssText = 'width:1500px;height:800px;border:0';
+    const rows = (n, cls) => Array.from({ length: n }, (_, i) => '<div class="res-row">' + cls + i + '</div>').join('');
+    frame.srcdoc = '<link rel="stylesheet" href="/assets/css/style.css">'
+      + '<div class="layout">'
+      + '<aside class="col-left pinned-column">'
+      + '<div class="panel" style="height:90px">head</div>'
+      + '<div class="col-left-scroll isolated-scroll" data-isolated-scroll>'
+      + '<section class="panel resource-panel" id="probeResources">' + rows(40, 'res') + '</section>'
+      + '<section class="panel" id="probeCrafting" style="height:300px">crafting</section>'
+      + '<section class="panel" id="probePrestige" style="height:200px">prestige</section>'
+      + '</div></aside>'
+      + '<main class="col-mid" style="height:2400px"></main><aside class="col-right"></aside></div>';
+    scroller.append(frame);
+    document.body.append(scroller);
+    await new Promise(resolve => { frame.onload = resolve; });
+    const fdoc = frame.contentDocument, fwin = frame.contentWindow;
+    const col = fdoc.querySelector('.col-left');
+    const box = fdoc.querySelector('.col-left-scroll');
+    const resource = fdoc.querySelector('#probeResources');
+    const crafting = fdoc.querySelector('#probeCrafting');
+    const prestige = fdoc.querySelector('#probePrestige');
+    const page = fdoc.scrollingElement;
+
+    // 三块内容都在同一个滚动容器里。
+    log([resource, crafting, prestige].every(el => el && box.contains(el)),
+      '资源列表锻造物与威望资源共用一个滚动容器');
+
+    // 左列固定在视口内，高度锁定。
+    log(fwin.getComputedStyle(col).position === 'sticky' && Math.round(col.getBoundingClientRect().height) <= 801,
+      `宽屏下左列固定且高度锁定在视口内 [position=${fwin.getComputedStyle(col).position}, h=${Math.round(col.getBoundingClientRect().height)}]`);
+
+    // 滚动容器自己可滚（内容多于可视高度）。
+    log(box.scrollHeight > box.clientHeight + 1,
+      `左栏内容超出可视高度产生滚动条 [content=${box.scrollHeight}, client=${box.clientHeight}]`);
+
+    // 资源列表完整展开：没有自己的滚动条，也没有被裁剪。
+    log(fwin.getComputedStyle(resource).overflowY !== 'auto'
+      && Math.abs(resource.scrollHeight - resource.clientHeight) <= 1
+      && fwin.getComputedStyle(resource).maxHeight === 'none',
+      `资源列表始终完整展开不折叠 [overflow-y=${fwin.getComputedStyle(resource).overflowY}, scroll=${resource.scrollHeight}, client=${resource.clientHeight}]`);
+
+    // 滚动容器时三块内容一起移动，位移量相同。
+    const top = el => Math.round(el.getBoundingClientRect().top);
+    const before = { resource: top(resource), crafting: top(crafting), prestige: top(prestige) };
+    box.scrollTop = 300;
+    await flush();
+    const after = { resource: top(resource), crafting: top(crafting), prestige: top(prestige) };
+    const shifts = [before.resource - after.resource, before.crafting - after.crafting, before.prestige - after.prestige];
+    log(box.scrollTop > 0 && shifts.every(shift => shift === shifts[0]) && shifts[0] > 0,
+      `三块内容一起滚动 [位移=${shifts.join(',')}, scrollTop=${box.scrollTop}]`);
+
+    // 左栏滚动不影响页面位置。
+    const pageBefore = page.scrollTop;
+    log(page.scrollTop === pageBefore, `左栏滚动不带动页面 [page=${pageBefore}→${page.scrollTop}]`);
+
+    // 页面滚动不带动左栏（列固定 + 内部 scrollTop 不变）。
+    box.scrollTop = 0;
+    await flush();
+    const colTopBefore = Math.round(col.getBoundingClientRect().top);
+    const boxScrollBefore = box.scrollTop;
+    page.scrollTop = 500;
+    await flush();
+    log(page.scrollTop > 0 && Math.round(col.getBoundingClientRect().top) === colTopBefore && box.scrollTop === boxScrollBefore,
+      `页面滚动不带动左栏 [page=${page.scrollTop}, colTop ${colTopBefore}→${Math.round(col.getBoundingClientRect().top)}, boxScroll ${boxScrollBefore}→${box.scrollTop}]`);
+
+    // 文明面板留在滚动区外，始终可见。
+    log(!box.contains(col.firstElementChild), '文明面板留在滚动区外');
+
+    // 两条滚动条同时存在，互不干扰。
+    log(page.scrollHeight > 800 && box.scrollHeight > box.clientHeight,
+      `页面与左栏各自拥有滚动条 [page=${page.scrollHeight}/800, box=${box.scrollHeight}/${box.clientHeight}]`);
+
+    scroller.remove();
   }
   mounted.app.unmount();
   const protectedText = '  ' + JSON.stringify({ version: 29, original: '不可改写的旧档' }) + '\n';

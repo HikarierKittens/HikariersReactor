@@ -12,10 +12,16 @@ import { calculateParticleMultiplier, calculateGlobalOutputMultiplier, calculate
 import { calculateChallengeAcceleratorMultiplier } from './multipliers';
 import { calculateFoodPerCat } from './population';
 import { soldierFoodUpkeep } from './neighbors';
+import { activeOccupations, occupationOutputMultiplier, occupationTaxRate, unificationOutputMultiplier } from './neighbors';
+/** Occupied cities that still count (always 0 after 世界统一). */
+function activeOccupationCount(state: GameState): number {
+  return activeOccupations(state).length;
+}
 import { SOLDIER_FOOD_UPKEEP } from '../data/neighbors';
+import { SOLDIER_FUR_BASE } from '../data/military';
 import { isPowerProducer } from './power';
 import { countRunningBuildings } from './housing';
-import { calculateGovernmentMultiplier, calculateTaxBase, calculateBankerMultiplier, calculateFurMultiplier } from './government';
+import { calculateGovernmentMultiplier, calculateTaxBase, calculateBankerMultiplier, soldierFurPerSoldier } from './government';
 import { calculateForgingToolBonus, calculateOverclockCraftMultiplier, artisanCraftRate } from './crafting';
 import { geneExtraBonus } from './genes';
 import { CONFIG } from '../data/config';
@@ -78,7 +84,6 @@ export function calculateResourceBreakdown(
       notes.push(`幸福度 ×${calculateHappinessMultiplier(result.morale.happiness).toFixed(2)}`);
     }
     if (id === 'forage' && state.tech.includes('agriculture')) notes.push('农业 ×1.5');
-    if (id === 'forage' && state.tech.includes('agriculturalMachinery')) notes.push('农业机械 ×2');
     if (b.input) notes.push('已按可用原料调整开工量');
 
     const output = ['ethMiner', 'dataDecryptionModule', 'aesComputeModule', 'agiCoreComponent'].includes(id) ? 0 : calculateBuildingOutput(id, state, result.inputUnits)[resource];
@@ -160,7 +165,7 @@ export function calculateResourceBreakdown(
     entries.push({ id: 'catTax', kind: 'income', name: '猫猫税收', value: result.outputs.catTax || 0, note: '每只猫在20%税率下基础1现金/s；银行家加成相加（每位5%，每个证券交易所+2%），幸福度、社区、政府、粒子独立相乘' });
   }
   if (resource === 'fur') {
-    entries.push({ id: 'soldierFur', kind: 'income', name: '服役士兵采集', value: result.outputs.soldierFur || 0, note: '每位服役士兵基础0.2毛皮/s' });
+    entries.push({ id: 'soldierFur', kind: 'income', name: '服役士兵采集', value: result.outputs.soldierFur || 0, note: '每位士兵 0.2 × 单兵战斗力^0.5 毛皮/s，再乘幸福度与全局倍率' });
   }
   if (resource === 'titanium' && state.tech.includes('titaniumSmelting')) {
     entries.push({ id: 'titaniumByproduct', kind: 'income', name: '冶炼厂副产钛', value: result.outputs.titaniumByproduct || 0, note: '钢基础产能的 10% × 实际运行数量 × 钛产量加成' });
@@ -225,6 +230,17 @@ export function calculateResourceFactorRows(
   const pct = (name: string, factor: number, child = false) => {
     if (Math.abs(factor - 1) > 1e-9) add(name, (factor < 1 ? '−' : '+') + percentText(Math.abs(factor - 1) * 100) + '%', child);
   };
+  /**
+   * 占领 / 世界统一 are global output factors folded into `calculateGlobalOutputMultiplier`,
+   * so they must be listed wherever that factor is actually applied. 电力 is excluded on
+   * purpose: it is a fixed supply budget, and the settlement never scales it.
+   */
+  const addGlobalOutputRows = () => {
+    if (resource === 'energy') return;
+    const occupied = state.neighbors ? activeOccupationCount(state) : 0;
+    pct(`占领 ×${occupied}`, occupationOutputMultiplier(state as GameState));
+    pct('世界统一', unificationOutputMultiplier(state));
+  };
   if (resource === 'bytes') {
     if (result.digital.byteProduction > 0) add('dl.exe 下载', '+' + formatByteNumber(result.digital.divertedKnowledge * .001, true) + '/s');
     pct('精通', calculateMasteryMultiplier('bytes', state));
@@ -250,16 +266,28 @@ export function calculateResourceFactorRows(
   const data = calculateResourceBreakdown(resource, state, result);
   const happiness = result.morale.happiness;
 
-  for (const e of data.entries.filter(entry => entry.kind === 'income' && entry.value !== 0)) {
+  for (const e of data.entries.filter(entry => entry.kind === 'income' && (entry.value !== 0 || entry.id === 'catTax'))) {
     if (e.id === 'catTax') {
       add(e.name, signedRate(calculateTaxBase(state)));
+      // 占领 costs order: the collected rate is lowered per occupied city, so the tax
+      // penalty belongs right beside the tax base, not only in the government panel.
+      // Kept even when the penalty drives the collected rate to 0 — that is exactly the
+      // case where the player needs to see why tax income vanished.
+      const occupied = activeOccupationCount(state);
+      if (occupied > 0) {
+        const collected = occupationTaxRate(state as GameState);
+        add(`占领 ×${occupied} 税收惩罚`, `−${percentText(state.taxRate - collected)}%`, true);
+        add('实际税率', `${percentText(collected)}%`, true);
+      }
       pct('银行家', calculateBankerMultiplier(state), true);
       pct('寡头', calculateGovernmentMultiplier('cash', state), true);
       continue;
     }
     if (e.id === 'soldierFur') {
-      add(e.name, signedRate(state.soldiers * .2 * calculateFurMultiplier(state)));
-      pct('铁质装备', calculateFurMultiplier(state), true);
+      // Base row is per-soldier fur at the *current* 战斗力; the 战斗力 factor is shown
+      // as its own percentage row so the square root is visible in the tooltip.
+      add(e.name, signedRate(state.soldiers * SOLDIER_FUR_BASE));
+      pct('单兵战斗力', soldierFurPerSoldier(state) / SOLDIER_FUR_BASE, true);
       continue;
     }
     if (e.id === 'titaniumByproduct') {
@@ -349,10 +377,7 @@ export function calculateResourceFactorRows(
     } else if (workers && n) {
       const f = 1 + workers * CONFIG.workerBonus / n; pct(`工作猫 ${workers} 只`, f, true); local *= f;
     }
-    if (id === 'forage') {
-      if (state.tech.includes('agriculture')) { pct('农业', 1.5, true); local *= 1.5; }
-      if (state.tech.includes('agriculturalMachinery')) { pct('农业机械', 2, true); local *= 2; }
-    }
+    if (id === 'forage' && state.tech.includes('agriculture')) { pct('农业', 1.5, true); local *= 1.5; }
     if (calculateBuildingOutput(id, state).knowledge) local *= calculateKnowledgeMultiplier(state, result.inputUnits.observatory || 0, result.digital);
     if (id === 'observatory') local *= 1.1;
 
@@ -393,6 +418,8 @@ export function calculateResourceFactorRows(
     pct('AES计算模块', 1 + result.digital.aesUnits * (BUILDINGS.aesComputeModule.knowledgeBoost || 0));
   }
   if (resource !== 'energy' && !RESOURCES[resource].crafted) pct('幸福度', calculateHappinessMultiplier(happiness));
+  // 占领 / 世界统一: listed last because they scale the whole resource, exactly like 幸福度.
+  addGlobalOutputRows();
   return { rows };
   });
 }

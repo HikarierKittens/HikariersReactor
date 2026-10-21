@@ -1,5 +1,22 @@
 import type { TechnologyId, TechnologyDefinition } from '../types/technologies';
 
+/**
+ * 已退役科技：效果全部删除，两个科技界面都不再显示，但 ID 必须留在注册表里，
+ * 否则持有该科技的旧存档会被 `validateSaveIds` 判为「存档项目无效」而整档拒载
+ * ——那等于未经许可断开存档兼容。
+ *
+ * `isTechnologyUnlocked` 对它们恒返回 false，所以永远不会被再次研究；
+ * 已研究过的玩家只是失去一个已被删除的效果，进度本身不丢。
+ */
+export const RETIRED_TECHNOLOGIES: readonly TechnologyId[] = [
+  'energyStorage',
+  'batteryConcentrationRing',
+  'agriculturalMachinery',
+  // 戴森球升级技术 (2级戴森球): 暂不需要，先行隐藏。ID 留在注册表里，所以研究过它的
+  // 旧存档仍能载入并保留 2级戴森球；`isTechnologyUnlocked` 会拦住任何新的研究。
+  'dysonSphereII',
+];
+
 export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
   softRoutingNode: { name: '软路由节点', era: 4, tier: 24, knowledgeCost: 5000000, cost: { knowledge: 5000000, bytes: 100000, encryptedData: 10000 }, pre: ['cellMultithreading'], effects: ['解锁Ethernet建筑：软路由节点'] },
   aes114514: { name: 'AES-114514', era: 4, tier: 24, knowledgeCost: 7500000, cost: { knowledge: 7500000, bytes: 200000, encryptedData: 25000 }, pre: ['cellMultithreading'], effects: ['解锁NPU建筑：AES算力模块'] },
@@ -7,6 +24,7 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
   highPrecisionWorldSimulation: { name: '高精度世界模拟', era: 4, tier: 25, knowledgeCost: 10000000, cost: { knowledge: 10000000, bytes: 500000, encryptedData: 50000 }, pre: ['digitalSimulation'], effects: ['提高世界模拟精度，继续探索通用人工智能'] },
   agi: { name: 'AGI', era: 4, tier: 25, knowledgeCost: 10000000, cost: { knowledge: 10000000, bytes: 400000, encryptedData: 75000 }, pre: ['highPrecisionWorldSimulation'], effects: ['解锁AI超级核心区域与AGI核心组件'] },
   digitalAscension: { name: '数字化飞升', era: 4, tier: 25, knowledgeCost: 10000000, cost: { knowledge: 10000000, bytes: 500000, encryptedData: 100000 }, pre: ['agi'], buildingRequired: 'agiCoreComponent', effects: ['需要建成完整的AGI核心组件', '解锁核心散热器与AGI飞升核心，准备数字化飞升'] },
+  advancedConcrete: { name: '高级混凝土', era: 4, tier: 16, knowledgeCost: 460000, cost: { knowledge: 460000, iridium: 1000, alloy: 2500, nanotubes: 50000 }, pre: ['silicateCement', 'carbonNanotubes'], effects: ['水泥工人基础产量+30%，不增加原料消耗'] },
   stationScienceFacilities: { name: '空间站科学设施', era: 4, tier: 16, knowledgeCost: 420000, cost: { knowledge: 420000 }, pre: ['alienScienceResearch'], effects: ['每个星环空间站使外星材料实验室的知识容量+5%'] },
   knowledgeInheritance: { name: '知识传承', era: 2, tier: 6, knowledgeCost: 15000, cost: { knowledge: 15000 }, pre: ['particleAccelerator', 'knowledgeContainer'], effects: ['每个粒子加速器使图书馆的知识容量+10%'] },
   aiCoreCalibration: { name: 'AI核心校准', era: 4, tier: 22, knowledgeCost: 2500000, cost: { knowledge: 2500000 }, pre: [], effects: ['需要建成完整的彭罗斯球体', '校准AI超级核心，解锁数字世界world_execution、字节与Ethernet，开放网关路由与dl.exe，并获得一座网关路由'] },
@@ -36,7 +54,7 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
   e710ResearchStation: { name: '710研究站', era: 4, tier: 19, knowledgeCost: 850000, cost: { knowledge: 850000 }, pre: ['hyperspaceMiningSurvey', 'gasCloudAccretion'], effects: ['解锁建筑：710研究站'] },
   highTechFactory: { name: '高科技工厂', era: 4, tier: 18, knowledgeCost: 800000, cost: { knowledge: 800000 }, pre: ['highTechFarmPlatform'], effects: ['解锁建筑：高科技工厂'] },
   ripperOverclock: { name: '撕裂者超频', era: 4, tier: 19, knowledgeCost: 1000000, cost: { knowledge: 1000000 }, pre: ['dimensionPioneer'], buildingRequired: 'spaceRipper', effects: ['需要建成完整的空间撕裂者', '空间撕裂者的电力产出提高至200'] },
-  overclocking13: { name: 'OverClocking-13', era: 4, tier: 20, knowledgeCost: 1500000, cost: { knowledge: 1500000 }, pre: ['ripperOverclock'], buildingRequired: 'spaceRipper', desc: '极限超频吗，有意思。', effects: ['需要建成完整的空间撕裂者', '超空间更名为遥远星际，解锁区域：天元六alpha星区'] },
+  overclocking13: { name: 'OverClocking-13', era: 4, tier: 20, knowledgeCost: 1500000, cost: { knowledge: 1500000 }, pre: ['ripperOverclock'], buildingRequired: 'spaceRipper', desc: '极限超频吗，有意思。', effects: ['将空间撕裂者超频至最大等级！','全喵星人感谢你'] },
   superMetal: { name: '超级金属', era: 4, tier: 20, knowledgeCost: 1500000, cost: { knowledge: 1500000 }, pre: ['overclocking13'], effects: ['解锁建筑：精金采矿船、精金精炼站'] },
   grapheneProcessing: { name: '石墨烯加工', era: 4, tier: 20, knowledgeCost: 1500000, cost: { knowledge: 1500000 }, pre: ['superMetal'], effects: ['解锁建筑：石墨烯厂'] },
   nanoAlloy: { name: '纳米合金', era: 4, tier: 20, knowledgeCost: 1550000, cost: { knowledge: 1550000 }, pre: ['grapheneProcessing', 'superMetal'], effects: ['解锁资源：纳米合金；解锁工厂纳米合金生产线（每条消耗5石墨烯/s、2精金/s，产出1纳米合金/s）'] },
@@ -46,7 +64,10 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
   virtualEntertainment: { name: '虚拟化娱乐', era: 4, tier: 20, knowledgeCost: 1650000, cost: { knowledge: 1650000 }, pre: ['virtualReality', 'aerogel'], effects: ['解锁建筑：VR中心'] },
   plasmaResearch: { name: '等离子研究', era: 4, tier: 20, knowledgeCost: 1500000, cost: { knowledge: 1500000, graphene: 5000, nanoAlloy: 2000 }, pre: ['virtualReality', 'nanoAlloy'], desc: '研究高能等离子体的约束与操控。' },
   plasmaMining: { name: '等离子采矿', era: 4, tier: 20, knowledgeCost: 1500000, cost: { knowledge: 1500000, graphene: 10000, nanoAlloy: 5000 }, pre: ['plasmaResearch'], effects: ['铱采矿船铱产量提高至0.15/s；铁采矿船铁产量提高至4/s；E-710采矿船E-710产量提高至0.012/s'] },
+  nanoArmor: { name: '纳米装甲技术', era: 4, tier: 20, knowledgeCost: 1600000, cost: { knowledge: 1600000, graphene: 2500, adamantite: 2500, nanoAlloy: 1000 }, pre: ['nanoAlloy'], effects: ['士兵单兵战斗力+2，防御力+1'] },
+  nanoExoskeleton: { name: '纳米机械骨骼', era: 4, tier: 20, knowledgeCost: 1600000, cost: { knowledge: 1600000, graphene: 1500, adamantite: 1000, nanoAlloy: 750 }, pre: ['nanoAlloy'], effects: ['伐木工人、石工、矿工与煤矿工人基础产量+150%，覆盖合金链锯与合金钻头，不叠加'] },
   dysonSphere: { name: '戴森球', era: 4, tier: 21, knowledgeCost: 1750000, cost: { knowledge: 1750000 }, pre: ['superMetal', 'grapheneProcessing', 'nanoAlloy'], desc: '随着技术进步，终于可以见到真正的戴森球了。' },
+  dysonSphereII: { name: '戴森球升级技术', era: 4, tier: 22, knowledgeCost: 4200000, cost: { knowledge: 4200000, nanoAlloy: 50000 }, pre: ['dysonSphere'], effects: ['需要建成完整的1级戴森球', '解锁分段建筑：2级戴森球（每段+7.5电力，建成后与1级合计1250电力）'] },
   energyShield: { name: '能量护盾', era: 4, tier: 21, knowledgeCost: 1750000, cost: { knowledge: 1750000, nanoAlloy: 10000, aerogel: 10000 }, pre: ['nanoAlloy', 'plasmaResearch', 'aerogel'], effects: ['解锁区域：卡尔维拉、DSR-8086'] },
   stellarForge: { name: '恒星熔炉', era: 4, tier: 21, knowledgeCost: 1800000, cost: { knowledge: 1800000 }, pre: ['energyShield'], spaceMissionRequired: 'neutronStar', effects: ['需要完成中子星探索', '解锁建筑：恒星熔炉'] },
   hazardousMaterialStorage: { name: '危险物质库', era: 4, tier: 21, knowledgeCost: 1750000, cost: { knowledge: 1750000, nanoAlloy: 25000 }, pre: ['stellarForge'], effects: ['解锁卡尔维拉建筑：危险物质库，E-710容量+500，中子容量+32k'] },
@@ -61,7 +82,7 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
   fieldConstraintTheory: { name: '场约束理论', era: 4, tier: 17, knowledgeCost: 520000, cost: { knowledge: 520000, e710: 200 }, pre: ['anomalyMapping'], effects: ['解锁场约束阵列、短程通信节点、锚点货运站与民用航线站，并开放接入点信标与维度信标投放研究', '每座运行的阵列提供2稳定度，消耗50电力与0.25 E-710/s；不足时安全停机'] },
 
     advancedMetalRefining: { name: '高级金属精炼', era: 4, tier: 14, knowledgeCost: 380000, cost: { knowledge: 380000 }, pre: ['geothermalFurnace'], effects: ['金属精炼厂启用供能体系；每座供能的金属精炼厂铝产量加成提升至8%，并额外增加钢产量1%、铱产量0.5%，消耗4电力'] },
-    spaceControlTower: { name: '太空控制塔', era: 4, tier: 13, knowledgeCost: 200000, cost: { knowledge: 200000 }, pre: ['planetaryExploration'], buildingRequired: 'asrielSpaceport', effects: ['解锁Asriel控制塔，每座供电充足的控制塔提供1火星支持'] },
+    spaceControlTower: { name: '太空控制塔', era: 4, tier: 13, knowledgeCost: 200000, cost: { knowledge: 200000 }, pre: ['alienSettlement'], buildingRequired: 'asrielSpaceport', effects: ['解锁Asriel控制塔，每座供电充足的控制塔提供1火星支持'] },
     alienScienceResearch: { name: '外星科学研究', era: 4, tier: 15, knowledgeCost: 360000, cost: { knowledge: 360000 }, pre: ['exoticElementResearch'], effects: ['解锁外星材料实验室；每座受Asriel支持的实验室按受支持的Asriel居民数提供知识上限（每位+250），另固定提供E-710容量+25，并占用1点Asriel支持'] },
     starRingOptimization: { name: '星环优化', era: 4, tier: 15, knowledgeCost: 400000, cost: { knowledge: 400000 }, pre: ['alienScienceResearch'], effects: ['每个外星材料实验室使星环空间站效果数值+0.01%'] },
     artificialIntelligenceII: { name: '人工智能II', era: 4, tier: 15, knowledgeCost: 400000, cost: { knowledge: 400000, nanotubes: 200000 }, pre: ['exoticElementResearch', 'artificialIntelligence'], effects: ['解锁AI超级核心与量子水平；基础量子水平为log1p(0.1×知识上限/250000)/log1p(0.1)；每个完整且已支付维护的AI超级核心加算25%基础倍率，AGI核心组件加算50%，最终水平向下截断保留2位小数'] },
@@ -95,7 +116,7 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
     quantumTunnelingThermalProcessing: { name: '量子隧穿热处理', era: 4, tier: 11, knowledgeCost: 150000, cost: { knowledge: 150000 }, pre: ['arpaResearchInstitute'], arpaPre: 'arpaResearchInstitute', arpaRequiredCount: 1, effects: ['需要建成1个ARPA科研所；钢冶炼工位基础钢产能+0.1/s，工厂合金生产线基础产出+10%，原料消耗不变'] },
     geothermalFurnace: { name: '地热熔炉', era: 4, tier: 13, knowledgeCost: 200000, cost: { knowledge: 200000 }, pre: ['planetaryExploration'], kerberosMissionRequired: true, effects: ['钢冶炼工位的基础产能+50%，不增加原料消耗'] },
     helium3ExtractionOptimization: { name: '氦-3提取优化', era: 4, tier: 13, knowledgeCost: 200000, cost: { knowledge: 200000 }, pre: ['planetaryExploration'], kerberosMissionRequired: true, effects: ['月球氦-3矿的基础产能从0.2/s提升至0.25/s'] },
-    alienCasting: { name: '异星铸造', era: 4, tier: 13, knowledgeCost: 180000, cost: { knowledge: 180000 }, pre: ['planetaryExploration'], buildingRequired: 'asrielSpaceport', effects: ['解锁行星铸造厂，提供共享猫猫工匠岗位'] },
+    alienCasting: { name: '异星铸造', era: 4, tier: 13, knowledgeCost: 180000, cost: { knowledge: 180000 }, pre: ['alienSettlement'], buildingRequired: 'asrielSpaceport', effects: ['解锁行星铸造厂，提供共享猫猫工匠岗位'] },
     spaceGarrison: { name: '太空驻军', era: 4, tier: 13, knowledgeCost: 200000, cost: { knowledge: 200000 }, pre: ['planetaryExploration'], buildingRequired: 'asrielSpaceport', effects: ['解锁太空驻军，每座运行时提供2士兵容量'] },
     reinforcedContainers: { name: '强化集装箱', era: 4, tier: 12, knowledgeCost: 170000, cost: { knowledge: 170000, alloy: 1000, iridium: 1000 }, pre: ['moonExploration'], effects: ['所有集装箱（含已分配）储量翻倍：普通集装箱从250提升至500，钢集装箱从500提升至1000'] },
     crispr16: { name: 'CRISPR-16', era: 4, tier: -1, knowledgeCost: 114514, cost: { knowledge: 114514 }, pre: [], arpaPre: 'geneSequencing', effects: ['解锁ARPA中的CRISPR永久基因修饰'] },
@@ -103,7 +124,11 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
     tourismIndustry: { name: '旅游业', era: 4, tier: 10, knowledgeCost: 120000, cost: { knowledge: 120000 }, pre: [], arpaPre: 'monument', effects: ['建成纪念碑后可研究，解锁游客中心'] },
     catCafe: { name: '猫咖', era: 3, tier: 8, knowledgeCost: 60000, cost: { knowledge: 60000 }, pre: ['electronics'], effects: ['解锁猫咖，每座提供1个艺术家岗位，消耗3电力；基础现金产量为5 + floor(猫口/10) × 5'] },
     masterpieceCat: { name: '绝世好猫', era: 4, tier: 10, cost: { knowledge: 105000 }, pre: ['catCafe', 'genetics'], effects: ['猫咖的产量提高20%'] },
-    moonExploration: { name: '月球勘探', era: 4, tier: 12, knowledgeCost: 160000, cost: { knowledge: 160000 }, pre: ['spaceflight'], effects: ['解锁月球基地；建成首座基地后解锁铱矿和氦-3矿'] }, moonObservatory: { name: '月球观测站', era: 4, tier: 12, knowledgeCost: 170000, cost: { knowledge: 170000 }, pre: ['moonExploration'] }, planetaryExploration: { name: '行星勘探', era: 4, tier: 12, knowledgeCost: 190000, cost: { knowledge: 190000, alloy: 2000, polymer: 1000, iridium: 1000 }, pre: ['moonExploration'] }, spaceIndustrialization: { name: '太空工业化', era: 4, tier: 12, knowledgeCost: 200000, cost: { knowledge: 200000 }, pre: ['planetaryExploration'], buildingRequired: 'asrielSpaceport' }, starRingStation: { name: '星环空间站', era: 4, tier: 12, knowledgeCost: 220000, cost: { knowledge: 220000 }, pre: ['planetaryExploration'], buildingRequired: 'asrielSpaceport' },
+    moonExploration: { name: '月球勘探', era: 4, tier: 12, knowledgeCost: 160000, cost: { knowledge: 160000 }, pre: ['spaceflight'], effects: ['解锁月球基地；建成首座基地后解锁铱矿和氦-3矿'] }, moonObservatory: { name: '月球观测站', era: 4, tier: 12, knowledgeCost: 170000, cost: { knowledge: 170000 }, pre: ['moonExploration'] }, planetaryExploration: { name: '行星勘探', era: 4, tier: 12, knowledgeCost: 190000, cost: { knowledge: 190000, alloy: 2000, polymer: 1000, iridium: 1000 }, pre: ['moonExploration'] },
+    // T12 外星定居 gates the Asriel settlement chain: every tech that previously hung off
+    // 行星勘探 alone now requires a standing colony (spaceport built) as well.
+    alienSettlement: { name: '外星定居', era: 4, tier: 12, knowledgeCost: 200000, cost: { knowledge: 200000 }, pre: ['planetaryExploration'], buildingRequired: 'asrielSpaceport', effects: ['在Asriel建立永久定居点', '解锁太空控制塔、异星铸造、太空工业化与星环空间站的研究'] },
+    spaceIndustrialization: { name: '太空工业化', era: 4, tier: 13, knowledgeCost: 200000, cost: { knowledge: 200000 }, pre: ['alienSettlement'], buildingRequired: 'asrielSpaceport' }, starRingStation: { name: '星环空间站', era: 4, tier: 13, knowledgeCost: 220000, cost: { knowledge: 220000 }, pre: ['alienSettlement'], buildingRequired: 'asrielSpaceport' },
     iridiumSteelVault: { name: '铱钢金库', era: 4, tier: 12, knowledgeCost: 155000, cost: { knowledge: 155000, cash: 75000, metal: 2500, iridium: 1000 }, pre: [], resourceRequired: 'iridium', effects: ['每座银行基础资金容量+1500、猫咖基础资金容量+2500；铱合金仓库的资金容量+20%加成在此之后应用'] },
     spaceTransitStation: { name: '电磁弹射系统', era: 4, tier: 13, knowledgeCost: 210000, cost: { knowledge: 210000, metal: 1000, alloy: 1000 }, pre: ['planetaryExploration'], effects: ['研究电磁弹射系统，解锁电磁发射器以节约太空区域的燃料'] },
     helium3Storage: { name: '氦-3存储', era: 4, tier: 12, knowledgeCost: 150000, cost: { knowledge: 150000, alloy: 1000 }, pre: [], resourceRequired: 'helium3', effects: ['解锁轨道燃料库，每座地面燃料库额外提供500氦-3储量'] },
@@ -120,10 +145,18 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
     government: { name: '政府', era: 0, cost: { knowledge: 120 }, pre: ['writing'], effects: ['解锁民主、军政与寡头', '改革免费，首次可立即进行；之后冷却400游戏日'] },
     advancedGovernment: { name: '先进政府', era: 2, cost: { knowledge: 3000 }, pre: ['government', 'science'], effects: ['解锁科技至上与工业至上'] },
     banking: { name: '银行业', era: 0, cost: { knowledge: 80 }, pre: ['writing', 'tools'], effects: ['解锁银行：每座现金储量+1000，提供1个银行家岗位，每位银行家税收+5%'] },
-    ironEquipment: { name: '铁制装备', era: 1, cost: { knowledge: 600 }, pre: ['ironTools'], effects: ['士兵战斗力翻倍，士兵毛皮产量+20%'] },
+    ironEquipment: { name: '铁制装备', era: 1, cost: { knowledge: 600 }, pre: ['ironTools'], effects: ['士兵基础战斗力+1，士兵基础防御力+1'] },
     military: { name: '军事', era: 0, cost: { knowledge: 80 }, pre: ['writing', 'tools'], effects: ['解锁兵营，自动训练独立于猫口的士兵'] },
     recruitTraining: { name: '新兵训练', era: 2, cost: { knowledge: 2500 }, pre: ['science'], effects: ['解锁训练营，提高士兵训练速度'] },
+    // T7/T9/T11/T12 单兵装备链: flat 战斗力/防御力, additive with 铁制装备.
+    newInfantryEquipment: { name: '新型单兵装备', era: 4, tier: 7, knowledgeCost: 30000, cost: { knowledge: 30000 }, pre: ['recruitTraining'], effects: ['士兵基础战斗力+1，士兵基础防御力+1'] },
+    advancedThermalWeapons: { name: '高级热武器', era: 4, tier: 9, knowledgeCost: 70000, cost: { knowledge: 70000, oil: 2500 }, pre: ['oilTechnology'], effects: ['士兵基础战斗力+1'] },
+    kevlarFiber: { name: '凯夫拉纤维', era: 4, tier: 11, knowledgeCost: 120000, cost: { knowledge: 120000, polymer: 1000 }, pre: [], resourceRequired: 'polymer', effects: ['士兵基础防御力+1'] },
+    railgun: { name: '磁轨炮', era: 4, tier: 12, knowledgeCost: 180000, cost: { knowledge: 180000, iridium: 1000 }, pre: [], resourceRequired: 'iridium', desc: '电磁发射步枪，这个好喵', effects: ['士兵基础战斗力+1，士兵基础防御力+1'] },
     fieldHospital: { name: '战地医院', era: 2, tier: 5, knowledgeCost: 5000, cost: { knowledge: 5000, metalPlate: 20, cash: 800 }, pre: ['military', 'science'], effects: ['解锁建筑：医院，用于治愈临近势力行动中产生的伤兵'] },
+    // T13 统一计划 opens the special 世界统一 research once every neighbour is occupied.
+    unifiedPlan: { name: '统一计划', era: 4, tier: 13, knowledgeCost: 325, cost: { knowledge: 325 }, pre: ['alienSettlement'], effects: ['研究后解锁特殊科技：世界统一', '世界统一需要占领全部3个敌对国家'] },
+    worldUnification: { name: '世界统一', era: 4, tier: -1, knowledgeCost: 1474, cost: { knowledge: 1474 }, pre: ['unifiedPlan'], occupiedNeighborsRequired: 3, effects: ['占领全部3个敌对国家后可研究', '研究后敌对国家消失，占领带来的税收、驻军与产量加成一并结束', '全局产量+25%，所有普通资源储量+25%'] },
     nuclearProgram: { name: '核弹计划', era: 4, tier: 10, knowledgeCost: 100000, cost: { knowledge: 100000 }, pre: ['rocketry', 'arpa'], effects: ['解锁核弹工程计划，发射后毁灭世界'] },
     automatedMining: { name: '自动化采矿', era: 3, cost: { knowledge: 1000 }, pre: ['automation', 'electricity'], effects: ['采矿场、煤矿、伐木场和采石场可启用供能，每座消耗1电力，分别为对应工人额外提供叠加的产量+5%；关闭供能仍保留岗位及基础采集'] },
     metalRefining: { name: '金属精炼', era: 2, cost: { knowledge: 800 }, pre: ['metallurgy'], effects: ['解锁金属精炼厂，建成后由石工采集铝', '每座精炼厂使铝总产量+6%'] },
@@ -176,7 +209,7 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
     artificialIntelligence: { name: '人工智能', era: 4, tier: 9, knowledgeCost: 75000, cost: { knowledge: 75000 }, pre: ['dataCenter'], effects: ['暂无效果，似乎是一种前置技术，这条道路任重道远'] },
     electrochemicalSmelting: { name: '电化学熔炼', era: 2, cost: { knowledge: 1000 }, pre: ['metallurgy', 'electricity'], effects: ['钢冶炼工位的钢基础产能从0.5/s提升至1/s，不增加电力消耗'] },
     science: { name: '科学方法', era: 2, tier: 5, knowledgeCost: 6500, cost: { "knowledge": 1000, "metal": 80 }, pre: ['metallurgy'], effects: ['解锁实验室，科技时代开始了'] },
-    agriculturalMachinery: { name: '农业机械', era: 3, cost: { knowledge: 2000, metal: 200, energy: 150 }, pre: ['automation', 'electricity'], effects: ['农民产量 +100%，仅作用于最终资源产出，不改变基础产量与消耗'] },
+    agriculturalMachinery: { name: '农业机械', era: 3, cost: { knowledge: 2000, metal: 200, energy: 150 }, pre: ['automation', 'electricity'], effects: ['历史农业技术，不提供当前效果'] },
     automation: { name: '自动化', era: 3, cost: { "knowledge": 2400, "metal": 250, "copper": 150 }, pre: ['science'], effects: ['解锁工厂与生产线'] },
     industrialization: { name: '工业化', era: 3, tier: 8, knowledgeCost: 42000, cost: { knowledge: 42000 }, pre: ['electricity', 'automation', 'titaniumSmelting'], effects: ['把零散工坊整合成完整的工业体系，解锁工厂与生产线'] },
     solarPower: { name: '太阳能发电', era: 3, tier: 8, knowledgeCost: 50000, cost: { knowledge: 50000 }, pre: ['electronics'], effects: ['解锁建筑：光伏电站', '每座固定产出4电力，无消耗、无岗位'] },

@@ -9,7 +9,7 @@ test('new digital support pays exact whole-unit upkeep, respects stopped cores a
   for (const dt of [.2, 1]) {
     const s = createInitialState(CONFIG.version, 600, 0);
     s.buildings.softRouterNode = 2; s.buildings.worldSimulator = 1;
-    s.buildings.agiCoreComponent = 100; s.buildings.agiAscensionCore = 100;
+    s.buildings.agiCoreComponent = 1; s.buildings.agiAscensionCore = 1;
     s.resources.energy = 20000; s.resources.water = 2000;
     const pool = { ...s.resources };
     const d = settleDigitalSupport(s, pool, dt);
@@ -26,7 +26,7 @@ test('new digital support pays exact whole-unit upkeep, respects stopped cores a
     s.stoppedBuildings.agiAscensionCore = 0; s.buildings.coreCooler = 101;
     assert.equal(calculateDigitalSupport(s, 0, dt).ascensionEnergyUse, 0);
     assert.equal(calculateDigitalSupport(s, 0, dt).ascensionCoreUnits, 1);
-    s.buildings.agiCoreComponent = 99;
+    s.buildings.agiCoreComponent = 0; s.buildings.agiCoreComponentSegments = 99;
     assert.equal(calculateDigitalSupport(s, 20000, dt).agiComponentUnits, 0);
   }
 });
@@ -53,7 +53,7 @@ test('AGI multiplies both byte sources and decryption boosts AES without duplica
   const s = createInitialState(CONFIG.version, 600, 0);
   s.buildings.softRouterNode = 3; s.buildings.downloadExecutable = 1;
   s.buildings.cpuDecoder = 1; s.buildings.aesComputeModule = 1; s.buildings.dataDecryptionModule = 1;
-  s.buildings.agiCoreComponent = 100; s.resources.water = 2000; s.resources.energy = 1000; s.downloadAllocation = 100;
+  s.buildings.agiCoreComponent = 1; s.resources.water = 2000; s.resources.energy = 1000; s.downloadAllocation = 100;
   const d = calculateDigitalSupport(s, 1000);
   const p = calculateDigitalProduction(s, d, 1000, 0, 100);
   assert.equal(p.byteProduction, 1.5); assert.equal(p.decoderProduction, 150);
@@ -62,9 +62,9 @@ test('AGI multiplies both byte sources and decryption boosts AES without duplica
 
 test('digital ascension needs completed component; simulator needs high precision technology', () => {
   const s = createInitialState(CONFIG.version, 600, 0);
-  s.tech.push('agi'); s.buildings.agiCoreComponent = 99;
+  s.tech.push('agi'); s.buildings.agiCoreComponentSegments = 99;
   assert.equal(isTechnologyUnlocked('digitalAscension', s), false);
-  s.buildings.agiCoreComponent = 100;
+  s.buildings.agiCoreComponentSegments = 0; s.buildings.agiCoreComponent = 1;
   assert.equal(isTechnologyUnlocked('digitalAscension', s), true);
   s.tech.push('digitalSimulation');
   assert.equal(isBuildingUnlocked('worldSimulator', s), false);

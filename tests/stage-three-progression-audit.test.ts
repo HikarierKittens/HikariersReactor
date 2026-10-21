@@ -39,7 +39,8 @@ test('migration rejects malformed retained state unknown content and wrong-kind 
 });
 test('core activation needs a constructed core but field services need no historical array operation',()=>{
  const full=complete();assert.doesNotThrow(()=>validateCurrentSave(full,context));
- for(const count of [0,99]){const s=clone(full);s.buildings.aiSupercore=count;assert.throws(()=>validateCurrentSave(s,context));}
+ const noCore=clone(full);noCore.buildings.aiSupercore=0;assert.throws(()=>validateCurrentSave(noCore,context));
+ const oneCore=clone(full);oneCore.buildings.aiSupercore=1;assert.doesNotThrow(()=>validateCurrentSave(oneCore,context));
  full.buildings.constraintArray=0;full.stoppedBuildings.aiSupercore=1;full.resources.helium3=full.resources.energy=full.resources.e710=0;
  assert.deepEqual(validateCurrentSave(full,context).stageThree,{coreActivated:true});
  const noTheory=clone(full);noTheory.tech=noTheory.tech.filter(id=>id!=='fieldConstraintTheory');assert.throws(()=>validateCurrentSave(noTheory,context));

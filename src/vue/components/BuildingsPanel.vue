@@ -7,6 +7,7 @@ import type { BuildingId } from '../../types/buildings';
 import { BUILDINGS, BUILDING_GROUPS } from '../../data/buildings';
 import { RESOURCES } from '../../data/resources';
 import { calculateBuildingCost, canPayCost, isBuildingFullyBuilt } from '../../simulation/costs';
+import { withConstructionPhases } from '../construction-rows';
 import { hasContinuousEnergyInput, calculateBuildingName } from '../../simulation/building-production';
 import { countRunningBuildings } from '../../simulation/housing';
 import { calculateQuantumLevel, calculateSwarmSupportCapacity } from '../../simulation/quantum';
@@ -64,6 +65,10 @@ const NEW_SPACE_GROUPS: { id: SpaceMissionId; name: string; list: BuildingId[] }
   { id: 'misen', name: '米神星', list: ['e710Warehouse', 'e710Reactor', 'interstellarDock'] },
 ];
 const SPACE_IDS = new Set<BuildingId>([...SPACE, ...MOON, ...ASRIEL, 'constraintArray', 'signalRepeater', 'shortRangeRelay', 'anchorFreightStation', 'civilianRouteStation', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'hydrogenPowerPlant', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'geothermalPlant', 'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'stellarForge', 'hazardousMaterialStorage', 'blackHoleStation', 'penroseSphere', 'dysonSphere', ...NEW_SPACE_GROUPS.flatMap(group => group.list)]);
+const sections = computed(() => {
+  props.revision;
+  return baseSections.value.map(section => ({ ...section, list: withConstructionPhases(section.list, props.state) }));
+});
 function missionId(id: string): RegionalMissionId | undefined {
   return Object.hasOwn(REGIONAL_MISSIONS, id) ? id as RegionalMissionId : undefined;
 }
@@ -79,7 +84,7 @@ function missionAffordable(id: RegionalMissionId): boolean {
 }
 
 const hyperspaceUnlocked = computed(() => { props.revision; return isHyperspaceUnlocked(props.state); });
-const sections = computed(() => {
+const baseSections = computed(() => {
   props.revision;
   if (props.worldView === 'world_execution') return [];
   if (props.worldView === 'hyperspace') {
@@ -184,8 +189,20 @@ function toggleDelta(id: BuildingId, event: MouseEvent, start: boolean): number 
 function queuedCount(id: BuildingId): number {
   return props.state.queue.reduce((sum, q) => sum + (q.kind === 'build' && q.id === id ? (q.segments ?? 1) : 0), 0);
 }
+function isBuildable(id: BuildingId): boolean {
+  // Completed forms of segmented projects have no cost and are never purchased directly.
+  return BUILDINGS[id].buildable !== false;
+}
 function atLimit(id: BuildingId): boolean {
-  return buildingCount(id) + queuedCount(id) >= (BUILDINGS[id].segmentedRequired ?? BUILDINGS[id].max ?? Infinity);
+  const building = BUILDINGS[id];
+  if (!isBuildable(id)) return true;
+  // A construction phase is capped by the completed building's unit limit (e.g. 1 座).
+  const into = building.completesInto;
+  if (into) {
+    const cap = BUILDINGS[into].max;
+    if (cap !== undefined && (props.state.buildings[into] || 0) >= cap) return true;
+  }
+  return buildingCount(id) + queuedCount(id) >= (building.segmentedRequired ?? building.max ?? Infinity);
 }
 function toggleable(id: BuildingId): boolean {
   return completedCount(id) > 0 && hasContinuousEnergyInput(id, props.state);
@@ -285,14 +302,15 @@ function canGather(id: string): boolean {
           class="building-button"
           :class="{ 'is-complete': isBuildingFullyBuilt(id, state), 'is-affordable': isBuildingFullyBuilt(id, state) || (affordable(id) && !atLimit(id)), 'is-unaffordable': !isBuildingFullyBuilt(id, state) && (!affordable(id) || atLimit(id)) }"
           :data-buy="id"
+          :data-not-buildable="isBuildable(id) ? undefined : ''"
           :data-building-tip="id" data-tip-kind="building"
           :aria-disabled="atLimit(id)"
           :aria-label="`${calculateBuildingName(id, state)}，${BUILDINGS[id].segmentedRequired ? countLabel(id) : `已有 ${buildingCount(id)} 座`}`"
-          @click="!atLimit(id) && emit('buy', id, clickMultiplier($event), !!(state.settings.queueHotkeys && (qHeld || ($event as MouseEvent).shiftKey)))"
+          @click="isBuildable(id) && !atLimit(id) && emit('buy', id, clickMultiplier($event), !!(state.settings.queueHotkeys && (qHeld || ($event as MouseEvent).shiftKey)))"
         >
           <span class="building-name">{{ calculateBuildingName(id, state) }}</span>
           <span class="building-count" aria-hidden="true">{{ countLabel(id) }}</span>
-          <span class="building-pending" :hidden="!queuedCount(id)">预约 {{ queuedCount(id) }}{{ BUILDINGS[id].segmentedRequired ? ' 段' : '' }}</span>
+          <span class="building-pending" :hidden="!isBuildable(id) || !queuedCount(id)">预约 {{ queuedCount(id) }}{{ BUILDINGS[id].segmentedRequired ? ' 段' : '' }}</span>
         </button>
 
         <button class="building-info" :data-building-tip="id" data-tip-kind="building" :aria-label="`查看${calculateBuildingName(id, state)}详情`">ⓘ</button>

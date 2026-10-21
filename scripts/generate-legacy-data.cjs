@@ -42,6 +42,9 @@ const registry = [
   ['moon', 'simulation/moon'],
   ['technology', 'simulation/technology'],
   ['queue-settings', 'simulation/queue-settings'],
+  // 士兵战斗属性数值表: government.ts reads SOLDIER_* / *_TECH_BONUS from here, so it must
+  // be a global before the government bridge script.
+  ['military-data', 'data/military'],
   ['government', 'simulation/government'],
   ['military', 'simulation/military'],
   ['crispr-data', 'data/crispr'],

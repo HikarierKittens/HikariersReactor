@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { GameState, GovernmentId } from '../../types/state';
-import { GOVERNMENTS, reformCooldown, calculateSoldierCapacity, calculateOperationalSoldierCapacity, calculateCombatPower, calculateSoldierPressure, calculateTrainingDuration, calculatePrestigeReward, calculateTrainingBoost } from '../../simulation/government';
+import { GOVERNMENTS, reformCooldown, calculateArmyLimit, calculateOperationalSoldierCapacity, calculateCombatPower, calculateSoldierDefense, defenseCasualtyMultiplier, soldierFurPerSoldier, calculateSoldierPressure, calculateTrainingDuration, calculatePrestigeReward, calculateTrainingBoost } from '../../simulation/government';
 import { NUCLEAR_PROJECT, calculateNuclearAffordablePercent } from '../../simulation/prestige';
 import { RESOURCES } from '../../data/resources';
 import { fmt, percent, storageCap, orderedCostEntries } from '../format';
 import { uiPreview } from '../preview-cache';
 import {
   NEIGHBORS, NEIGHBOR_IDS, RAID_ACTIONS, OCCUPATION_SOLDIERS, OCCUPATION_OUTPUT_BONUS,
-  OCCUPATION_TAX_PENALTY, type NeighborId, type RaidTier,
+  OCCUPATION_TAX_PENALTY, UNIFICATION_OUTPUT_BONUS, UNIFICATION_STORAGE_BONUS, type NeighborId, type RaidTier,
 } from '../../data/neighbors';
-import { isNeighborsUnlocked, previewRaid, neighborStrength, garrisonedSoldiers } from '../../simulation/neighbors';
+import { isNeighborsUnlocked, isWorldUnified, previewRaid, neighborStrength, garrisonedSoldiers } from '../../simulation/neighbors';
 import { hospitalHealPerDay } from '../../simulation/hospital';
 import { buildRaidEconomy } from '../../simulation/neighbor-economy';
 
@@ -35,7 +35,7 @@ const alternatives = computed(() => {
     .filter(([id, g]) => id !== props.state.government && props.state.tech.includes(g.tech));
 });
 const cashCap = computed(() => { props.revision; return storageCap('cash', props.state, props.revision); });
-const soldierCap = computed(() => { props.revision; return calculateSoldierCapacity(props.state); });
+const soldierCap = computed(() => { props.revision; return calculateArmyLimit(props.state); });
 const healedPerDay = computed(() => { props.revision; return hospitalHealPerDay(props.state); });
 const trainingCap = computed(() => {
   props.revision;
@@ -43,6 +43,9 @@ const trainingCap = computed(() => {
   return calculateOperationalSoldierCapacity(props.state, result.inputUnits.spaceGarrison || 0, result.digital);
 });
 const soldierPower = computed(() => { props.revision; return calculateCombatPower(props.state); });
+const soldierDefense = computed(() => { props.revision; return calculateSoldierDefense(props.state); });
+const soldierFur = computed(() => { props.revision; return soldierFurPerSoldier(props.state); });
+const defenseCasualty = computed(() => { props.revision; return defenseCasualtyMultiplier(props.state); });
 const soldierPenalty = computed(() => { props.revision; return calculateSoldierPressure(props.state, uiPreview.support(props.state, props.revision).digital); });
 const trainDuration = computed(() => { props.revision; return calculateTrainingDuration(props.state); });
 const trainingRatio = computed(() => {
@@ -53,8 +56,8 @@ const trainingStatus = computed(() => {
   props.revision;
   if (!props.state.tech.includes('military')) return '研究军事后解锁自动训练。';
   if (!soldierCap.value) return '建造军营后开始自动训练，每座提供2个士兵名额。';
-  if (props.state.soldiers >= soldierCap.value) return '士兵已达到拥有容量，建造更多军营可继续自动训练。';
-  if (props.state.soldiers >= trainingCap.value) return '训练暂停：当前可训练容量不足。太空驻军营需要运行并完整支付维护资源；已有士兵不会因此移除。';
+  if (props.state.soldiers >= soldierCap.value) return '士兵已达到上限，建造更多军营或开启已关闭的军营可继续自动训练。';
+  if (props.state.soldiers >= trainingCap.value) return '训练暂停：当前可训练容量不足。太空驻军营需要运行并完整支付维护资源；士兵数不会超过上限。';
   return `自动训练中，约 ${fmt(Math.max(0, trainDuration.value - props.state.trainingProgress))} 秒后增加一位士兵。`;
 });
 const nuclearProgress = computed(() => { props.revision; return props.state.nuclearProgress || 0; });
@@ -91,6 +94,8 @@ const neighborsUnlocked = computed(() => {
   props.revision;
   return isNeighborsUnlocked(props.state);
 });
+/** 世界统一 replaces the whole neighbour panel with the unification summary. */
+const worldUnified = computed(() => { props.revision; return isWorldUnified(props.state); });
 const garrison = computed(() => { props.revision; return garrisonedSoldiers(props.state); });
 const availableSoldiers = computed(() => {
   props.revision;
@@ -178,7 +183,12 @@ function setTax(event: Event): void {
     </div>
 
     <aside class="government-side">
-      <section v-if="!neighborsUnlocked">
+      <section v-if="worldUnified" data-world-unified>
+        <h3>世界统一</h3>
+        <p class="small">敌对国家已经消失，世界被统一了。占领期间的税收、驻军与产量加成一并结束。</p>
+        <p class="small" data-unification-bonus>全局产量 +{{ UNIFICATION_OUTPUT_BONUS * 100 }}%，所有普通资源储量 +{{ UNIFICATION_STORAGE_BONUS * 100 }}%。</p>
+      </section>
+      <section v-else-if="!neighborsUnlocked">
         <h3>临近势力</h3>
         <p class="subtle">研究政府，并拥有至少一名士兵后解锁。</p>
       </section>
@@ -246,21 +256,23 @@ function setTax(event: Event): void {
 
     <section>
       <h3>士兵管理</h3>
-      <p>士兵：{{ state.soldiers }} / {{ soldierCap }}（拥有容量）</p>
+      <p>士兵：{{ state.soldiers }} / {{ soldierCap }}（上限）</p>
       <p v-if="state.wounded > 0 || healedPerDay > 0" data-wounded-line>
         伤兵：{{ fmt(state.wounded) }} 名（不可参战）
         <template v-if="healedPerDay > 0">；医院每游戏日治愈 {{ fmt(healedPerDay) }} 名</template>
         <template v-else>；建造医院后可治愈</template>
       </p>
-      <p data-soldier-training-cap>当前可训练容量：{{ trainingCap }}。太空驻军营仅按完整支付维护的运行座数计入；停机不移除已有士兵。</p>
+      <p data-soldier-training-cap>士兵上限：{{ soldierCap }}（运行的军营与驻军各提供 2 个名额，世界模拟器 4 个）。超出上限的士兵会立即移除；可训练容量为 {{ trainingCap }}，容量不足时训练暂停。</p>
       <p>{{ trainingStatus }}</p>
       <div class="q-bar" role="progressbar" aria-label="士兵自动训练进度" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="trainingRatio">
         <i :style="{ width: `${trainingRatio}%` }"></i>
       </div>
       <p>士兵工作压力：幸福度 −{{ percent(soldierPenalty) }} 个百分点（按士兵上限与体制计算）</p>
-      <p>单兵战斗力：{{ fmt(soldierPower) }}；总战斗力：{{ fmt(state.soldiers * soldierPower) }}</p>
+      <p>单兵战斗力：<span class="soldier-stat" tabindex="0" data-building-tip="combatPower" data-tip-kind="soldier" data-soldier-combat :aria-label="`查看单兵战斗力 ${fmt(soldierPower)} 的来源`">{{ fmt(soldierPower) }}</span>；总战斗力：{{ fmt(state.soldiers * soldierPower) }}</p>
+      <p>单兵防御力：<span class="soldier-stat" tabindex="0" data-building-tip="defense" data-tip-kind="soldier" data-soldier-defense :aria-label="`查看单兵防御力 ${fmt(soldierDefense)} 的来源`">{{ fmt(soldierDefense) }}</span>（当前伤亡 ×{{ fmt(defenseCasualty) }}）</p>
+      <p>士兵毛皮采集：<span :data-soldier-fur="soldierFur">{{ fmt(state.soldiers * soldierFur) }}</span> /s（每位 <span data-soldier-fur-per>{{ fmt(soldierFur) }}</span>，按单兵战斗力开方递增）</p>
       <p>训练时间：{{ fmt(trainDuration) }}秒 / 位；进度：{{ fmt(state.trainingProgress) }}秒</p>
-      <p class="small subtle">士兵独立于猫口，不占工作岗位，按规则自动训练至上限，无需分配猫猫或手动招募。每位服役士兵基础采集0.2毛皮/s。首位士兵解锁毛皮后，本周目不再撤销解锁。每座训练营累计增加{{ percent(calculateTrainingBoost(state)) }}%训练效果，每累计100%使训练速度翻倍。</p>
+      <p class="small subtle">士兵独立于猫口，不占工作岗位，按规则自动训练至上限，无需分配猫猫或手动招募。每位服役士兵采集 0.2 × 单兵战斗力^0.5 毛皮/s——战斗力越高采得越多，但增幅按平方根递减，后期毛皮主力仍是工厂。首位士兵解锁毛皮后，本周目不再撤销解锁。每座训练营累计增加{{ percent(calculateTrainingBoost(state)) }}%训练效果，每累计100%使训练速度翻倍。</p>
     </section>
   </div>
 </template>

@@ -8,6 +8,7 @@ import { canPayCost } from '../../simulation/costs';
 import { isTechnologyUnlocked } from '../../simulation/unlocks';
 import { calculateTechnologyTier } from '../../simulation/technology';
 import { KEY_TECHNOLOGIES, layoutTechTree } from '../tech-tree';
+import { RETIRED_TECHNOLOGIES, techCategory } from '../tech-categories';
 
 const qHeld = ref(false);
 function onKeyDown(event: KeyboardEvent): void { if (event.key.toLowerCase() === 'q') qHeld.value = true; }
@@ -30,11 +31,16 @@ onUnmounted(() => {
 const props = defineProps<{ state: GameState; revision: number; techView: string }>();
 const emit = defineEmits<{ research: [id: TechnologyId, forceQueue: boolean]; techView: [view: string] }>();
 const all = Object.keys(TECHNOLOGIES) as TechnologyId[];
+/**
+ * Retired research is hidden everywhere: it stays in the registry so historical saves
+ * keep validating, but it is never shown and `isTechnologyUnlocked` already refuses it.
+ */
+const visible = all.filter(id => !RETIRED_TECHNOLOGIES.includes(id));
 const available = computed(() => {
   props.revision;
-  return all.filter(id => !props.state.tech.includes(id) && isTechnologyUnlocked(id, props.state));
+  return visible.filter(id => !props.state.tech.includes(id) && isTechnologyUnlocked(id, props.state));
 });
-const researched = computed(() => { props.revision; return all.filter(id => props.state.tech.includes(id)); });
+const researched = computed(() => { props.revision; return visible.filter(id => props.state.tech.includes(id)); });
 const tree = computed(() => { props.revision; return layoutTechTree(researched.value); });
 const queued = (id: TechnologyId) => props.state.queue.some(q => q.kind === 'tech' && q.id === id);
 </script>
@@ -50,6 +56,7 @@ const queued = (id: TechnologyId) => props.state.queue.some(q => q.kind === 'tec
       <div v-for="id in available" :key="id" class="building-control tech-control">
         <button class="building-button tech-button" :class="[canPayCost(state.resources, calculateTechCost(id, state)) ? 'is-affordable' : 'is-unaffordable', { 'is-key-tech': KEY_TECHNOLOGIES.has(id) }]"
           :data-research="id" :data-building-tip="id" data-tip-kind="tech" :disabled="queued(id)"
+          :data-tech-category="techCategory(id)"
           :aria-label="`${TECHNOLOGIES[id].name}${queued(id) ? '已在队列' : '可研究'}`" @click="emit('research', id, !!(state.settings.queueHotkeys && (qHeld || ($event as MouseEvent).shiftKey)))">
           <span class="building-name">{{ TECHNOLOGIES[id].name }}</span>
           <span class="building-count">{{ calculateTechnologyTier(id) < 0 ? '特殊' : `T${calculateTechnologyTier(id)}` }}</span>
@@ -68,7 +75,7 @@ const queued = (id: TechnologyId) => props.state.queue.some(q => q.kind === 'tec
         </svg>
         <div v-for="level in tree.levels" :key="level.tier" class="tech-tier-label" :data-tech-tier="level.tier" :style="{ top: `${level.y}px` }">{{ level.tier < 0 ? '特殊' : `T${level.tier}` }}</div>
         <div v-for="node in tree.nodes" :key="node.id" class="completed-tech-node" :style="{ left: `${node.x}px`, top: `${node.y}px` }">
-          <button class="building-button tech-button" :class="{ 'is-key-tech': KEY_TECHNOLOGIES.has(node.id) }" :data-completed-tech="node.id" :data-building-tip="node.id" data-tip-kind="tech"><span class="building-name">{{ TECHNOLOGIES[node.id].name }}</span><span class="building-pending">已研究</span></button>
+          <button class="building-button tech-button" :class="{ 'is-key-tech': KEY_TECHNOLOGIES.has(node.id) }" :data-completed-tech="node.id" :data-tech-category="techCategory(node.id)" :data-building-tip="node.id" data-tip-kind="tech"><span class="building-name">{{ TECHNOLOGIES[node.id].name }}</span><span class="building-pending">已研究</span></button>
         </div>
       </div>
     </div>

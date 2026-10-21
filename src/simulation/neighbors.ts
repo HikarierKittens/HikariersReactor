@@ -2,18 +2,22 @@ import {
   NEIGHBORS, NEIGHBOR_IDS, OCCUPATION_OPINION_RECOVERY, OCCUPATION_OUTPUT_BONUS,
   OCCUPATION_SOLDIERS, OCCUPATION_TAX_PENALTY, RAID_ACTIONS, RAID_ECONOMY_FLOOR, RAID_STORAGE_BASE,
   RAID_ECONOMY_SPAN, RAID_TIERS, RETALIATION_LOSS,
-  RETALIATION_OPINION, SOLDIER_FOOD_UPKEEP, type NeighborId, type RaidTier,
+  RETALIATION_OPINION, SOLDIER_FOOD_UPKEEP, UNIFICATION_OUTPUT_BONUS, UNIFICATION_STORAGE_BONUS,
+  type NeighborId, type RaidTier,
 } from '../data/neighbors';
 import { RESOURCES } from '../data/resources';
 import { CONFIG } from '../data/config';
 import { addLog } from './progression';
-import { calculateCombatPower } from './government';
+import { calculateCombatPower, defenseCasualtyMultiplier } from './government';
 import { formatResourceNumber } from '../shared/format';
 import type { GameState, NeighborState, NeighborsState } from '../types/state';
 import type { ResourceId } from '../types/economy';
+import type { TechnologyId } from '../types/technologies';
 
-/** A neighbour is only shown once 政府 is researched and the player owns soldiers. */
+/** A neighbour is only shown once 政府 is researched and the player owns soldiers.
+ *  After 世界统一 there are no rival states left to show. */
 export function isNeighborsUnlocked(state: Pick<GameState, 'tech' | 'soldiers' | 'neighbors'>): boolean {
+  if (isWorldUnified(state)) return false;
   return state.tech.includes('government') && (state.soldiers > 0 || state.neighbors.occupied.length > 0);
 }
 
@@ -58,7 +62,8 @@ export function advanceNeighbors(state: GameState, dt: number): void {
 }
 
 function neighborsActive(state: GameState): boolean {
-  return state.tech.includes('government');
+  // A unified world has no rival states left to grow or raid.
+  return state.tech.includes('government') && !isWorldUnified(state);
 }
 
 /** Our strength for one raid: soldier count, per-soldier power, and the leader's skill. */
@@ -105,16 +110,21 @@ export function previewRaid(
   const strength = raidStrength(soldiers, combatPower);
   const required = neighborStrength(id, state) * action.strengthRatio;
   const ratio = required > 0 ? strength / required : Infinity;
-  const expectedLosses = soldiers * action.losses * (ratio >= 1 ? 1 / Math.sqrt(ratio) : 2 - ratio * .5);
+  // 防御力 lowers casualties only; strength and the gate above stay untouched, so a
+  // defended army does not become able to win fights it could not win before.
+  const expectedLosses = soldiers * action.losses * (ratio >= 1 ? 1 / Math.sqrt(ratio) : 2 - ratio * .5)
+    * defenseCasualtyMultiplier(state as Pick<GameState, 'tech'>);
+  const unified = isWorldUnified(state as Pick<GameState, 'tech'>);
   return {
-    available: soldiers > 0 && strength >= required,
-    reason: soldiers <= 0 ? '没有派遣士兵。'
+    available: !unified && soldiers > 0 && strength >= required,
+    reason: unified ? '世界已经统一，没有敌对国家。'
+      : soldiers <= 0 ? '没有派遣士兵。'
       : strength < required ? `战力不足：需要 ${Math.ceil(required)}，当前 ${Math.floor(strength)}。` : '',
     strength,
     required,
     ratio,
     expectedLosses: Math.max(0, Math.min(soldiers, expectedLosses)),
-    loot: raidLoot(state, id, tier, economy ?? EMPTY_ECONOMY),
+    loot: unified ? {} : raidLoot(state, id, tier, economy ?? EMPTY_ECONOMY),
   };
 }
 
@@ -224,6 +234,7 @@ export function executeRaid(
 ): RaidOutcome {
   const fail = (reason: string): RaidOutcome => ({ ok: false, reason, captured: false, soldiersLost: 0, wounded: 0, loot: {}, opinionAfter: 0, retaliated: false });
   if (!NEIGHBOR_IDS.includes(id as NeighborId)) return fail('未知的势力。');
+  if (isWorldUnified(state)) return fail('世界已经统一，没有敌对国家。');
   if (!neighborsActive(state)) return fail('研究政府后才能与临近势力接触。');
   const neighborId = id as NeighborId;
   if (state.neighbors.occupied.includes(neighborId)) return fail('该势力已被占领。');
@@ -291,7 +302,9 @@ export function executeRaid(
 function retaliate(state: GameState, id: NeighborId, random: () => number): { soldiersLost: number } {
   const power = neighborStrength(id, state);
   // Never drive the army below zero, and never take the garrison's soldiers either.
-  const losses = Math.min(state.soldiers, Math.max(1, Math.round(power / Math.max(1, calculateCombatPower(state)) * .5)));
+  // 防御力 applies here too: the same equipment that saves soldiers in a raid saves them
+  // when a neighbour strikes back.
+  const losses = Math.min(state.soldiers, Math.max(1, Math.round(power / Math.max(1, calculateCombatPower(state)) * .5 * defenseCasualtyMultiplier(state))));
   state.soldiers -= losses;
   const pool = (Object.keys(RESOURCES) as ResourceId[]).filter(resource =>
     resource !== 'energy' && !RESOURCES[resource].special && state.resources[resource] > 0);
@@ -314,20 +327,59 @@ export function abandonOccupation(state: GameState, id: string): boolean {
   return true;
 }
 
-/** Global output multiplier granted by occupied cities. */
-export function occupationOutputMultiplier(state: Pick<GameState, 'neighbors'>): number {
-  return 1 + state.neighbors.occupied.length * OCCUPATION_OUTPUT_BONUS;
+/**
+ * 世界统一 replaces the whole occupation system: the rival states no longer exist, so their
+ * output bonus, garrison and tax penalty all end at once. Everything below reads this flag
+ * instead of the raw occupation list, which keeps a stale `occupied` array harmless.
+ */
+export function isWorldUnified(state: { tech?: readonly TechnologyId[] }): boolean {
+  return !!state.tech?.includes('worldUnification');
+}
+
+/** Occupied cities that still exist; always empty after 世界统一. */
+export function activeOccupations(state: { tech?: readonly TechnologyId[]; neighbors: Pick<GameState, 'neighbors'>['neighbors'] }): NeighborId[] {
+  return isWorldUnified(state) ? [] : state.neighbors.occupied;
+}
+
+/** Global output multiplier granted by occupied cities (replaced by 世界统一). */
+export function occupationOutputMultiplier(state: Pick<GameState, 'neighbors'> & { tech?: readonly TechnologyId[] }): number {
+  return 1 + activeOccupations(state).length * OCCUPATION_OUTPUT_BONUS;
 }
 
 /** Tax rate actually collected: occupations cost order, so they tax at a penalty. */
-export function occupationTaxRate(state: Pick<GameState, 'taxRate' | 'neighbors'>): number {
-  const penalty = state.neighbors.occupied.length * OCCUPATION_TAX_PENALTY;
+export function occupationTaxRate(state: Pick<GameState, 'taxRate' | 'neighbors'> & { tech?: readonly TechnologyId[] }): number {
+  const penalty = activeOccupations(state).length * OCCUPATION_TAX_PENALTY;
   return Math.max(0, state.taxRate - penalty);
 }
 
 /** Soldiers committed to garrisons; they cannot be sent on raids. */
-export function garrisonedSoldiers(state: Pick<GameState, 'neighbors'>): number {
-  return state.neighbors.occupied.length * OCCUPATION_SOLDIERS;
+export function garrisonedSoldiers(state: Pick<GameState, 'neighbors'> & { tech?: readonly TechnologyId[] }): number {
+  return activeOccupations(state).length * OCCUPATION_SOLDIERS;
+}
+
+/**
+ * 世界统一: dissolve the rival states. Occupation records are cleared and the three neighbours
+ * stop existing (no growth, no raids, no retaliation), while `tech` keeps the researched flag
+ * that grants the replacement bonuses.
+ */
+export function applyWorldUnification(state: GameState): boolean {
+  // Idempotent on the occupation list only: research pushes the flag into `tech` before its
+  // side effects run, so guarding on `isWorldUnified` here would skip the dissolve entirely.
+  const occupied = state.neighbors.occupied.length;
+  if (!occupied) return false;
+  state.neighbors.occupied = [];
+  addLog(state, `世界已统一：敌对国家消失，${occupied > 0 ? `原占领加成（产量 +${Math.round(occupied * OCCUPATION_OUTPUT_BONUS * 100)}%、驻军 ${occupied * OCCUPATION_SOLDIERS} 名、税收 −${occupied * OCCUPATION_TAX_PENALTY}%）随之结束；` : ''}全局产量 +${Math.round(UNIFICATION_OUTPUT_BONUS * 100)}%，普通资源储量 +${Math.round(UNIFICATION_STORAGE_BONUS * 100)}%。`, 'progress');
+  return true;
+}
+
+/** Flat global output factor from 世界统一; 1 before the world is unified. */
+export function unificationOutputMultiplier(state: Pick<GameState, 'tech'>): number {
+  return isWorldUnified(state) ? 1 + UNIFICATION_OUTPUT_BONUS : 1;
+}
+
+/** Flat storage factor for ordinary resources from 世界统一; 1 before it is researched. */
+export function unificationStorageMultiplier(state: Pick<GameState, 'tech'>): number {
+  return isWorldUnified(state) ? 1 + UNIFICATION_STORAGE_BONUS : 1;
 }
 
 /** Food per second spent feeding the army. */

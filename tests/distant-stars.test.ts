@@ -59,9 +59,9 @@ test('distant-star technology chain matches the requested prerequisites and pric
 });
 
 test('OC-13 needs the full ripper, logs the black hole once, and renames nothing in saves', () => {
-  const s = fresh(); s.tech.push('ripperOverclock'); s.buildings.spaceRipper = 99;
+  const s = fresh(); s.tech.push('ripperOverclock'); s.buildings.spaceRipperSegments = 99;
   assert.equal(isTechnologyUnlocked('overclocking13', s), false);
-  s.buildings.spaceRipper = 100;
+  s.buildings.spaceRipperSegments = 0; s.buildings.spaceRipper = 1;
   const before = [...s.tech]; s.tech.push('overclocking13');
   applyResearchSideEffects(s, 'overclocking13', before);
   applyResearchSideEffects(s, 'overclocking13', [...s.tech]);
@@ -79,7 +79,8 @@ test('new buildings have the requested creep tiers and region upkeep without sup
   assert.ok(BUILDINGS.stellarForge.cost.nanoAlloy! > 0 && BUILDINGS.stellarForge.cost.mithril! > 0);
   assert.deepEqual(BUILDINGS.vrCenter.cost, { cash: 500000, nanoAlloy: 10000, aerogel: 2500 });
   assert.deepEqual(BUILDINGS.blackHoleStation.cost, { cash: 1000000, knowledge: 100000, neutron: 2500, adamantite: 500, e710: 100 });
-  assert.deepEqual(BUILDINGS.penroseSphere.cost, { cash: 2000000, neutron: 400, adamantite: 15000, graphene: 20000, nanoAlloy: 5000, mithril: 500 });
+  assert.deepEqual(BUILDINGS.penroseSphereSegments.cost, { cash: 2000000, neutron: 400, adamantite: 15000, graphene: 20000, nanoAlloy: 5000, mithril: 500 });
+  assert.deepEqual(BUILDINGS.penroseSphere.cost, {});
   assert.equal(BUILDINGS.hyperspaceSpaceport.desc!.includes('+25%'), false);
 });
 
@@ -215,14 +216,14 @@ test('VR, virtual training, black-hole station and Penrose effects', () => {
   s.stoppedBuildings.vrCenter = 1; near(calculateProduction(s, 1).morale.vr, 0);
   const t = fresh(); t.buildings.trainingCamp = 5; const slow = calculateTrainingDuration(t);
   t.tech.push('virtualTraining'); near(calculateTrainingDuration(t), 30 / 2 ** (5 * 8 / 100)); assert.ok(calculateTrainingDuration(t) < slow);
-  const k = fresh(); k.buildings.spaceRipper = 100; k.buildings.library = 10;
+  const k = fresh(); k.buildings.spaceRipper = 1; k.buildings.library = 10;
   const without = calculateStorageDetails('knowledge', k, snap(k)).total;
   k.buildings.blackHoleStation = 2; supplyPower(k, 1000);
   const sub = without / 1.2;
   near(calculateStorageDetails('knowledge', k, snap(k)).total, sub * 1.22);
   near(calculateStorageTotals(k, snap(k)).knowledge, sub * 1.22);
-  const pen = fresh(); pen.buildings.penroseSphere = 7;
-  assert.equal(countRunningBuildings('penroseSphere', pen), 7);
+  const pen = fresh(); pen.buildings.penroseSphereSegments = 7;
+  assert.equal(countRunningBuildings('penroseSphereSegments', pen), 7);
   near(calculateProduction(pen, 1).rates.energy, 35);
 });
 
@@ -277,7 +278,7 @@ test('电磁发射器 fuel discount covers only ground and space regions, never 
 });
 test('完整空间撕裂者 energy row has no fake 原料供应 and its knowledge row follows 黑洞星际站', () => {
   const s = createInitialState(CONFIG.version, 60, 0);
-  s.tech.push('dimensionPioneer'); s.buildings.spaceRipper = 100; supplyPower(s, 0);
+  s.tech.push('dimensionPioneer'); s.buildings.spaceRipper = 1; supplyPower(s, 0);
   const rows = calculateResourceFactorRows('energy', s, calculateProduction(s, 1)).rows;
   assert.ok(rows.some(row => row.name === '空间撕裂者' && row.value === '+100/s'));
   assert.equal(rows.some(row => row.name === '原料供应'), false);

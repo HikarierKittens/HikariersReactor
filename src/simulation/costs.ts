@@ -85,6 +85,9 @@ export function calculateBuildingScale(id: BuildingId, resource: ResourceId, sta
 export function isBuildingFullyBuilt(id: BuildingId, state: Pick<GameState, 'buildings'>): boolean {
   const building = BUILDINGS[id];
   const owned = state.buildings[id] || 0;
+  // Completed forms of segmented projects exist only once they are built, so owning one means
+  // the project is finished even when the entry declares no unit cap.
+  if (building.buildable === false) return owned >= (building.max ?? 1);
   if (building.segmentedRequired) {
     const segments = building.max ?? building.segmentedRequired;
     return owned >= segments;

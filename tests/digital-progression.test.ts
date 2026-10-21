@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { BUILDINGS } from '../src/data/buildings';
+import { CONFIG } from '../src/data/config';
 import { TECHNOLOGIES } from '../src/data/technologies';
 import { RESOURCES } from '../src/data/resources';
 import { createInitialState } from '../src/state/create-state';
@@ -12,7 +13,7 @@ import { calculateBuildingCost } from '../src/simulation/costs';
 import { isContainerAssignable } from '../src/simulation/containers';
 
 const context = { now: 1_000_000, eventInterval: 60, housingCapacity: () => 1e6, clampResources: () => {} };
-const fresh = () => createInitialState(31, 60, context.now);
+const fresh = () => createInitialState(CONFIG.version, 60, context.now);
 const fixture = () => JSON.parse(readFileSync(new URL('./fixtures/pre-beta0.6.5-schema31.json', import.meta.url), 'utf8'));
 const digitalIds = ['gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule'] as const;
 const fields = ['buildings', 'workers', 'stoppedBuildings'] as const;
@@ -39,15 +40,16 @@ test('digital definitions preserve cost formats and use explicit byte price scal
   assert.equal(isContainerAssignable('bytes', state), false);
 });
 
-test('calibration needs all 100 Penrose segments, not another unstated technology', () => {
+test('calibration needs a completed Penrose sphere, not another unstated technology', () => {
   const state = fresh(); state.resources.knowledge = 2500000;
   for (const segments of [0, 1, 99]) {
-    state.buildings.penroseSphere = segments;
+    state.buildings.penroseSphere = 0;
+    state.buildings.penroseSphereSegments = segments;
     assert.equal(isTechnologyUnlocked('aiCoreCalibration', state), false);
     assert.equal(researchTechnologyNow(state, 'aiCoreCalibration').bought, false);
     assert.equal(state.buildings.gatewayRouter, 0);
   }
-  state.buildings.penroseSphere = 100;
+  state.buildings.penroseSphereSegments = 0; state.buildings.penroseSphere = 1;
   assert.equal(isTechnologyUnlocked('aiCoreCalibration', state), true);
   assert.equal(isResourceUnlocked('bytes', state), false);
   assert.equal(researchTechnologyNow(state, 'aiCoreCalibration').bought, true);
@@ -121,7 +123,7 @@ test('new T22 research, mixed costs and special-resource order match the balance
 });
 
 test('queued research grants exactly one free router on settlement, never enqueue', () => {
-  const state = fresh(); state.buildings.penroseSphere = 100;
+  const state = fresh(); state.buildings.penroseSphere = 1;
   assert.equal(requestPurchaseModule(state, 'tech', 'aiCoreCalibration', 0, true).status, 'queued');
   assert.equal(state.buildings.gatewayRouter, 0);
   settlePurchaseQueue(state, 0); assert.equal(state.buildings.gatewayRouter, 0);
@@ -149,7 +151,9 @@ test('previous schema31 JSON gains only additive defaults and earned tech never 
   assert.equal(state.downloadAllocation, 0);
   assert.deepEqual(state.tech, before.tech);
   assert.deepEqual(state.logs, before.logs);
-  assert.deepEqual(state.queue, before.queue);
+  // Schema 32 remaps segmented queue entries to their construction-phase IDs.
+  assert.deepEqual(state.queue, (before.queue as Record<string, unknown>[]).map(item => item.kind === 'build' && item.id === 'spaceRipper'
+    ? { ...item, id: 'spaceRipperSegments' } : item));
   assert.deepEqual(validateCurrentSave(JSON.parse(JSON.stringify(state)), context), state);
 });
 

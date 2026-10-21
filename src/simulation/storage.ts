@@ -8,6 +8,7 @@ import { calculateCrisprStorageBonus } from './crispr';
 import { isContainerAssignable, calculateContainerUnitCapacity } from './containers';
 import { formatNumber } from '../shared/format';
 import { countRunningBuildings } from './housing';
+import { unificationStorageMultiplier } from './neighbors';
 import { calculateFreightCapacityMultiplier, calculateRipperKnowledgeBonusValue } from './building-effects';
 import type { BuildingId } from '../types/buildings';
 import type { ResourceId, AsrielSupport } from '../types/economy';
@@ -176,6 +177,7 @@ function accumulateStorageRows(
         rows.push({ name: CRISPR_UPGRADES.casimirEffect.name, value: preBonusSubtotal * crispr.casimirBonus });
       }
       pushDarkEnergyRow(state, 'cash', totals, rows);
+      pushUnificationRow(state, 'cash', totals, rows);
     }
   } else if (detailResource && !RESOURCES[detailResource].special && rows) {
     // CRISPR bonuses both scale the same pre-bonus row subtotal (additive bonus rows);
@@ -190,6 +192,7 @@ function accumulateStorageRows(
       rows.push({ name: CRISPR_UPGRADES.casimirEffect.name, value: preBonusSubtotal * crispr.casimirBonus });
     }
     pushDarkEnergyRow(state, detailResource, totals, rows);
+    pushUnificationRow(state, detailResource, totals, rows);
   }
   if (totals && detailResource && !totals[detailResource]) totals[detailResource] ||= 0;
 }
@@ -198,6 +201,14 @@ function accumulateStorageRows(
 export const DARK_ENERGY_STORAGE_RATE = .01;
 export function calculateDarkEnergyStorageBonus(state: Pick<GameState, 'prestige'>): number {
   return Math.max(0, state.prestige.darkEnergy || 0) * DARK_ENERGY_STORAGE_RATE;
+}
+/** 世界统一 raises every ordinary resource's capacity by 25% (special/crafted excluded). */
+function pushUnificationRow(state: Pick<GameState, 'tech'>, resource: ResourceId, totals: Partial<Record<ResourceId, number>> | null, rows: StorageDetails['rows']): void {
+  const bonus = unificationStorageMultiplier(state) - 1;
+  if (!bonus) return;
+  const subtotal = rows.reduce((total, row) => total + row.value, 0);
+  if (totals) totals[resource] = (totals[resource] || 0) + subtotal * bonus;
+  rows.push({ name: '世界统一', value: subtotal * bonus });
 }
 function pushDarkEnergyRow(state: GameState, resource: ResourceId, totals: Partial<Record<ResourceId, number>> | null, rows: StorageDetails['rows']): void {
   const bonus = calculateDarkEnergyStorageBonus(state);
@@ -284,6 +295,15 @@ export function calculateStorageTotals(state: GameState, snapshot: StorageSnapsh
     for (const resource of Object.keys(RESOURCES) as ResourceId[]) {
       if (RESOURCES[resource].crafted || RESOURCES[resource].special) continue;
       totals[resource] = (totals[resource] || 0) * (1 + darkBonus);
+    }
+  }
+  // 世界统一 multiplies every ordinary resource's capacity once, on the same subtotal the
+  // detail row uses, so the tooltip and the batched totals stay identical.
+  const unification = unificationStorageMultiplier(state);
+  if (unification !== 1) {
+    for (const resource of Object.keys(RESOURCES) as ResourceId[]) {
+      if (RESOURCES[resource].crafted || RESOURCES[resource].special) continue;
+      totals[resource] = (totals[resource] || 0) * unification;
     }
   }
   // Each completed 空间撕裂者 raises the knowledge cap by 20% (passive, ignores funding).

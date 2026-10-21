@@ -1,7 +1,7 @@
 import { loadStageThreeState, validateStageThreeProgress } from './validate-stage-three';
 import { validateStoryArchive } from './validate-story';
 import { CONFIG } from '../data/config';
-import { normalizeSchema31Save } from './save-compatibility';
+import { normalizeSchemaSave } from './save-compatibility';
 import { createInitialState } from './create-state';
 import { validateEconomyRecords, validateFactoryAssignments, validateSmelterAssignments } from './validate-economy';
 import { validateUnlockRecords } from './validate-unlocks';
@@ -34,10 +34,13 @@ export function validateAndMigrateSave(value: unknown, context: SaveValidationCo
   return validateCurrentSave(value, context);
 }
 
-/** Strict current-schema boundary. Older and experimental schemas are unsupported. */
+/** Strict current-schema boundary: schema 31 is upgraded in memory, retired schemas are rejected. */
 export function validateCurrentSave(value: unknown, context: SaveValidationContext): GameState {
-  if (!value || typeof value !== 'object' || (value as Record<string, unknown>).version !== CONFIG.version) throw Error('存档版本不受支持。');
-  const raw = normalizeSchema31Save(value as Record<string, unknown>);
+  if (!value || typeof value !== 'object') throw Error('存档版本不受支持。');
+  // Normalization upgrades schema 31 to 32 and backfills absent entries; the version check
+  // below then rejects everything that is not the current schema.
+  const raw = normalizeSchemaSave(value as Record<string, unknown>);
+  if (raw.version !== CONFIG.version) throw Error('存档版本不受支持。');
   const state = createInitialState(CONFIG.version, context.eventInterval, context.now);
   if (Object.keys(raw).some(key => !Object.hasOwn(state, key)) || Object.keys(state).some(key => key !== 'achievementLevels' && !Object.hasOwn(raw, key))) throw Error('存档字段无效。');
   if (typeof raw.furUnlocked !== 'boolean') throw Error('毛皮解锁状态无效。');

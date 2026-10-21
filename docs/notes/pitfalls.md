@@ -1,0 +1,170 @@
+# 踩坑笔记
+
+按「症状 → 原因 → 做法」记录已经付过代价的问题。新会话先读这里，别重新踩。
+
+## 1. 中文文档被 PowerShell 写成乱码
+
+- **症状**：`updatelog.md` 全成 `鏇存柊鏃ュ織` 这类乱码；`git diff` 显示数百行增删。
+- **原因**：`Get-Content -Raw | Set-Content -Encoding UTF8` 会按控制台代码页解码再编码，中文往返即损坏。
+- **做法**：源码/文档一律用 read/edit/write 工具。必须用脚本时写 `tmp/*.mjs`，内部 `fs.writeFileSync(path, text, 'utf8')`。已经损坏就用 `git checkout -- <file>` 从仓库恢复后重写。
+
+## 2. 浏览器验收失败但看不出原因
+
+- **症状**：`--dump-dom` 只拿到 `<pre id="result">running</pre>`，没有任何错误信息。
+- **原因**：页面里的 `window.onerror` 装在内联 module 里；模块**解析阶段**的语法错误会让该模块整体不执行，于是既没有断言也没有错误。
+- **做法**：已在 `acceptance.html` 的 `<head>` 加经典脚本，把错误写进 `#result`；`run-browser.cjs` 失败时打印过滤后的 console。复现验证用 `ACCEPTANCE_PAGE=tests/browser/failure-selftest.html`。
+
+## 3. 往验收页里写了 TypeScript 语法
+
+- **症状**：整页停在 `running`，`RESULT` 从未出现，超时后报「no result element」。
+- **原因**：`<script type="module">` 里写的是普通 JS；`state.tech = [...] as typeof state.tech` 会解析失败（Vite 不做类型擦除）。
+- **做法**：不写 `as`、类型注解、`satisfies`。需要类型提示就改用注释。
+
+## 4. 手搓存档 fixture 一律被校验拒绝
+
+- **症状**：`士兵数据无效`／`经济记录无效`／`科技前置关系无效`，即使 JSON 看起来完整。
+- **原因**：旧版本的 `createInitialState` 缺新字段；手工构造时要么补出旧版没有的键（例如给 `stoppedBuildings` 写一个旧注册表里不存在的 ID），要么漏掉旧版校验要求的键。
+- **做法**：`npm run fixtures:make -- <git-ref> <name>`。它用 git worktree 检出旧版本、复用当前 `node_modules`，跑旧版自己的 `createInitialState` 导出真实存档。生成后清理工作树。
+
+## 5. `npx tsx -e` 看不到输出
+
+- **症状**：动态 import 的探针没有任何 stdout。
+- **原因**：`tsx -e` 的内联脚本在动态 import 场景下会吞输出。
+- **做法**：把探针写成 `tmp/probe.ts`，用 `npx tsx tmp/probe.ts` 跑。
+
+## 6. 改了 `NEXT`/注册表后旧存档报「记录无效」
+
+- **症状**：新档正常，旧档载入失败且提示某个记录无效。
+- **原因**：新增字段/建筑后，旧存档缺少对应键，而校验逐键要求存在。
+- **做法**：在 `state/save-compatibility.ts` 加窄范围默认值（不修改输入对象），并补 `tests/previous-release-save.test.ts` 用真实旧版 fixture 断言可载入、往返、非法拒绝。
+
+## 7. 测试文件写了却没跑
+
+- **症状**：以为全绿，其实某个测试文件从未执行。
+- **原因**：`package.json` 的 `test` 脚本原来是手工枚举 82 个文件，`tests/retired-anomaly.test.ts` 就漏了数个版本。
+- **做法**：已改为 `scripts/run-tests.mjs` 自动发现 `tests/**/*.test.ts`。新增文件不用登记；用 `npm test -- <关键字>` 可只跑相关文件。
+
+## 8. 归一化链顺序错了，新增默认值会绕过严格校验
+
+- **症状**：给 `normalizeSchemaSave` 加一步迁移后，`save-compatibility` / `outer-space` 里「显式非法值必须被拒绝」的用例反而失败，或校验报错对不上。
+- **原因**：把 additive 默认值（`ADDITIVE_BUILDING_IDS`、`wounded`、`neighbors`…）放在迁移**之前**（`raw.version` 还是旧值，于是被跳过），或让新迁移对已是最新 schema 的记录也生效（把玩家手改的非法值悄悄"修好"，违反「显式非法数据必须拒绝」）。
+- **做法**：固定链为 `upgradeSchema31To32 → upgradeSchema32To33 → normalizeAdditiveDefaults`，每一步只对**它负责的旧版本**生效（`raw.version !== N → return raw`）。迁移只做"改变含义"的转换，默认值只补**缺失**的键。改完必跑 `npm test -- save-compatibility segmented-one-off`。
+
+## 9. 给完成态建筑加 `max` 会打爆老存档
+
+- **症状**：给完成态条目加 `max: 1` 后，`validate-economy` 用 `building.max` 当存档数量上界，老存档里合法的 `spaceRipper = 3` 直接判「建筑数据无效」，玩家进不去存档。
+- **原因**：`max` 同时承担**存档数量上界**和**购买上限**两个语义。
+- **做法**：一次性规则要在迁移里先把计数夹到 1（`upgradeSchema32To33` 的 `dropFinishedConstruction` 就是这么做的，且只在 `version === 32` 时生效），不要只加 `max` 就完事；必须同时验证「多座旧档能载入且被夹到 1」。
+
+## 10. 收紧科技前置会锁死老存档
+
+- **症状**：给 `spaceControlTower` 等科技换前置后，几乎所有历史 fixture 都报「科技前置关系无效」，连 `save-compatibility`/`neighbors` 这类与科技无关的用例也全红。
+- **原因**：`validateUnlockRecords` 对**已研究的科技**逐个校验 `pre`，所以任何前置变更都会让老档里合法的研究记录变成非法。
+- **做法**：照 `RETARGETED_PREREQUISITE_TECH` 的模式加一个「只容忍这一个新前置缺失」的白名单（本次是 `ALIEN_SETTLEMENT_RETARGETED`），并**保持 `isTechnologyUnlocked` 对新研究仍强制新前置**——研究门槛与历史校验是两件事。同时补一条「旧档能载入且新研究仍被拦住」的测试。
+
+## 11. 「授予全部科技」的测试夹具会意外激活新被动
+
+- **症状**：新增一个带全局加成的科技（世界统一 +25% 产量/储量）后，一批与它无关的 VM 数值测试开始 `0.125 != 0.1` 这类偏移。
+- **原因**：这些 fixture 用 `Object.keys(TECHNOLOGIES).filter(t => ![排除列表].includes(t))` 授予全部科技，新科技自动进入，被动加成渗进每一个数值断言。
+- **做法**：新增带全局被动/倍率的科技时，把它加进这些排除列表（本次 `test-moon.cjs`、`test-asriel-core.cjs` 共 9 处），并在更新日志里注明；否则失败信息只会显示「产量多了 25%」，很难指向真正原因。
+
+## 12. 装备科技有两份注册表，只改一份等于没效果
+
+- **症状**：科技树里已经能看到「士兵基础战斗力+1」的 `effects` 文案，但军事页的数字纹丝不动，也没有任何报错。
+- **原因**：`effects` 只是展示文本，真正的数值在 `src/data/military.ts` 的 `COMBAT_POWER_TECH_BONUS` / `DEFENSE_TECH_BONUS` 里按 ID 逐个登记。`calculateCombatPower`/`calculateSoldierDefense` 遍历的是这两个表，不是 `TECHNOLOGIES`。
+- **做法**：新增或调整装备科技时**同时**改 `data/technologies.ts`（tier/价格/前置/effects）与 `data/military.ts`（对应的 +1）。`tests/soldier-stats.test.ts` 会核对注册表内容、`soldierStatBreakdown` 明细与最终数值三者一致，漏改一份会直接红。
+
+## 13. 防御力一旦进入 `raidStrength` 就变成进攻科技
+
+- **症状**：加了减伤机制后，突袭预览的「我方战力」莫名其妙变高，原本打不过的国家突然能打了。
+- **原因**：`raidStrength = 士兵数^0.75 × 单兵战斗力`。如果把防御力顺手塞进 `calculateCombatPower` 或 `raidStrength`，减伤属性就顺带提升了门槛判定与掠夺量，语义完全变了。
+- **做法**：防御力只乘在 `previewRaid` 的 `expectedLosses` 与 `retaliate` 的损失上，`strength`/`required` 保持只由战斗力决定。`tests/soldier-stats.test.ts` 直接断言「穿满防御装与裸装的 `strength`、`required`、`available` 完全相同，只有 `expectedLosses` 变小」。
+
+## 14. 新增数据模块后忘了登记 VM 桥接，全 VM 回归报 `X is not defined`
+
+- **症状**：模块测试全绿，但 `npm test` 里所有经典 VM 回归（`test-moon.cjs`、`test-asriel-core.cjs` 等）同时失败，报 `ReferenceError: SOLDIER_FUR_BASE is not defined`，指向 `assets/generated/government.js`。
+- **原因**：VM 套件跑的是 `scripts/generate-legacy-data.cjs` 用 `ts.transpileModule` 生成的经典脚本；它把每个模块的 `import` 行整行删掉，靠全局变量串联。`data/military.ts` 是新文件，不在 registry 里，于是 `government.js` 里引用的常量全部未定义。
+- **做法**：新增 `src/data/*.ts` 被 `simulation/*` 引用时，往 registry 里加一行 `['military-data', 'data/military']`，**并保证它排在所有引用它的模块之前**（顺序即加载顺序）。`assets/generated/` 是 gitignore 的产物，改完源码要重新跑一次 `node scripts/generate-legacy-data.cjs` 才能看到效果；`npm run check` 不会自动重建它。
+
+## 15. 结算里乘了倍率，明细里却没有对应行
+
+- **症状**：占领敌对国家后，「税收 −10%」和「产量 +5%」在资金/资源收支明细左列完全看不到；玩家只能看到数字莫名变小/变大，无法确认来源。世界统一 +25% 同理。
+- **原因**：`calculateGlobalOutputMultiplier` 把 `occupationOutputMultiplier` / `unificationOutputMultiplier` 乘进每一个资源的结算，但 `calculateResourceFactorRows` 是**手写**的行清单——它列了幸福度、粒子、精通，却从没列这两个。结算与明细是两套独立代码，漏一处不会报错，只会静默不一致。
+- **做法**：凡是新增「乘进 `calculateGlobalOutputMultiplier` 或其它全局结算倍率」的效果，必须在 `resource-breakdown.ts` 里同步加行；本次抽成 `addGlobalOutputRows()` 在资源行末尾统一调用。两个例外要记住：**`energy` 必须排除**（固定供给预算，`settlePowerPlants` 从不乘全局倍率，加行就是撒谎）；**`catTax` 不能被 `value !== 0` 过滤掉**（税收被压到 0 时正是最需要解释的时刻）。`tests/world-unification.test.ts` 的「the resource detail lists the occupation output bonus and the tax penalty」覆盖了这五种组合。
+
+## 16. 手写映射表缺一项不会报错，只会静默少一个颜色
+
+- **症状**：给科技加了分类配色后，新加的科技按钮没有边框色（退回默认的 `#393631`，几乎看不见），但控制台、类型检查、测试全绿。
+- **原因**：`TECH_CATEGORIES` 是 `Record<TechnologyId, TechCategory>`——TypeScript 只在**字面量声明时**检查完整性；如果后来往 `TechnologyId` 联合类型里加了 ID，`Record` 会要求补全，但如果新科技走的是已有 ID 或有人用了 `as`，就完全绕过检查。运行时 `techCategory()` 返回 `undefined`，Vue 渲染出 `data-tech-category="undefined"`，CSS 匹配不到任何规则。
+- **做法**：`tests/tech-categories.test.ts` 的第一项就是「每个科技都有类别、且没有未知 ID」，双向遍历 `TECHNOLOGIES` 与 `TECH_CATEGORIES`。凡是新增这种「按 ID 手写一张表」的机制（分类、配色、排除列表），都要配一个全量覆盖测试——这类遗漏靠 review 是抓不住的。
+
+## 17. `watch` 看不见谓词函数内部读了什么
+
+- **症状**：`useFocusLayout` 用 `watch([activePanel, ...sources], evaluate)` 实现，切换科技子视图时布局**完全不更新**，也没有任何报错；把漏掉的 ref 手动加进 `sources` 就恢复正常。
+- **原因**：`watch` 只能追踪它被显式告知的响应式源。谓词 `() => techView.value === 'completed'` 里读的 `techView` 对 `watch` 不可见——它只看到函数引用本身，而函数引用不会变。这类 bug 静默、偶发、且只在「忘了列依赖」时出现。
+- **做法**：把派生逻辑放进 `computed`，谓词在 computed 里执行，Vue 自动收集它读到的每一个 ref。调用方不再需要维护依赖数组，也就没有「忘记列」这种失败模式。同理，`requests` 表的**键必须与 `activePanel` 的值同源**（本次曾用面板名 `techTree` 而 `activePanel` 存的是标签页 id `tech`，谓词永远查不到）；`tests/focus-layout.test.ts` 对这两点各有一条专项测试。
+
+## 18. 隐藏一列不等于获得空间：先看断点
+
+- **症状**：专注布局隐藏右列后，中间列反而从 721px 变成 526px。
+- **原因**：视口只有 756px，已落入 `max-width:1100px` 断点——该断点把 `.col-right` 移到下方并设为整行宽，三列网格实际只剩两列。此时把列宽改写成 `1fr 3fr` 等于把中间列从「占满剩余」压成「四分之三」。
+- **做法**：列宽改写必须限定在真正有第三列的宽度区间（`@media(min-width:861px)`），`display:none` 可以无条件生效。浏览器验收按 `innerWidth` 分别断言「宽屏变宽 / 窄屏不变宽」，避免用单一预期掩盖这个差异。
+
+## 19. 验收用例里的滚动操作会污染后续用例
+
+- **症状**：给资源列表加「独立滚动」的浏览器断言后，**后面所有用例**开始连锁失败（`研究外星定居后开放四项Asriel科技`、`Missing click target` 等），而这些断言本身全绿。
+- **原因**：该断言块派发了 `WheelEvent` 并修改了 `scrollTop`，把**页面滚动位置**从顶部挪到了 669px。后续用例通过 `click($(...))` 操作按钮，而验收页的 `click` 依赖元素在视口内；页面被滚走后，早期位于顶部的元素不在可视区，点击落空。
+- **做法**：① 断言块只做纯 DOM 操作（临时改 `style.maxHeight` 制造溢出），**不修改任何游戏状态**；② 有滚动副作用的用例放到脚本**末尾**（`mounted.app.unmount()` 之前），此时依赖页面位置的用例已跑完。定位方法：用 `git stash` 分别回退功能代码与测试块，确认「只有测试块存在时才失败」，再二分块的位置。另外注意 `Object.assign(state, snapshot)` **无法移除数组多出来的元素**，还原数组要显式赋值或 `replaceState`。
+
+## 20. `position:sticky` 需要「更大的容器」才有移动范围
+
+- **症状**：给左列写了 `position:sticky; top:0`，页面滚动时它照样跟着滚走，`getBoundingClientRect().top` 从 36 变成 −89，且没有任何报错。
+- **原因**：sticky 的移动范围 = **网格/流式行高 − 自身高度**。`.layout` 是 `align-items:start`，网格行高会被压成列自身高度，两者相等 → 移动范围 0 → sticky 等于没写。同理，只给列写 `max-height` 而不写 `height`，列高仍由内容决定，`flex:1` 的子元素也分不到空间。
+- **做法**：`align-self:stretch`（让行高等于整页高度）+ `height:100vh`（把列本身锁在视口内），两个都要。验证方式是实测而不是读 CSS：注入一个 2400px 的中列填充，滚 300px 后断言 `colTop` 不变。
+- **相关**：验收浏览器视口通常只有 756px，落在 `max-width:860px` 的窄屏断点内，宽屏规则根本不生效——必须用 **iframe 指定宽度**验证布局。但 iframe 内**不执行脚本**，合成 `WheelEvent` 不会触发监听器，`defaultPrevented` 恒为 false，滚轮类断言只能放在主页面。
+
+## 21. `flex:1` 会把面板拉满，内容少时留下大块空白
+
+- **症状**：资源列表最后一行与「锻造物」之间空出一大块，资源越少空得越多；玩家截图反馈。
+- **原因**：给资源面板写了 `flex:1 1 auto`。`flex-grow:1` 是**无条件**的——不管内容多少都会拉伸填满容器剩余高度。资源少时面板被拉到 650px、内容只有 145px，中间空 500px。
+- **做法**：用 `flex:0 1 auto`（basis 取内容高度，只在放不下时收缩）+ `min-height` 保底。想「只在内容溢出时才吸收剩余空间」也可以，但要用 CSS 属性选择器配合 JS 维护的标记，而 `data-overflowing` 由 ResizeObserver 测量得出、测量又依赖布局，会形成循环——直接用 `0 1 auto` 更简单且无循环。测试里显式断言「不能出现 `flex:1 1 auto`」，防止以后有人改回去。
+- **重要限定（beta 0.9.25 补充）**：这条只适用于**不可滚动**的面板。同一个 `flex:1 1 auto` 加在**可滚动容器**上是对的——容器内部的剩余高度不会显示成空白，它只是可滚动区域的可用高度（多出来的空间在滚动内容之外，不产生视觉空白）。所以后来把左栏三块内容合并成一个 `.col-left-scroll` 滚动容器时，那里就该用 `flex:1 1 auto`，并且必须配 `min-height:0`（flex 子元素默认 `min-height:auto`，不加这一条容器会被内容撑开、永远不产生滚动条）。判断标准不是「flex 值」而是「这个盒子会不会滚」。
+
+## 22. 改共用组件的样式必须限定作用域
+
+- **症状**：为了修「资源明细弹窗里长数值被折行」，把 `.resource-factor` 的 grid 改成 `max-content max-content`、名称列改成 `nowrap`。资源明细好了，但浏览器验收里「全部131种建筑真实悬停效果列不挤压、不重叠、不溢出」几乎全部失败。
+- **原因**：`.resource-factor` 是**建筑弹窗和资源明细弹窗共用**的行组件。建筑弹窗固定 242px 宽，本来就靠换行容纳长文本；把换行能力去掉，长内容只能撑破容器。**同一个类被两个不同宽度的容器使用时，它的布局规则不能只为其中一个优化。**
+- **做法**：新规则全部加 `.resource-detail` 前缀（`.resource-detail .resource-factor{...}`），基础规则保持原样。并在测试里加一条**反向断言**：基础 `.resource-factor` 不得含 `max-content`、基础名称列必须仍是 `white-space:normal` + `overflow-wrap:anywhere`。这类「不要污染共用基础规则」的断言比正向断言更容易漏，但正是它挡住了这次回归。
+
+## 23. CSS 特异性：`>span` 会静默压过 `.value`
+
+- **症状**：给数值列写了 `white-space:nowrap`，浏览器里长数值**仍然折行**，且没有任何报错；`getComputedStyle` 显示 `white-space:normal`。
+- **原因**：`.resource-factor-value{white-space:nowrap}` 的特异性是 **0,1,0**，而同一元素还命中 `.resource-factor>span{white-space:normal}`，特异性 **0,1,1**。后者更高，静默胜出。同类陷阱：`.resource-factor>span` 会覆盖任何只写单个类名的属性。
+- **做法**：先算特异性再写规则。需要压过 `.a>span` 时，用 `.scope .a>span.value`（0,3,1）这类更具体的选择器，不要靠 `!important`。调试方法：把 `document.styleSheets` 里所有命中该元素的选择器和它们声明的属性打印出来对比，比猜快得多。另外 `getComputedStyle().width` 返回的是**解析后的像素值**，不是 `max-content` 这类关键字——断言宽度策略要读 `getBoundingClientRect()` 的实际像素或回到 CSS 文本层断言。
+
+## 24. 布局 bug 必须用真实组件测量，手工 DOM 会漏掉父级约束
+
+- **症状**：修好「长数值折行」后玩家立刻回报「看起来它还是坏了」——截图里数值确实单行，但弹窗右侧空出一大块。我的探针（手工拼的等价标记）显示一切正常，所以第一轮修复后我没发现。
+- **原因**：手工 DOM 探针只复制了**结构**，没有复制**父级约束**。真实弹窗上还有 `min-width:400px`，它把容器撑到 400px，而内容只有 175px，右侧空出 225px。手工探针里那个类没有命中同样的宽度规则，所以测不出空白。
+- **做法**：布局类 bug 一律测量**真实组件**——用 `mountGame` 起真实应用，构造真实存档状态（解锁资源、给足产量），对真实锚点派发 `pointerover`，再读 `getBoundingClientRect()`。测量要打印**完整的父子链几何**（每个直接子元素的 `y`/`x`/`w`、两列各自宽度、`widest` 后代），并算一个显式指标，例如 `trailingGap = tipWidth - paddingRight - lastValue.right`。有个具体数字才能判断「空白 129px」是 bug 还是设计。
+- **顺带**：断言空白用**相对量**（`tipW - padding - columnsW <= 2`）而不是固定宽度（`width === 400`）。固定值会在每次调整设计时误报，相对量锁的是「不留空白」这个不变量。
+
+## 25. 新增科技会连带打断一堆「部分科技」测试夹具
+
+- **症状**：加完三个新科技后，`npm test` 一次冒出 9 个失败，全是 `科技前置关系无效。`，但报错行指向的文件和本次改动毫无关系（`hyperspace-energy`、`stage-three`、`test-moon.cjs` …）。
+- **原因**：这些测试用 `Object.keys(TECHNOLOGIES).filter(id => ![...排除列表].includes(id))` 手工构造「研究到某个阶段」的科技列表。新科技的前置（`nanoAlloy`、`silicateCement`、`carbonNanotubes`）被它们排除掉了，于是存档校验发现「子科技在、父科技不在」而拒绝。
+- **做法**：**给某个科技加前置后，必须同步所有排除列表**。用脚本一次性给这些文件的排除列表补上新 ID（它们都已含 `nanoAlloy`，按同一锚点插入即可），比一个个改快且不易漏。定位手法：`npm test` 的 `AssertionError` 后面跟的 `actual message` 是存档校验的原文，按它去 grep `validate-unlocks.ts` 的抛出点，就能确认是前置缺失而非逻辑错误。
+
+## 26. 退役科技必须同时豁免「前置校验」
+
+- **症状**：把 `agriculturalMachinery` 加进 `RETIRED_TECHNOLOGIES` 并在两个界面隐藏后，含该科技的旧存档仍被拒载，报 `科技前置关系无效。`。
+- **原因**：`validateUnlockRecords` 会校验每个已研究科技的前置都在 `state.tech` 里。退役科技虽然没效果了，但它仍带着 `pre: ['automation', 'electricity']`；如果历史存档因为更早的 retarget 而没有其中一个父项，整档就会被拒。
+- **做法**：在 `validateUnlocks` 的科技循环开头对退役 ID 直接 `continue`——它们的**效果已删除，前置图不再有意义**，而 `isTechnologyUnlocked` 又恒返回 false，所以豁免不会打开任何新研究。这是「已合法获得的进度不得失效」这条硬要求的直接实现。
+- **配套**：`RETIRED_TECHNOLOGIES` 原本放在 `src/vue/tech-categories.ts`，但 `simulation/unlocks.ts` 也要用同一份名单，而项目禁止 `simulation → vue` 反向依赖。把它下沉到 `src/data/technologies.ts` 定义、由 vue 层 `export { ... } from` 转出，保持单一真相且依赖方向不变。
+
+## 27. 注册表级的「同名是设计」不等于面板行不该唯一
+
+- **症状**：玩家报告「解锁戴森球后建筑页出现两个戴森球」。而 `tests/segmented-naming.test.ts` 全绿——它断言的正是「两条注册表记录必须同名」。
+- **原因**：那条测试锁的是**注册表层**的约定（分段态与完成态共用 `name`，靠行内计数区分），但没断言**渲染后**的行是否唯一。而未开工时两条记录的计数**都是 `0`**，原设计假定的「靠计数区分」在这个窗口期失效。测试和界面各自都「自洽」，合起来却是坏的。
+- **做法**：修 `withConstructionPhases`，让未建成时**只渲染建造行**，完成体建成后才出现——而不是给分段行加后缀。理由是完成体在未建成时既不能购买也没有开关，纯展示行没有信息价值。**改动前先看既有测试与 `docs/agent-map.md` 里的设计决定**，避免用「加后缀」这种和既定约定打架的方案。
+- **更一般的教训**：当一个 UI bug 与某条通过的测试看起来矛盾时，先确认那条测试锁的是**哪一层**。层与层之间的空隙（这里是「注册表正确」→「渲染正确」）正是 bug 藏身处。断言要落在**用户能看到的那一层**：这次补的 `tests/segmented-row-names.test.ts` 直接断言 `withConstructionPhases` 的返回列表，比断言注册表字段更贴近界面。

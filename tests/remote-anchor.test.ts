@@ -21,7 +21,7 @@ const clone = <T>(s:T):T => JSON.parse(JSON.stringify(s));
 const near = (a:number,b:number) => assert.ok(Math.abs(a-b)<1e-7,`${a} != ${b}`);
 const context={now:0,eventInterval:60,housingCapacity:()=>1000,clampResources:()=>{}};
 function complete() {
- const s=createMilestoneState('remote',{buildings:{aiSupercore:100,constraintArray:3}});
+ const s=createMilestoneState('remote',{buildings:{aiSupercore:1,constraintArray:3}});
  s.stoppedBuildings.aiSupercore=1;
  return s;
 }

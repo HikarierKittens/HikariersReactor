@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>broken</title>
+<script>
+window.__fatal = message => {
+  window.__fatalMessages = [...(window.__fatalMessages || []), String(message)];
+  const paint = () => {
+    const out = document.querySelector('#result');
+    if (out) out.textContent = `FAIL 异常：${window.__fatalMessages.join(' | ')}\nRESULT: FAIL`;
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paint);
+  else paint();
+};
+window.addEventListener('error', event => window.__fatal(event.error?.stack || `${event.message} @ ${event.filename}:${event.lineno}:${event.colno}`));
+window.addEventListener('unhandledrejection', event => window.__fatal(event.reason?.stack || event.reason));
+</script>
+</head>
+<body>
+<pre id="result">running</pre>
+<script type="module">
+// Deliberate parse error: proves the classic hook still reports a diagnosable reason.
+const broken = 1 as number;
+</script>
+</body>
+</html>

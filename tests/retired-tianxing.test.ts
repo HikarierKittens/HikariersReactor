@@ -22,7 +22,7 @@ const fresh = () => createInitialState(CONFIG.version, 60, 0);
 
 function completedShip(): GameState {
   const state = fresh();
-  state.tech = Object.keys(TECHNOLOGIES).filter(id => !['spaceControlTower', 'globalObservationCalibration', 'anomalyMapping', 'fieldConstraintTheory', 'dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','dysonSphere','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','hazardousMaterialStorage','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];
+  state.tech = Object.keys(TECHNOLOGIES).filter(id => !['spaceControlTower', 'globalObservationCalibration', 'anomalyMapping', 'fieldConstraintTheory', 'dimensionBeaconDeployment','accessPointBeacon','hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoArmor','nanoExoskeleton','advancedConcrete','nanoAlloy','dysonSphere','dysonSphereII','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','hazardousMaterialStorage','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];
   state.prestige.nuclearResets = 1;
   state.prestige.particles = 17;
   state.prestige.casimir = 23;
@@ -30,7 +30,7 @@ function completedShip(): GameState {
   state.talosMissionCompleted = state.talosMoonMissionCompleted = state.asteroidBeltMissionCompleted = state.misenMissionCompleted = true;
   state.arpaBuildings.rocketPlatform = state.arpaBuildings.monument = state.arpaBuildings.geneSequencing = 1;
   state.arpaBuildings.arpaResearchInstitute = 2;
-  state.buildings.aiSupercore = 100;
+  state.buildings.aiSupercore = 1;
   state.stoppedBuildings.aiSupercore = 1;
   state.buildings.interstellarDock = 1;
   state.buildings.e710Container = 2;

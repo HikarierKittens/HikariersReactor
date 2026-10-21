@@ -5,14 +5,14 @@ import type { ResourceId, CraftId } from '../types/economy';
 import type { TechnologyId } from '../types/technologies';
 import type { GameState } from '../types/state';
 
-import { TECHNOLOGIES } from '../data/technologies';
+import { RETIRED_TECHNOLOGIES, TECHNOLOGIES } from '../data/technologies';
 import { isSpaceMissionCompleted } from './space-missions';
 import { isBuildingFullyBuilt } from './costs';
 
 export function isTechnologyUnlocked(id: string, state: GameState): boolean {
   if (!Object.hasOwn(TECHNOLOGIES, id)) return false;
   // Retired research IDs remain valid historical earned progress, never future research.
-  if (id === 'energyStorage' || id === 'batteryConcentrationRing') return false;
+  if (RETIRED_TECHNOLOGIES.includes(id as TechnologyId)) return false;
   if (id === 'globalObservationCalibration' && !state.stageThree.coreActivated) return false;
   // Ripper technologies require a COMPLETED 空间撕裂者 (all 100 segments), not merely one segment.
   if ((id === 'higherDimensionalStorage' || id === 'ripperOverclock' || id === 'overclocking13') && !isBuildingFullyBuilt('spaceRipper', state)) return false;
@@ -21,6 +21,9 @@ export function isTechnologyUnlocked(id: string, state: GameState): boolean {
   if ((id === 'stabilizeBlackHole' || id === 'exoticRunaway') && !state.blackHole?.unstable) return false;
   if (id === 'digitalAscension' && !isBuildingFullyBuilt('agiCoreComponent', state)) return false;
   const technology = TECHNOLOGIES[id as TechnologyId];
+  // 世界统一 is the payoff of 统一计划: it stays locked until every neighbour is occupied.
+  if (technology.occupiedNeighborsRequired !== undefined
+    && state.neighbors.occupied.length < technology.occupiedNeighborsRequired) return false;
   return (state.prestige.nuclearResets + (state.prestige.escapeResets || 0) + (state.prestige.blackHoleResets || 0) + (state.prestige.ascensionResets || 0) >= (technology.prestigeResetsRequired || 0))
     && (!technology.kerberosMissionRequired || state.kerberosMissionCompleted)
     && (!technology.spaceMissionRequired || isSpaceMissionCompleted(state, technology.spaceMissionRequired))

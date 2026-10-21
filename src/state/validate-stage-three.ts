@@ -17,7 +17,7 @@ export function validateStageThreeProgress(state: GameState): void {
   // These are current-run historical events, not permanent prestige flags.
   // Buildings cannot be sold/demolished, and every run reset clears these flags.
   // A stopped or currently unfunded facility remains valid evidence; its absence does not.
-  if (s.coreActivated && state.buildings.aiSupercore < (BUILDINGS.aiSupercore.segmentedRequired || 100)) fail();
+  if (s.coreActivated && state.buildings.aiSupercore < 1) fail();
   if (state.tech.includes('globalObservationCalibration') && !s.coreActivated) fail();
   if (state.tech.includes('hydrogenRecovery') && state.buildings.asteroidBase < 1) fail();
 }

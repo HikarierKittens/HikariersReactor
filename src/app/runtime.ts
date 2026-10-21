@@ -2,6 +2,7 @@ import { floorWithPrecision } from '../shared/format';
 import type { GameState } from '../types/state';
 import { createInitialState } from '../state/create-state';
 import { advanceGameTick } from '../simulation/tick';
+import { clampSoldiersToArmyLimit } from '../simulation/military';
 import type { TickHooks } from '../simulation/tick';
 import { sampleEventInterval, applyRandomEvent } from '../simulation/events';
 import { clampResourcesToCaps } from '../simulation/storage';
@@ -77,6 +78,18 @@ export function createRuntime(): Runtime {
     });
   }
 
+  /**
+   * The army may never exceed the capacity its running barracks, garrisons and simulators
+   * provide, so a load or import drops any surplus instead of carrying it forward.
+   * The saved training progress is kept when the army still has room to grow.
+   */
+  function enforceArmyLimit(candidate: GameState): GameState {
+    const before = candidate.soldiers;
+    clampSoldiersToArmyLimit(candidate);
+    if (candidate.soldiers !== before) addLog(candidate, `军营与驻军的可容纳数量不足，已移除 ${before - candidate.soldiers} 名多余士兵。`, 'progress');
+    return candidate;
+  }
+
   function resetClock(): void {
     saveElapsed = 0;
     pendingSimulation = 0;
@@ -133,7 +146,7 @@ export function createRuntime(): Runtime {
       return;
     }
     try {
-      state = validate(JSON.parse(raw));
+      state = enforceArmyLimit(validate(JSON.parse(raw)));
     } catch {
       saveFailed = saveBlocked = true;
       protectedSaveText = raw;
@@ -176,7 +189,7 @@ export function createRuntime(): Runtime {
   }
 
   function replaceState(value: unknown): boolean {
-    const next = validate(value);
+    const next = enforceArmyLimit(validate(value));
     state = next;
     loaded = true;
     saveBlocked = false;

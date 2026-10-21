@@ -33,7 +33,7 @@ function stage(ejectors = 1): GameState {
   const s = fresh();
   s.tech.push('energyShield', 'penroseTheory', 'massEjector');
   s.blackHoleMissionCompleted = true;
-  s.buildings.penroseSphere = 100;
+  s.buildings.penroseSphere = 1;
   s.buildings.massEjector = ejectors;
   s.resources.energy = 1e6;
   return s;
@@ -65,9 +65,9 @@ test('data: techs, building and ejection table follow the spec', () => {
 
 test('质量喷射器 tech needs a completed Penrose sphere; first ejector logs the new panel', () => {
   const s = stage(0); s.tech = s.tech.filter(id => id !== 'massEjector');
-  s.buildings.penroseSphere = 99;
+  s.buildings.penroseSphere = 0; s.buildings.penroseSphereSegments = 99;
   assert.equal(isTechnologyUnlocked('massEjector', s), false);
-  s.buildings.penroseSphere = 100;
+  s.buildings.penroseSphereSegments = 0; s.buildings.penroseSphere = 1;
   assert.equal(isTechnologyUnlocked('massEjector', s), true);
   const b = stage(0);
   constructBuildingState(b, 'massEjector', () => 0);

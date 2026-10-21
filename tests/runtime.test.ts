@@ -58,12 +58,21 @@ test('pre-beta0.6.5 load, import and protected-save recovery preserve earned pro
   env.writes.set(CONFIG.saveKey, json);
   const runtime = createRuntime(); runtime.load();
   assert.equal(runtime.saveBlocked, false);
+  // Schema31 counts were raw segments. The schema32 upgrade turns complete units into the
+  // completed building and keeps the remainder on the construction phase, so a queued
+  // segment purchase targets `spaceRipperSegments` now.
+  const expectedQueue = (original.queue as Record<string, unknown>[]).map(item => item.kind === 'build' && item.id === 'spaceRipper'
+    ? { ...item, id: 'spaceRipperSegments' } : item);
   const check = (state: typeof runtime.state) => {
     for (const field of ['buildings', 'workers', 'stoppedBuildings'] as const) assert.equal(state[field].hazardousMaterialStorage, 0);
-    for (const field of ['tech', 'queue', 'logs', 'prestige', 'achievements', 'stageThree', 'statistics', 'story'] as const) assert.deepEqual(state[field], original[field]);
+    for (const field of ['tech', 'logs', 'prestige', 'achievements', 'stageThree', 'statistics', 'story'] as const) assert.deepEqual(state[field], original[field]);
+    assert.deepEqual(state.queue, expectedQueue);
     assert.equal(state.time, original.time);
     assert.equal(state.clicks, original.clicks);
-    assert.equal(state.buildings.spaceRipper, 99);
+    assert.equal(state.buildings.spaceRipper, 0);
+    assert.equal(state.buildings.spaceRipperSegments, 99);
+    assert.equal(state.buildings.aiSupercore, 1);
+    assert.equal(state.buildings.aiSupercoreSegments, 0);
   };
   check(runtime.state);
   assert.equal(runtime.save(), true);

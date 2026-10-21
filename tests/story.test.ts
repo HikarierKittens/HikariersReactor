@@ -19,7 +19,7 @@ const gates: [StoryChapterId, (s: GameState) => void][] = [
   ['secondHome', s => { s.buildings.moonBase = 1; }],
   ['interplanetaryRoutes', s => { s.buildings.asrielSpaceport = 1; }],
   ['strangeElement', s => { s.resources.e710 = .01; }],
-  ['anotherMind', s => { s.buildings.aiSupercore = 100; }],
+  ['anotherMind', s => { s.buildings.aiSupercore = 1; }],
 ];
 
 test('appendix milestones unlock from independently observed technology buildings and permanent progress', () => {
@@ -97,7 +97,7 @@ test('eight story milestones unlock independently, immediately and without logs 
     assert.deepEqual(s.logs, before.logs);
     assert.equal(s.time, before.time);
   }
-  const s = fresh(); s.buildings.aiSupercore = 99;
+  const s = fresh(); s.buildings.aiSupercore = 0;
   assert.deepEqual(collectStoryMilestones(s), []);
   s.unlockedResources.push('e710');
   assert.deepEqual(collectStoryMilestones(s), ['strangeElement']);
@@ -149,7 +149,7 @@ test('story validation rejects present malformed fields and read records not alr
 test('soft nuclear and escape resets preserve independent archives and synchronize pending milestones; hard reset clears', () => {
   const s = fresh(); s.buildings.nest = 1;
   updateStoryProgress(s); markStoryRead(s, 'firstShelter');
-  s.buildings.aiSupercore = 100;
+  s.buildings.aiSupercore = 1;
   s.tech.push('nuclearProgram'); s.nuclearProgress = 100;
   s.buildings.interstellarDock = 1;
   for (const id of Object.keys(SHIP_COMPONENTS) as ShipComponentId[]) s.shipComponents[id] = true;

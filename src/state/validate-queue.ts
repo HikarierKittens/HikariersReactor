@@ -44,7 +44,7 @@ export function validateSaveQueue(value: unknown, state: GameState): QueueItem[]
       // Preserve its queue entry on import; live settlement still uses the full
       // current gate. All other technology prerequisites remain enforced.
       const researchState = id === 'ripperOverclock'
-        ? { ...state, buildings: { ...state.buildings, spaceRipper: 100 } } : state;
+        ? { ...state, buildings: { ...state.buildings, spaceRipper: 1 } } : state;
       if (!Object.hasOwn(TECHNOLOGIES, id) || state.tech.includes(id) || seenTech.has(id) || !isTechnologyUnlocked(id, researchState)) throw Error('队列科技无效。');
       seenTech.add(id);
       return { uid: q.uid, kind: 'tech', id };
@@ -54,7 +54,8 @@ export function validateSaveQueue(value: unknown, state: GameState): QueueItem[]
       return { uid: q.uid, kind: 'arpa', id: q.id as ArpaProjectId };
     }
     const id = q.id as BuildingId;
-    if (!Object.hasOwn(BUILDINGS, id) || !isBuildingUnlocked(id, state)) throw Error('队列建筑无效。');
+    // Completed forms of segmented projects have no cost: a queue entry for them is invalid.
+    if (!Object.hasOwn(BUILDINGS, id) || BUILDINGS[id].buildable === false || !isBuildingUnlocked(id, state)) throw Error('队列建筑无效。');
     buildCounts[id] = (buildCounts[id] || 0) + (q.segments as number | undefined ?? 1);
     if (state.buildings[id] + buildCounts[id] > (BUILDINGS[id].segmentedRequired ?? BUILDINGS[id].max ?? Infinity)) throw Error('队列超过建筑上限。');
     return { uid: q.uid, kind: 'build', id, ...(Object.hasOwn(q, 'segments') ? { segments: q.segments as number } : {}) };

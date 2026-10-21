@@ -2,7 +2,7 @@
 
 > 本文档按时间倒序记录每次游戏更新的改动。
 >
-> 如无额外说明，每次游戏更新都要将游戏版本号的最小一位+1 例如beta 0.5.1 → beta 0.5.2
+> 如无额外说明，每次游戏更新都要将游戏版本号的最小一位+1 例如beta 0.5.1 → beta 0.5.2，除非指定，否则不更改大版本，只更改最小一位
 > 更新内容需要使用简洁的格式(参考目标文件已有内容），写入根目录下的updatelog.md文件，并且标注版本号与日期
 > 
 > **维护要求：每次更新游戏后，必须检查本文档并为本次改动补一条记录（若本次无玩法/界面/数值变化可注明"无玩法变更"）；记录必须包含验证结果。** 未写入记录的更新视为未完成收尾。
@@ -48,7 +48,373 @@
 
 ---
 
-## 2026/10/20 beta 0.9.4 军粮与掠夺量校准
+## 2026/10/21 beta 0.9.27 科技调整：高级混凝土升 T16、戴森球升级技术隐藏
+
+- **高级混凝土降到 T16**：`tier: 26 → 16`。造价（46万知识 + 1000铱 + 2500合金 + 5万纳米管）与效果（水泥工人 +30%，不增加原料消耗）**均未改动**。前置仍是「硅酸盐水泥 + 碳纳米管」，两者分别是 T5 与 T14，低于 T16，所以科技树里它不会画在依赖项上方。实测渲染后档位标签止于 `25`（T26 已不存在），该节点落在 T16 标签行上。
+- **戴森球升级技术转为退役**：加入 `RETIRED_TECHNOLOGIES`（`src/data/technologies.ts`）。两个科技界面都不显示、`isTechnologyUnlocked` 恒返回 false 所以永远无法再研究。
+  - **为什么不直接删**：它同时是 2级戴森球分段体与完成体的唯一解锁条件（`buildings.ts:105,108` 的 `tech: 'dysonSphereII'`）。直接删会让含该科技的旧存档被 `validateSaveIds` 判为「存档项目无效」而整档拒载，并且已建成的 2级戴森球会失去科技依据。
+  - **旧存档不受损**：建筑解锁看的是 `state.tech.includes(building.tech)`，与「科技能否再研究」是两件事。已验证研究过它的存档 `isBuildingUnlocked('dysonSphereL2Segments') === true`，2级戴森球照常建造与开关；而新玩家 `isTechnologyUnlocked` 返回 false，永远碰不到。
+  - 退役科技在 `validateUnlocks` 里跳过前置校验（beta 0.9.24 已有机制），所以旧档不会因为前置被改动而拒载。
+- **实测**（headless，已研究科技视图）：渲染 201 个节点，`dysonSphereII` / `agriculturalMachinery` / `energyStorage` 均缺席，`dysonSphere` 与 `advancedConcrete` 正常显示。`201 = 206 − 4(退役) − 1(本次夹具排除的 prestigeReset 科技)`，数字吻合。
+- **测试**：`tests/t20-technologies.test.ts` 新增 2 项——「高级混凝土是 T16 且前置不高于 T16」、​「戴森球升级技术已退役但保留已有进度」。另更新 2 处旧断言（T26 → T16、退役列表追加 `dysonSphereII`）与 1 条浏览器档位断言。
+- **验证**：`npm run check` 全绿——738 项模块测试（原 736 + 2）、VM 回归、浏览器验收 628 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/21 beta 0.9.26 修复：分段工程与完成体同名导致「两个戴森球」
+
+玩家反馈：解锁戴森球后建筑页同时出现两个「戴森球」。
+
+- **根因**：`withConstructionPhases`（`src/vue/construction-rows.ts`）会把分段建造行插在完成体**前面**，而未建成的项目两行同时显示。注册表里分段体与完成体**共用同一个 `name`**：`dysonSphereSegments.name === dysonSphere.name === '戴森球'`。于是「已解锁、未建成」阶段玩家看到两行完全一样的条目。
+- **影响面**：不是戴森球独有——7 个分段工程全部同名：戴森球、2级戴森球、空间撕裂者、彭罗斯球体、AI超级核心、AGI核心组件、AGI飞升核心。
+- **为什么以前没暴露**：`isConstructionBlocked` 让**已建成**项目的分段行消失，只剩完成体；同名只在「已解锁但未建成」这个窗口期可见。而 `tests/segmented-naming.test.ts` 只断言两条**注册表记录**同名，没有断言**面板行**的唯一性，所以测试全绿但界面是坏的。
+- **修法**：`withConstructionPhases` 改为**未建成时只返回建造行**，完成体在建成后才出现。
+  ```ts
+  const phases = (SEGMENT_PHASES[id] || []).filter(phase => !isConstructionBlocked(state, phase));
+  if (phases.length) return phases;   // 未建成：只显示建造行
+  return [id];                        // 已建成：显示完成体
+  ```
+  理由：完成体在未建成时既不能购买也没有开关，只是一行只能看的信息。
+- **没有采用「改名」方案**：最初我给分段行加「（分段）」后缀，虽然能区分，但与 `docs/agent-map.md` 的既定设计（「两条记录的 `name` 必须完全相同」，由 `tests/segmented-naming.test.ts` 把关）冲突，用户选择改结构而非改名。改名方案还踩过一个坑：把后缀加进 `calculateBuildingName` 会让收支明细的戴森球发电行变成「戴森球（分段）+500/s」，语义错误——那张函数描述的是**建筑本身**，不是**面板行**。
+- **测试**：新增 `tests/segmented-row-names.test.ts`（7 项）——未开工只渲染建造行、在建中（1/50/99 段）同样只渲染建造行、建成后完成体出现且建造行退休、非分段建筑只渲染一次、面板无同名重复、`calculateBuildingName` 不带后缀、面板不私自改名。已验证**回退修复后核心断言变红**。
+- **浏览器验收联动**：4 条既有断言依赖「两行并存」，按新语义更新——AI 核心未完成时只显示分段行、空间撕裂者未完成时只显示建造行、戴森球未完成时不渲染完成形态、彭罗斯球体改断言分段行。另新增 2 条：全页面无同名重复行、未完成的 AI 核心只显示分段行。
+- **验证**：`npm run check` 全绿——736 项模块测试（原 729 + 7）、VM 回归、浏览器验收 628 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/21 beta 0.9.25 左栏统一滚动：资源列表 + 锻造物 + 威望资源
+
+玩家反馈：资源列表单独滚动很难用，希望它和锻造物、威望资源一起作为一个整体滚动，且资源列表始终完整展开。
+
+### 结构改动
+
+`App.vue` 的左栏从「文明面板 + 资源面板 + 锻造面板 + 威望面板」四个平级子元素，改成：
+
+```
+.col-left.pinned-column
+  ├─ CivilizationPanel            ← 留在滚动区外，始终可见
+  └─ .col-left-scroll             ← 唯一滚动容器（isolated-scroll）
+       ├─ ResourcePanel
+       ├─ CraftingPanel
+       └─ #prestigeResources
+```
+
+- **滚动原语没有重写**：`useIsolatedScroll` 从 `ResourcePanel.vue` 上移到 `App.vue`，挂在 `.col-left-scroll` 上。行为完全不变（滚轮到边界不带动页面），只是挂载点上移——这正是当初把它抽成通用原语的收益：换容器不需要动行为代码。
+- **资源列表不再是滚动容器**：`ResourcePanel.vue` 退回普通 `<section class="panel">`，删掉 `ref="scrollContainer"`、`:class="ISOLATED_SCROLL_CLASS"`、`data-isolated-scroll` 与 `data-overflowing`（后者在 CSS 里早已无人引用）。
+- **CSS**：`.col-left .col-left-scroll{flex:1 1 auto;min-height:0}` 吸收列内剩余高度。这里 `flex:1 1 auto` 是**对的**（与 v0.9.21 的教训不冲突）：v0.9.21 那次的 bug 是把 `flex:1` 加在**不可滚动**的面板上，内容少时多出来的空间变成可见空白；而可滚动容器内部的剩余空间不会显示成空白，它只是容器的可用高度。`min-height:0` 是 flex 子元素能够真正收缩并滚动的前提，缺了它容器会被内容撑开而不产生滚动条。
+
+### 为什么这样拆分
+
+文明面板（纪元、人口等）是玩家随时要看的上下文，跟着滚走会很难受，所以留在区外。资源/锻造物/威望资源都是「随时会长的列表」，性质相同，合在一起滚动才不会出现「一个能滚一个不能滚」的割裂感。
+
+### 实测（headless，1600×900，中列注入 2400px 填充）
+
+`scroll clientH=650 scrollH=1256 overflows=true`；滚动容器 300px 后 `moved=300,300,300`（三块位移完全一致）；资源面板 `overflowY=visible, clientH=923 = scrollH=923, clipped=false`；页面滚动 500px 时 `colTop 36→0`（固定）且 `leftScrollTop=0`。
+
+### 测试
+
+- `tests/isolated-scroll.test.ts` 重写为 7 项，其中 2 项专门锁新结构：三块内容都在同一容器内且顺序正确、资源面板**不得**再带 `useIsolatedScroll`/`ISOLATED_SCROLL_CLASS`/`data-isolated-scroll`、文明面板必须在滚动区外。另加反向断言：旧的 `.col-left .resource-panel.isolated-scroll` 规则不得残留。
+- 浏览器验收把整块滚动用例重写为 9 条：共用容器、左列固定、左栏产生滚动条、资源列表完整展开（`scrollHeight === clientHeight`）、三块一起滚动且位移相同、左栏滚动不带动页面、页面滚动不带动左栏、文明面板在区外、两条滚动条并存。
+- 另两条旧布局断言随结构更新（「锻造物紧邻资源面板」「威望资源在左栏最下方」→ 改为断言它们位于同一滚动区内）。
+- **验证**：`npm run check` 全绿——729 项模块测试、VM 回归、浏览器验收 626 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/21 beta 0.9.24 三个 T20/T26 科技与农业机械退役
+
+### 新增科技
+
+| 科技 | 档位 | 造价 | 前置 | 效果 |
+|---|---|---|---|---|
+| 纳米装甲技术 | T20 | 1.6M 知识 + 2500 石墨烯 + 2500 精金 + 1000 纳米合金 | `nanoAlloy` | 单兵战斗力 +2、防御力 +1 |
+| 纳米机械骨骼 | T20 | 1.6M 知识 + 1500 石墨烯 + 1000 精金 + 750 纳米合金 | `nanoAlloy` | 伐木工/石工/矿工/煤矿工基础产能 +150%（覆盖合金工具） |
+| 高级混凝土 | T26 | 460k 知识 + 1000 铱 + 2500 合金 + 50k 纳米管 | `silicateCement` + `carbonNanotubes` | 水泥工人基础产量 +30%，不加原料消耗 |
+
+- **纳米装甲技术**：`COMBAT_POWER_TECH_BONUS.nanoArmor = 2`（唯一的非 1 值）、`DEFENSE_TECH_BONUS.nanoArmor = 1`。两个注册表仍是士兵属性的唯一来源，所以悬停明细自动带上它。防御力上限随之从 4 提到 5，伤亡倍率 1/(1+0.5) ≈ ×0.667。
+- **纳米机械骨骼**：`calculateToolMultiplier` 里**先**判断它，命中四个工种直接返回 `2.5`——这就是「覆盖」语义，不会与合金工具的 `2` 相乘。农民（`forage`）刻意不包含（用户确认），继续吃钢铁工具的 ×1.5。
+- **高级混凝土**：`cementWorkshop` 的输出倍率改为 `(硅酸盐水泥 ? 1.5 : 1) × (高级混凝土 ? 1.3 : 1)`，两者相乘为 ×1.95（用户确认的叠加方式）。只改 `cement` 产量，不加任何原料。
+
+### 农业机械退役
+
+用户要求「移除农业机械及其效果」。直接删注册表会让含该科技的旧存档被 `validateSaveIds` 判为「存档项目无效」而整档拒载，所以按 `energyStorage`/`batteryConcentrationRing` 的先例**退役**：
+
+- `RETIRED_TECHNOLOGIES` 追加 `agriculturalMachinery`，两个科技界面都不显示；`isTechnologyUnlocked` 恒返回 false，永不再可研究。
+- 效果全部删除，共 4 个作用点：`ground-settlement.ts`（forage ×2）、`TooltipPanel.vue`（悬停倍率 ×2）、`resource-breakdown.ts` 两处（notes 与 pct 行）。
+- `validate-unlocks.ts` 对退役科技**跳过前置校验**：它们已无效果，前置图失去意义，而且农业机械的前置（automation/electricity）本身可能在更老的存档里被重新定义过。这是本次唯一触及存档校验的改动，专门为「已合法获得的进度不得失效」这一硬要求服务。
+
+### 架构调整：`RETIRED_TECHNOLOGIES` 下沉到 data 层
+
+原先它定义在 `src/vue/tech-categories.ts`，但 `simulation/unlocks.ts` 也要用它（同一份退役名单），而项目禁止 `simulation → vue` 反向依赖。改为在 `src/data/technologies.ts` 定义并由 `vue/tech-categories.ts` `export { ... } from` 转出，保持单一真相且依赖方向不变。
+
+### 测试
+
+- 新增 `tests/t20-technologies.test.ts`（9 项）：档位/造价/前置、+2/+1 战斗力与防御、四工种 ×2.5 且**覆盖**合金工具、农民不受影响、水泥 1.5/1.3/1.95 三个精确倍率、结算与明细一致、农业机械退役后输出不变、旧存档往返、解锁门槛。
+- 夹具修复：8 个「部分科技」测试文件（`hyperspace-energy`、`hyperspace-services`、`outer-space`、`retired-tianxing`、`retired-interstellar`、`stage-three`、`test-asriel-core.cjs`、`test-moon.cjs`）原先排除 `nanoAlloy`，导致新科技的前置缺失、存档校验失败；在排除列表里同步加入三个新 ID。
+- 浏览器验收新增 4 条：农业机械界面隐藏但注册表保留、三个新科技已注册、档位 T20/T20/T26、已研究树不含退役项。
+- **验证**：`npm run check` 全绿——729 项模块测试（原 720 + 9）、VM 回归、浏览器验收 624 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/21 beta 0.9.23 修复：资源明细弹窗右侧空白
+
+玩家第二次反馈同一处：折行修好后，弹窗右侧出现一大块空白。
+
+- **根因**：上一版写了 `min-width:400px` 作为「短内容保底」。实测真实弹窗内容只有 **175px**（左列 95 + 间距 10 + 右列 70），而弹窗被 `min-width` 撑到 400px，于是右侧空出 **225px**。玩家截图里的「坏掉」正是这块空白，不是折行。
+- **另一个放大因素**：`.resource-columns` 是 `display:flex`，容器宽度随弹窗拉伸到 378px，而两个 `flex:0 0 auto` 列只占 250px，剩余空间留在容器末尾——即使去掉 `min-width`，只要容器不收缩，空白仍会出现在列内。加 `width:max-content` 让容器自身收缩到内容宽度。
+- **最终策略**：`width:max-content`（宽度 = 两列内容之和）+ `max-width:calc(100vw - 16px)`，**不设 min-width**。内容少时弹窗就窄，内容多时自动变宽，长数值始终单行。
+- **实测**（真实组件 + 真实存档状态，headless 1600x900）：
+  - 短内容：`TIP w=197`，两列 175px，无空白。
+  - 截图场景（左列 9 行 + 右列 1 行长数值）：`TIP w=272`，`trailingGap=1`（修复前 129）。
+  - 超长内容：`267 → 447` 变宽，数值 `h=21`（单行），`right=447 <= viewport 756`。
+- **测试**：`tests/resource-tooltip-width.test.ts` 新增两条关键断言——弹窗不得含 `min-width`、两列容器必须 `width:max-content`。浏览器验收改为断言**真实空白量**：`tipW - padding - columnsW <= 2`（实测 slack=2），比断言固定宽度更能锁住「不留空白」这个不变量。
+- **教训（记入 pitfalls 第 24 条）**：第一次修复只用手工拼的 DOM 探针验证，没覆盖真实组件，所以没发现 `min-width` 造成的空白；第二次改为测量真实悬停弹窗才定位到。**布局 bug 必须用真实组件测量，手工 DOM 会漏掉父级约束。**
+- **验证**：`npm run check` 全绿——720 项模块测试、VM 回归、浏览器验收 620 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/21 beta 0.9.22 资源明细弹窗按内容变宽
+
+玩家反馈：知识收支弹窗右列「消耗」里的 `−9430.05/s` 放不下，被强行折成两行。
+
+- **根因一（宽度）**：`.building-tooltip.resource-detail` 写死 `width:400px`。容器宽度先定死，长数值只能折行。改成 `width:max-content; min-width:400px; max-width:calc(100vw - 16px)`——按内容变宽，短内容仍有 400px 保底，且不超出视口。
+- **根因二（列宽）**：`.resource-columns` 用 `grid-template-columns:minmax(0,1.4fr) minmax(0,1fr)`，右列只有约 150px；数值列还被 `fit-content(45%)` 限制到约 67px。改成 flex + `flex:0 0 auto`，每列按自身内容取宽，弹窗才能算出正确的总宽。
+- **根因三（特异性陷阱）**：只加 `white-space:nowrap` 不生效。`.resource-factor-value{white-space:nowrap}` 的特异性是 0,1,0，而兄弟规则 `.resource-factor>span{white-space:normal}` 是 0,1,1，后者更高，静默覆盖了前者。必须写成 `.resource-detail .resource-factor>span.resource-factor-value`（0,3,1）。
+- **作用域限定（重要回归）**：`.resource-factor` 同时被**建筑弹窗**使用，而建筑弹窗是固定 242px 宽、靠换行容纳长文本。第一版直接改基础规则，导致验收里「全部131种建筑效果列不挤压、不重叠、不溢出」大面积失败。所有新规则必须加 `.resource-detail` 前缀，基础规则保持 `minmax(0,1fr)` + `white-space:normal` + `overflow-wrap:anywhere`。
+- **实测**（headless，构造等价标记）：短内容 `width=400`；塞入超长名称与数值后 `400 → 447`，数值 `whiteSpace=nowrap, h=21, lineH=20.8`（单行），`right=447 <= viewport 756`。
+- **测试**：新增 `tests/resource-tooltip-width.test.ts`（4 项）。其中第 4 项专门锁「不污染建筑弹窗」——断言基础 `.resource-factor` 不含 `max-content`、基础名称列仍 `white-space:normal`。已验证改前 4/4 红、改后 4/4 绿。浏览器验收新增 4 条真实渲染断言。
+- **验证**：`npm run check` 全绿——720 项模块测试、VM 回归、浏览器验收 569 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/21 beta 0.9.21 修复：资源少时左列空白
+
+玩家截图反馈：资源列表最后一行（「特殊资源II」的 DNA 行）与「锻造物」之间空出一大块。
+
+- **根因**：上一版给资源面板写的是 `flex:1 1 auto`。`flex-grow:1` 会**无条件**把面板拉伸填满左列的剩余高度，与内容多少无关。资源少时面板被拉到 650px 高、内容只有 145px，中间就空出 500px。`data-overflowing` 属性本来可以用来条件化，但那会造成「测量依赖布局、布局依赖测量」的循环。
+- **修法**：改成 `flex:0 1 auto` —— `flex-basis:auto` 取内容高度，`flex-shrink:1` 只在列放不下时才收缩，`min-height:120px` 保底。这样资源少时面板高度等于内容高度，资源多时仍会收缩并内部滚动。
+- **实测**（1600×900，中列注入 2400px 填充）：资源少 `panelH=145 / contentH=145 / gap=0`；解锁全部资源后 `panelH=413 / contentH=923`，内部滚动、左列不溢出视口。
+- **测试**：`tests/isolated-scroll.test.ts` 的相关用例改为断言 `flex:0 1 auto`，并显式断言不能出现 `flex:1 1 auto`（防止回归）。浏览器验收新增 2 条：iframe 内渲染 3 行资源时断言 `panelH - contentH <= 2`（无空白），以及内容多时面板收缩且内部滚动。
+- **验证**：`npm run check` 全绿——716 项模块测试、VM 回归、浏览器验收 565 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/21 beta 0.9.20 左列固定：页面与资源列表滚动解耦
+
+上一版只做了「列表内部滚动」，但页面滚动时左列仍随页面移动。玩家反馈科技树等长页面下滚动等同于滚整页，要求两条滚动完全独立。
+
+- **左列固定（pinned column）**：`App.vue` 给 `.col-left` 加 `pinned-column` 类；CSS 在 `@media(min-width:861px)` 内让它 `position:sticky; top:0`。
+- **两个必要条件**，缺一不可：
+  1. `align-self:stretch` —— `position:sticky` 的移动范围等于「网格行高 − 自身高度」。`.layout` 是 `align-items:start`，列会被压成自身高度，行高等于列高，sticky **完全没有移动距离，等于没写**。必须让该列在行内拉伸，行高才等于整页高度。
+  2. `height:100vh` —— 只写 `max-height` 时列高仍由内容决定，`flex:1` 没有可分配空间，资源面板不会被压缩。显式锁成视口高度后，列内剩余空间才能分配给资源面板。
+- **资源面板吸收剩余高度**：`.col-left .resource-panel.isolated-scroll{flex:1 1 auto;min-height:120px;max-height:none}`。宽屏下取消上一版的固定 `max-height`（会与 flex 分配打架），窄屏保留 `60vh`。
+- **窄屏不应用**：≤860px 是单列布局，固定列会盖住下面的内容，所以整组规则都在 `min-width:861px` 里。
+- **实测**（`--window-size=1600,900`，中列注入 2400px 填充模拟长页面）：`layout h=3184`、`colLeft h=761`、`resPanel 413/923`；页面滚动 300px 后 `colTop 36→0`（固定住）；列表滚动 200px 后 `pageTop 300→300`（页面不动）。
+- **测试**：`tests/isolated-scroll.test.ts` 新增 2 项（左列固定与 breakpoint、资源面板不被固定高度锁死）。浏览器验收新增 5 条：其中 4 条用独立 iframe 在 1500px 宽下验证布局本身（资源列表独立滚动容器、左列固定且高度锁在视口内、页面滚动不带动左列与列表、两条滚动条并存），1 条在主页面验证滚轮边界 `defaultPrevented`。
+- **踩坑（记入 pitfalls 第 20 条）**：验收浏览器视口只有 756px，落在窄屏断点内，宽屏规则根本不生效，必须用 iframe 指定宽度验证；且 iframe 内**不执行脚本**，合成 `WheelEvent` 不会触发监听器，`defaultPrevented` 恒为 false——滚轮断言只能放在主页面。
+- **验证**：`npm run check` 全绿——716 项模块测试、VM 回归、浏览器验收 563 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/21 beta 0.9.19 独立滚动区（isolated scroll）
+
+- **新增 `src/vue/isolated-scroll.ts`**（通用原语，不与资源面板绑定）：`useIsolatedScroll({ attribute })` 返回 `container`（模板 ref）与 `overflowing`（内容是否超出）。`canScrollIn(element, deltaY)` 是纯粹的边界判定函数，可单独测试。
+- **解决的问题**：浏览器本身会在元素还能滚动时把滚轮留给元素，问题出在**边界**——列表滚到顶/底后滚轮会链式传给页面，玩家本想继续浏览列表却丢了位置。CSS 的 `overscroll-behavior: contain` 覆盖大部分场景；composable 补上 CSS 表达不了的部分：只在**该方向真的还能滚动**时才接管，短列表不劫持滚轮。
+- **实现要点**：`wheel` 监听必须 `{ passive: false }`，否则无法 `preventDefault`，而链式滚动发生在默认动作里。用 `watch(container, ..., { flush: 'post' })` 而非 `onMounted`，因为 `v-if` 切换会让模板 ref 指向新节点。用 `ResizeObserver` + `MutationObserver` 让 `overflowing` 随内容变化更新（资源解锁会改变行数）。
+- **CSS 分工**：`.isolated-scroll{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}` 负责布局与浏览器原生行为；`.resource-panel.isolated-scroll{max-height:calc(100vh - 200px)}` 给它一个上限，窄屏单独 `60vh`。composable 只管行为，不管高度。
+- **测试**：新增 `tests/isolated-scroll.test.ts`（5 项：边界判定、水平滚轮不误伤、composable 暴露的 ref/flag、CSS 两半都在、资源面板确实复用而非自己写监听）。浏览器验收新增 6 条真实 DOM 断言（独立滚动容器、短列表不劫持、压缩容器制造溢出、列表内滚轮页面不动、到底 `defaultPrevented=true`、到顶同理）。
+- **踩坑**：滚动断言块最初放在脚本靠前位置，导致后续用例失败——`WheelEvent` 与 `scrollTop` 操作改变了页面滚动位置，而后续用例依赖页面在顶部。定位方式是用 `git stash` 分别回退功能代码与测试块，确认「只有测试块存在时失败」，最终把该块移到脚本末尾（`mounted.app.unmount()` 之前）。记入 `docs/notes/pitfalls.md` 第 19 条。
+- **验证**：`npm run check` 全绿——714 项模块测试、VM 回归、浏览器验收 562 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/21 beta 0.9.18 重写 AGENTS.md：补充协作与工程约束
+
+用户要求把几条长期有效的注意事项写进 `AGENTS.md`，并接受了我建议的三条补充。全文改为中文（此前为英文），结构从两节扩展为五节。
+
+- **一、协作原则**（用户提出的 5 条 + 建议的 3 条）：
+  1. 顺手发现的 bug 按**影响面**分流：只影响显示/文案/样式/日志 → 直接修；涉及存档兼容、数值平衡、数据删除、机制语义、跨模块行为 → 先问。判断不清按先问处理。
+  2. 认为任务不妥、缺信息或有更优解时**大胆指出并提问**，不为顺从执行有问题的方案。提问要具体可决策。
+  3. 与特定模块无关的技术抽成可复用模块（正例：`focus-layout.ts`、`construction-rows.ts`、`military.ts`）。
+  4. **反过度抽象**（建议补充）：复用必须基于 ≥2 个真实调用点，不为想象中的需求提前设计；判断标准是「删掉这层抽象代码是否明显更短更清晰」。
+  5. 可维护性：单向依赖 `data → simulation → vue`、显示与结算同源、单一真相、改动收敛（优先加文件而非改十个文件）、不留死代码。
+  6. **改前先定位权威文件**（建议补充）：先查 `docs/agent-map.md`，全仓 grep 是最后手段。
+  7. **测试必须真的能失败**（建议补充）：断言写具体值与不变量，修 bug 先写复现测试确认变红。
+  8. 测试分级：文档改动不跑测试，模块显示逻辑跑关键字测试，模拟层跑全量，界面改动加浏览器验收，收尾一律 `npm run check`。
+- **二、存档兼容**：原有内容保留，措辞统一为中文。
+- **三、Agent 工作流**：原有内容保留（文本工具、`tmp/`、验证顺序、存档夹具、浏览器验收、提交回滚、模型路由与并行），补充「并行写代码时先登记写入范围」。
+- **四、文档同步纪律**（新增）：7 条必做清单——`updatelog.md`、`docs/update-log.md`、`glossary.md`、`technical-details.md`、`agent-map.md`、版本号（区分展示版本与 `CONFIG.version`）、`pitfalls.md`。
+- **五、参考资料**：指向四份配套文档。
+- **验证**：`npm run check` 全绿——709 项模块测试、VM 回归、浏览器验收 556 项 RESULT: PASS、类型检查与生产构建；`tests/markdown.test.ts` 确认新文档无 emoji 且标题结构合法。
+
+## 2026/10/21 beta 0.9.17 专注布局与科技树换行
+
+- **新增 `src/vue/focus-layout.ts`**（可复用的「专注布局」原语）：`useFocusLayout({ activePanel, requests })`，`requests` 是「标签页 id → 判断函数」的表。面板只声明**什么时候**需要整幅宽度，不碰 DOM、不改布局。返回 `active` / `isFocused` / `layoutAttributes`（`data-focus-layout`、`data-focus-panel`）/ `release()`。
+- **为什么用 `computed` 而不是 `watch`**：第一版用 `watch([activePanel, ...sources])` + 手写依赖数组，谓词里读的 ref 忘了列就**静默不更新**，测试直接抓到。改成 `computed` 后 Vue 自动追踪谓词内读到的一切，调用方不需要维护依赖列表。这条写进了 `tests/focus-layout.test.ts` 的「a predicate that reads reactive state re-evaluates without an explicit dependency list」。
+- **键必须与 `activePanel` 的值同源**：最初 `requests` 用面板名 `techTree` 作键，而 `activePanel` 存的是标签页 id `tech`，谓词永远查不到、布局永不生效且不报错。改为按标签页 id 作键，并补「a mismatched predicate key is ignored instead of silently never firing」守住这个不变量。
+- **清理用 `onScopeDispose`**：`onUnmounted` 只在组件实例内触发，裸 `effectScope` 里不跑，测试无法覆盖「销毁后不残留」。`onScopeDispose` 两者都覆盖。
+- **CSS**：`.layout[data-focus-layout]>.col-right{display:none}` 无条件生效；列宽改写 `minmax(0,1fr) minmax(0,3fr)` **限定在 `min-width:861px`**。原因：≤860px 时布局本来就是单列，改写列宽会把中间列从满宽压成 3/4 宽——浏览器验收在 756px 视口下测出 `721 → 526`，正是这个 bug。
+- **科技树换行**：`tech-tree.ts` 新增 `TECH_NODES_PER_ROW = 10`；`layoutTechTree` 改为累积 `cursorY`（每层占 `(rows-1)×46 + 110`），节点带 `row` 字段，`levels[].rows` 记录行数，`height` 用 `cursorY` 而非 `levels.length × 110`。T8/T9/T10/T12/T13 各为两行，树宽不再随最大层级增长。
+- **测试**：新增 `tests/focus-layout.test.ts`（7 项：派生而非锁存、未登记面板不能抢占、`release()`、销毁清理、自动依赖追踪、键不匹配、App 接线与 CSS 断言）。`tests/tech-tree.test.ts` 改写原有「同层同一行」断言为「每行 ≤10 且行数正确、行内 x 等距 200」，并新增换行专项测试。浏览器验收新增 8 条（右列显隐与恢复、宽度变化在宽屏/窄屏两种预期、真实 DOM 每行 ≤10、全量科技树换行分布）。
+- **验证**：`npm run check` 全绿——709 项模块测试、VM 回归、浏览器验收 556 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/21 beta 0.9.16 科技悬停分类副标题
+
+- **不需要新增数据字段**：`TechnologyDefinition.desc` 早就存在（flavor 文本，`TooltipPanel` 一直在渲染），本次要的是「只写类型」的一行，所以直接从上一版的 `TECH_CATEGORIES` / `TECH_CATEGORY_META` 派生，不新增 203 条手写字符串。
+- **实现**：`TipContent` 新增 `subtitle` 与 `subtitleCategory`；`TooltipPanel.vue` 的 `tech` 分支用 `techCategory(id)` 查类别、再 `TECH_CATEGORY_META.find(...)` 取名，写入两个字段。模板在 `<h3>` 之后、`tip-desc` 之前插入 `<p class="tip-subtitle" :data-tech-category="...">`。
+- **样式陷阱**：`assets/css/style.css` 有一条 `body button *,body .building-tooltip,body .building-tooltip *{color:var(--text)!important}` 会把 tooltip 内所有后代文字强制成主题色。副标题规则必须写成 `body .building-tooltip .tip-subtitle{...!important}` 才压得住，否则文字正确但颜色永远是 `rgb(223, 211, 171)`——浏览器验收直接断言了 `rgb(224, 182, 74)` 才抓到这一点。
+- **同源保证**：副标题颜色复用科技树边框的七个 CSS 变量值，`tests/tech-categories.test.ts` 断言七类的 `.tip-subtitle[data-tech-category="X"]` 都使用 `TECH_CATEGORY_META` 里声明的色值，并且副标题渲染位置在 `<h3>` 之后、`tip-desc` 之前。
+- **测试**：模块测试新增 1 项（副标题来源、渲染顺序、七色复用、名称不含数字）。浏览器验收新增 5 条（副标题文本与 category、位于名字下方、金色精确匹配、不含数字、切换科技后文本与颜色同步变化）。
+- **验证**：`npm run check` 全绿——701 项模块测试、VM 回归、浏览器验收 548 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/21 beta 0.9.15 科技分类配色与退役科技隐藏
+
+- **新增 `src/vue/tech-categories.ts`**：`TechCategory`（7 类）、`TECH_CATEGORY_META`（名称 + 边框色）、`TECH_CATEGORIES`（`TechnologyId → 类别` 全量映射）、`techCategory(id)` 查询函数、`RETIRED_TECHNOLOGIES` 列表。分类只按科技内容判断，不按它解锁的建筑在哪个页面：**普通发电设施统一归「生产与工业」**，只有戴森球/彭罗斯球体这类巨构与探索定居设施留在「太空与异星」。
+- **配色**：里程碑 `#e0b64a`（沿用旧 `is-key-tech` 金色）、生产 `#9fae4e`、民生 `#4fa695`、军事 `#cf5a52`、太空 `#5b96dd`、数字 `#a97ad4`、特殊 `#c4bfae`。全部在按钮背景 `#292824` 上达到 ≥3.6:1 对比度（`tests/tech-categories.test.ts` 用 WCAG 相对亮度直接断言 ≥3，并断言被替换的默认边框 `#393631` 只有 <1.5）。
+- **双重线索**：颜色写在 `data-tech-category` 上、经 CSS 变量落到 `border-color`；同时 `::before` 在按钮左上角画一个同色 5px 圆点。红绿色盲模拟下「生产/军事」的色差会从 66 降到 25，只靠颜色不可分，圆点是必要的兜底。里程碑额外保留原有内发光，其余类别不发光（否则整页都在亮）。
+- **退役科技隐藏**：`TechPanel.vue` 用 `visible = all.filter(id => !RETIRED_TECHNOLOGIES.includes(id))` 同时供「可研究」与「已研究」两栏使用，`energyStorage`/`batteryConcentrationRing` 因此彻底不显示。它们**仍留在 `TECHNOLOGIES` 注册表**里，所以旧档 `validateSaveIds` 照常通过、已获得记录不丢；`isTechnologyUnlocked` 本来就已经拒绝它们，不可能被重新研究。
+- **测试**：新增 `tests/tech-categories.test.ts`（7 项：全量覆盖 + 无未知 ID、七类非空且无单类过半、里程碑沿用旧金色与 `KEY_TECHNOLOGIES`、发电归生产、退役科技仍合法且面板过滤、两个按钮视图都带属性且 CSS 定义全部七色、对比度达标）。浏览器验收新增 4 条（类别标记、三色边框互异且色值精确、圆点同色、退役科技在两栏都消失）。
+- **验证**：`npm run check` 全绿——700 项模块测试、VM 回归、浏览器验收 542 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/21 beta 0.9.14 修复占领加成未显示在收支明细
+
+玩家报告：占满敌对国家后，资金收支明细左列看不到「税收 −10%」，也没有「产量 +5%」。排查确认两项加成**一直正常生效**（wood ×1.05/×1.15、taxBase 100→50→0），只是 `calculateResourceFactorRows` 从未为它们生成行——所以数字对不上，玩家无从确认。
+
+- **产量加成行**：`resource-breakdown.ts` 新增 `addGlobalOutputRows()`，在资源行末尾调用 `pct('占领 ×N', occupationOutputMultiplier(state))` 与 `pct('世界统一', unificationOutputMultiplier(state))`。位置与 `幸福度` 一致（都是「整条资源被放大」），顺序在最后。**`energy` 提前返回**：电力是固定供给预算，`settlePowerPlants` 从不乘 `calculateGlobalOutputMultiplier`，给它加行反而会撒谎。
+- **税收惩罚行**：`catTax` 分支新增 `占领 ×N 税收惩罚 −X%` 与 `实际税率 Y%` 两个子行，数值来自 `occupationTaxRate`（与 `calculateTaxBase` 同源）。同时把 `catTax` 从「`value !== 0`」过滤里豁免：三个占领国把实际税率压到 0 时，正是最需要这条解释的时刻，整行消失会让玩家只看到「资金 +0」。
+- **世界统一**：统一后 `activeOccupations` 恒为空，`occupationOutputMultiplier` 自动回到 1，所以占领行自然消失、只留「世界统一 +25%」——不需要额外分支。
+- **测试**：`tests/world-unification.test.ts` 新增「the resource detail lists the occupation output bonus and the tax penalty」，覆盖无占领 / 1 国 / 3 国（税率为 0）/ 世界统一 / 电力五种情况，并断言统一后占领行消失。浏览器验收新增 2 条（资源明细左列出现「占领 ×1 +5%」、资金明细出现「占领 ×1 税收惩罚 −10%」与「实际税率 10%」）。
+- **验证**：`npm run check` 全绿——693 项模块测试、VM 回归、浏览器验收 538 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/21 beta 0.9.13 士兵毛皮改由战斗力决定
+
+- **平衡性调整**：`ironEquipment` 的 `effects` 去掉「士兵毛皮产量+20%」；`government.ts` 的 `calculateFurMultiplier` **整个删除**（它只服务于那一条加成），调用点全部改为新函数。
+- **新公式**：`data/military.ts` 新增 `SOLDIER_FUR_BASE = .2` 与 `SOLDIER_FUR_POWER_EXPONENT = .5`；`government.ts` 新增 `soldierFurPerSoldier = .2 × 战斗力^0.5` 与 `soldierFurRate = soldiers × 该值`。`production-finalize.ts` 用它替换 `soldiers × .2 × calculateFurMultiplier`。
+- **为什么开方**：裸装 √1 = 1 精确复现旧的 0.2/s，旧档手感不变；满装 √5 = 2.236 → 0.447/s。平方根让「百分比加成」（军政 +20%、泰坦之力 +5%/级）对毛皮的效果减半，同时保证整条来源次线性——工厂毛皮按乘算增长（生产线 × 量子制造 × 幸福度 × 全局倍率），量级必然压过士兵采集，符合「毛皮主力是工厂、士兵只补贴早期」的设计目标，且不需要任何硬性断点。
+- **明细同源**：`resource-breakdown.ts` 的 `soldierFur` 行改为「基础 `soldiers × 0.2`」+「`单兵战斗力` 百分比子行」（系数 = `soldierFurPerSoldier / 0.2`），删掉旧的「铁质装备」行；`InternalPanel.vue` 新增「士兵毛皮采集」行（`data-soldier-fur` 总速 / `data-soldier-fur-per` 单人速）。
+- **构建桥接**：`scripts/generate-legacy-data.cjs` 的 registry 新增 `['military-data', 'data/military']`，且必须排在 `government` 之前——`government.ts` 现在在模块顶层读 `SOLDIER_FUR_BASE` 等常量，漏登记会让所有 VM 回归抛 `SOLDIER_FUR_BASE is not defined`。
+- **兼容**：无新增存档字段，`CONFIG.version` 保持 33。旧档载入后毛皮速度按已研究科技重新推导，裸装档与旧版数值完全一致。
+- **测试**：`tests/soldier-stats.test.ts` 新增 3 项（公式与裸装 0.2/s、结算与 tooltip 同源、工厂毛皮量级压过士兵毛皮），并改写 `test-factory-upgrades.cjs` 的毛皮用例（原本断言铁质装备 ×1.2，现在断言 ×√2 与满装 ×√5）。浏览器验收新增 2 条（军事页面板显示 0.447、毛皮明细出现「单兵战斗力 +123.61%」且不再提铁制装备）。
+- **验证**：`npm run check` 全绿——692 项模块测试、VM 回归、浏览器验收 536 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/21 beta 0.9.12 单兵战斗力/防御力与四项装备科技
+
+- **平衡性调整**：`calculateCombatPower` 不再用 `ironEquipment ? 2 : 1` 作为倍率，改为「固定加算 × 百分比」。`src/data/military.ts` 新增 `SOLDIER_BASE_COMBAT_POWER = 1`、`SOLDIER_BASE_DEFENSE = 0`、`COMBAT_POWER_TECH_BONUS`（铁制装备/新型单兵装备/高级热武器/磁轨炮各 +1）、`DEFENSE_TECH_BONUS`（铁制装备/新型单兵装备/凯夫拉纤维/磁轨炮各 +1）、`DEFENSE_CASUALTY_REDUCTION = .1`。铁制装备的旧档等效战力不变（同为 2），只是从倍率变成加算，因此后续装备能继续叠加。
+- **新增机制 防御力**：`calculateSoldierDefense` 纯由 `state.tech` 推导，`defenseCasualtyMultiplier = 1 / (1 + 防御力 × 0.1)`，乘在 `previewRaid` 的 `expectedLosses` 与 `retaliate` 的损失上。**它不进入 `raidStrength`**，所以防御科技不会顺带变成进攻科技；`tests/soldier-stats.test.ts` 直接断言 `strength`/`required` 完全相同。
+- **四项新科技**（`data/technologies.ts`）：`newInfantryEquipment`（T7，30000 知识，`pre: ['recruitTraining']`）、`advancedThermalWeapons`（T9，70000 知识 + 2500 石油，`pre: ['oilTechnology']`）、`kevlarFiber`（T11，120000 知识 + 1000 聚合物，`resourceRequired: 'polymer'`）、`railgun`（T12，180000 知识 + 1000 铱，`resourceRequired: 'iridium'`，`desc: '电磁发射步枪，这个好喵'`）。四者均为显式 `tier` + `knowledgeCost`，`initializeTechnologyCosts` 不会覆盖显式价格。
+- **界面**：`InternalPanel.vue` 的单兵战斗力/防御力数字改为可聚焦的 `[data-soldier-combat]`/`[data-soldier-defense]` span；`TooltipPanel.vue` 新增 `soldier` 提示类型与 `soldierStatBreakdown()` 分支，逐行列出基础值、每项装备科技、军政与泰坦之力的百分比、当前合计与伤亡倍率。明细与 `calculateCombatPower`/`calculateSoldierDefense` 读同一批注册表，不会与显示数字不一致。
+- **兼容**：没有新增存档字段，`CONFIG.version` 保持 33。战斗力/防御力在载入后按已研究科技重新推导，旧档战力不下降；`validate-unlocks.ts` 未新增白名单（新科技只是加在树末端，没有收紧任何已有前置）。
+- **测试**：新增 `tests/soldier-stats.test.ts`（10 项：四项科技 tier/价格/前置/资源门槛、铁制装备改为 +1、四点防御上限、百分比放大固定值、防御力递减且不影响战力、预测伤亡与实际突袭一致、tooltip 明细与计算同源、逐项解锁门槛、存档往返、旧档战力不变）。浏览器验收新增 5 条（无装备 1/0、五项装备 5/4、战斗力来源明细、防御力来源与伤亡倍率、军政百分比行）。
+- **验证**：`npm run check` 全绿——689 项模块测试、VM 回归、浏览器验收 534 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/20 beta 0.9.11 外星定居、统一计划与世界统一
+
+- **新增 T12 外星定居**（`alienSettlement`，200k 知识，`pre: ['planetaryExploration']`、`buildingRequired: 'asrielSpaceport'`）。`spaceControlTower`、`alienCasting`、`spaceIndustrialization`、`starRingStation` 的 `pre` 由 `planetaryExploration` 改为 `alienSettlement`，`spaceIndustrialization`/`starRingStation` 同时升到 tier 13。
+- **旧存档兼容**：这四项是历史可合法研究的科技，收紧前置后不能让老档报「科技前置关系无效」。`validate-unlocks.ts` 新增 `ALIEN_SETTLEMENT_RETARGETED`：只容忍缺失的前置恰为 `alienSettlement`，其余前置照常严格校验；`isTechnologyUnlocked` 仍然对**未来研究**强制新前置（研究门槛与历史校验分离）。
+- **新增 T13 统一计划**（`unifiedPlan`，325 知识，`pre: ['alienSettlement']`）。
+- **新增特殊科技世界统一**（`worldUnification`，1474 知识，`tier: -1`，`pre: ['unifiedPlan']`）。新增 `TechnologyDefinition.occupiedNeighborsRequired`，`isTechnologyUnlocked` 在占领数不足时直接返回 false，因此它在占领全部 3 个国家前不出现在可研究列表；tooltip 显示 `所需占领敌对国家 n / 3`。
+- **统一效果**：`neighbors.ts` 的 `occupationOutputMultiplier`/`occupationTaxRate`/`garrisonedSoldiers` 改为读 `activeOccupations`，`isWorldUnified` 为真时一律视为 0 个占领，所以旧的占领加成一并失效；新增 `applyWorldUnification`（在 `applyResearchSideEffects` 里、科技入列表后调用，幂等：只在还有占领时执行，清空 `occupied` 并写日志）、`unificationOutputMultiplier`/`unificationStorageMultiplier`（1.25）。`advanceNeighbors`/`executeRaid`/`previewRaid`/`isNeighborsUnlocked` 在统一后全部停用。
+- **数值接入**：`calculateGlobalOutputMultiplier` 乘上 `unificationOutputMultiplier`；`storage.ts` 新增 `pushUnificationRow`，在 `calculateStorageTotals` 的普通资源循环里乘 `unificationStorageMultiplier`，明细行名「世界统一」，保证 tooltip 与总量同源。普通资源 = 非 `special` 且非 `crafted`。
+- **界面**：`InternalPanel.vue` 在统一后把临近势力面板替换为 `data-world-unified` 区块，列出 `data-unification-bonus`（+25% 产量 / +25% 储量）。
+- **测试**：新增 `tests/world-unification.test.ts`（12 项：外星定居 tier/前置/太空港门槛、四项重挂、旧档进度保留、统一计划、世界统一的三次占领门槛、研究后清空占领且加成替换、+25% 产量与储量、真实生产结算、统一后禁止突袭、存档往返、脏存档不能复活占领加成）。浏览器验收新增 7 条（四项科技在定居前隐藏、T12/T13 解锁链、世界统一面板与数值）；`test-asriel.cjs`/`test-asriel-core.cjs`/`test-moon.cjs` 的「授予全部科技」夹具排除三个新科技，避免 +25% 扰动既有数值断言。
+- **验证**：`npm run check` 全绿——679 项模块测试、VM 回归、浏览器验收 529 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/20 beta 0.9.10 分段建筑改为一次性工程、电力详情去掉「供给」
+
+玩家报告：建成空间撕裂者后，旁边仍保留「3/100」的建造行，可以继续开第二座。根因是 schema 32 的拆分只把段数搬到建造态 ID，没有把「完成态存在」当作该工程的终点——`isConstructionBlocked` 依赖完成态条目的 `max`，而除 AGI 核心外都没有 `max`，于是购买、排队、面板三处全部放行。
+
+- **数据模型**：`src/data/buildings.ts` 给全部 6 个完成态条目（`spaceRipper`、`dysonSphere`、`dysonSphereL2`、`penroseSphere`、`aiSupercore`，以及原有 `agiCoreComponent`/`agiAscensionCore`）补上 `max: 1`。`isConstructionBlocked` 因此对建造态统一返回 true，`isPurchaseAllowed`、`buyBuildingNow`、`buyBuildingsInBatch`、`requestPurchaseModule`、`queuePurchase` 全部自动拒绝。
+- **面板**：新增 `src/vue/construction-rows.ts`（`withConstructionPhases`），把「建造态插在完成态之前」的逻辑从 `BuildingsPanel.vue` 抽成共享函数，并过滤掉已建成的建造态；`BuildingsPanel.vue` 与 `DigitalWorldPanel.vue` 共用它（后者此前完全没有建造态行，AGI 核心组件/飞升核心无法建造）。`DigitalWorldPanel.atLimit` 同步补上建造态上限判定。
+- **存档**：`CONFIG.version` 升到 33，`save-compatibility.ts` 新增 `upgradeSchema32To33`/`dropFinishedConstruction`：完成态 ≥1 的工程把完成数夹到 1、建造态计数清零、`stoppedBuildings`/`workers` 的建造态记录清零、`queue` 中指向该建造态的条目移除、`powerActivationOrder` 里超过 1 的计数条目移除。**未建成的工程进度完整保留**，非法数值原样留给严格校验拒绝。归一化链改为 `upgradeSchema31To32 → upgradeSchema32To33 → normalizeAdditiveDefaults`，`normalizeSchema32Save` 更名 `normalizeAdditiveDefaults`（同时接受 32/33，因为 additive 默认值对两个 schema 都适用）。
+- **电力详情**：`TooltipPanel.vue` 的电力分支不再把行名后缀改写成「供给」，只去掉 `产出/消耗/占用`；左列标题由「固定供给」改为「发电建筑」，行名直接是 `氢气发电站`、`戴森球` 这类建筑名。
+- **测试**：新增 `tests/segmented-one-off.test.ts`（8 项：完成态 `max:1`、四条购买路径全部拒绝、未完成仍可买到第 100 段、排队条目被清理、schema33 迁移丢弃残留进度且不改输入、未完成进度保留、多座旧档夹到 1、真实旧档载入往返）；`segmented-split-migration.test.ts`、`segmented-queue.test.ts`、`dyson-sphere.test.ts` 改为断言「建成后无法再建」；`support-preview`/`pool-replay`/`hyperspace-energy`/`retired-tianxing` 里 `aiSupercore = 100` 的夹具改为 1。浏览器验收：AI 核心与空间撕裂者各新增/改写「建成后移除建造行」断言，并新增「电力详情发电列直接显示发电建筑名」。
+- **验证**：`npm run check` 全绿——667 项模块测试、VM 回归、浏览器验收 522 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/20 beta 0.9.9 分段建筑名称去除「（建造中）」
+
+玩家反馈建造态建筑名里的「（建造中）」不美观。
+
+- **改动**：`src/data/buildings.ts` 中 7 个建造态条目（`agiCoreComponentSegments`、`agiAscensionCoreSegments`、`spaceRipperSegments`、`dysonSphereSegments`、`dysonSphereL2Segments`、`penroseSphereSegments`、`aiSupercoreSegments`）的 `name` 去掉「（建造中）」后缀，与完成态同名。
+- **区分方式不变**：面板本来就按两行渲染，行内数字即区分——建造行显示已建段数 0～100，完成行显示座数；建造行有购买按钮与「预约 N 段」，完成行带 `data-not-buildable` 且可开关供能。
+- **无存档影响**：只改显示名，ID、schema、校验与迁移逻辑均未变。
+- **顺带修复**：`TooltipPanel.vue` 对完成态 `aiSupercore` 仍按 `building.segmentedRequired` 拼装描述，而该字段只存在于建造态条目，悬停会渲染 `NaN /undefined`。现改为描述只保留 `world.exection(cat);`，分段进度与维护行统一由 `building-tooltip-rows.ts` 读取 `buildings.aiSupercoreSegments` 生成。
+- **测试**：新增 `tests/segmented-naming.test.ts`（4 项：建造态与完成态同名、名称不含「建造中」、两条记录仍可区分、完成态核心提示不出现 `NaN/undefined` 且进度读的是建造态记录）；`tests/dyson-sphere.test.ts` 的收支明细断言由「戴森球（建造中）」改为「戴森球」。全量 659 项模块测试、VM 回归、浏览器验收 520 项 RESULT: PASS、类型检查与构建全部通过。
+
+## 2026/10/20 beta 0.9.8 修复：无维护费用建筑的供能按钮误报短缺
+
+玩家报告军营的供能按钮被标成黄色（短缺）。原因是 `isBuildingUnderworking` 用「启用数量 vs 结算输入」比较：军营这类效果直接生效、不经过结算的建筑，`result.inputUnits.barracks` 永远不存在，于是 `实际 0 < 期望 1`，被判为"未完全正常工作"。
+
+- **改动**：`src/vue/building-status.ts` 增加结算足迹判定——没有 `input`、`output`、`workerOutput`、`powerPlant`、`support`、`moonSupport` 的建筑直接返回 `false`。这类建筑（军营、医院、社区中心、住宅等）没有可支付的维护，黄色短缺状态对玩家毫无意义，也无法通过任何操作消除。
+- **未削弱真实告警**：有维护/产出的建筑（AI超级核心、实验楼、采矿自动化等）仍按原逻辑在欠费、缺电、缺人时显示黄色；`powerGrid.failed` 与采矿船缺员的告警路径未变。
+- **测试**：`tests/barracks-toggle.test.ts` 新增 2 项——军营在正常状态下 `isBuildingUnderworking === false` 且 `inputUnits.barracks` 为 0；AI超级核心在氦-3 为 0 时仍被判为短缺（防止过度修复）。浏览器验收新增 1 条：军营供能按钮不带 `is-shortage`、`data-power-failed`、`data-crew-short`。
+- **验证**：`npm run check` 全绿——655 项模块测试、VM 回归、浏览器验收 519 项 RESULT: PASS、类型检查与生产构建。
+
+## 2026/10/20 beta 0.9.7 分段建筑拆分与戴森球分级
+
+分段建筑此前用「一个计数器 + 两个布尔」表达两种状态：`buildings.aiSupercore = 57` 既不是完成态也不是空，而是"57% 的某个东西"，靠 `segmentedRequired` 与 `segmentEffects` 在 `housing.ts`、`power-grid.ts`、`purchases.ts`、`costs.ts` 四处隐含分支里解释。本次把它拆成两种**真正不同的建筑**。
+
+### 新模型
+
+- **建造态**：`*Segments` 条目，拥有成本、科技、`segmentedRequired: 100`，通过 `completesInto` 指向完成态。未建成时没有效果属性（戴森球与彭罗斯球例外，保留 `segmentEffects` 的每段部分产能）。
+- **完成态**：沿用旧 ID，`cost: {}`、`buildable: false`，只有效果、没有成本，可正常开关供能。`state.buildings[完成态]` 的含义从"段数"变成"座数"。
+- **转换**：`constructBuildingState` 在段数达到 100 时消耗 100 段、`+1` 完成态并记录一条「建造完成」日志；`agiAscensionCore` 完成后默认关闭（沿用原规则）。
+- 新增 `dysonSphereL2Segments` / `dysonSphereL2`：2 级戴森球建在 1 级之上，每段 +7.5 电力，建成后额外 +750（与 1 级 500 合计 1250），1 级完成态保留不动。
+- 新增科技 `dysonSphereII`（era 4 / tier 22 / 420 万知识 / 前置戴森球）。
+
+### 存档迁移（schema 31 → 32）
+
+`CONFIG.version` 升到 32，`normalizeSchemaSave` 显式升级 31：`完成态 = floor(n/100)`、`建造态 = n % 100`，`stoppedBuildings` 夹到完成数、建造态停用归零，`queue` 里的旧 ID 改写为建造态，`powerActivationOrder` 计数按完成数夹取。归一化只复制记录，不修改输入对象；非法数值原样留给严格校验拒绝，不做"修复"。
+
+### 影响面
+
+- 注册表 +8 条目（6 建造态 + 2 级戴森球两件），`ADDITIVE_BUILDING_IDS` 同步补齐，旧存档缺失的键按 0 回填。
+- 建造面板按 `completesInto` 自动在完成态前插入建造态行，完成态行不显示购买按钮与成本。
+- 删除"按段数折算完整单位"的部分分支；`costs.ts` 的分段固定价格、`queue-settings` 的批量段数仍以建造态为准。
+
+**测试**：新增 `tests/segmented-split-migration.test.ts`（11 项：段数拆分、完成态迁移、停用夹取、队列重定向、激活顺序、输入不可变、幂等升级、真实 schema31 载入、完成态不可购买、2 级增量）；更新约 40 个受影响用例（戴森球/彭罗斯/撕裂者/AI 核心/2 级戴森球/三阶段/剧情/运行时/存档兼容）；浏览器验收更新 16 个断言块并新增 4 块。全量：653 项模块测试通过、VM 回归通过、浏览器验收 518 项 RESULT: PASS、构建通过。
+
+## 2026/10/20 开发工具链：AI agent 效率（无玩法变更）
+
+本次只改开发/验证流程，不触碰玩法、数值、界面与存档结构；玩家侧无需更新，故 `updatelog.md` 不新增条目。
+
+- **测试自动发现**：`npm test` 改为 `scripts/run-tests.mjs`，递归发现 `tests/**/*.test.ts`。原 `package.json` 手工枚举 82 个文件，导致 `tests/retired-anomaly.test.ts` 长期未被执行的漏洞（本次纳入后共 642 项）。新增 `npm test -- <关键字>` 只跑相关文件，`npm run check:fast` 只做类型检查 + 模块测试。
+- **浏览器验收可诊断**：`acceptance.html` 头部增加经典脚本，把**模块解析阶段**的错误（此前会让页面永久停在 `running`）与未捕获异常写进 `#result`；`run-browser.cjs` 失败时打印过滤后的浏览器 console，并支持 `ACCEPTANCE_PAGE` 换页调试。新增 `tests/browser/failure-selftest.html` 与 `tests/browser/README.md` 用于验证与说明。
+- **存档 fixture 生成器**：`npm run fixtures:make -- <git-ref> <name>` 用 git worktree 检出旧版本、复用当前 `node_modules`，跑旧版自身 `createInitialState` 导出真实存档，避免手搓 JSON 被旧版校验拒绝。
+- **编码事故防护**：`.gitignore` 增加 `tmp/` 作为探针与复现页的专用目录；`AGENTS.md` 增加「Agent workflow」一节，明确禁止用 shell 文本管道往返中文文件（此前 `Get-Content | Set-Content` 把 `updatelog.md` 写成乱码）。
+- **索引文档**：新增 `docs/agent-map.md`（分层、权威文件表、8 条改动配方、大文件导航、命令速查、实测耗时）与 `docs/notes/pitfalls.md`（7 条已付代价的坑）。
+- **实测耗时**（推翻「跑测试很贵」的直觉）：typecheck 约 9 秒、全量模块测试约 7 秒、浏览器验收约 5 秒、构建约 2 秒，`npm run check` 全部约 25 秒。真正的成本是盲目迭代，不是跑测试本身。
+- **验证**：`npm run typecheck` 通过；`npm test` 642 项通过、VM 回归 20 项通过；`npm run test:browser` RESULT: PASS；`npm run build` 通过；`tests/markdown.test.ts` 6 项通过（文档无 emoji）。
+
+## 2026/10/20 beta 0.9.6 军营开关与士兵上限
+
+士兵容量会直接压低幸福度（`calculateSoldierPressure` 按容量线性计入惩罚），而军营一旦建成就会永久抬高容量——误建多座后无法回收，产量被长期拖低。本次给军营加上与其它设施一致的开关，并明确规定「士兵数量不得超过上限，超出部分立即移除」。
+
+- **军营可开关**：`barracks` 增加 `toggleable: true`（军营没有电力/资源维护，因此开关不受 `hasContinuousEnergyInput` 的技术限制，研究军事并建成后即可使用）。按钮与其它设施相同：左右两个按钮分别关闭/开启一座，支持 Ctrl×10、Shift×25、Alt×100。
+- **士兵上限与容量口径**（`simulation/government.ts`）：
+  - 新增 `calculateArmyLimit`：**士兵上限** = 运行的军营 ×2 + 运行的太空驻军 ×2 + 运行的世界模拟器 ×4。只看「是否关闭」，不看是否付费。
+  - 新增 `clampSoldiersToArmyLimit`（`simulation/military.ts`）：士兵数超过上限时**立即削到上限**，并清零训练进度；返回被移除人数，未超限时不做任何写入。
+  - `calculateOperationalSoldierCapacity`（可训练容量）在上限基础上再要求太空驻军完整付费、世界模拟器已供能：资源不足只**暂停训练**，不会删除士兵，避免一次缺油把整支军队清空。
+  - `calculateSoldierPressure` 与 `calculateMorale` 改用运行口径，关停军营立刻减轻幸福度惩罚（军事体制 +50%、猫猫凝聚系数照常作用）。
+  - `calculateSoldierCapacity` 保留原语义（拥有量口径），供存档校验与容量型军队压力的既有调用点使用。
+- **超限即移除的执行点**：关闭军营（`setBuildingPowerEnabled`）→ 立刻削顶；每个 tick（`advanceGameTick`）→ 兜底削顶；载入/导入存档（`runtime.enforceArmyLimit`）→ 削顶并写一条日志说明移除了多少名士兵。
+- **界面**：军事页显示「士兵：N / 上限」与「士兵上限 / 可训练容量」说明；容量已满时的提示改为「建造更多军营或开启已关闭的军营」；军营悬浮详情的「士兵容量」行说明关闭会立即取消名额并移除超编士兵。
+- **兼容**：未改 schema、字段或存储格式。开关状态沿用既有的 `stoppedBuildings.barracks`（该记录本来就存在且已被校验），旧存档读入后军营全部为开启状态；只有士兵数确实超过运行上限的存档才会在载入时削顶。
+
+**测试**：新增 `tests/barracks-toggle.test.ts` 10 项——开关注册与技术前置、关闭后上限与压力同步下降、士气结果实际回升、超编士兵立即移除、上限内士兵保留、训练不越上限、资源不足只暂停训练不删兵、开关数量上下界收敛、削顶幂等、带关闭军营的存档往返。`tests/reported-save-recovery.test.ts` 与 `tests/outer-space.test.ts` 更新为「校验放行 + 上限削顶」的新语义；浏览器验收新增 7 条：军营开关初始全开、关闭一座压力 -2、全关压力归零、上限内士兵保留、关停后超限立即移除、全关后归零、重新开启恢复。
+
+## 2026/10/20 beta 0.9.5 读取修复：士兵超过容量不再拒绝存档
+
+玩家报告更新后旧档进入保护模式。用其实存档（`tests/fixtures/reported-soldiers-over-capacity-schema31.json`）复现，错误消息是 `士兵数据无效。`，唯一原因是 `validate-civilization` 行的 `soldiers` 上限取了 `calculateSoldierCapacity`（拥有量口径）：该档 35 座军营 + 1 座太空驻军 = 72 个名额，实际有 73 名士兵。
+
+**为什么会出现 73 > 72**：训练（`advanceSoldierTraining`）使用的是**运行口径** `calculateOperationalSoldierCapacity`，只统计完整付费运行的太空驻军与（数字世界的）世界模拟器；校验用**拥有口径**（不看运行状态、并把世界模拟器计入）。两者在太空驻军停机、缺电、缺人而停运时就会不一致——玩家合法训练出的士兵会让存档在自己手上被判非法。这正是 `calculateSoldierCapacity` 注释强调「停机或饥饿不得删除已有士兵」所预设的情形。
+
+- **改动**：`soldiers` 校验改为只要求 `[0, MAX_SAFE_INTEGER]` 的安全整数，不再与当前容量比较。士兵是已获得进度，任何来源造成的差额（停机驻军、退役容量、临近势力伤亡）都不得让存档无法载入。`训练进度无效` 的交叉校验保留：`trainingProgress > 0` 且士兵已达拥有容量仍然拒绝，因此非法进位依旧逃不过。
+- **行为不变**：超编时不训练——`advanceSoldierTraining` 仍以运行口径为上限停止并清零进度（新测试锁定）；军事页显示的仍是拥有容量与实际士兵数。
+- **兼容**：未改 schema、字段或存储格式。被此规则拒绝的原档无需任何操作，更新后重新载入即可自动退出保护模式（原档全程未被覆盖）。
+- **后续变更（beta 0.9.6）**：按玩家要求改为「士兵数量不得超过上限，超出部分立即移除」，因此本条中的「73 人原样保留 / 超编只暂停训练」已被 0.9.6 的上限削顶取代；载入仍不会被拒绝，只是超出的士兵会被削到上限并记录日志。
+
+**测试**：新增 `tests/reported-save-recovery.test.ts` 5 项——该真实存档可载入且军队 73 人原样保留、坐实 73 > 72、超编时不训练而扩容量后恢复训练、放宽仅限容量检查（负数/小数/字符串士兵、`trainingProgress=30`、超编时的非零训练进位、负数伤兵、退役 schema 仍全部拒绝）、修复后再导出可再次载入。
+
+## 2026/10/20 beta 0.9.5 治愈日志静默
+
+医院在每次跨过整数进度时都写入一条「医院治愈了 N 名伤兵。」。一次偷袭留下几十名伤兵后，0.2 秒的 tick 会连续触发多次治愈，80 条的日志上限很快被这行例行维护记录刷满，把掠夺、伤亡、科技等真正需要阅读的事件挤掉。
+
+- **改动**：`advanceHospital` 不再调用 `addLog`，同时移除因此不再需要的 `addLog` 引入。治愈本身、整数进位、`hospitalProgress` 归零、伤兵转回士兵序列以及返回值全部不变。返回值仍保留（调用方与测试按它判断本步治愈量），只是不再用于日志。
+- **未变的可见反馈**：军事页的伤兵行与医院悬浮详情的「治愈伤兵 +1/游戏日」仍如实显示人数与速率，玩家依然能看到治愈在进行。
+- **兼容**：未改动 schema 31、存档字段或本地存储格式；旧存档里已有的「医院治愈了…」历史记录照常保留显示，不做清理。
+- **验证**：`tests/hospital.test.ts` 新增「healing a wounded soldier writes no log entry」（治愈仍发生、日志为空、既有日志不被改写）；浏览器验收新增一条「治愈伤兵不再写入日志」断言（治愈前后日志条数一致且无「治愈」字样）。另新增 `tests/previous-release-save.test.ts` 与两份上一版真实存档 fixture（见下条）。完整验证通过：633 项模块测试、经典 VM 回归、Edge 浏览器验收、类型检查与生产构建。
+
+## 2026/10/20 beta 0.9.5 上一版存档回归测试
+
+有玩家报告更新后旧档进入保护模式。排查结论：本次改动只删除了医院日志那一行，**没有触碰存档校验、字段或 schema**；用 beta 0.9.4 的构建真实导出的存档在 `validateCurrentSave` 与浏览器验收中均能正常载入。但排查过程发现「上一版存档一定可载入」这条要求**从来没有可执行的回归测试**——`save-compatibility` 与 `pre-beta0.6.5` fixture 都只覆盖更早的形态，临近势力/医院之后新增的字段（`wounded`、`hospitalProgress`、`neighbors`）没有上一版真实存档覆盖。
+
+- **新增 fixture**：`tests/fixtures/pre-beta0.9.5-schema31.json` 由 beta 0.9.4 的构建本身生成（该版本的 `createInitialState` + 导出形状，含 `lastSaved`），不是按当前注册表手写，因此保留了「只有旧版才有的状态字段集合」这一特征。
+- **新增 `tests/previous-release-save.test.ts`（5 项）**：上一版存档可载入且进度（人口/建筑/岗位/科技/威望资源）完整保留；缺失字段按升级默认值回填（`wounded` 0、`hospitalProgress` 0、`neighbors` 由存档自身字段确定性播种）；同一份存档两次载入结果一致且不修改输入；导出→再载入往返不丢字段；升级保持狭窄——退役 schema、外来建筑 ID、未知顶层字段仍被拒绝。
+- **非法值仍拒绝**：`tests/fixtures/pre-beta0.9.5-schema31-malformed.json` 是同一上一版形状但携带越界 `hospitalProgress=5` 的存档，必须报「医院治疗进度数据无效」，证明默认值只补缺失字段、不修复显式错误数据。
+- **兼容**：未改动任何生产代码的存档逻辑，schema 仍为 31。
+- **验证**：`npm run check` 四步全部通过（633 项模块测试、VM 回归、Edge 验收、类型检查、构建）。若报告问题的存档仍无法载入，请用「设置→导出不兼容的旧版本存档」导出原始文本以便逐字段定位。
+
 
 上一版提高了掠夺收益，但士兵几乎免费（仅 0.01 食物/秒），堆兵反复扫荡的循环缺少代价。本次同时调整两侧。
 

@@ -1,6 +1,7 @@
 import { BUILDINGS } from '../data/buildings';
 import { hasContinuousEnergyInput } from './building-production';
 import { countRunningBuildings } from './housing';
+import { clampSoldiersToArmyLimit } from './military';
 import { settlePowerPlants, isPowerProducer } from './power';
 import type { BuildingId } from '../types/buildings';
 import type { GameState } from '../types/state';
@@ -111,6 +112,9 @@ export function setBuildingPowerEnabled(state: GameState, id: BuildingId, delta:
     }
   }
   state.powerActivationOrder = order.filter(entry => entry.count > 0);
+  // 军营 supplies the army ceiling: soldiers above the switched-on capacity are removed at
+  // once instead of lingering as an unexplainable surplus. Other buildings leave the army alone.
+  if (id === 'barracks') clampSoldiersToArmyLimit(state);
 }
 /** Called after construction; new units never displace an already enabled load. */
 export function registerBuiltPowerUnits(state: GameState, id: BuildingId, beforeCompleted: number): void {

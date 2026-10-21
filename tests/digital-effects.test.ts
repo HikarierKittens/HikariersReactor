@@ -32,7 +32,7 @@ test('world simulator housing and training use paid units, never owned or stoppe
 });
 
 test('funded simulator grants five morale and cap; funded AGI grants twenty-five raw only', () => {
-  const s = fresh(); s.buildings.worldSimulator = 10; s.buildings.agiCoreComponent = 100;
+  const s = fresh(); s.buildings.worldSimulator = 10; s.buildings.agiCoreComponent = 1;
   const off = calculateMorale(s, 1, { ...moralePower, digital: { worldSimulatorUnits: 0, agiComponentUnits: 0 } });
   const on = calculateMorale(s, 1, { ...moralePower, digital: { worldSimulatorUnits: 1, agiComponentUnits: 1 } });
   assert.equal(on.worldSimulator, 5); assert.equal(on.agi, 25); assert.equal(on.cap - off.cap, 5);
@@ -65,7 +65,7 @@ test('AES funded knowledge bonus reaches actual production and resource breakdow
 });
 
 test('funded AGI adds fifty percentage points to the base quantum multiplier alongside supercores', () => {
-  const s = fresh(); s.buildings.agiCoreComponent = 100;
+  const s = fresh(); s.buildings.agiCoreComponent = 1;
   const support = calculateSupportPreview(s);
   const snapshot = { ...support, moonBaseUnits: support.moon.baseUnits };
   const funded = { ...snapshot, digital: { ...support.digital, agiComponentUnits: 1 } };
@@ -83,7 +83,7 @@ test('funded AGI adds fifty percentage points to the base quantum multiplier alo
 test('funded production previews agree at fractional and whole ticks without recursion or mutation', () => {
   for (const dt of [.2, 1]) {
     const s = fresh(); s.buildings.cellCore = 1; s.buildings.worldSimulator = 1;
-    s.buildings.agiCoreComponent = 100;
+    s.buildings.agiCoreComponent = 1;
     s.buildings.lab = 1; s.workers.lab = 1;
     supplyPower(s, 1000); s.resources.water = 10000;
     const before = structuredClone(s), result = calculateProduction(s, dt);

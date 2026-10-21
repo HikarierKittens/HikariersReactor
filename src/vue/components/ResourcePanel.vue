@@ -10,6 +10,15 @@ import { formatResourceNumber, formatByteNumber } from '../../shared/format';
 import { DNA_BASE_IDS } from '../../data/genes';
 import { isGeneModificationUnlocked } from '../../simulation/genes';
 
+/**
+ * 资源列表本身**不再**是独立滚动区：它与锻造物、威望资源一起属于左栏的同一个滚动整体
+ * （容器在 `App.vue` 的 `.col-left-scroll`）。这样滚动时三者一起移动，资源列表不会被
+ * 单独裁掉或折叠——列表永远是完整展开的。
+ *
+ * 通用滚动行为仍由共享原语 `src/vue/isolated-scroll.ts` 提供，只是挂载点从本组件
+ * 上移到了外层容器。
+ */
+
 const RESOURCE_ORDER: ResourceId[] = ['cash', 'food', 'wood', 'stone', 'fur', 'copper', 'iron', 'aluminum', 'cement', 'coal', 'oil', 'metal', 'titanium', 'uranium', 'alloy', 'polymer', 'iridium', 'helium3', 'deuterium', 'neutron', 'e710', 'water', 'nanotubes', 'graphene', 'nanoAlloy', 'adamantite'];
 const resourceRank = (id: ResourceId) => RESOURCE_ORDER.includes(id) ? RESOURCE_ORDER.indexOf(id) : RESOURCE_ORDER.length;
 
@@ -37,7 +46,11 @@ const dnaRow = computed(() => {
 </script>
 
 <template>
-  <section class="panel">
+  <!--
+    资源面板是一个普通面板：不裁剪、不折叠，完整参与左栏的统一滚动。
+    独立滚动行为已上移到 App.vue 的 `.col-left-scroll` 容器。
+  -->
+  <section class="panel resource-panel">
     <template v-for="group in groups" :key="group.id">
       <div class="panel-head"><h2>{{ group.name }}</h2><span>数量 / 上限 · 产量</span></div>
       <div :id="group.id" class="res-list">

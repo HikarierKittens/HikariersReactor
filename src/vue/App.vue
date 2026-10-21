@@ -64,6 +64,8 @@ import { changeGeneSynthesisRate } from '../simulation/genes';
 import SpaceshipModal from './components/SpaceshipModal.vue';
 import { investInShipComponent, type ShipComponentId } from '../simulation/spaceship';
 import TooltipPanel from './components/TooltipPanel.vue';
+import { useFocusLayout } from './focus-layout';
+import { useIsolatedScroll, ISOLATED_SCROLL_CLASS } from './isolated-scroll';
 import type { GameStore } from '../app/store';
 
 const props = defineProps<{ store: GameStore }>();
@@ -96,6 +98,25 @@ const currentWorldView = computed(() => {
   return worldView.value === 'hyperspace' && !isHyperspaceUnlocked(props.store.state()) ? 'home' : worldView.value;
 });
 const techView = ref('available');
+/**
+ * 已研究科技树 needs the full content width: its tiers hold up to 13 nodes. The shared
+ * focus-layout primitive hides the right column (queue + logs) while that view is open
+ * and restores it the moment the player leaves — other panels can register the same way.
+ */
+const focusLayout = useFocusLayout({
+  activePanel: activeTab,
+  // Keyed by tab id: the 科技 tab claims the width only while 已研究 is open.
+  requests: { tech: () => techView.value === 'completed' },
+});
+/**
+ * 左栏的统一滚动容器：资源列表、锻造物与威望资源作为**一个整体**滚动。
+ *
+ * 资源列表因此不再有自己的滚动条——它永远完整展开，不会被裁成一小块。
+ * 滚轮到边界不带动页面的行为仍由共享原语 `useIsolatedScroll` 提供，
+ * 只是挂载点从资源面板上移到了这里，任何后续加入左栏的面板都自动继承。
+ */
+const leftScroll = useIsolatedScroll({ attribute: 'data-isolated-scroll' });
+const leftScrollContainer = leftScroll.container;
 const logFilter = ref('all');
 const logFilters = [{ id: 'all', name: '全部' }, { id: 'queue', name: '队列' }, { id: 'event', name: '普通事件' }, { id: 'progress', name: '进度事件' }, { id: 'achievement', name: '成就' }, { id: 'system', name: '系统' }];
 const visibleLogs = computed(() => { props.store.revision(); return state.value.logs.filter(log => logFilter.value === 'all' || log.type === logFilter.value); });
@@ -537,36 +558,43 @@ onUnmounted(() => {
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.9.4</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.9.27</span>
     </header>
 
     <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
-    <div class="layout">
-      <aside class="col-left">
+    <div class="layout" v-bind="focusLayout.layoutAttributes.value">
+      <aside class="col-left pinned-column">
         <CivilizationPanel :state="state" :revision="store.revision()" />
-        <ResourcePanel :state="state" :revision="store.revision()" />
-        <CraftingPanel :state="state" :revision="store.revision()" @craft="(id, count) => { store.mutate(s => craftManually(s, id, count)); afterAction(); }" />
-        <section v-if="prestigeVisible.particles || prestigeVisible.casimir || prestigeVisible.darkEnergy || prestigeVisible.harmonyCrystals" id="prestigeResources" class="panel">
-          <div class="panel-head"><h2>威望资源</h2><span>跨周目保留</span></div>
-          <div class="res-list">
-            <div v-if="prestigeVisible.particles" class="res-row" data-prestige-row="particles">
-              <span class="res-name">粒子</span>
-              <span class="res-amount" tabindex="0" data-building-tip="particles" data-tip-kind="prestige" aria-label="查看粒子效果"><b>{{ state.prestige.particles }}</b></span>
+        <!--
+          资源列表、锻造物与威望资源是一个整体：它们共用一个滚动容器，滚动时一起移动。
+          资源列表因此永远完整展开，不会被单独裁剪成一小块。
+          滚动行为来自共享原语 `useIsolatedScroll`（滚轮到边界不带动页面）。
+        -->
+        <div ref="leftScrollContainer" class="col-left-scroll" :class="ISOLATED_SCROLL_CLASS" data-isolated-scroll>
+          <ResourcePanel :state="state" :revision="store.revision()" />
+          <CraftingPanel :state="state" :revision="store.revision()" @craft="(id, count) => { store.mutate(s => craftManually(s, id, count)); afterAction(); }" />
+          <section v-if="prestigeVisible.particles || prestigeVisible.casimir || prestigeVisible.darkEnergy || prestigeVisible.harmonyCrystals" id="prestigeResources" class="panel">
+            <div class="panel-head"><h2>威望资源</h2><span>跨周目保留</span></div>
+            <div class="res-list">
+              <div v-if="prestigeVisible.particles" class="res-row" data-prestige-row="particles">
+                <span class="res-name">粒子</span>
+                <span class="res-amount" tabindex="0" data-building-tip="particles" data-tip-kind="prestige" aria-label="查看粒子效果"><b>{{ state.prestige.particles }}</b></span>
+              </div>
+              <div v-if="prestigeVisible.casimir" class="res-row" data-prestige-row="casimir">
+                <span class="res-name">卡西米尔晶体</span>
+                <span class="res-amount" tabindex="0" data-building-tip="casimir" data-tip-kind="prestige" aria-label="查看卡西米尔晶体效果"><b>{{ state.prestige.casimir }}</b></span>
+              </div>
+              <div v-if="prestigeVisible.darkEnergy" class="res-row" data-prestige-row="darkEnergy">
+                <span class="res-name">暗能量</span>
+                <span class="res-amount" tabindex="0" data-building-tip="darkEnergy" data-tip-kind="prestige" aria-label="查看暗能量效果"><b>{{ state.prestige.darkEnergy }}</b></span>
+              </div>
+              <div v-if="prestigeVisible.harmonyCrystals" class="res-row" data-prestige-row="harmonyCrystals">
+                <span class="res-name">和谐晶体</span>
+                <span class="res-amount" tabindex="0" data-building-tip="harmonyCrystals" data-tip-kind="prestige" aria-label="查看和谐晶体效果"><b>{{ state.prestige.harmonyCrystals }}</b></span>
+              </div>
             </div>
-            <div v-if="prestigeVisible.casimir" class="res-row" data-prestige-row="casimir">
-              <span class="res-name">卡西米尔晶体</span>
-              <span class="res-amount" tabindex="0" data-building-tip="casimir" data-tip-kind="prestige" aria-label="查看卡西米尔晶体效果"><b>{{ state.prestige.casimir }}</b></span>
-            </div>
-            <div v-if="prestigeVisible.darkEnergy" class="res-row" data-prestige-row="darkEnergy">
-              <span class="res-name">暗能量</span>
-              <span class="res-amount" tabindex="0" data-building-tip="darkEnergy" data-tip-kind="prestige" aria-label="查看暗能量效果"><b>{{ state.prestige.darkEnergy }}</b></span>
-            </div>
-            <div v-if="prestigeVisible.harmonyCrystals" class="res-row" data-prestige-row="harmonyCrystals">
-              <span class="res-name">和谐晶体</span>
-              <span class="res-amount" tabindex="0" data-building-tip="harmonyCrystals" data-tip-kind="prestige" aria-label="查看和谐晶体效果"><b>{{ state.prestige.harmonyCrystals }}</b></span>
-            </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </aside>
 
       <main class="col-mid">

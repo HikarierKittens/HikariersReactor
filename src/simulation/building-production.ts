@@ -9,7 +9,14 @@ import type { ResourceRecipe } from '../types/economy';
 import type { GameState } from '../types/state';
 
 export type ProductionInputs = Partial<Record<BuildingId, number>>;
-/** Technology-dependent presentation retains stable building and save identifiers. */
+/**
+ * Technology-dependent presentation retains stable building and save identifiers.
+ *
+ * 分段工程 shares its display name with the completed form it builds (戴森球 / 空间撕裂者 …).
+ * The *panel* disambiguates the two rows — see `constructionRowName` in `vue/construction-rows.ts` —
+ * but this function stays name-only: resource breakdowns and tooltips describe the
+ * building itself, where 「戴森球」 is already the correct label.
+ */
 export function calculateBuildingName(id: BuildingId, state: Pick<GameState, 'tech'>): string {
   return id === 'navigationBeacon' && state.tech.includes('spaceBroadcasting') ? '广播信标' : BUILDINGS[id].name;
 }
@@ -32,6 +39,12 @@ export function calculateGrantedJobSlots(id: BuildingId, state: Pick<GameState, 
   return JOB_SLOT_GRANTERS.reduce((sum, granter) => sum + (state.buildings[granter] || 0) * (BUILDINGS[granter].jobSlots?.[id] || 0), 0);
 }
 export function calculateToolMultiplier(id: BuildingId, state: Pick<GameState, 'tech'>): number {
+  // 纳米机械骨骼 covers the same four jobs as 合金链锯/合金钻头 and replaces them outright:
+  // it is the last word on hand-tool productivity, so it must be checked first. 农民 (forage)
+  // is deliberately excluded — the request lists only 伐木工/石工/矿工/煤矿工人, so forage
+  // keeps its 钢铁工具 tier.
+  if (state.tech.includes('nanoExoskeleton')
+    && (id === 'lumber' || id === 'quarry' || id === 'mine' || id === 'coalMine')) return 2.5;
   if (state.tech.includes('alloyDrill') && (id === 'quarry' || id === 'mine' || id === 'coalMine')) return 2;
   if (id === 'lumber' && state.tech.includes('alloyChainsaw')) return 2;
   if (id === 'coalMine') return state.tech.includes('steelTools') ? 1.5 : 1;
@@ -75,7 +88,13 @@ function calculateRawBuildingOutput(id: BuildingId, state: GameState, inputs: Pr
   if (id === 'catCafe') return { cash: 5 + Math.floor(state.population / 10) * 5 };
   if (id === 'touristCenter') return { cash: calculateTouristBase(state, inputs) };
   const building = BUILDINGS[id], output = building.workerOutput || building.output || {};
-  if (id === 'cementWorkshop' && state.tech.includes('silicateCement')) return { ...output, cement: (output.cement || 0) * 1.5 };
+  // 硅酸盐水泥 ×1.5 and 高级混凝土 ×1.3 multiply: ×1.95 in total. Both are pure output
+  // bonuses on the same worker, so no input cost changes.
+  if (id === 'cementWorkshop') {
+    const cementMultiplier = (state.tech.includes('silicateCement') ? 1.5 : 1)
+      * (state.tech.includes('advancedConcrete') ? 1.3 : 1);
+    if (cementMultiplier !== 1) return { ...output, cement: (output.cement || 0) * cementMultiplier };
+  }
   if (id === 'smelter') return { ...output, metal: ((state.tech.includes('electrochemicalSmelting') ? 1 : output.metal || 0) + (state.tech.includes('quantumTunnelingThermalProcessing') ? .1 : 0)) * (state.tech.includes('oxygenConverter') ? 1.2 : 1) * (state.tech.includes('geothermalFurnace') ? 1.5 : 1) };
   if (state.tech.includes('plasmaMining')) {
     if (id === 'iridiumMiningShip') return { iridium: .15 };

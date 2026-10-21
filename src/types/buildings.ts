@@ -3,6 +3,7 @@ import type { TechnologyId } from './technologies';
 
 export type BuildingId =
   | 'softRouterNode' | 'aesComputeModule' | 'worldSimulator' | 'agiCoreComponent' | 'coreCooler' | 'agiAscensionCore'
+  | 'agiCoreComponentSegments' | 'agiAscensionCoreSegments'
   | 'gatewayRouter' | 'downloadExecutable' | 'quantumStorage' | 'downloadCache'
   | 'subcomputeNode' | 'quantizedCompressionModule' | 'dataCompression' | 'cpuDecoder'
   | 'cellCore' | 'memoryCore' | 'ethMiner' | 'dataDecryptionModule'
@@ -13,6 +14,8 @@ export type BuildingId =
   | 'spaceRipper' | 'highTechFactory' | 'e710ResearchStation'
   | 'adamantiteMiningShip' | 'adamantiteProcessor' | 'grapheneFactory' | 'vrCenter'
   | 'stellarForge' | 'hazardousMaterialStorage' | 'blackHoleStation' | 'penroseSphere' | 'dysonSphere' | 'massEjector'
+  | 'spaceRipperSegments' | 'penroseSphereSegments' | 'dysonSphereSegments'
+  | 'dysonSphereL2' | 'dysonSphereL2Segments' | 'aiSupercoreSegments'
   | 'constraintArray' | 'shortRangeRelay' | 'anchorFreightStation' | 'civilianRouteStation'
   | 'asrielControlTower'
   | 'alienMaterialLab' | 'aiSupercore' | 'swarmFactory'
@@ -49,6 +52,16 @@ export interface BuildingDefinition {
   costScales?: ResourceRecipe;
   /** Count is stored as segments; effects and inputs apply only to complete units. */
   segmentedRequired?: number;
+  /**
+   * Construction phase only: when `segmentedRequired` segments are built the segments are
+   * consumed and one unit of this completed building takes their place. The completed form is a
+   * separate registry entry with its own (full) effects and no cost.
+   */
+  completesInto?: BuildingId;
+  /** Completed forms set this to false: they have no cost and cannot be purchased directly. */
+  buildable?: boolean;
+  /** Completed tier that stays in place; this building only adds its increment on top. */
+  addsOnTopOf?: BuildingId;
   slots?: number;
   workerName?: string;
   buildingRequired?: BuildingId;

@@ -163,7 +163,7 @@ export function calculateDigitalAscensionRewards(state: GameState): { reward: nu
 
 /** A completed, enabled and fully powered AGI core is required; all observations are pure. */
 export function launchDigitalAscension(state: GameState, eventIn: number, now: number): DigitalAscensionRewards | null {
-  if (state.buildings.agiAscensionCore !== 100 || (state.stoppedBuildings.agiAscensionCore || 0) !== 0) return null;
+  if ((state.buildings.agiAscensionCore || 0) < 1 || (state.stoppedBuildings.agiAscensionCore || 0) !== 0) return null;
   if (!(calculateSupportPreview(state).digital.ascensionCoreUnits >= 1)) return null;
   const { reward, casimirReward, harmonyReward } = calculateDigitalAscensionRewards(state);
   const { particles, casimir, harmonyCrystals, ascensionResets } = state.prestige;

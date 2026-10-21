@@ -17,6 +17,13 @@ export function countUndercrewedShips(id: BuildingId, state: GameState): number 
 export function isBuildingUnderworking(id: BuildingId, state: GameState, result: ProductionResult): boolean {
   const enabled = countRunningBuildings(id, state);
   if (!enabled) return false;
+  const definition = BUILDINGS[id];
+  // Buildings whose effect is applied directly (军营, 医院, 住宅…) draw no upkeep and never pass
+  // through settlement, so there is nothing for the player to fix: they must not be marked short.
+  const hasSettlementFootprint = !!(definition.input && Object.keys(definition.input).length)
+    || !!definition.output || !!definition.workerOutput || !!definition.powerPlant
+    || !!definition.support || !!definition.moonSupport;
+  if (!hasSettlementFootprint) return false;
   let actual: number;
   if (id === 'cementWorkshop' && state.tech.includes('cementMixer')) actual = result.inputUnits.cementMixer || 0;
   else if (id === 'mine' && state.tech.includes('automatedMining')) actual = result.inputUnits.automatedMining || 0;

@@ -26,6 +26,9 @@ const ERA = ['hyperspaceMiningSurvey', 'gasCloudAccretion', 'highTechFarmPlatfor
 
 function eraState(): GameState {
   const s = createMilestoneState('beacon');
+  // Schema 31 stored 100 segments for one finished AI supercore; schema 32 counts completed units.
+  s.buildings.aiSupercore = 1;
+  s.buildings.aiSupercoreSegments = 0;
   s.tech.push(...ERA);
   // Fixed supply is built from fractional solar satellites, so the fixture must
   // own their research for save validation like any real save with that supply.
@@ -42,28 +45,34 @@ test('completing the space ripper no longer logs main-story completion on any bu
   const ready = (segments: number) => {
     const s = eraState();
     s.tech.push('dimensionPioneer');
-    s.buildings.spaceRipper = segments;
-    for (const resource of Object.keys(BUILDINGS.spaceRipper.cost) as ResourceId[]) s.resources[resource] = 1e12;
+    s.buildings.spaceRipper = 0;
+    s.buildings.spaceRipperSegments = segments;
+    for (const resource of Object.keys(BUILDINGS.spaceRipperSegments.cost) as ResourceId[]) s.resources[resource] = 1e12;
     return s;
   };
   // Direct buy: neither segment 99 nor segment 100 emits the retired completion notice.
   const direct = ready(98);
-  assert.ok(buyBuildingNow(direct, 'spaceRipper', 0).bought);
+  assert.ok(buyBuildingNow(direct, 'spaceRipperSegments', 0).bought);
   assert.equal(count(direct), 0, '99 segments do not log');
-  assert.ok(buyBuildingNow(direct, 'spaceRipper', 0).bought);
-  assert.equal(direct.buildings.spaceRipper, 100);
+  assert.ok(buyBuildingNow(direct, 'spaceRipperSegments', 0).bought);
+  assert.equal(direct.buildings.spaceRipper, 1);
+  assert.equal(direct.buildings.spaceRipperSegments, 0);
   assert.equal(count(direct), 0);
-  assert.equal(buyBuildingNow(direct, 'spaceRipper', 0).bought, false, 'cannot exceed 100 segments');
+  direct.buildings.spaceRipperSegments = 100;
+  assert.equal(buyBuildingNow(direct, 'spaceRipperSegments', 0).bought, false, 'cannot exceed 100 segments');
   assert.equal(count(direct), 0);
   // Batch buy spanning the final segment.
   const batch = ready(95);
-  assert.equal(buyBuildingsInBatch(batch, 'spaceRipper', 10, 0).bought, 5);
+  assert.equal(buyBuildingsInBatch(batch, 'spaceRipperSegments', 10, 0).bought, 5);
+  assert.equal(batch.buildings.spaceRipper, 1);
+  assert.equal(batch.buildings.spaceRipperSegments, 0);
   assert.equal(count(batch), 0);
   // Queue completion of the final segment.
   const queued = ready(99);
-  assert.notEqual(queuePurchase(queued, 'build', 'spaceRipper').status, 'rejected');
+  assert.notEqual(queuePurchase(queued, 'build', 'spaceRipperSegments').status, 'rejected');
   settlePurchaseQueue(queued, 0);
-  assert.equal(queued.buildings.spaceRipper, 100);
+  assert.equal(queued.buildings.spaceRipper, 1);
+  assert.equal(queued.buildings.spaceRipperSegments, 0);
   assert.equal(count(queued), 0);
 });
 
@@ -84,12 +93,12 @@ test('new technologies have the requested tiers, prices and prerequisites', () =
   s.tech.push('highTechFarmPlatform');
   assert.equal(isTechnologyUnlocked('highTechFactory', s), true);
   s.tech.push('dimensionPioneer', 'highTechFactory');
-  assert.equal(isBuildingUnlocked('spaceRipper', s), true);
+  assert.equal(isBuildingUnlocked('spaceRipperSegments', s), true);
   assert.equal(isBuildingUnlocked('highTechFactory', s), true);
   // 高维存储 needs the completed ripper: 99 segments are not enough.
-  s.buildings.spaceRipper = 99;
+  s.buildings.spaceRipper = 0; s.buildings.spaceRipperSegments = 99;
   assert.equal(isTechnologyUnlocked('higherDimensionalStorage', s), false);
-  s.buildings.spaceRipper = 100;
+  s.buildings.spaceRipper = 1; s.buildings.spaceRipperSegments = 0;
   assert.equal(isTechnologyUnlocked('higherDimensionalStorage', s), true);
   s.resources.knowledge = TECHNOLOGIES.higherDimensionalStorage.cost.knowledge!;
   assert.equal(requestPurchaseModule(s, 'tech', 'higherDimensionalStorage', 0).status, 'buy-now');
@@ -99,24 +108,29 @@ test('new technologies have the requested tiers, prices and prerequisites', () =
 test('space ripper is a 100-segment project whose fixed price never creeps', () => {
   const s = eraState();
   s.tech.push('dimensionPioneer');
-  const def = BUILDINGS.spaceRipper;
+  const def = BUILDINGS.spaceRipperSegments;
   assert.equal(def.segmentedRequired, 100);
   assert.deepEqual(def.cost, { cash: 2500000, alloy: 50000, polymer: 50000, iridium: 5000, neutron: 2500, nanotubes: 100000, e710: 50, mithril: 10000 });
-  // Flavor only: the +100 energy and +20% knowledge effects are listed as tooltip effect rows.
-  assert.equal(def.desc, '[AMD友情赞助] 这个巨大的装置撕开了空间的边界。');
+  // The finished form is a separate, costless entry; the flavour text lives there.
+  assert.deepEqual(BUILDINGS.spaceRipper.cost, {});
+  assert.equal(BUILDINGS.spaceRipper.buildable, false);
+  assert.equal(BUILDINGS.spaceRipper.desc, '[AMD友情赞助] 这个巨大的装置撕开了空间的边界。');
   // Even with every CRISPR material gene and many owned segments the price is fixed.
   s.crispr = ['materialEfficiency', 'innovativeMaterials', 'structuralReinforcement', 'physicsLaws', 'halfLife3'];
-  for (const count of [0, 1, 57, 99]) assert.deepEqual(calculateBuildingCost('spaceRipper', count, s), def.cost, `segment ${count}`);
+  for (const count of [0, 1, 57, 99]) assert.deepEqual(calculateBuildingCost('spaceRipperSegments', count, s), def.cost, `segment ${count}`);
   for (const resource of Object.keys(def.cost) as ResourceId[]) {
-    assert.equal(calculateBuildingScale('spaceRipper', resource, s), 1);
-    assert.deepEqual(calculateDynamicCreep('spaceRipper', resource, s), []);
+    assert.equal(calculateBuildingScale('spaceRipperSegments', resource, s), 1);
+    assert.deepEqual(calculateDynamicCreep('spaceRipperSegments', resource, s), []);
   }
   // Buying segments charges the fixed price each time and stops at 100.
   Object.assign(s.resources, def.cost);
-  assert.equal(requestPurchaseModule(s, 'build', 'spaceRipper', 0).status, 'buy-now');
-  assert.equal(s.buildings.spaceRipper, 1);
-  s.buildings.spaceRipper = 100;
+  assert.equal(requestPurchaseModule(s, 'build', 'spaceRipperSegments', 0).status, 'buy-now');
+  assert.equal(s.buildings.spaceRipperSegments, 1);
+  assert.equal(s.buildings.spaceRipper, 0);
+  s.buildings.spaceRipperSegments = 100;
   Object.assign(s.resources, def.cost);
+  assert.equal(requestPurchaseModule(s, 'build', 'spaceRipperSegments', 0).status, 'rejected');
+  // The completed form itself is never purchased directly.
   assert.equal(requestPurchaseModule(s, 'build', 'spaceRipper', 0).status, 'rejected');
 });
 
@@ -124,13 +138,15 @@ test('only a completed ripper adds +100 energy/s and +20% knowledge capacity', (
   for (const dt of [.2, 1]) {
     const s = eraState();
     s.tech.push('dimensionPioneer');
-    s.buildings.aiSupercore = 100;
-    s.buildings.spaceRipper = 99;
+    s.buildings.aiSupercore = 1;
+    s.buildings.spaceRipper = 0;
+    s.buildings.spaceRipperSegments = 99;
     const partial = calculateProduction(s, dt);
     const snapPartial = { ...calculateSupportPreview(s, dt), moonBaseUnits: 0 };
     const baseKnowledge = calculateStorageDetails('knowledge', s, snapPartial).total;
     assert.equal(countRunningBuildings('spaceRipper', s), 0);
-    s.buildings.spaceRipper = 100;
+    s.buildings.spaceRipper = 1;
+    s.buildings.spaceRipperSegments = 0;
     // Stopping records are ignored: the ripper is always running once complete.
     s.stoppedBuildings.spaceRipper = 0;
     const full = calculateProduction(s, dt);
@@ -148,13 +164,13 @@ test('ripperOverclock requires 100 segments for new research but preserves histo
   assert.equal(TECHNOLOGIES.ripperOverclock.buildingRequired, 'spaceRipper');
   const s = eraState(); s.tech.push('dimensionPioneer');
   s.resources.knowledge = 1000000;
-  s.buildings.spaceRipper = 99;
+  s.buildings.spaceRipper = 0; s.buildings.spaceRipperSegments = 99;
   assert.equal(isTechnologyUnlocked('ripperOverclock', s), false);
   assert.equal(requestPurchaseModule(s, 'tech', 'ripperOverclock', 0).status, 'rejected');
   assert.equal(s.tech.includes('ripperOverclock'), false);
   const historical = clone(s); historical.tech.push('ripperOverclock');
   assert.ok(validateCurrentSave(historical, context).tech.includes('ripperOverclock'));
-  s.buildings.spaceRipper = 100;
+  s.buildings.spaceRipper = 1; s.buildings.spaceRipperSegments = 0;
   assert.equal(isTechnologyUnlocked('ripperOverclock', s), true);
   assert.equal(requestPurchaseModule(s, 'tech', 'ripperOverclock', 0).status, 'buy-now');
   assert.equal(s.tech.includes('ripperOverclock'), true);
@@ -169,15 +185,16 @@ test('撕裂者超频 is a T19 1M-knowledge tech after 破维先锋 that doubles
   for (const dt of [.2, 1]) {
     const s = eraState();
     s.tech.push('dimensionPioneer');
-    s.buildings.aiSupercore = 100;
-    s.buildings.spaceRipper = 100;
+    s.buildings.aiSupercore = 1;
+    s.buildings.spaceRipper = 1;
+    s.buildings.spaceRipperSegments = 0;
     const normal = calculateProduction(s, dt).rates.energy;
     s.tech.push('ripperOverclock');
     const overclocked = calculateProduction(s, dt);
     near(overclocked.rates.energy - normal, 100, 'overclock adds another 100 energy/s');
     near(calculateResourceBreakdown('energy', s, overclocked).net, overclocked.rates.energy, 'energy breakdown');
     // Unfinished rippers still produce nothing, overclocked or not.
-    s.buildings.spaceRipper = 99;
+    s.buildings.spaceRipper = 0; s.buildings.spaceRipperSegments = 99;
     near(calculateProduction(s, dt).rates.energy, normal - 100, 'incomplete ripper');
   }
 });
@@ -287,7 +304,7 @@ test('powered high-tech factories run two assigned lines each', () => {
 test('higher-dimensional storage doubles hyperspace storage and adds spaceport water', () => {
   const s = eraState();
   s.tech.push('dimensionPioneer');
-  s.buildings.spaceRipper = 100;
+  s.buildings.spaceRipper = 1;
   const before = {
     port: calculateStorageBonuses('hyperspaceSpaceport', s, null, null),
     base: calculateStorageBonuses('asteroidBase', s, null, null),
@@ -315,14 +332,14 @@ test('higher-dimensional storage doubles hyperspace storage and adds spaceport w
 test('missing buildings reject and the completed ripper survives a save round trip', () => {
   const s = eraState();
   s.tech.push('dimensionPioneer', 'highTechFactory', 'higherDimensionalStorage');
-  s.buildings.spaceRipper = 100; s.buildings.highTechFactory = 2; s.stoppedBuildings.highTechFactory = 1;
+  s.buildings.spaceRipper = 1; s.buildings.highTechFactory = 2; s.stoppedBuildings.highTechFactory = 1;
   const restored = validateCurrentSave(clone(s), context);
-  assert.equal(restored.buildings.spaceRipper, 100);
+  assert.equal(restored.buildings.spaceRipper, 1);
   assert.equal(restored.buildings.highTechFactory, 2);
   assert.equal(restored.stoppedBuildings.highTechFactory, 1);
   assert.ok(restored.tech.includes('higherDimensionalStorage'));
   // A save claiming 高维存储 without the completed ripper is rejected.
-  const bad = clone(s); bad.buildings.spaceRipper = 99;
+  const bad = clone(s); bad.buildings.spaceRipper = 0; bad.buildings.spaceRipperSegments = 99;
   assert.throws(() => validateCurrentSave(bad, context));
   const raw = clone(createMilestoneState('beacon')) as unknown as Record<string, unknown>;
   for (const field of ['buildings', 'workers', 'stoppedBuildings']) for (const id of ['spaceRipper', 'highTechFactory']) delete (raw[field] as Record<string, unknown>)[id];

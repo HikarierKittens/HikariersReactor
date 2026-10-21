@@ -51,7 +51,7 @@
 
 ### 戴森球与量子平衡（beta 0.7.0）
 
-- `dysonSphere` 为 T21 科技（pre `superMetal`/`grapheneProcessing`/`nanoAlloy`，1.75M知识），解锁 `dysonSphere` 分段建筑：100段，`segmentEffects` 每段+10电力/s，固定单段造价（cash 1M、adamantite 5000、graphene 2500、nanoAlloy 5000），位于天元六-alpha（`alphaSector`）。
+- `dysonSphere` 为 T21 科技（pre `superMetal`/`grapheneProcessing`/`nanoAlloy`，1.75M知识），解锁建造态 `dysonSphereSegments`：100段，每段+5电力/s，固定单段造价（cash 1M、adamantite 5000、graphene 2500、nanoAlloy 5000），位于天元六-alpha（`alphaSector`）；完成后替换为 `dysonSphere`（+500电力/s）。2 级由 T22 `dysonSphereII` 解锁 `dysonSphereL2Segments`（每段+7.5，完成后 `dysonSphereL2` 额外+750，与1级合计1250），需要先拥有完整 1 级。
 - 量子基础水平为 `log1p(0.1 × 知识上限 / 250000) / log1p(0.1)`；已供能AI超级核心每个+25%、AGI核心组件每个+50%作用于基础值，最终向下截断两位小数，AI II 前为0。
 - 量子蜂群：控制站支持保留 `20+量子水平`；每座蜂群工厂降价 `0.1 + 0.01×量子水平`，多工厂复合，卫星总价最低为原价5%。量子制造仅作用于现有工厂产品：毛皮 `max(0, 1+(量子水平-1)×0.125)`，其余工业品 `max(0, 1+(量子水平-1)×0.5)`。
 - 队列倒计时（`src/vue/queue-estimates.ts`）用 `CONFIG.uiStepSeconds`（与实时结算步长一致）的产量预览，避免预览步长与实际步长不同导致倒计时快于现实。
@@ -124,6 +124,7 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 ### beta 0.5.6 审计修复约束
 
 - 广播塔/观光空间站幸福度使用结算回放得到的付费运行单位，不能用拥有量替代；太空驻军区分拥有容量（现有士兵保留）和运行训练容量（受维护/停机影响）。
+- 士兵上限（beta 0.9.6）：`calculateArmyLimit` = 运行军营×2 + 运行太空驻军×2 + 运行世界模拟器×4，只看 `stoppedBuildings`，不看付费；`clampSoldiersToArmyLimit` 在关停军营、每个 tick、载入/导入存档三处削顶并清零训练进度。`calculateOperationalSoldierCapacity` 在上限基础上再按付费单位取更小值，只影响训练增员，绝不用于删兵——否则一次缺油会清空军队。
 - 建造与科研仍是独立队列；ARPA遵守有序建造队列前置，所有建造项目复用同一容量规则。重复建筑的乱序结算仍优先低序号，报价递增无需改变。
 - `lastSaved`只作元数据，未来时间钳制至当前时间，写盘失败回滚；不执行迁移或缺字段补全。过时的Asriel排队布尔标志不再阻止任务，实际队列为准。
 - 保留按钮统一主题文字色，用背景/边框区分禁用、危险与选中态；可用性不能只靠颜色表达。日志列表使用仅UI层稳定对象键，不扩展存档格式。
@@ -133,7 +134,7 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 
 - `LogType` 新增 `queue`，建筑/科研/ARPA队列完成日志使用该类型。普通事件继续使用 `event`，里程碑、AI启动、黑洞进展与飞船部件完成使用 `progress`，成就使用 `achievement`，存档等诊断保留 `system`。不再为旧存档转换日志类别。
 - 日志正文14px、行高1.6，时间12px；队列灰蓝、普通事件暖黄、进度浅蓝、成就浅绿、系统浅红，筛选同步这些类别。
-- `TooltipPanel.vue` 的AI超级核心描述首行增加 `world.exection(cat);`，保留原分段进度和维护信息。
+- `TooltipPanel.vue` 的AI超级核心描述首行增加 `world.exection(cat);`。分段进度与维护行由 `building-tooltip-rows.ts` 从**建造态记录**（`buildings.aiSupercoreSegments`）读取；完成态条目没有 `segmentedRequired`，因此 `TooltipPanel` 不再从完成态条目拼装这些行（否则会渲染出 `NaN /undefined`）。
 
 ### 队列悬停递增价格
 
@@ -274,10 +275,17 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 
 ### 3.4c 破维先锋与高维存储
 - 科技：高科技工厂T18（800k，前置高科技农场平台）；破维先锋T19（1M，前置超空间采矿探查+气体云吸积）；高维存储T19（1M，前置破维先锋，且`isBuildingFullyBuilt('spaceRipper')`，存档校验同样要求）。
-- 分段建筑统一规则：`calculateBuildingCost`对任何`segmentedRequired`建筑直接返回注册表价格，`calculateDynamicCreep`对其返回空列表；`countRunningBuildings`按`floor(段数/segmentedRequired)`计完整单位（替代原AI核心硬编码）。
+- 分段建筑统一规则：`calculateBuildingCost`对任何`segmentedRequired`建筑直接返回注册表价格，`calculateDynamicCreep`对其返回空列表。
+- **beta 0.9.7 起分段建筑拆为两个注册表条目**（schema 32）：建造态 `*Segments`（`segmentedRequired: 100` + `completesInto` + 成本）；完成态沿用旧 ID（`cost: {}`、`buildable: false`、`max: 1`），`buildings[完成态]` 计座数。`constructBuildingState` 在段数达 100 时 `-= 100` 并 `+1` 完成态，同时 `registerBuiltPowerUnits` 与（AGI 飞升核心）默认停用。`housing.ts`/`power-grid.ts` 不再按段折算完整单位，撤销了 `segmentEffects` 的折算分支（该标记现在只表示"每段提供部分产能"，仅戴森球/彭罗斯球与 2 级戴森球使用）。`normalizeSchemaSave` 负责 31→32 的段数拆分。
+- **命名（beta 0.9.9）**：两条注册表记录共用同一个 `name`，建造态不再带「（建造中）」后缀。区分只靠行内计数（建造行 0～100 段、完成行按座）、`buildable: false` 与开关按钮，任何 UI/文案都不得再用后缀区分；`tests/segmented-naming.test.ts` 守住同名、无后缀、无 `NaN/undefined` 三条不变量。
+- **一次性工程（beta 0.9.10，schema 33）**：完成态条目一律带 `max: 1`，`isConstructionBlocked(建造态)` 因此在完成态存在时恒为 true，`isPurchaseAllowed`/`buyBuildingNow`/`buyBuildingsInBatch`/`requestPurchaseModule`/`queuePurchase` 全部自动拒绝。面板用 `src/vue/construction-rows.ts` 的 `withConstructionPhases` 统一插入并过滤建造态行（`BuildingsPanel` 与 `DigitalWorldPanel` 共用，后者此前缺少建造态行）。`save-compatibility.ts` 的 `upgradeSchema32To33` 把完成态夹到 1、建造态计数清零、清理 `stoppedBuildings`/`workers` 的建造态记录与指向它的 `queue` 条目，**未建成工程的段数原样保留**；归一化链为 `upgradeSchema31To32 → upgradeSchema32To33 → normalizeAdditiveDefaults`。`tests/segmented-one-off.test.ts` 守住这组不变量。
+- **外星定居与世界统一（beta 0.9.11）**：`alienSettlement`（T12，200k，`buildingRequired: 'asrielSpaceport'`）成为 `spaceControlTower`/`alienCasting`/`spaceIndustrialization`/`starRingStation` 的新前置，后两者同时升到 tier 13。这四项是历史可合法研究的科技，`validate-unlocks.ts` 用 `ALIEN_SETTLEMENT_RETARGETED` 只容忍缺失的前置恰为 `alienSettlement`（研究门槛仍由 `isTechnologyUnlocked` 对新研究强制执行）。`TechnologyDefinition.occupiedNeighborsRequired` 让 `isTechnologyUnlocked` 在占领数不足时返回 false。统一效果由 `neighbors.ts` 的 `isWorldUnified` 驱动：`activeOccupations` 在统一后恒为空，`occupationOutputMultiplier`/`occupationTaxRate`/`garrisonedSoldiers` 因此全部失效；`applyWorldUnification` 在 `applyResearchSideEffects` 里调用（**只以占领列表为幂等条件**——研究时科技已先入列表，若以 `isWorldUnified` 守卫会直接跳过清空）。`calculateGlobalOutputMultiplier` 乘 `unificationOutputMultiplier`，`storage.ts` 的 `pushUnificationRow` + `calculateStorageTotals` 乘 `unificationStorageMultiplier`，两条路径同源；普通资源指 `!special && !crafted`。`tests/world-unification.test.ts` 守住这组不变量。
+- **单兵战斗力与防御力（beta 0.9.12）**：`src/data/military.ts` 是唯一数值来源——`SOLDIER_BASE_COMBAT_POWER = 1`、`SOLDIER_BASE_DEFENSE = 0`、`COMBAT_POWER_TECH_BONUS`（铁制装备/新型单兵装备/高级热武器/磁轨炮各 +1）、`DEFENSE_TECH_BONUS`（铁制装备/新型单兵装备/凯夫拉纤维/磁轨炮各 +1）、`DEFENSE_CASUALTY_REDUCTION = .1`。`calculateCombatPower` 改为「固定加算 × 军政 × 泰坦之力」（旧实现是 `ironEquipment ? 2 : 1` 的倍率，铁制装备的等效战力仍是 2，只是换成加算以便后续叠加）；`calculateSoldierDefense` 纯由 `state.tech` 推导。`defenseCasualtyMultiplier = 1/(1+防御力×0.1)` 只乘在 `previewRaid.expectedLosses` 与 `retaliate` 的损失上，**绝不进入 `raidStrength`**，否则防御科技会顺带变成进攻科技。`soldierStatBreakdown` 供 `TooltipPanel` 的 `soldier` 提示类型使用，明细与两个计算函数读同一批注册表。无新增存档字段，`CONFIG.version` 仍为 33。
+- **士兵毛皮（beta 0.9.12）**：`soldierFurPerSoldier = SOLDIER_FUR_BASE(.2) × 战斗力^SOLDIER_FUR_POWER_EXPONENT(.5)`，`soldierFurRate = soldiers × 该值`。`production-finalize.ts` 用它替换旧的 `soldiers × .2 × calculateFurMultiplier`，**`calculateFurMultiplier` 已删除**（铁制装备的毛皮 +20% 一并移除，其价值全部转入战斗力）。开方是有意设计：裸装 √1 = 1 保持开局 0.2/s 不变，满装 √5 = 2.236 → 0.447/s，且百分比加成对毛皮的效果减半（+100% 战斗力 → +41% 毛皮）；工厂毛皮按乘算增长，量级始终压过它。`resource-breakdown.ts` 的 `soldierFur` 行改为「基础 `soldiers × 0.2` + `单兵战斗力` 百分比子行」，tooltip 不再出现铁制装备行。`scripts/generate-legacy-data.cjs` 的 registry 必须包含 `['military-data', 'data/military']` 且排在 `government` **之前**，否则 VM 回归会抛 `SOLDIER_FUR_BASE is not defined`。
 - 威望资源解锁：`GameState.prestigeUnlocked`（`'particles'|'casimir'`）只增不减，由`updateProgression`→`syncPrestigeUnlocks`记录当前持有>0的资源，软重置、核弹与逃离均经`keepPrestigeUnlocks`继承且不修改源状态；`isPrestigeResourceUnlocked`=记录命中或当前持有>0。当前存档须提供完整解锁记录，不从历史持有量或重置次数补全。
+- **占领 / 世界统一进入收支明细（beta 0.9.14）**：玩家报告占领后「税收 −10%」与「产量 +5%」在资金/资源明细左列完全看不到——两者**实际都已生效**，只是 `calculateResourceFactorRows` 从未把它们列出来。修法是在 `resource-breakdown.ts` 里新增 `addGlobalOutputRows()`，在资源行末尾调用：`pct('占领 ×N', occupationOutputMultiplier(state))` 与 `pct('世界统一', unificationOutputMultiplier(state))`，与 `幸福度` 同处「整条资源被放大」的位置；**`energy` 提前 return**，因为电力是固定供给预算、结算从不乘全局倍率。资金分支的 `catTax` 行额外列出 `占领 ×N 税收惩罚 −X%` 与 `实际税率 Y%`，且 `catTax` 被排除出「`value !== 0`」过滤——三个占领国把实际税率压到 0 时，正是最需要这条解释的时刻，行不能消失。`tests/world-unification.test.ts` 新增一项覆盖无占领/1 国/3 国/统一/电力五种情况。
 - 基因修饰：`GameState.geneModification={dna:{C,G,A,T},levels}`为本周目状态（`createInitialState`新建，所有重置清零），当前存档须提供完整记录；校验拒绝未知键、负数、非整数与超过`MAX_GENE_LEVEL`(50)。解锁条件`isGeneModificationUnlocked`=CRISPR`geneSplicing`+本周目`arpaBuildings.geneSequencing≥1`。`craftDna`每个扣200k知识并计入`knowledgeSpent`；`upgradeGene`扣对应碱基`10×2^level`。CRISPR定义新增可选`casimirCost`，`canAffordCrisprUpgrade`统一判定，`validateStatistics`把已购升级的卡西米尔计入历史获取下限。
-- 基因效果接入点：建筑基础产出类基因在`calculateBuildingOutput`中乘到单位产出（地面结算、钛副产物、收支明细同源），资源收支明细不单列基因行，加成直接计入来源的基础值；完美主义乘在`calculateFactoryRecipe.output`（不改input），生产线明细同样直接计入；泰坦之力乘`calculateCombatPower`；猫猫凝聚经`calculatePopulationPressure`与`calculateSoldierPressure`（×(1-bonus/2)）进入`calculateMorale`。
+- 基因效果接入点：建筑基础产出类基因在`calculateBuildingOutput`中乘到单位产出（地面结算、钛副产物、收支明细同源），资源收支明细不单列基因行，加成直接计入来源的基础值；完美主义乘在`calculateFactoryRecipe.output`（不改input），生产线明细同样直接计入；泰坦之力乘`calculateCombatPower`（乘在装备科技的固定加算之后）；猫猫凝聚经`calculatePopulationPressure`与`calculateSoldierPressure`（×(1-bonus/2)）进入`calculateMorale`。
 - 空间撕裂者：`powerPlant`+`alwaysRunning`+`output.energy=100`，走普通`settlePowerPlants`路径（无燃料）；知识容量在详情与总量两条路径都于CRISPR之后乘`1+0.2×建成数`，系数在`building-effects.ts`共享。自beta0.6.9起，完成第100段不再写入主线完成提示；直接、批量与队列建造均保持正常完成与效果，存档内已有历史日志不改写。
 - 高科技工厂：`lines:2`、`jobSlots:{cementWorkshop:2}`；在`settleFactoryLines`中排在太空工厂之后按电力与氘连续比例供能，供能生产线=地面+太空+高科技×2，太空工厂秘银加成份额也按生产线计。不进入地面结算与超空间来源循环。
 - 超空间太空港付费运行时提供16000氦-3容量（不依赖氘解锁），研究高维存储后与氘一起×2。

@@ -13,7 +13,7 @@ const close=(a:number,b:number)=>assert.ok(Math.abs(a-b)<1e-8,`${a} != ${b}`);
 function stage(){const s=fresh();s.tech.push('fieldConstraintTheory');return s;}
 
 test('subsecond quantum-funded satellite generation uses the same interval as core and stability maintenance',()=>{
-  const s=stage();s.tech.push('artificialIntelligenceII','quantumSwarm');s.buildings.lab=1200;s.buildings.aiSupercore=100;s.buildings.swarmControlStation=1;s.buildings.swarmSatellite=25;s.buildings.constraintArray=1;
+  const s=stage();s.tech.push('artificialIntelligenceII','quantumSwarm');s.buildings.lab=1200;s.buildings.aiSupercore=1;s.buildings.swarmControlStation=1;s.buildings.swarmSatellite=25;s.buildings.constraintArray=1;
   // The retired 27.55 stock over this 0.2 s step is a fixed 137.75 W supply.
   Object.assign(s.resources,{helium3:5,e710:1});supplyPower(s,27.55/.2);
   // Settle the AI core before the stability array, matching the documented chain.

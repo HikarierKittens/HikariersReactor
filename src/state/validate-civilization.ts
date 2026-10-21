@@ -20,7 +20,13 @@ export function validateCivilization(raw: Record<string, unknown>, state: GameSt
     if (!Number.isSafeInteger(state.prestige[key])) throw Error('粒子记录必须为整数。');
   }
   for (const id of state.tech) if (state.prestige.nuclearResets + state.prestige.escapeResets + state.prestige.blackHoleResets + state.prestige.ascensionResets < (TECHNOLOGIES[id].prestigeResetsRequired || 0)) throw Error('科技需要威望重置；软重置不计入。');
-  state.soldiers = validateSaveNumber(raw.soldiers, 0, calculateSoldierCapacity(state), '士兵');
+  // The army count itself is validated as a safe integer only. An army above the current limit
+  // must never block loading (that rejection is what trapped a player's save in protection mode),
+  // so the surplus is instead removed right after loading, by clampSoldiersToArmyLimit, which is
+  // the single owner of the "soldiers may not exceed the limit" rule. A malformed training carry
+  // (>= one full duration) is still rejected here, and trainingProgress must stay 0 once the army
+  // is at or above the owned cap so an idle carry cannot be smuggled in with a full army.
+  state.soldiers = validateSaveNumber(raw.soldiers, 0, Number.MAX_SAFE_INTEGER, '士兵');
   if (!Number.isSafeInteger(state.soldiers)) throw Error('士兵数量无效。');
   // Wounded soldiers are outside the deployable pool and may exceed the barracks cap,
   // so they get their own safe-integer bound instead of the capacity check.

@@ -10,11 +10,14 @@ import { TECHNOLOGIES } from '../src/data/technologies';
  * carry numbers and there is no hand-written effect text to drift from the data.
  */
 const MECHANIC_MARKERS = /\d|解锁|每座|每点|每秒|容量|产量|产出|消耗|占用|上限|倍率|价格|概率|\/s/;
+// A tier label ("1级戴森球") is a proper name, not an effect quantity. Strip only
+// that numeral form so a stray bonus number still fails the check.
+const LEVEL_LABEL = /\d+\s*级/g;
 
 test('building descriptions are flavor only', () => {
   for (const [id, building] of Object.entries(BUILDINGS) as [string, (typeof BUILDINGS)[keyof typeof BUILDINGS]][]) {
     const desc = building.desc ?? '';
-    assert.doesNotMatch(desc, MECHANIC_MARKERS, `${id} description must not carry mechanics: ${desc}`);
+    assert.doesNotMatch(desc.replace(LEVEL_LABEL, ''), MECHANIC_MARKERS, `${id} description must not carry mechanics: ${desc}`);
   }
 });
 

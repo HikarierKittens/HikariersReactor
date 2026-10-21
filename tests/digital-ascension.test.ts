@@ -33,9 +33,10 @@ test('ascension exact rewards: knowledge logarithm, 2000 softcap, final integer 
 
 test('ascension gate requires all segments, enabled core and actual funded support', () => {
   const s = fresh(); supplyPower(s, 1e6);
-  s.buildings.agiAscensionCore = 99;
+  s.buildings.agiAscensionCoreSegments = 99;
   assert.equal(launchDigitalAscension(s, 60, 2000), null);
-  s.buildings.agiAscensionCore = 100; s.stoppedBuildings.agiAscensionCore = 100;
+  s.buildings.agiAscensionCoreSegments = 0;
+  s.buildings.agiAscensionCore = 1; s.stoppedBuildings.agiAscensionCore = 1;
   assert.equal(launchDigitalAscension(s, 60, 2000), null);
   s.stoppedBuildings.agiAscensionCore = 0; supplyPower(s, 0);
   assert.equal(launchDigitalAscension(s, 60, 2000), null);
@@ -47,7 +48,7 @@ test('ascension gate requires all segments, enabled core and actual funded suppo
 });
 
 test('ascension keeps permanent state, resets run, records totals and sticky harmony unlock', () => {
-  const s = fresh(); s.buildings.agiAscensionCore = 100; supplyPower(s, 1e6);
+  const s = fresh(); s.buildings.agiAscensionCore = 1; supplyPower(s, 1e6);
   s.population = 115; s.soldiers = 10;
   s.prestige.particles = 50; s.prestige.casimir = 30; s.prestige.darkEnergy = 4;
   s.prestige.harmonyCrystals = 7; s.prestige.ascensionResets = 2;
@@ -78,8 +79,7 @@ test('harmony reduces only non-ground creep, respects floors and leaves fixed se
   s.prestige.harmonyCrystals = 50;
   assert.equal(calculateHarmonyCreepReduction(s), (Math.log(100) - Math.log(50)) * .01);
   for (const id of HARMONY_BUILDING_IDS) {
-    const terms = calculateDynamicCreep(id, 'knowledge', s);
-    assert.equal(terms.some(term => term.label === '和谐水晶'), !BUILDINGS[id].segmentedRequired, id);
+    assert.ok(calculateDynamicCreep(id, 'knowledge', s).some(term => term.label === '和谐水晶'), id);
   }
   for (const id of ['nest', 'factory', 'spaceWaystation', 'biologyLab'] as const) {
     assert.equal(calculateDynamicCreep(id, 'knowledge', s).some(term => term.label === '和谐水晶'), false, id);
@@ -87,12 +87,16 @@ test('harmony reduces only non-ground creep, respects floors and leaves fixed se
   assert.equal(calculateBuildingScale('gatewayRouter', 'bytes', s), Number((1.3 - calculateHarmonyCreepReduction(s)).toFixed(12)));
   s.prestige.harmonyCrystals = Number.MAX_SAFE_INTEGER;
   assert.equal(calculateBuildingScale('gatewayRouter', 'bytes', s), 1.005);
-  assert.deepEqual(calculateDynamicCreep('agiAscensionCore', 'knowledge', s), []);
+  // Construction phases keep their fixed creep of 1 and never receive dynamic terms.
+  for (const id of ['agiCoreComponentSegments', 'agiAscensionCoreSegments', 'spaceRipperSegments', 'dysonSphereSegments', 'penroseSphereSegments', 'aiSupercoreSegments', 'dysonSphereL2Segments'] as const) {
+    assert.deepEqual(calculateDynamicCreep(id, 'knowledge', s), [], id);
+    assert.equal(calculateBuildingScale(id, 'cash', s), BUILDINGS[id].costScales!.cash, id);
+  }
 });
 
 test('ascension rejects unsafe reward totals or counters without mutation', () => {
   for (const key of ['particles', 'casimir', 'harmonyCrystals', 'ascensionResets'] as const) {
-    const s = fresh(); s.buildings.agiAscensionCore = 100; supplyPower(s, 1e6); s.population = 115;
+    const s = fresh(); s.buildings.agiAscensionCore = 1; supplyPower(s, 1e6); s.population = 115;
     s.prestige[key] = Number.MAX_SAFE_INTEGER;
     const before = structuredClone(s);
     assert.equal(launchDigitalAscension(s, 60, 2000), null, key);

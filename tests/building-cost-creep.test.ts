@@ -63,9 +63,14 @@ test('once-only buildings report fully built while ordinary buildings never do',
   state.buildings.communityCenter = 1;
   assert.equal(isBuildingFullyBuilt('communityCenter', state), true);
   assert.equal(isBuildingFullyBuilt('aiSupercore', state), false);
-  state.buildings.aiSupercore = 99;
+  // Schema 32: segments live on the construction ID; the completed core is one unit.
+  assert.equal(isBuildingFullyBuilt('aiSupercoreSegments', state), false);
+  state.buildings.aiSupercoreSegments = 99;
+  assert.equal(isBuildingFullyBuilt('aiSupercoreSegments', state), false);
+  state.buildings.aiSupercoreSegments = 100;
+  assert.equal(isBuildingFullyBuilt('aiSupercoreSegments', state), true);
   assert.equal(isBuildingFullyBuilt('aiSupercore', state), false);
-  state.buildings.aiSupercore = 100;
+  state.buildings.aiSupercore = 1;
   assert.equal(isBuildingFullyBuilt('aiSupercore', state), true);
   for (const id of ['nest', 'warehouse', 'factory', 'theater'] as const) {
     state.buildings[id] = 5;
@@ -84,15 +89,17 @@ test('the first purchase retains every raw building cost and the early nest cash
 
 test('AI segmented construction keeps fixed costs at every count even with discounts', () => {
   const state = fresh();
-  assert.ok(BUILDINGS.aiSupercore.segmentedRequired);
+  assert.ok(BUILDINGS.aiSupercoreSegments.segmentedRequired);
+  assert.deepEqual(BUILDINGS.aiSupercore.cost, {});
   for (const count of [0, 1, 10, 100, 1000]) {
-    assert.deepEqual(calculateBuildingCost('aiSupercore', count, state), BUILDINGS.aiSupercore.cost);
+    assert.deepEqual(calculateBuildingCost('aiSupercoreSegments', count, state), BUILDINGS.aiSupercoreSegments.cost);
+    assert.deepEqual(calculateBuildingCost('aiSupercore', count, state), {});
   }
   state.crispr = ['materialEfficiency', 'innovativeMaterials', 'structuralReinforcement', 'physicsLaws', 'halfLife3'];
   state.government = 'industrialism';
   state.tech.push('neutronConstructionMaterials');
   for (const count of [0, 1, 100]) {
-    assert.deepEqual(calculateBuildingCost('aiSupercore', count, state), BUILDINGS.aiSupercore.cost);
+    assert.deepEqual(calculateBuildingCost('aiSupercoreSegments', count, state), BUILDINGS.aiSupercoreSegments.cost);
   }
 });
 
@@ -113,8 +120,8 @@ test('ordinary creep never drops below 1.005; segmented and specified scales are
     BUILDINGS.nest.costScales!.wood = original;
   }
   // Exemptions keep their own creep of exactly 1.
-  assert.equal(calculateBuildingScale('aiSupercore', 'cash', state), 1);
-  assert.equal(calculateBuildingScale('spaceRipper', 'cash', state), 1);
+  assert.equal(calculateBuildingScale('aiSupercoreSegments', 'cash', state), 1);
+  assert.equal(calculateBuildingScale('spaceRipperSegments', 'cash', state), 1);
   assert.equal(calculateBuildingScale('interstellarDock', 'cash', state), 1);
   // Every ordinary registry scale sits at or above the floor.
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {

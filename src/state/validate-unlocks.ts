@@ -1,6 +1,6 @@
 import { BUILDINGS } from '../data/buildings';
 import { RESOURCES } from '../data/resources';
-import { TECHNOLOGIES } from '../data/technologies';
+import { RETIRED_TECHNOLOGIES, TECHNOLOGIES } from '../data/technologies';
 import { ACHIEVEMENTS } from '../data/progression';
 import { isBuildingUnlocked } from '../simulation/unlocks';
 import { isBuildingFullyBuilt } from '../simulation/costs';
@@ -39,6 +39,15 @@ const BUILDING_SPACE_MISSIONS = {
 const RETARGETED_PREREQUISITE_TECH: readonly TechnologyId[] = ['electronics', 'oilTechnology', 'alloyDrill', 'alloyChainsaw'];
 
 /**
+ * Earned research re-gated behind 外星定居 (beta 0.9.11). The four Asriel techs used to hang off
+ * 行星勘探 alone; a save that already researched them keeps that progress. Only the new parent
+ * may be missing, and `isTechnologyUnlocked` still enforces it for every future purchase.
+ */
+const ALIEN_SETTLEMENT_RETARGETED: readonly TechnologyId[] = [
+  'spaceControlTower', 'alienCasting', 'spaceIndustrialization', 'starRingStation',
+];
+
+/**
  * Buildings whose unlock technology moved in beta 0.7.3, mapped to the technology
  * that previously opened them. Historical saves keep built counts and workers.
  */
@@ -74,6 +83,10 @@ export function validateUnlockRecords(raw: Record<string, unknown>, state: GameS
   }
   if (state.buildings.geothermalPlant > 0 && !state.kerberosMissionCompleted) throw Error('Kerberos任务尚未完成。');
   for (const tech of state.tech) {
+    // Retired research carries no effect any more, so its prerequisite graph is no longer
+    // meaningful: a save that earned it before retirement must keep loading even if a parent
+    // was itself retired or re-gated. `isTechnologyUnlocked` still refuses it forever.
+    if (RETIRED_TECHNOLOGIES.includes(tech as TechnologyId)) continue;
     const mission = TECHNOLOGIES[tech].spaceMissionRequired;
     if (mission && !isRegionalMissionCompleted(state, mission)) throw Error('科技需要完成太空任务。');
     if (TECHNOLOGIES[tech].kerberosMissionRequired && !state.kerberosMissionCompleted) throw Error('科技需要完成Kerberos任务。');
@@ -87,7 +100,9 @@ export function validateUnlockRecords(raw: Record<string, unknown>, state: GameS
     // isTechnologyUnlocked still governs all future research.
     const tightened = RETARGETED_PREREQUISITE_TECH.includes(tech as TechnologyId);
     const missing = TECHNOLOGIES[tech].pre.filter(parent => !state.tech.includes(parent));
-    if (missing.length && !(tightened && missing.every(parent => parent === 'industrialization'))) throw Error('科技前置关系无效。');
+    // beta 0.9.11 re-gated the four Asriel techs behind 外星定居; earned research survives.
+    const alienRetargeted = ALIEN_SETTLEMENT_RETARGETED.includes(tech) && missing.every(parent => parent === 'alienSettlement');
+    if (missing.length && !(tightened && missing.every(parent => parent === 'industrialization')) && !alienRetargeted) throw Error('科技前置关系无效。');
   }
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
     if (!(state.buildings[id] || state.workers[id])) continue;

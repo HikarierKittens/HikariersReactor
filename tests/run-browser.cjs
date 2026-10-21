@@ -7,7 +7,7 @@ const os = require('node:os');
 
 const ROOT = path.join(__dirname, '..');
 const PORT = Number(process.env.ACCEPTANCE_PORT || 4399);
-const PAGE = 'tests/browser/acceptance.html';
+const PAGE = process.env.ACCEPTANCE_PAGE || 'tests/browser/acceptance.html';
 // Full progression acceptance plus every building's two-width layout audit.
 const BUDGET_MS = Number(process.env.ACCEPTANCE_BUDGET || 45000);
 
@@ -57,23 +57,43 @@ async function main() {
     const dom = await new Promise((resolve, reject) => {
       const child = spawn(browser, [
         '--headless', '--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage',
+        // Keep the console: a failing case is otherwise a black box (the dumped DOM only shows
+        // the last rendered line). These lines are surfaced only when the run fails.
+        '--enable-logging=stderr', '--log-level=0',
         `--user-data-dir=${resolvedProfile}`, '--no-first-run', '--no-default-browser-check',
         `--virtual-time-budget=${BUDGET_MS}`, '--dump-dom', `http://127.0.0.1:${PORT}/${PAGE}`,
-      ], { stdio: ['ignore', 'pipe', 'ignore'] });
-      let out = '';
+      ], { stdio: ['ignore', 'pipe', 'pipe'] });
+      let out = '', err = '';
       const deadline = setTimeout(() => { child.kill(); reject(new Error('browser timed out after 60 seconds')); }, 60000);
       child.stdout.on('data', d => { out += d; });
+      child.stderr.on('data', d => { err += d; });
       child.on('error', error => { clearTimeout(deadline); reject(error); });
       child.on('close', code => {
         clearTimeout(deadline);
         if (code !== 0) reject(new Error(`browser exited with code ${code}`));
-        else resolve(out);
+        else resolve({ dom: out, err });
       });
     });
 
-    const match = dom.match(/<pre id="result">([\s\S]*?)<\/pre>/);
+    // Browser noise (extension registries, China-market bundle probes, GPU chatter) is dropped so
+    // the diagnosis below contains only signals from this page.
+    const NOISE = /external_registry_loader|edge_china_browsers|QQBrowser|ChromeExtensionCache|ProtocolLaunch|\bGCM\b|DEPRECATED_ENDPOINT|registration_request|GetVSyncParametersIfAvailable|SharedImageManager|font_service/i;
+    const consoleLines = dom.err.split('\n')
+      .filter(line => /CONSOLE|Uncaught|SyntaxError|ReferenceError|TypeError|ERROR:/.test(line) && !NOISE.test(line))
+      .map(line => line.trim())
+      .slice(-25);
+    const reportConsole = () => {
+      if (!consoleLines.length) return;
+      console.error('\n--- browser console (last 25 signals) ---');
+      for (const line of consoleLines) console.error(line);
+      console.error('--- end browser console ---');
+    };
+    const domText = dom.dom;
+
+    const match = domText.match(/<pre id="result">([\s\S]*?)<\/pre>/);
     if (!match) {
       console.error('Browser acceptance FAILED: no result element in the dumped DOM.');
+      reportConsole();
       process.exitCode = 1;
       return;
     }
@@ -82,6 +102,9 @@ async function main() {
     console.log(report);
 
     if (!/RESULT: PASS/.test(report)) {
+      // The page paints its own reason when it can (see the classic error hook in the HTML);
+      // the console lines cover the cases where it cannot.
+      reportConsole();
       console.error('Browser acceptance FAILED.');
       process.exitCode = 1;
       return;

@@ -20,7 +20,8 @@ function lateState(): GameState {
     = state.misenMissionCompleted = true;
   for (const id of ['rocketPlatform', 'monument', 'geneSequencing'] as const) state.arpaBuildings[id] = 1;
   state.arpaBuildings.arpaResearchInstitute = 2;
-  state.buildings.aiSupercore = 100;
+  // Schema 32: the completed AI supercore is one unit (its 100 segments were consumed).
+  state.buildings.aiSupercore = 1;
   state.buildings.ironMiningShip = 5;
   // Five enabled iron ships need five 采矿船操作员 out of the idle population.
   state.population = 5;

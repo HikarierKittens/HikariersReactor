@@ -2,7 +2,7 @@ import { addLog } from './progression';
 import { updateStageThreeProgress } from './stage-three';
 import { updateStoryProgress } from './story';
 import { CONFIG } from '../data/config';
-import { advanceSoldierTraining } from './military';
+import { advanceSoldierTraining, clampSoldiersToArmyLimit } from './military';
 import { calculateProduction } from './production';
 import { advancePopulationGrowth, advanceStarvation, enforcePopulationCapacity } from './population';
 import { recordGameDays } from './statistics';
@@ -33,6 +33,8 @@ export function advanceGameTick(state: GameState, dt: number, hooks: TickHooks):
   // Compatibility key only: electricity is a fixed per-step budget, not stock.
   state.resources.energy = 0;
   if (applyMassEjection(state, result.ejected, dt)) addLog(state, BLACK_HOLE_UNSTABLE_LOG, 'progress');
+  // The army limit follows the switched-on capacity, so any surplus is removed immediately.
+  clampSoldiersToArmyLimit(state);
   applyGeneSynthesis(state, result.geneSynthesis, dt);
   advanceNeighbors(state, dt);
   advanceHospital(state, dt);

@@ -44,8 +44,8 @@ test('dynamic terms stack additively: CRISPR + government + tech each listed onc
 test('dynamic creep cannot push the scale below 1 so prices always rise', () => {
   const state = fresh();
   state.crispr = ['materialEfficiency', 'innovativeMaterials', 'structuralReinforcement', 'physicsLaws', 'halfLife3'];
-  // aiSupercore base 1: 1 -.05 floored at 1.
-  assert.equal(calculateBuildingScale('aiSupercore', 'cash', state), 1);
+  // aiSupercore construction base 1: 1 -.05 is ignored (segments never creep).
+  assert.equal(calculateBuildingScale('aiSupercoreSegments', 'cash', state), 1);
 });
 
 test('different resources of one building may use different base creeps', () => {
@@ -77,8 +77,11 @@ test('once-only completion detection covers max buildings and segmented cores on
   assert.equal(isBuildingFullyBuilt('communityCenter', state), false);
   state.buildings.communityCenter = 1;
   assert.equal(isBuildingFullyBuilt('communityCenter', state), true);
-  state.buildings.aiSupercore = 100;
+  state.buildings.aiSupercore = 1;
   assert.equal(isBuildingFullyBuilt('aiSupercore', state), true);
+  assert.equal(isBuildingFullyBuilt('aiSupercoreSegments', state), false);
+  state.buildings.aiSupercoreSegments = 100;
+  assert.equal(isBuildingFullyBuilt('aiSupercoreSegments', state), true);
   state.buildings.warehouse = 300;
   assert.equal(isBuildingFullyBuilt('warehouse', state), false);
   assert.equal(isBuildingFullyBuilt('forage', state), false);

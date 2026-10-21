@@ -84,7 +84,7 @@ function readyEscape(state: GameState): void {
 }
 function readyBlackHole(state: GameState): void {
   state.tech.push('energyShield', 'penroseTheory', 'massEjector');
-  state.blackHoleMissionCompleted = true; state.buildings.penroseSphere = 100;
+  state.blackHoleMissionCompleted = true; state.buildings.penroseSphere = 1;
   state.blackHole.unstable = true; state.blackHole.exoticMass = .03;
   Object.assign(state.resources, { knowledge: 5e6, nanoAlloy: 2e5, e710: 5000 });
 }

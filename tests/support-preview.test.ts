@@ -70,7 +70,7 @@ function lunarState(): GameState {
   state.buildings.solarSatellite = 1;
   state.buildings.moonBase = 1;
   state.buildings.iridiumMine = 1;
-  state.buildings.aiSupercore = 100;
+  state.buildings.aiSupercore = 1; // one completed core: segmented projects are one-off
   state.buildings.constraintArray = 1;
   state.powerActivationOrder = [{ id: 'moonBase', count: 1 }];
   state.resources.oil = 100;

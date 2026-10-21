@@ -22,7 +22,7 @@ export function collectStoryMilestones(state: GameState): StoryChapterId[] {
     secondHome: state.buildings.moonBase > 0,
     interplanetaryRoutes: state.buildings.asrielSpaceport > 0,
     strangeElement: state.resources.e710 > 0 || state.unlockedResources.includes('e710'),
-    anotherMind: state.buildings.aiSupercore >= (BUILDINGS.aiSupercore.segmentedRequired || 100),
+    anotherMind: state.buildings.aiSupercore >= 1,
     essPlan: state.tech.includes('escapePlan') || state.buildings.interstellarDock > 0 || state.prestige.escapeResets > 0,
     firstEscape: state.prestige.escapeResets > 0,
     geneRewrite: state.tech.includes('genetics') || state.crispr.length > 0,

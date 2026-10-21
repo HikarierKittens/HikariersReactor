@@ -1,5 +1,5 @@
 import { getAchievementMasteryBonus } from './achievement-tracking';
-import { occupationOutputMultiplier } from './neighbors';
+import { occupationOutputMultiplier, unificationOutputMultiplier } from './neighbors';
 import { CONFIG } from '../data/config';
 import { CRAFT_RECIPES, RESOURCES } from '../data/resources';
 import { isResourceUnlocked } from './unlocks';
@@ -36,8 +36,10 @@ export function calculateMasteryMultiplier(id: ResourceId, state: Pick<GameState
 /** Shared final resource factor, applied once at each production credit boundary. */
 export function calculateGlobalOutputMultiplier(id: ResourceId, state: Pick<GameState, 'prestige'> & Partial<GameState>): number {
   // 占领: each occupied neighbour is a flat +5% to every resource, applied as one factor.
+  // 世界统一 replaces that with a flat +25% (the occupations are gone, so only one applies).
   const occupation = state.neighbors ? occupationOutputMultiplier(state as GameState) : 1;
-  return calculateParticleMultiplier(id, state) * calculateMasteryMultiplier(id, state) * occupation;
+  const unification = unificationOutputMultiplier(state as Pick<GameState, 'tech'>);
+  return calculateParticleMultiplier(id, state) * calculateMasteryMultiplier(id, state) * occupation * unification;
 }
 /**
  * 锻造工具加成: a single additive pool of *building-sourced* tool bonuses —

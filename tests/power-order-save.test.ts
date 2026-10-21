@@ -37,15 +37,21 @@ test('support-stopped construction never reclassifies an old enabled unit as new
 
 test('segmented powered construction registers complete units only and preserves explicit ascension stop', () => {
   const state = createInitialState(CONFIG.version, 60, 0);
-  state.buildings.aiSupercore = 98;
-  constructBuildingState(state, 'aiSupercore', 0);
+  state.buildings.aiSupercoreSegments = 98;
+  constructBuildingState(state, 'aiSupercoreSegments', 0);
+  assert.equal(state.buildings.aiSupercore, 0);
+  assert.equal(state.buildings.aiSupercoreSegments, 99);
   assert.equal(state.stoppedBuildings.aiSupercore, 0);
   assert.equal(state.powerActivationOrder!.some(entry => entry.id === 'aiSupercore'), false);
-  constructBuildingState(state, 'aiSupercore', 0);
+  constructBuildingState(state, 'aiSupercoreSegments', 0);
+  assert.equal(state.buildings.aiSupercore, 1);
+  assert.equal(state.buildings.aiSupercoreSegments, 0);
   assert.equal(state.stoppedBuildings.aiSupercore, 1);
-  state.buildings.agiAscensionCore = 99;
+  state.buildings.agiAscensionCoreSegments = 99;
   state.buildings.solarSatellite = 100000;
-  constructBuildingState(state, 'agiAscensionCore', 0);
+  constructBuildingState(state, 'agiAscensionCoreSegments', 0);
+  assert.equal(state.buildings.agiAscensionCore, 1);
+  assert.equal(state.buildings.agiAscensionCoreSegments, 0);
   assert.equal(state.stoppedBuildings.agiAscensionCore, 1);
   assert.equal(state.powerActivationOrder!.some(entry => entry.id === 'agiAscensionCore'), false);
 });
@@ -102,7 +108,7 @@ test('ordered activation batches survive save/load/import and protected recovery
   assert.equal(runtime.save(), true);
   const reload = createRuntime(); reload.load();
   assert.deepEqual(reload.state.powerActivationOrder, raw.powerActivationOrder);
-  const invalid = JSON.parse(json); invalid.powerActivationOrder[0].count = -1;
+  const invalid = JSON.parse(json); invalid.powerActivationOrder[0].count = 1.5;
   const badBytes = JSON.stringify(invalid); storage.set(CONFIG.saveKey, badBytes);
   const protectedRuntime = createRuntime(); protectedRuntime.load();
   assert.equal(protectedRuntime.saveBlocked, true);

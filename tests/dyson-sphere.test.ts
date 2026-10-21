@@ -6,7 +6,7 @@ import { BUILDINGS } from '../src/data/buildings';
 import { CONFIG } from '../src/data/config';
 import { TECHNOLOGIES } from '../src/data/technologies';
 import { createInitialState } from '../src/state/create-state';
-import { normalizeSchema31Save } from '../src/state/save-compatibility';
+import { normalizeSchemaSave } from '../src/state/save-compatibility';
 import { validateCurrentSave } from '../src/state/validate-save';
 import { calculateBuildingCost, calculateBuildingScale, HARMONY_BUILDING_IDS, isBuildingFullyBuilt } from '../src/simulation/costs';
 import { countRunningBuildings } from '../src/simulation/housing';
@@ -18,7 +18,7 @@ import { isBuildingUnlocked, isTechnologyUnlocked } from '../src/simulation/unlo
 import type { ResourceId } from '../src/types/economy';
 
 const context = { now: 1_000_000, eventInterval: 60, housingCapacity: () => 1e6, clampResources: () => {} };
-const fresh = () => createInitialState(31, 60, context.now);
+const fresh = () => createInitialState(CONFIG.version, 60, context.now);
 const fixtureText = () => readFileSync(new URL('./fixtures/pre-beta0.6.5-schema31.json', import.meta.url), 'utf8');
 const fixture = () => JSON.parse(fixtureText());
 const fields = ['buildings', 'workers', 'stoppedBuildings'] as const;
@@ -39,62 +39,85 @@ test('Dyson technology uses real T20 prerequisites and T21 knowledge price', () 
     assert.equal(researchTechnologyNow(state, 'dysonSphere').bought, false);
   }
   const state = fresh(); state.tech = [...tech.pre]; state.resources.knowledge = 1750000;
-  assert.equal(isBuildingUnlocked('dysonSphere', state), false);
+  assert.equal(isBuildingUnlocked('dysonSphereSegments', state), false);
   assert.equal(isTechnologyUnlocked('dysonSphere', state), true);
   assert.equal(researchTechnologyNow(state, 'dysonSphere').bought, true);
-  assert.equal(state.resources.knowledge, 0); assert.equal(isBuildingUnlocked('dysonSphere', state), true);
+  assert.equal(state.resources.knowledge, 0); assert.equal(isBuildingUnlocked('dysonSphereSegments', state), true);
 });
 
-test('Dyson segments have fixed costs, cap at 100 and join non-ground harmony pricing', () => {
+test('Dyson segments keep fixed costs, complete into the sphere at 100 and join non-ground harmony pricing', () => {
   const state = fresh(); state.tech.push('dysonSphere');
-  assert.equal(BUILDINGS.dysonSphere.segmentedRequired, 100);
-  assert.equal(BUILDINGS.dysonSphere.segmentEffects, true);
+  assert.equal(BUILDINGS.dysonSphereSegments.segmentedRequired, 100);
+  assert.equal(BUILDINGS.dysonSphereSegments.segmentEffects, true);
+  assert.equal(BUILDINGS.dysonSphereSegments.completesInto, 'dysonSphere');
+  assert.deepEqual(BUILDINGS.dysonSphere.cost, {});
   assert.equal(BUILDINGS.dysonSphere.alwaysRunning, true);
-  assert.equal(isPowerProducer('dysonSphere'), true);
+  assert.deepEqual(BUILDINGS.dysonSphere.output, { energy: 500 });
+  assert.equal(isPowerProducer('dysonSphereSegments'), true);
   assert.equal(HARMONY_BUILDING_IDS.has('dysonSphere'), true);
   state.prestige.harmonyCrystals = 1000000;
   for (const count of [0, 1, 99]) {
-    assert.deepEqual(calculateBuildingCost('dysonSphere', count, state), price);
-    for (const resource of Object.keys(price) as ResourceId[]) assert.equal(calculateBuildingScale('dysonSphere', resource, state), 1);
+    assert.deepEqual(calculateBuildingCost('dysonSphereSegments', count, state), price);
+    for (const resource of Object.keys(price) as ResourceId[]) assert.equal(calculateBuildingScale('dysonSphereSegments', resource, state), 1);
   }
-  state.buildings.dysonSphere = 99; fund(state, 2);
-  assert.equal(isBuildingFullyBuilt('dysonSphere', state), false);
-  assert.equal(requestPurchaseModule(state, 'build', 'dysonSphere', 0).status, 'buy-now');
-  assert.equal(state.buildings.dysonSphere, 100); assert.equal(isBuildingFullyBuilt('dysonSphere', state), true);
+  state.buildings.dysonSphereSegments = 99; fund(state, 2);
+  assert.equal(isBuildingFullyBuilt('dysonSphereSegments', state), false);
+  assert.equal(requestPurchaseModule(state, 'build', 'dysonSphereSegments', 0).status, 'buy-now');
+  // Reaching 100 consumes the construction segments and places one completed sphere.
+  assert.equal(state.buildings.dysonSphereSegments, 0);
+  assert.equal(state.buildings.dysonSphere, 1);
+  assert.equal(isBuildingFullyBuilt('dysonSphere', state), true);
+  assert.equal(isBuildingFullyBuilt('dysonSphereSegments', state), false);
+  // The completed form is owned, never bought; the finished project retires its construction row
+  // so the sphere can never be built a second time.
   assert.equal(requestPurchaseModule(state, 'build', 'dysonSphere', 0).status, 'rejected');
+  assert.equal(state.resources.cash, price.cash);
+  assert.equal(requestPurchaseModule(state, 'build', 'dysonSphereSegments', 0).status, 'rejected');
+  assert.equal(state.buildings.dysonSphereSegments, 0); assert.equal(state.buildings.dysonSphere, 1);
   assert.equal(state.resources.cash, price.cash);
 });
 
 test('queued Dyson project settles per funded segment and generates immediately', () => {
   const state = fresh(); state.tech.push('dysonSphere');
-  const result = requestPurchaseModule(state, 'build', 'dysonSphere', 0, true);
+  const result = requestPurchaseModule(state, 'build', 'dysonSphereSegments', 0, true);
   assert.equal(result.status, 'queued');
   assert.ok(result.queued?.kind === 'build'); assert.equal(result.queued.segments, 10);
   fund(state, 3); settlePurchaseQueue(state, 0);
-  assert.equal(state.buildings.dysonSphere, 3);
+  assert.equal(state.buildings.dysonSphereSegments, 3);
   assert.ok(state.queue[0]?.kind === 'build'); assert.equal(state.queue[0].segments, 7);
-  assert.equal(calculateProduction(state, 1).rates.energy, 30);
+  assert.equal(calculateProduction(state, 1).rates.energy, 15);
   fund(state, 7); settlePurchaseQueue(state, 0);
-  assert.equal(state.buildings.dysonSphere, 10); assert.deepEqual(state.queue, []);
+  assert.equal(state.buildings.dysonSphereSegments, 10); assert.equal(state.buildings.dysonSphere, 0);
+  assert.deepEqual(state.queue, []);
 });
 
-test('every Dyson segment generates 10/s exactly once without morale, workers, fuel or stop dependence', () => {
-  for (const segments of [0, 1, 7, 99, 100]) {
-    const state = fresh(); state.buildings.dysonSphere = segments;
-    state.stoppedBuildings.dysonSphere = segments;
-    assert.equal(countRunningBuildings('dysonSphere', state), segments);
+test('every Dyson segment generates 5/s and one completed sphere 500/s without morale, workers, fuel or stop dependence', () => {
+  for (const segments of [0, 1, 7, 99]) {
+    const state = fresh(); state.buildings.dysonSphereSegments = segments;
+    assert.equal(countRunningBuildings('dysonSphereSegments', state), segments);
     const pool = { ...state.resources };
     const power = settlePowerPlants(pool, 2, state);
-    assert.equal(power.energy, segments * 10); assert.equal(pool.energy, segments * 20);
-    assert.equal(power.outputs.dysonSphere, segments);
+    assert.equal(power.energy, segments * 5); assert.equal(pool.energy, segments * 10);
+    assert.equal(power.outputs.dysonSphereSegments, segments);
     const production = calculateProduction(state, 1);
-    assert.equal(production.rates.energy, segments * 10);
+    assert.equal(production.rates.energy, segments * 5);
     if (segments) {
-      const entry = calculateResourceBreakdown('energy', state, production).entries.find(row => row.id === 'dysonSphere');
-      assert.equal(entry?.value, segments * 10);
-      assert.ok(calculateResourceFactorRows('energy', state, production).rows.some(row => row.name === '戴森球' && row.value === `+${segments * 10}/s`));
+      const entry = calculateResourceBreakdown('energy', state, production).entries.find(row => row.id === 'dysonSphereSegments');
+      assert.equal(entry?.value, segments * 5);
+      assert.ok(calculateResourceFactorRows('energy', state, production).rows.some(row => row.name === '戴森球' && row.value === `+${segments * 5}/s`));
     }
   }
+  // Completed spheres are always-running power plants: a stopped record never turns one off.
+  const state = fresh(); state.buildings.dysonSphere = 1; state.stoppedBuildings.dysonSphere = 1;
+  assert.equal(countRunningBuildings('dysonSphere', state), 1);
+  const pool = { ...state.resources };
+  const power = settlePowerPlants(pool, 2, state);
+  assert.equal(power.energy, 500); assert.equal(pool.energy, 1000);
+  assert.equal(power.outputs.dysonSphere, 1);
+  const production = calculateProduction(state, 1);
+  assert.equal(production.rates.energy, 500);
+  assert.equal(calculateResourceBreakdown('energy', state, production).entries.find(row => row.id === 'dysonSphere')?.value, 500);
+  assert.ok(calculateResourceFactorRows('energy', state, production).rows.some(row => row.name === '戴森球' && row.value === '+500/s'));
 });
 
 test('Dyson UI stays in alphaSector, outside ground, with segmented tooltip and registry production rows', () => {
@@ -111,25 +134,39 @@ test('previous release schema31 adds only absent Dyson records without mutating 
   const raw = fixture(), before = structuredClone(raw);
   for (const field of fields) { assert.equal(Object.hasOwn(raw[field], 'dysonSphere'), false); Object.freeze(raw[field]); }
   Object.freeze(raw);
+  const expectedQueue = (before.queue as Record<string, unknown>[]).map(item => item.kind === 'build' && item.id === 'spaceRipper'
+    ? { ...item, id: 'spaceRipperSegments' } : item);
   const loaded = validateCurrentSave(raw, context);
-  for (const field of fields) assert.equal(loaded[field].dysonSphere, 0);
+  for (const field of fields) {
+    assert.equal(loaded[field].dysonSphere, 0);
+    assert.equal(loaded[field].dysonSphereSegments, 0);
+  }
   assert.deepEqual(raw, before);
   assert.deepEqual(validateCurrentSave(JSON.parse(JSON.stringify(loaded)), context), loaded);
-  for (const field of ['tech', 'queue', 'achievements', 'logs', 'story', 'stageThree'] as const) assert.deepEqual(loaded[field], before[field]);
-  const normalized = normalizeSchema31Save(raw);
-  for (const field of fields) assert.equal((normalized[field] as Record<string, unknown>).dysonSphere, 0);
+  // Schema 32 moves segmented queue targets to the construction phase, so only the ID changes.
+  assert.deepEqual(loaded.queue, expectedQueue);
+  for (const field of ['tech', 'achievements', 'logs', 'story', 'stageThree'] as const) assert.deepEqual(loaded[field], before[field]);
+  const normalized = normalizeSchemaSave(raw);
+  assert.equal(normalized.version, CONFIG.version);
+  for (const field of fields) {
+    assert.equal((normalized[field] as Record<string, unknown>).dysonSphere, 0);
+    assert.equal((normalized[field] as Record<string, unknown>).dysonSphereSegments, 0);
+  }
 });
 
 test('researched Dyson progress and unpaid queue remainder roundtrip without backfilling rewards', () => {
   const state = validateCurrentSave(fixture(), context);
   state.tech.push('overclocking13', 'superMetal', 'grapheneProcessing', 'nanoAlloy', 'dysonSphere');
-  state.buildings.spaceRipper = 100;
-  state.queue = state.queue.filter(item => !(item.kind === 'build' && item.id === 'spaceRipper'));
-  state.buildings.dysonSphere = 17;
-  state.queue.push({ uid: 99, kind: 'build', id: 'dysonSphere', segments: 3 });
+  state.buildings.spaceRipper = 1;
+  state.queue = state.queue.filter(item => !(item.kind === 'build' && item.id === 'spaceRipperSegments'));
+  // A partially built Dyson sphere is construction progress, not a completed sphere.
+  state.buildings.dysonSphereSegments = 17;
+  state.queue.push({ uid: 99, kind: 'build', id: 'dysonSphereSegments', segments: 3 });
   const before = structuredClone(state);
   const loaded = validateCurrentSave(JSON.parse(JSON.stringify(state)), context);
-  assert.equal(loaded.buildings.dysonSphere, 17);
+  assert.equal(loaded.buildings.dysonSphere, 0);
+  assert.equal(loaded.buildings.dysonSphereSegments, 17);
+  assert.equal(loaded.buildings.spaceRipper, 1);
   assert.ok(loaded.tech.includes('dysonSphere'));
   assert.deepEqual(loaded.queue, state.queue);
   assert.deepEqual(loaded.prestige, state.prestige);
@@ -138,14 +175,14 @@ test('researched Dyson progress and unpaid queue remainder roundtrip without bac
 });
 
 test('Dyson compatibility rejects explicitly malformed records and never restores retired schemas', () => {
-  for (const field of fields) for (const value of [undefined, null, false, '0', -1, .5, NaN, Infinity, {}, []]) {
-    const raw = fixture(); raw[field].dysonSphere = value;
+  for (const field of fields) for (const id of ['dysonSphere', 'dysonSphereSegments'] as const) for (const value of [undefined, null, false, '0', -1, .5, NaN, Infinity, {}, []]) {
+    const raw = fixture(); raw[field][id] = value;
     const before = structuredClone(raw);
-    assert.throws(() => validateCurrentSave(raw, context), `${field}/${String(value)}`);
+    assert.throws(() => validateCurrentSave(raw, context), `${field}/${id}/${String(value)}`);
     assert.deepEqual(raw, before);
   }
   const raw = fixture(); raw.version = 30;
-  assert.equal(normalizeSchema31Save(raw), raw); assert.throws(() => validateCurrentSave(raw, context));
+  assert.equal(normalizeSchemaSave(raw), raw); assert.throws(() => validateCurrentSave(raw, context));
 });
 
 test('previous-release load/import roundtrips and malformed Dyson data remains protected until recovery', async t => {
@@ -159,9 +196,15 @@ test('previous-release load/import roundtrips and malformed Dyson data remains p
   t.mock.method(Date, 'now', () => context.now); t.mock.method(Math, 'random', () => .5);
   const json = fixtureText(), original = JSON.parse(json);
   const check = (state: ReturnType<typeof fresh>) => {
-    for (const field of fields) assert.equal(state[field].dysonSphere, 0);
-    for (const field of ['tech', 'queue', 'achievements', 'logs', 'story', 'stageThree'] as const) assert.deepEqual(state[field], original[field]);
-    assert.equal(state.buildings.spaceRipper, 99); assert.equal(state.time, original.time);
+    for (const field of fields) {
+      assert.equal(state[field].dysonSphere, 0);
+      assert.equal(state[field].dysonSphereSegments, 0);
+    }
+    for (const field of ['tech', 'achievements', 'logs', 'story', 'stageThree'] as const) assert.deepEqual(state[field], original[field]);
+    // The saved 99/100 ripper segments survive as construction progress, not as a finished building.
+    assert.equal(state.buildings.spaceRipper, 0); assert.equal(state.buildings.spaceRipperSegments, 99);
+    assert.deepEqual(state.queue, [{ uid: 1, kind: 'build', id: 'spaceRipperSegments', segments: 1 }]);
+    assert.equal(state.time, original.time);
   };
   storage.set(CONFIG.saveKey, json);
   const runtime = createRuntime(); runtime.load(); assert.equal(runtime.saveBlocked, false); check(runtime.state);

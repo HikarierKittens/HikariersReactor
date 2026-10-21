@@ -52,7 +52,7 @@ function scenarios(): [string, GameState, number][] {
   // Crew for the four enabled iron ships comes out of the idle population.
   rich.population = 4;
   rich.buildings.e710Warehouse = 2; rich.buildings.biologyLab = 3; rich.buildings.observatory = 2;
-  rich.buildings.aiSupercore = 100; rich.buildings.broadcast = 2; rich.buildings.touristStation = 2;
+  rich.buildings.aiSupercore = 1; rich.buildings.broadcast = 2; rich.buildings.touristStation = 2;
   rich.stoppedBuildings.ironMiningShip = 1; rich.stoppedBuildings.biologyLab = 1;
   add('rich', rich);
   return list;

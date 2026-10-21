@@ -1,4 +1,4 @@
-import { calculateTaxBase, calculateBankerMultiplier, calculateGovernmentMultiplier, calculateFurMultiplier } from './government';
+import { calculateTaxBase, calculateBankerMultiplier, calculateGovernmentMultiplier, soldierFurRate } from './government';
 import { calculateProductionMultiplier } from './multipliers';
 import { calculateGlobalOutputMultiplier } from './crafting';
 import { calculateFoodPerCat } from './population';
@@ -11,7 +11,9 @@ import type { ResourceAmounts, ResourceId } from '../types/economy';
 export function settlePopulationIncome(state: GameState, pool: ResourceAmounts, happiness: number, dt: number) {
   const catTax = calculateTaxBase(state) * calculateBankerMultiplier(state) * calculateGovernmentMultiplier('cash', state)
     * calculateProductionMultiplier('cash', happiness, state) * calculateGlobalOutputMultiplier('cash', state);
-  const soldierFur = state.soldiers * .2 * calculateFurMultiplier(state) * calculateProductionMultiplier('fur', happiness, state) * calculateGlobalOutputMultiplier('fur', state);
+  // 士兵毛皮 scales with 单兵战斗力 (square root), never with the fur tech multiplier —
+  // 铁制装备 no longer boosts fur, and 战斗力 already carries every equipment bonus.
+  const soldierFur = soldierFurRate(state) * calculateProductionMultiplier('fur', happiness, state) * calculateGlobalOutputMultiplier('fur', state);
   pool.cash += catTax * dt;
   pool.fur += soldierFur * dt;
   return { catTax, soldierFur };

@@ -1,6 +1,5 @@
 import { BUILDINGS } from '../data/buildings';
 import { CONFIG } from '../data/config';
-import { addLog } from './progression';
 import type { GameState } from '../types/state';
 
 /**
@@ -29,7 +28,9 @@ export function hospitalHealRate(state: Pick<GameState, 'buildings' | 'stoppedBu
 /**
  * Advance healing and move recovered soldiers back into the army.
  *
- * Returns how many soldiers recovered this step (usually 0) so callers can log it.
+ * Returns how many soldiers recovered this step (usually 0). Healing is routine upkeep and
+ * deliberately writes no log: the hospital would otherwise spam the 80-entry log every
+ * few seconds while a raid left many soldiers wounded.
  */
 export function advanceHospital(state: GameState, dt: number): number {
   if (!Number.isFinite(dt) || dt <= 0) return 0;
@@ -47,7 +48,6 @@ export function advanceHospital(state: GameState, dt: number): number {
   state.soldiers += healed;
   state.hospitalProgress -= healed;
   if (state.wounded === 0) state.hospitalProgress = 0;
-  addLog(state, `医院治愈了 ${healed} 名伤兵。`, 'progress');
   return healed;
 }
 

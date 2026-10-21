@@ -3,8 +3,8 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const ctx=vm.createContext({performance:{now:()=>0},Date,console,document:{getElementById:()=>({}),querySelectorAll:()=>[]},localStorage:{setItem(){},getItem(){return null}}});
 require('./load-game.cjs').loadGame(ctx);
 const run=s=>vm.runInContext(s,ctx),json=s=>JSON.parse(run(`JSON.stringify(${s})`));
-const techs={moonObservatory:[170000,'moonExploration'],planetaryExploration:[190000,'moonExploration'],spaceIndustrialization:[200000,'planetaryExploration'],starRingStation:[220000,'planetaryExploration']};
-for(const [id,[knowledge,parent]]of Object.entries(techs)){assert.equal(run(`techTier('${id}')`),12);assert.equal(run(`TECHNOLOGIES.${id}.cost.knowledge`),knowledge);assert.deepEqual(json(`TECHNOLOGIES.${id}.pre`),[parent]);}
+const techs={moonObservatory:[170000,'moonExploration',12],planetaryExploration:[190000,'moonExploration',12],alienSettlement:[200000,'planetaryExploration',12],spaceIndustrialization:[200000,'alienSettlement',13],starRingStation:[220000,'alienSettlement',13]};
+for(const [id,[knowledge,parent,tier]]of Object.entries(techs)){assert.equal(run(`techTier('${id}')`),tier,id);assert.equal(run(`TECHNOLOGIES.${id}.cost.knowledge`),knowledge,id);assert.deepEqual(json(`TECHNOLOGIES.${id}.pre`),[parent],id);}
 assert.deepEqual(json('TECHNOLOGIES.planetaryExploration.cost'),{knowledge:190000,alloy:2000,polymer:1000,iridium:1000});
 const buildings={
  moonObservatory:[{knowledge:25000,cash:50000,stone:20000,iron:10000,iridium:1000},1.18],

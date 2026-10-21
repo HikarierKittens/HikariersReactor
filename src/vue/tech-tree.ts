@@ -12,6 +12,18 @@ const COLORS = ['#f2f0e7', '#80bfff', '#d9ac43', '#efdf65', '#bc9167', '#ef9c51'
 type Point = { x: number; y: number };
 type Segment = { a: Point; b: Point };
 
+/**
+ * Nodes per row. A tier with more technologies than this wraps onto additional rows
+ * instead of growing one impossibly wide line — T12–T15 each hold 10–13 entries.
+ */
+export const TECH_NODES_PER_ROW = 10;
+/** Node pitch: 160px button + 40px gutter. */
+const NODE_PITCH_X = 200;
+/** Row pitch inside one tier (button height 40 + vertical gap 6). */
+const ROW_PITCH_Y = 46;
+/** Vertical space one tier occupies before the next tier starts. */
+const TIER_PITCH_Y = 110;
+
 /** Positive-length collinear overlap; touching at one endpoint is not a conflict. */
 function overlaps(a: Segment, b: Segment): boolean {
   if (a.a.y === a.b.y && b.a.y === b.b.y && a.a.y === b.a.y) {
@@ -32,8 +44,22 @@ export function layoutTechTree(ids: readonly TechnologyId[]) {
     grouped.set(tier, group);
   }
   const tiers = [...grouped.keys()].sort((a, b) => a - b);
-  const levels = tiers.map((tier, index) => ({ tier, y: index * 110, ids: grouped.get(tier) ?? [] }));
-  const nodes = levels.flatMap(level => level.ids.map((id, index) => ({ id, tier: level.tier, x: 12 + index * 200, y: level.y + 30 })));
+  // A tier with more than TECH_NODES_PER_ROW technologies wraps onto extra rows; the
+  // tier below must then start lower, so the vertical cursor is accumulated rather
+  // than derived from the tier index.
+  let cursorY = 0;
+  const levels = tiers.map(tier => {
+    const ids = grouped.get(tier) ?? [];
+    const rows = Math.max(1, Math.ceil(ids.length / TECH_NODES_PER_ROW));
+    const level = { tier, y: cursorY, rows, ids };
+    cursorY += (rows - 1) * ROW_PITCH_Y + TIER_PITCH_Y;
+    return level;
+  });
+  const nodes = levels.flatMap(level => level.ids.map((id, index) => {
+    const row = Math.floor(index / TECH_NODES_PER_ROW);
+    const column = index % TECH_NODES_PER_ROW;
+    return { id, tier: level.tier, row, x: 12 + column * NODE_PITCH_X, y: level.y + 30 + row * ROW_PITCH_Y };
+  }));
   const byId = new Map(nodes.map(node => [node.id, node]));
   const width = Math.max(184, ...nodes.map(node => node.x + 172));
   const edges = nodes.flatMap(node => TECHNOLOGIES[node.id].pre.flatMap(parentId => {
@@ -81,5 +107,7 @@ export function layoutTechTree(ids: readonly TechnologyId[]) {
     }
     edge.path = edge.points.map((point, index) => `${index ? 'L' : 'M'} ${point.x} ${point.y}`).join(' ');
   });
-  return { levels, nodes, edges, width: width + 24, height: levels.length * 110 + 8 };
+  // Height must follow the accumulated cursor, not the tier count: wrapped rows make a
+  // tier taller than TIER_PITCH_Y.
+  return { levels, nodes, edges, width: width + 24, height: cursorY + 8 };
 }

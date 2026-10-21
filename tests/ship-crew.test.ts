@@ -106,7 +106,7 @@ test('previous-release save loses nothing: crew is derived after reload, never p
   // Save → reload keeps the same derived crew and the untouched schema.
   const reloaded = validateCurrentSave(JSON.parse(JSON.stringify(loaded)), context);
   assert.deepEqual(allocateShipCrew(reloaded), crew);
-  assert.equal(reloaded.version, 31);
+  assert.equal(reloaded.version, CONFIG.version);
   assert.equal(reloaded.workers.iridiumMiningShip, 0);
   assert.equal(Object.hasOwn(reloaded, 'shipCrew'), false, 'no new state field was introduced for the crew');
 });

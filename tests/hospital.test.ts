@@ -105,6 +105,22 @@ test('healing never exceeds the wounded count', () => {
   assert.equal(s.hospitalProgress, 0);
 });
 
+test('healing a wounded soldier writes no log entry', () => {
+  const s = state();
+  s.wounded = 5;
+  s.logs = [];
+  const healed = advanceHospital(s, CONFIG.secondsPerDay);
+  assert.equal(healed, 1, 'healing still happens');
+  assert.equal(s.wounded, 4);
+  assert.deepEqual(s.logs, [], 'routine healing must not spam the log');
+
+  // Repeated healing across many ticks stays silent and never loses existing entries.
+  s.logs = [{ time: 7, text: '既有日志', type: 'event' }];
+  for (let i = 0; i < 4; i++) advanceHospital(s, CONFIG.secondsPerDay);
+  assert.deepEqual(s.logs.map(entry => entry.text), ['既有日志'], 'existing logs are untouched');
+  assert.equal(s.wounded, 0, 'all patients recovered');
+});
+
 test('the hospital is idle only when it works but has no patients', () => {
   const s = state();
   s.wounded = 1;

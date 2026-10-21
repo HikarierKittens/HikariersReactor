@@ -1,10 +1,171 @@
-# Project maintenance rules
+# 项目维护规则
 
-## Save compatibility (user requirement)
+本文件是给 AI agent 的常驻约束。**每次会话开始先读这里**，再读 `docs/agent-map.md`（权威文件表）和 `docs/notes/pitfalls.md`（已经付过代价的坑）。
 
-- Preserve existing player saves across future releases by default. Breaking save compatibility requires an explicit user instruction; never infer it from balancing or new content.
-- Adding buildings/resources/state fields must include narrowly scoped, validated upgrade defaults and previous-release save regression tests. Do not merely update fresh-state tests to match the new registry.
-- Tightened unlock requirements govern future purchases/research; do not invalidate previously legitimate earned progress. Keep research gating and historical save validation distinct.
-- Upgrade normalization must not mutate input. Preserve progression, queues, achievements, and permanent rewards. Reject explicitly malformed data rather than replacing it silently.
-- Test previous-release JSON load/import, save/reload roundtrip, and protected-save recovery before shipping.
-- Exception retained from prior explicit instructions: schema12–30 were intentionally retired when the schema31 refresh branch began. Do not restore those schemas unless the user specifically requests it. Default compatibility applies to the current supported branch and all subsequent updates.
+---
+
+## 一、协作原则（每次动手前都要过一遍）
+
+这几条是用户明确要求的协作方式。它们优先于「把活干完」的冲动。
+
+### 1. 顺手发现的 bug：按影响面决定修还是问
+
+做某件事时发现的无关 bug，**按影响面分两类**：
+
+- **直接修**：只影响显示、文案、样式、日志措辞，不改变任何已存档的数据语义。
+- **先问用户**：涉及存档兼容、数值平衡、数据删除、机制语义、跨模块行为改变。
+
+判断不清时按「先问」处理。报告时说明位置、现象、根因和你的建议，让用户一次就能决策。
+
+### 2. 认为任务不妥、缺信息或有更好的方法时，大胆指出
+
+用户明确表示会仔细查看后再决定。**不要为了顺从执行一个你判断有问题的方案**——那会把问题留到后面，代价更高。
+
+具体做法：
+
+- 需求有歧义时先问，不要靠猜（猜错的成本远高于问一句）。
+- 方案有更优解时，说清「现在这个做法的问题 + 建议的做法 + 代价」，给用户选择。
+- 发现需求之间互相矛盾（例如新机制会破坏存档兼容）时立刻指出，不要默默取舍。
+- 提问要具体、可决策
+
+### 3. 与特定模块无关的技术，做成可复用形式
+
+判断标准是**这项技术是否绑定某一个模块**：
+
+- 绑定单一模块的（某个面板的专属逻辑）→ 就地实现，不要抽。
+- 不绑定的（布局机制、通用校验、格式化、队列、存档迁移框架）→ 抽成独立模块，让后续同类需求直接复用。
+
+已有的正例：`src/vue/focus-layout.ts`（专注布局原语，任何面板都能登记）、`src/vue/construction-rows.ts`（两个建筑面板共用）、`src/data/military.ts`（士兵属性数值唯一来源）。
+
+### 4. 反过度抽象：复用必须基于 ≥2 个真实调用点
+
+这是第 3 条的必要制衡。**不要为想象中的需求提前设计。**
+
+- 只有一个调用点时，先就地写；出现第二个真实调用点再抽。
+- 不为「以后可能要用」预留参数、配置项、插件钩子。
+- 抽象层数控制在必要范围内：一层封装能解决就不要两层。
+- 判断「是否过度」的标准：删掉这层抽象，代码是否明显更短更清晰？如果是，就删。
+
+### 5. 保证可维护性，避免屎山和「牵一发动全身」
+
+- **单向依赖**：`data → simulation → vue`，不允许反向 import。
+- **显示与结算同源**：界面不重算数值，一律调用 `simulation` 的函数。这是本项目最容易出 bug 的地方（已发生多次「明细和实际不一致」）。
+- **单一真相**：同一份数据只有一个权威来源，其余地方派生。反例：科技分类曾有两份表、士兵毛皮曾有两套倍率。
+- **改动收敛**：新增机制时优先「加一个文件」而不是「改十个文件」。需要改很多文件，说明设计有问题，先停下来重新设计。
+- **不留死代码**：删除功能时一并删除相关分支、类型、测试和文档，不要注释掉留着。
+
+### 6. 改前先定位权威文件，不要全仓 grep 猜
+
+先查 `docs/agent-map.md` 的「权威文件表」，命中后直接读该文件。全仓 grep 是最后手段，不是第一手段。
+
+### 7. 测试必须真的能失败
+
+新增测试后，要确认它在**改前是红的、改后是绿的**。永远通过的断言等于没有测试。
+
+- 断言写具体值，不要写 `assert.ok(x)` 这种恒真表达式。
+- 覆盖「不变量」而不是「当前实现」：例如断言「每行 ≤10 个」而不是「节点数是 13」。
+- 修复 bug 时先写一个能复现的测试，确认它失败，再改代码。
+
+### 8. 测试流程：够用即可，不松懈也不繁琐
+
+按改动风险分级，**不要为了形式跑一堆无关测试**：
+
+| 改动类型 | 最低要求 |
+|---|---|
+| 文档、注释、纯文案 | 不需要跑测试（但 `tests/markdown.test.ts` 会检查 emoji 和标题，涉及这些要跑） |
+| 单个模块的显示逻辑 | `npm test -- <关键字>` + `npm run typecheck` |
+| 模拟层、存档、数值 | `npm test` + 相关专项测试 |
+| 界面结构、布局、交互 | 上面全部 + `npm run test:browser` |
+| 收尾（每次交付前） | `npm run check`（约 25 秒，没有理由跳过） |
+
+新增机制时补一个专项测试文件；纯数值调整补进已有测试，不要为每个数字建新文件。
+
+---
+
+## 二、存档兼容（用户硬要求）
+
+- **默认保留玩家存档**。破坏存档兼容需要用户明确指示；绝不因为平衡调整或新内容就推断可以断档。
+- 新增建筑/资源/状态字段必须带**窄范围、可校验**的升级默认值，并补上一版本存档的回归测试。不要只把新档测试改绿就算完。
+- **收紧解锁条件只约束未来购买/研究**，不得让已经合法获得的进度失效。研究门槛与历史存档校验是两件事，必须分开处理。
+- 升级归一化**不得修改输入对象**。保留进度、队列、成就与永久奖励。显式非法数据要拒绝，不能静默修复。
+- 交付前测试：上一版本 JSON 的载入/导入、存档往返、保护模式存档恢复。
+- 保留的例外：schema 12–30 在 schema31 刷新分支开始时已被有意退役。除非用户明确要求，不要恢复。默认兼容适用于当前支持分支及之后的版本。
+
+---
+
+## 三、Agent 工作流（效率规则）
+
+这些规则每一条都对应一个已经真实浪费时间或造成事故的失败模式。
+
+### 文本文件：用 read/edit/write 工具
+
+- 绝不要用 `Get-Content -Raw | Set-Content` 这类 shell 管道往返源码或文档。它会按控制台代码页重新编码中文，曾把 `updatelog.md` 变成乱码。
+- 必须用脚本改文件时，写到 `tmp/` 下的 Node 脚本，用 `fs.writeFileSync(path, text, 'utf8')`。绝不用 `node -e` 内联模板重写仓库文件。
+
+### 草稿放 `tmp/`
+
+- 一次性探针、复现页、夹具草稿、手工实验都放 `tmp/`（已 gitignore）。不要把 `probe-*.ts` 留在源码旁边。
+- 用 `npx tsx tmp/x.ts` 跑片段；避免 `npx tsx -e`，它在动态 import 场景下会吞掉 stdout。
+
+### 验证顺序（从便宜到贵）
+
+| 步骤 | 耗时 |
+|---|---|
+| `npm run typecheck` | ~9s |
+| `npm test -- <关键字>` | 1–3s |
+| `npm test`（89 个文件 + VM 回归） | ~7s |
+| `npm run test:browser` | ~5s |
+| `npm run build` | ~2s |
+| `npm run check`（全部） | ~25s |
+
+- 全量本身很便宜，真正的成本是**盲改多轮**。收尾一律跑 `npm run check`。
+- 新增测试文件无需登记：`scripts/run-tests.mjs` 自动发现 `tests/**/*.test.ts`。旧的手工列表曾漏掉 `tests/retired-anomaly.test.ts` 好几个版本。文件名仍要保持可用关键字 grep。
+
+### 存档夹具
+
+- 用 `npm run fixtures:make -- <git-ref> <fixture-name> [--malformed '<json>']` 生成。它会 checkout 旧版本到临时 worktree，用那一版自己的 `createInitialState` 导出真实存档。
+- **绝不手工拼夹具**：旧版本缺少新版注册表字段，手工 JSON 会被它自己的校验拒绝。
+
+### 浏览器验收
+
+- 失败信息现在能自解释：`acceptance.html` 里的经典脚本会把解析错误和未捕获异常写进 `#result`，`tests/run-browser.cjs` 失败时会打印过滤后的浏览器 console。
+- 该页按 **JavaScript** 解析：里面绝不能写 TypeScript 语法（`as`、类型注解），否则整页会静默卡在 `running`。
+- 诊断机制本身用 `ACCEPTANCE_PAGE=tests/browser/failure-selftest.html node tests/run-browser.cjs` 验证（预期打印 SyntaxError 并退出 1）。
+- 用例通过 `store.runtime.replaceState(snapshot)` 还原；`App.vue` 会跨还原保留当前标签页，所以后续用例需要特定页面时要先 `click('[data-tab="..."]')`。
+
+### 提交与回滚
+
+- 一次更新一个 commit；单文件回滚用 `git checkout -- <file>`。commit message 格式：`update YYYY-MM-DD_HH:mm`。
+
+### 模型路由与并行
+
+- 机械性改动（文档条目、测试脚手架、格式化）可用较便宜的模型；存档兼容审查与模拟层/架构改动需要更强的模型。
+- 只在互不重叠的文件上并行（文档 vs 测试 vs 模拟层）；绝不让两个 agent 写同一个文件。
+- 并行写代码时，先登记各自的写入范围；需要顺序的地方用依赖关系表达。
+
+---
+
+## 四、文档同步纪律（每次改动都要做）
+
+一次更新包含**代码 + 文档**两部分，缺任一部分视为未完成。
+
+必做清单：
+
+1. `updatelog.md`：玩家视角，顶部按时间倒序追加，不写文件路径，必须包含「验证：npm run check通过：N项模块测试…」这一行。
+2. `docs/update-log.md`：维护者视角，可含文件路径与实现细节，同样顶部追加。
+3. 相关词条：新增机制或数值变化时同步 `docs/glossary.md`。
+4. 技术细节：改到模拟层/存档/架构时同步 `docs/technical-details.md`。
+5. 新增机制或新文件时同步 `docs/agent-map.md` 的权威文件表与改动配方。
+6. 版本号：页面显示版本（`App.vue`）与 README 的「页面显示版本」同步递增 beta 0.9.x；`CONFIG.version`（存档 schema）**只在存档结构真的变化时才改**。
+7. 踩过的坑记进 `docs/notes/pitfalls.md`（症状 → 原因 → 做法），供后续会话直接查。
+
+界面与文档**禁止 emoji**（`tests/markdown.test.ts` 会把关），仅工厂/冶炼厂/基因/飞船条目的 ⚙ 按钮例外。
+
+---
+
+## 五、参考资料
+
+- `docs/agent-map.md`：权威文件表、改动配方、大文件导航、命令速查。
+- `docs/notes/pitfalls.md`：已经付出代价的坑，动手前先读。
+- `docs/technical-details.md`：实现细节。
+- `docs/glossary.md`：游戏名词与机制说明。

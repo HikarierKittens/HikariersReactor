@@ -126,7 +126,8 @@ export function addBuildingEffectRows(ctx: BuildingTooltipContext): void {
   if (id === 'geothermalPlant') add('月球铱矿产量', '+5%');
   if (id === 'ecologicalDome') add('每座Asriel居住站猫口容量', '+0.05');
   if (building.cap) add('猫口容量', `+${number(building.cap + (id === 'asrielResidence' ? .05 * snapshot.asriel.allocations.ecologicalDome : 0))}`);
-  if (building.soldierCap) add('士兵容量', `+${number(building.soldierCap)}`);
+  if (building.soldierCap) add('士兵容量', `+${number(building.soldierCap)}`, false,
+    id === 'barracks' ? '军营数量决定士兵数量上限：关闭军营会立即取消其士兵名额，超出上限的士兵会被马上移除，幸福度中的士兵容量压力也随之降低。' : undefined);
   if (building.trainingBoost) add('训练效果', `+${percent(calculateTrainingBoost(state))}%`);
   if (id === 'hospital') {
     add('治愈伤兵', `+${number(HOSPITAL_HEAL_PER_DAY)}/游戏日`, false,
@@ -214,7 +215,9 @@ export function addBuildingEffectRows(ctx: BuildingTooltipContext): void {
     tip.description = `world.exection(cat);\n当前量子水平：${calculateQuantumLevel(state).toFixed(2)}`;
     tip.rows = [];
     tip.footnote = '';
-    add('分段进度', `${Math.min(count, building.segmentedRequired!)} /${building.segmentedRequired}`);
+    // One-off project: once the core exists its construction row is retired, so there is no
+    // segment counter left to report; the completed entry only counts cores.
+    add('已建成核心', `${count}`);
     add('量子水平', '+25%');
     add('氦-3', '-25/s', true);
     add('电力', '-100', true);

@@ -31,19 +31,20 @@ test('stage three defaults false and never infers actual AI activation from old 
   const old:any=clone(s); delete old.stageThree;
   assert.throws(()=>validateCurrentSave(old,context)); assert.ok(!Object.hasOwn(old,'stageThree'));
   for(const bad of [null,{}, {...flags, coreActivated:1}]) { const raw:any=clone(s); raw.stageThree=bad; assert.throws(()=>validateCurrentSave(raw,context)); }
-  const built=fresh(); built.buildings.aiSupercore=100; built.resources.helium3=100;
+  const built=fresh(); built.buildings.aiSupercore=1; built.resources.helium3=100;
   calculateProduction(built); calculateSupportPreview(built); updateProgression(built);
   assert.equal(built.stageThree.coreActivated,false);
 });
 
 test('only committed fully fueled enabled AI ticks activate third stage, not previews or paused/starved cores',()=>{
   for(const kind of ['partial','stopped','starved','paused'] as const) {
-    const s=fresh(); s.buildings.aiSupercore=kind==='partial'?99:100; s.resources.helium3=kind==='starved'?24.9:100; supplyPower(s,100);
+    // 100 segments was one completed core in schema31; schema32 counts completed units only.
+    const s=fresh(); s.buildings.aiSupercore=kind==='partial'?0:1; s.buildings.aiSupercoreSegments=kind==='partial'?99:0; s.resources.helium3=kind==='starved'?24.9:100; supplyPower(s,100);
     if(kind==='stopped')s.stoppedBuildings.aiSupercore=1;
     if(kind==='paused')s.settings.paused=true;
     tick(s); assert.equal(s.stageThree.coreActivated,false,kind);
   }
-  const s=fresh(); s.buildings.aiSupercore=100; s.resources.helium3=25; supplyPower(s,100);
+  const s=fresh(); s.buildings.aiSupercore=1; s.resources.helium3=25; supplyPower(s,100);
   const before=clone(s); calculateSupportPreview(s); calculateProduction(s); assert.deepEqual(s,before);
   tick(s); assert.equal(s.stageThree.coreActivated,true); close(s.resources.helium3,0);
   const stories=[...s.story.unlocked]; tick(s); assert.deepEqual(s.story.unlocked,stories);
@@ -115,12 +116,12 @@ test('normal resets clear third-stage running progress while preserving earned s
 });
 
 test('complete third stage saves round trip immutably and reject incoherent activation',()=>{
-  const s=fresh(); s.tech=Object.keys(TECHNOLOGIES).filter(id=>!['spaceControlTower','hydrogenRecovery','icebreakingPlan','higherDimensionalStorage','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','dysonSphere','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','hazardousMaterialStorage','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];
+  const s=fresh(); s.tech=Object.keys(TECHNOLOGIES).filter(id=>!['spaceControlTower','hydrogenRecovery','icebreakingPlan','higherDimensionalStorage','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoArmor','nanoExoskeleton','advancedConcrete','nanoAlloy','dysonSphere','dysonSphereII','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','hazardousMaterialStorage','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];
   s.prestige.nuclearResets=1;
   s.asrielMissionCompleted=s.kerberosMissionCompleted=s.solarMissionCompleted=s.talosMissionCompleted=s.talosMoonMissionCompleted=s.asteroidBeltMissionCompleted=s.misenMissionCompleted=true;
   s.arpaBuildings.rocketPlatform=s.arpaBuildings.monument=s.arpaBuildings.geneSequencing=1;s.arpaBuildings.arpaResearchInstitute=2;
   for(const key of Object.keys(flags) as (keyof typeof flags)[])s.stageThree[key]=true;
-  s.buildings.aiSupercore=100;s.buildings.constraintArray=2;s.buildings.shortRangeRelay=1;
+  s.buildings.aiSupercore=1;s.buildings.constraintArray=2;s.buildings.shortRangeRelay=1;
   const raw=clone(s), before=clone(raw);const restored=validateCurrentSave(raw,context);
   assert.deepEqual(raw,before);assert.deepEqual(restored.stageThree,s.stageThree);
   assert.deepEqual(validateCurrentSave(clone(restored),context).stageThree,s.stageThree);
@@ -130,10 +131,10 @@ test('complete third stage saves round trip immutably and reject incoherent acti
 
 test('complete third stage chain uses actual research and construction without experiments or reading',()=>{
   const s=fresh();const chain=['globalObservationCalibration','anomalyMapping','fieldConstraintTheory','accessPointBeacon','dimensionBeaconDeployment'];
-  const later=['hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoAlloy','dysonSphere','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','hazardousMaterialStorage','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'];
+  const later=['hydrogenRecovery','icebreakingPlan','hyperspaceMiningSurvey','gasCloudAccretion','highTechFarmPlatform','fusionPower','largeMiningShips','dimensionPioneer','highTechFactory','higherDimensionalStorage','e710ResearchStation','ripperOverclock','overclocking13','superMetal','grapheneProcessing','nanoArmor','nanoExoskeleton','advancedConcrete','nanoAlloy','dysonSphere','dysonSphereII','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','hazardousMaterialStorage','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'];
   s.tech=Object.keys(TECHNOLOGIES).filter(id=>id!=='spaceControlTower'&&!chain.includes(id)&&!later.includes(id)) as TechnologyId[];
   s.prestige.nuclearResets=1;s.asrielMissionCompleted=s.kerberosMissionCompleted=s.solarMissionCompleted=s.talosMissionCompleted=s.talosMoonMissionCompleted=s.asteroidBeltMissionCompleted=s.misenMissionCompleted=true;
-  s.arpaBuildings.rocketPlatform=s.arpaBuildings.monument=s.arpaBuildings.geneSequencing=1;s.arpaBuildings.arpaResearchInstitute=2;s.buildings.aiSupercore=100;
+  s.arpaBuildings.rocketPlatform=s.arpaBuildings.monument=s.arpaBuildings.geneSequencing=1;s.arpaBuildings.arpaResearchInstitute=2;s.buildings.aiSupercore=1;
   const fund=()=>{for(const r of Object.keys(s.resources) as (keyof typeof s.resources)[])if(r!=='energy')s.resources[r]=1e9;supplyPower(s,1e9);};
   const valid=()=>assert.deepEqual(validateCurrentSave(clone(s),context).stageThree,s.stageThree);
   fund();tick(s);valid();

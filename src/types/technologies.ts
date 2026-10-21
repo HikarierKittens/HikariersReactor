@@ -15,7 +15,7 @@ export type TechnologyId =
   | 'hyperspaceMiningSurvey' | 'gasCloudAccretion' | 'highTechFarmPlatform'
   | 'fusionPower' | 'largeMiningShips'
   | 'dimensionPioneer' | 'highTechFactory' | 'higherDimensionalStorage' | 'e710ResearchStation' | 'ripperOverclock'
-  | 'overclocking13' | 'superMetal' | 'grapheneProcessing' | 'nanoAlloy' | 'dysonSphere' | 'virtualReality' | 'virtualTraining'
+  | 'overclocking13' | 'superMetal' | 'grapheneProcessing' | 'nanoAlloy' | 'dysonSphere' | 'dysonSphereII' | 'virtualReality' | 'virtualTraining'
   | 'virtualEntertainment' | 'aerogel' | 'plasmaResearch' | 'plasmaMining' | 'energyShield' | 'stellarForge' | 'hazardousMaterialStorage' | 'penroseTheory'
   | 'globalObservationCalibration' | 'anomalyMapping' | 'fieldConstraintTheory'
   | 'advancedMetalRefining'
@@ -42,6 +42,9 @@ export type TechnologyId =
   | 'moonExploration'
   | 'moonObservatory'
   | 'planetaryExploration'
+  | 'alienSettlement'
+  | 'unifiedPlan'
+  | 'worldUnification'
   | 'geothermalFurnace'
   | 'helium3ExtractionOptimization'
   | 'alienCasting'
@@ -69,7 +72,14 @@ export type TechnologyId =
   | 'ironEquipment'
   | 'military'
   | 'recruitTraining'
-| 'fieldHospital'
+  | 'fieldHospital'
+  | 'newInfantryEquipment'
+  | 'advancedThermalWeapons'
+  | 'kevlarFiber'
+  | 'railgun'
+  | 'nanoArmor'
+  | 'nanoExoskeleton'
+  | 'advancedConcrete'
   | 'nuclearProgram'
   | 'automatedMining'
   | 'metalRefining'
@@ -167,6 +177,12 @@ export interface TechnologyDefinition {
   repeatable?: boolean;
   /** Researching immediately triggers a prestige reset; needs explicit confirmation. */
   prestigeReset?: boolean;
+  /**
+   * Every registered neighbour must be occupied before this research may start. On completion
+   * the world is unified: occupations are released and their bonuses are replaced by the
+   * unification effect (`worldUnification`).
+   */
+  occupiedNeighborsRequired?: number;
   buildingQueueBonus?: number;
   researchQueueBonus?: number;
   arpaPre?: ArpaProjectId;

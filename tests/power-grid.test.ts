@@ -66,7 +66,7 @@ test('generation fuel shortage fails latest load and replenishment restores it',
 test('earlier digital and ground loads take priority over later cores without negative settlement', () => {
   const s = fresh();
   s.buildings.solarSatellite = 20;
-  s.buildings.aiSupercore = 100;
+  s.buildings.aiSupercore = 1;
   s.buildings.gatewayRouter = 1;
   s.resources.helium3 = 1000;
   s.powerActivationOrder = [{ id: 'gatewayRouter', count: 1 }, { id: 'aiSupercore', count: 1 }];

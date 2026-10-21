@@ -56,7 +56,9 @@ function stateAt(stage: MilestoneStage, options: MilestoneOptions = {}) {
     state.kerberosMissionCompleted = true;
     arpa.push('arpaResearchInstitute', 'geneSequencing');
     // Historical third-stage evidence matches the milestone's researched chain.
-    state.buildings.aiSupercore = 100;
+    // A finished project is one completed unit; the construction counter stays at zero.
+    state.buildings.aiSupercore = 1;
+    state.buildings.aiSupercoreSegments = 0;
     state.buildings.constraintArray = 1;
     stageFlags.push(...REMOTE_CHAIN_FLAGS);
   }

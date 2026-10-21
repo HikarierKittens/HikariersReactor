@@ -6,3 +6,7 @@ dist/
 assets/generated/
 *.log
 *.bat
+
+# Scratch space for one-off probes, fixture drafts and repro pages. Never imported by the app;
+# agents may create files here freely instead of dropping probe-*.ts next to the source.
+tmp/
