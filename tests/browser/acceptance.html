@@ -1321,19 +1321,21 @@ try {
       log(rows.some(row=>row==='电力-30'),`两座AI数据中心时每座耗电25+5=30 [${rows}]`);
     }
     await escapeTip();
-    // (beta 0.9.29) 后续科技的加成按「单座中心」显示，玩家看到的是单位速率而不是总量。
+    // (beta 0.9.28) 后续科技的加成只显示单座中心的数值，不带 /座 后缀也不带第二行解释。
     store.mutate(state=>{for(const id of ['artificialIntelligenceII','aiCementWorkshop','advancedAdamantiteProcessing','advancedGrapheneProcessing']) if(!state.tech.includes(id)) state.tech.push(id);state.buildings.library=200;state.stoppedBuildings.library=0;});await flush();
     await showTip('[data-buy="aiDataCenter"]');
     {
       const rows=[...($('#gameTooltip')?.querySelectorAll('.resource-factor')||[])].map(row=>row.textContent.replace(/\s+/g,''));
       const text=$('#gameTooltip').textContent;
       const q=Number((/当前量子水平：([0-9.]+)/.exec(text)||[])[1]);
-      // 行文本形如「水泥产量+0.0629%/座每座运行中的中心：…」，取前缀之后、百分号之前的数字。
-      const perCentre=name=>{const row=rows.find(r=>r.startsWith(name+'+'));return row?Number(row.slice(name.length+1).split('%')[0]):NaN;};
+      // 行文本形如「水泥产量+0.0629%」；取前缀之后、百分号之前的数字。
+      const rowText=name=>rows.find(r=>r.startsWith(name+'+'))||'';
+      const perCentre=name=>{const row=rowText(name);return row?Number(row.slice(name.length+1).split('%')[0]):NaN;};
       log(q>0,`前置：AI数据中心量子水平大于0 [${q}]`);
       log(Math.abs(perCentre('水泥产量')-q/1.75)<1e-3,`水泥加成为单座数值而非总量 [${q}, ${perCentre('水泥产量')}]`);
       log(Math.abs(perCentre('石墨烯产量')-q/5)<1e-3,`石墨烯加成为单座数值而非总量 [${q}, ${perCentre('石墨烯产量')}]`);
-      log(perCentre('精金精炼站加成数值')===2,`精金精炼站加成按每座+2%显示而非总量 [${perCentre('精金精炼站加成数值')}, ${rows}]`);
+      log(perCentre('精金精炼站加成数值')===2,`精金精炼站加成按每座+2%显示而非总量 [${perCentre('精金精炼站加成数值')}]`);
+      log(['量子水平','水泥产量','石墨烯产量','精金精炼站加成数值'].every(name=>{const row=rowText(name);return row.endsWith('%')&&!row.includes('/座')&&!row.includes('每座');}),`效果行没有额外小字说明或/座后缀 [${rows}]`);
     }
     await escapeTip();
     store.mutate(state=>Object.assign(state,snapshot));await flush();

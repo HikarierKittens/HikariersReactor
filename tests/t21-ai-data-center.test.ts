@@ -49,17 +49,21 @@ function calvira(): GameState {
 }
 
 /** Drive the real tooltip row builder the way TooltipPanel does, keyed by row name. */
-function aiTip(state: GameState): Map<string, string> {
+function aiTip(state: GameState): { value: Map<string, string>; note: Map<string, string> } {
   const tip = { description: '', footnote: '', rows: [] as unknown[] };
-  const rows = new Map<string, string>();
+  const value = new Map<string, string>();
+  const note = new Map<string, string>();
   addBuildingEffectRows({
     id: 'aiDataCenter', building: BUILDINGS.aiDataCenter, state, snapshot: storageSnapshot(state),
     count: state.buildings.aiDataCenter, tip,
-    add: (name: string, value: string) => { rows.set(name, value); },
+    add: (name: string, text: string, _negative?: boolean, explanation?: string) => {
+      value.set(name, text);
+      note.set(name, explanation ?? '');
+    },
     number: (n: number) => String(Number(n.toFixed(2))), percent: formatEffectNumber,
     formatEffectNumber,
   });
-  return rows;
+  return { value, note };
 }
 
 test('AI数据中心 is a T21 卡尔维拉 technology gated by 纳米合金, 能量护盾 and the neutron-star mission', () => {
@@ -199,7 +203,7 @@ test('高级石墨烯加工 scales graphene by (量子水平 / 5)% per running c
   assert.ok(rows.some(row => row.name === '高级石墨烯加工' && row.child), 'graphene bonus row');
 });
 
-test('the tooltip lists the bonus of a single centre instead of the empire total', () => {
+test('the tooltip lists the bonus of a single centre, with no suffix or extra explanation', () => {
   const s = calvira();
   s.tech.push('cement', 'aiCementWorkshop', 'advancedGrapheneProcessing', 'advancedAdamantiteProcessing');
   s.buildings.aiDataCenter = 4;
@@ -207,17 +211,22 @@ test('the tooltip lists the bonus of a single centre instead of the empire total
   const running = countRunningAiDataCenters(s);
   assert.equal(running, 3, 'one stopped centre is not running');
   const quantum = calculateQuantumLevel(s);
-  const rows = aiTip(s);
+  const { value: rows, note } = aiTip(s);
 
-  // Each follow-up technology shows the per-centre figure, suffixed with /座.
-  assert.equal(rows.get('水泥产量'), `+${formatEffectNumber(quantum / AI_CEMENT_DIVISOR)}%/座`);
-  assert.equal(rows.get('石墨烯产量'), `+${formatEffectNumber(quantum / AI_GRAPHENE_DIVISOR)}%/座`);
-  assert.equal(rows.get('精金精炼站加成数值'), `+${formatEffectNumber(ADAMANTITE_PROCESSOR_AI_BONUS * 100)}%/座`);
+  // Each follow-up technology shows the per-centre figure, and nothing else.
+  assert.equal(rows.get('水泥产量'), `+${formatEffectNumber(quantum / AI_CEMENT_DIVISOR)}%`);
+  assert.equal(rows.get('石墨烯产量'), `+${formatEffectNumber(quantum / AI_GRAPHENE_DIVISOR)}%`);
+  assert.equal(rows.get('精金精炼站加成数值'), `+${formatEffectNumber(ADAMANTITE_PROCESSOR_AI_BONUS * 100)}%`);
   // ...and therefore not the figure multiplied by the running centres.
-  assert.notEqual(rows.get('水泥产量'), `+${formatEffectNumber(quantum / AI_CEMENT_DIVISOR * running)}%/座`);
-  assert.notEqual(rows.get('精金精炼站加成数值'), `+${formatEffectNumber(ADAMANTITE_PROCESSOR_AI_BONUS * 100 * running)}%/座`);
+  assert.notEqual(rows.get('水泥产量'), `+${formatEffectNumber(quantum / AI_CEMENT_DIVISOR * running)}%`);
+  assert.notEqual(rows.get('精金精炼站加成数值'), `+${formatEffectNumber(ADAMANTITE_PROCESSOR_AI_BONUS * 100 * running)}%`);
   // 量子水平 was already per-centre.
   assert.equal(rows.get('量子水平'), '+5%');
+  // No "/座" suffix and no second-line explanation unless the user asked for one.
+  for (const name of ['量子水平', '水泥产量', '石墨烯产量', '精金精炼站加成数值']) {
+    assert.equal(note.get(name), '', `${name} has no extra explanation`);
+    assert.ok(!(rows.get(name) ?? '').includes('/座'), `${name} has no /座 suffix`);
+  }
 
   // Per-centre × running centres is the multiplier the settlement applies (rounding aside).
   const perCentre = (name: string) => parseFloat((rows.get(name) || '').replace('+', ''));
@@ -229,7 +238,8 @@ test('the tooltip lists the bonus of a single centre instead of the empire total
   // The rows appear as soon as the technology is known, so an idle player can read the rate.
   const idle = calvira();
   idle.tech.push('cement', 'aiCementWorkshop');
-  assert.ok((aiTip(idle).get('水泥产量') || '').endsWith('/座'), 'idle centre still lists the per-centre rate');
+  const idleCement = aiTip(idle).value.get('水泥产量') || '';
+  assert.ok(idleCement.startsWith('+') && idleCement.endsWith('%'), 'idle centre still lists the per-centre rate');
 });
 
 
