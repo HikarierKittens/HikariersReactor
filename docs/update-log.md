@@ -50,6 +50,21 @@
 
 ---
 
+## 2026/10/23 beta 0.9.41 蜂群卫星发电量科技（钛铱合金面板 / 石墨烯导电板）
+
+- **新增科技**：
+  - `titaniumIridiumPanels`「钛铱合金面板」T15，`knowledgeCost` 400000，`cost: { knowledge: 400000, iridium: 1500, titanium: 2500 }`，`pre: ['quantumSwarm']`，分类 `space`。
+  - `grapheneConductivePlate`「石墨烯导电板」T20，`knowledgeCost` 1650000，`cost: { knowledge: 1650000, graphene: 5000 }`，`pre: ['grapheneProcessing', 'titaniumIridiumPanels']`，分类 `space`。
+- **效果（加算，不相乘）**：`simulation/building-effects.ts` 新增 `SWARM_SATELLITE_PANEL_ENERGY = .15` 与 `SWARM_SATELLITE_PLATE_ENERGY = .1`；`simulation/building-production.ts` 的 `calculateBuildingOutput` 在 `swarmSatellite` 分支把它们**相加**到注册表的基础 `energy: 0.5` 上。显示与结算同源，`power.ts` 等所有路径自动跟随。
+- **为什么是加算**：需求明确「独立效果，互不干扰」。若写成乘法，两项会互相放大（0.5×1.15×1.1），不符合描述。
+- **注册位置**：`types/technologies.ts` 的 `TechnologyId` 联合类型、`vue/tech-categories.ts` 的分类表。后者是 `Record<TechnologyId, TechCategory>`，漏登记会编译失败。
+- **测试夹具的坑**：多个测试用「把所有科技塞进存档」的方式构造满科技状态，写法是**手工排除列表**（`hyperspace-energy`、`outer-space`、`retired-interstellar`、`retired-tianxing`、`stage-three`、`hyperspace-services`、`test-asriel-core.cjs`、`test-moon.cjs`）。新科技有前置关系，不在排除列表里就会因「科技前置关系无效」整批失败。新增科技时必须同步全部 8 处。
+- **新增测试**：`tests/swarm-panel-tech.test.ts`（5 项：定价/前置/分类、基础值不变、单独加成、叠加为 0.75、不影响其他建筑产量）。已确认把加法改成乘法时该测试变红（0.575 ≠ 0.65）。
+- **浏览器验收**：`acceptance.html` 增加两条——科技层级与前置链、`0.5 -> 0.75` 的加算验证。同时补了 `calculateBuildingOutput` 的动态 import。
+- **顺带修复（0.9.40 引入的回归）**：`src/data/buildings.ts` 里 `lab.costScales.knowledge` 被上一次插入 `effectRows` 的脚本误改成 1.21（应为 1.18）、`e710MiningShip.costScales` 四项被误改成 1.28（应为 1.25）。用「逐字段 dump 并对比 0.9.39」的方式定位并修回，现在建筑字段与 0.9.39 完全一致。见 pitfalls #47。
+- **验证**：`npm run check` 通过：793 项模块测试、经典 VM 回归（失败 0）、Edge 浏览器验收、类型检查与生产构建。
+- **兼容**：纯新增内容，无存档结构变化，`CONFIG.version` 仍为 33。已研究旧科技的存档不受影响。
+
 ## 2026/10/23 beta 0.9.40 建筑固定效果行迁入注册表（`effectRows`）
 
 - **动机**：`vue/building-tooltip-rows.ts` 里有 80 多条 `if (id === 'xxx') add(...)`，改一座建筑的说明要在 `data/buildings.ts` 和它之间来回跳，不便于维护。玩家要求把"建筑说明"收拢到 `buildings.ts`。

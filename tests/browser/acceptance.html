@@ -46,6 +46,7 @@ try {
   const { RESOURCES, CRAFT_RECIPES } = await import('/src/data/resources.ts');
   const { calculateCraftingMultiplier } = await import('/src/simulation/crafting.ts');
   const { calculateProduction } = await import('/src/simulation/production.ts');
+  const { calculateBuildingOutput } = await import('/src/simulation/building-production.ts');
   const { signedRate } = await import('/src/simulation/resource-breakdown.ts');
   const { nextTick } = await import('vue');
   const flush = async () => { await nextTick(); await sleep(30); };
@@ -146,6 +147,20 @@ try {
   click($('[data-research="survival"]')); await flush();
   log(S().tech.includes('survival'), '通过按钮完成基础生存研究');
   log(!$('[data-research="survival"]') && !!$('[data-research="tools"]'), '同科技面板移除已研究按钮并新增后续科技');
+
+  // 钛铱合金面板 / 石墨烯导电板: verify the registry wiring and the flat, independent
+  // 蜂群卫星 energy bonus without touching save state this early in the run.
+  {
+    const panels = TECHNOLOGIES.titaniumIridiumPanels;
+    const plates = TECHNOLOGIES.grapheneConductivePlate;
+    log(panels.tier === 15 && plates.tier === 20 && plates.pre.includes('titaniumIridiumPanels'),
+      `石墨烯导电板位于T${plates.tier}并以钛铱合金面板为前置`);
+    const probe = S();
+    const base = calculateBuildingOutput('swarmSatellite', probe).energy;
+    const withBoth = calculateBuildingOutput('swarmSatellite', { ...probe, tech: [...probe.tech, 'titaniumIridiumPanels', 'grapheneConductivePlate'] }).energy;
+    log(Math.abs(base - .5) < 1e-9 && Math.abs(withBoth - .75) < 1e-9,
+      `两个科技各加固定发电量且相加而非相乘 [${base} -> ${withBoth}]`);
+  }
 
   click($('[data-tab="buildings"]')); await flush();
   click($('[data-buy="nest"]')); await flush();

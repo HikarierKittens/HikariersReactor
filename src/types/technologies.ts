@@ -23,6 +23,7 @@ export type TechnologyId =
   | 'spaceControlTower'
   | 'alienScienceResearch' | 'starRingOptimization' | 'artificialIntelligenceII'
   | 'quantumManufacturing' | 'quantumSwarm' | 'swarmFactory' | 'swarmFactoryOptimization'
+  | 'titaniumIridiumPanels' | 'grapheneConductivePlate'
   | 'iridiumAlloyWarehouse' | 'escapePlan' | 'carbonNanotubes'
   | 'particleAccelerator'
   | 'solarExploration' | 'dysonTheory' | 'outerPlanetExploration' | 'atmosphericMining'

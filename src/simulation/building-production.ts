@@ -4,7 +4,7 @@ import { CONFIG } from '../data/config';
 import { applySpaceFuelDiscount } from './space-fuel';
 import { calculateGeneOutputFactor } from './genes';
 import { calculateAiDataCenterPower } from './ai-data-center';
-import { SPACE_RIPPER_OVERCLOCK_ENERGY } from './building-effects';
+import { SPACE_RIPPER_OVERCLOCK_ENERGY, SWARM_SATELLITE_PANEL_ENERGY, SWARM_SATELLITE_PLATE_ENERGY } from './building-effects';
 import type { BuildingId } from '../types/buildings';
 import type { ResourceRecipe } from '../types/economy';
 import type { GameState } from '../types/state';
@@ -112,6 +112,12 @@ function calculateRawBuildingOutput(id: BuildingId, state: GameState, inputs: Pr
   if (id === 'helium3Mine' && state.tech.includes('helium3ExtractionOptimization')) return { ...output, helium3: .25 };
   if (id === 'fissionGenerator' && state.tech.includes('breederReactor')) return { energy: 20 };
   if (id === 'spaceRipper' && state.tech.includes('ripperOverclock')) return { energy: SPACE_RIPPER_OVERCLOCK_ENERGY };
+  // 钛铱合金面板与石墨烯导电板各自给蜂群卫星加固定发电量，两项独立相加，互不放大。
+  if (id === 'swarmSatellite') {
+    const panels = state.tech.includes('titaniumIridiumPanels') ? SWARM_SATELLITE_PANEL_ENERGY : 0;
+    const plates = state.tech.includes('grapheneConductivePlate') ? SWARM_SATELLITE_PLATE_ENERGY : 0;
+    if (panels || plates) return { ...output, energy: (output.energy || 0) + panels + plates };
+  }
   // 引力转化 is a whole-sphere bonus, spread over the built segments so every settlement path agrees.
   if (id === 'penroseSphere' && state.tech.includes('gravityConversion') && (state.buildings.penroseSphere || 0) > 0 && state.blackHole) {
     return { energy: (output.energy || 0) + calculateGravityConversionEnergy(state) / state.buildings.penroseSphere };

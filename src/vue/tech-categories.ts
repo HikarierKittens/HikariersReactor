@@ -104,6 +104,7 @@ export const TECH_CATEGORIES: Record<TechnologyId, TechCategory> = {
   spaceTransitStation: 'space', spaceIndustrialization: 'space', spaceControlTower: 'space', solarExploration: 'space',
   starRingStation: 'space', alienCasting: 'space', talosMoonScanning: 'space', outerPlanetExploration: 'space',
   asteroidBeltMining: 'space', swarmFactory: 'space', swarmFactoryOptimization: 'space', quantumSwarm: 'space',
+  titaniumIridiumPanels: 'space', grapheneConductivePlate: 'space',
   misenDiscovery: 'space', exoticElementResearch: 'space', alienScienceResearch: 'space', starRingOptimization: 'space',
   stationScienceFacilities: 'space', globalObservationCalibration: 'space', spaceBroadcasting: 'space',
   anomalyMapping: 'space', fieldConstraintTheory: 'space', accessPointBeacon: 'space',

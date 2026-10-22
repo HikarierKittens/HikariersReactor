@@ -66,6 +66,10 @@ export const SPACE_RIPPER_KNOWLEDGE_BONUS = .2;
 export const BLACK_HOLE_STATION_RIPPER_BONUS = .01;
 /** 撕裂者超频 raises each complete 空间撕裂者 from 100 to this many energy/s. */
 export const SPACE_RIPPER_OVERCLOCK_ENERGY = 200;
+/** 钛铱合金面板 adds this much energy/s to each 蜂群卫星 (base 0.5). */
+export const SWARM_SATELLITE_PANEL_ENERGY = .15;
+/** 石墨烯导电板 adds this much energy/s to each 蜂群卫星; additive with the panels. */
+export const SWARM_SATELLITE_PLATE_ENERGY = .1;
 /** Extra description line shown after 撕裂者超频 is researched. */
 export const SPACE_RIPPER_OVERCLOCK_DESC = '空间的连接点似乎不稳定...';
 /** 高维存储 doubles hyperspace storage: +100% on the building's base contribution. */

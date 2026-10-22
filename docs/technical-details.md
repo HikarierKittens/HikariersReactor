@@ -229,6 +229,13 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 - **不在明细里单列**：`calculateResourceFactorRows` 里没有 `pct('多重曝光技术', ...)`，但 `local *= chipFactoryOutputMultiplier(state)` 必须保留——`local` 参与 `expected` 自检，删掉会让明细与结算分叉。
 - 新增 `TechnologyId` 必须同时登记 `vue/tech-categories.ts` 的分类表，漏了会直接编译失败（`Record<TechnologyId, TechCategory>`），这是有意的强制约束。
 
+### 新增科技时必须同步的排除列表（beta 0.9.41 起）
+
+多个测试用「把所有科技塞进存档」构造满科技状态，写法是手工排除列表。新科技如果不在列表里，且它有前置关系，这些用例会整批报「科技前置关系无效。（解锁记录）」。新增科技时同步这 8 处：
+
+- TS：`tests/hyperspace-energy.test.ts`、`tests/outer-space.test.ts`、`tests/retired-interstellar.test.ts`、`tests/retired-tianxing.test.ts`、`tests/stage-three.test.ts`（两处）、`tests/hyperspace-services.test.ts`
+- 经典 VM（双引号风格）：`tests/test-asriel-core.cjs`、`tests/test-moon.cjs`
+
 ### 建筑效果行的两个来源（beta 0.9.40）
 
 改一座建筑的说明前，先判断它属于哪一类：
