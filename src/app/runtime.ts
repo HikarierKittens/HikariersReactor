@@ -147,9 +147,15 @@ export function createRuntime(): Runtime {
     }
     try {
       state = enforceArmyLimit(validate(JSON.parse(raw)));
-    } catch {
+    } catch (error) {
       saveFailed = saveBlocked = true;
       protectedSaveText = raw;
+      // The player-facing line stays generic, but the browser console reports the exact
+      // stage that rejected the save so a load failure can be diagnosed without guessing.
+      // console.warn, not console.error: the acceptance page treats every console.error as
+      // a failed assertion (it is the uncaught-exception net), and a rejected legacy save
+      // is a handled, expected outcome here.
+      console.warn('[存档载入失败]', error instanceof Error ? error.message : error);
       addLog(state, '检测到暂时无法载入的存档，已进入保护模式，原存档不会被自动覆盖。请先前往「设置」点击「导出不兼容的旧版本存档」备份原档；当前分支默认兼容此前版本，请优先更新后重载或导入备份，并报告载入问题。明确退役的schema12～30仍不支持。只有决定放弃原进度时才执行「硬重置」并确认：这会完全清空游戏存档，重新开始；新档保存成功后退出保护模式。', 'system');
       return;
     }

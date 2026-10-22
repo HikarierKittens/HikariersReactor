@@ -36,17 +36,30 @@ export function validateAndMigrateSave(value: unknown, context: SaveValidationCo
 
 /** Strict current-schema boundary: schema 31 is upgraded in memory, retired schemas are rejected. */
 export function validateCurrentSave(value: unknown, context: SaveValidationContext): GameState {
-  if (!value || typeof value !== 'object') throw Error('存档版本不受支持。');
+  // Every check is wrapped with a stage label so a rejected save reports which step
+  // refused it. The label is appended to the existing message, so the copy players
+  // already see stays identical; only our diagnostics (and tests) get the extra text.
+  let stage = '版本';
+  const check = <T>(label: string, run: () => T): T => {
+    stage = label;
+    try {
+      return run();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw Error(message.includes(label) ? message : `${message}（${label}）`);
+    }
+  };
+  if (!value || typeof value !== 'object') throw Error('存档版本不受支持。（版本）');
   // Normalization upgrades schema 31 to 32 and backfills absent entries; the version check
   // below then rejects everything that is not the current schema.
-  const raw = normalizeSchemaSave(value as Record<string, unknown>);
-  if (raw.version !== CONFIG.version) throw Error('存档版本不受支持。');
+  const raw = check('版本规范化', () => normalizeSchemaSave(value as Record<string, unknown>));
+  if (raw.version !== CONFIG.version) throw Error('存档版本不受支持。（版本号）');
   const state = createInitialState(CONFIG.version, context.eventInterval, context.now);
-  if (Object.keys(raw).some(key => !Object.hasOwn(state, key)) || Object.keys(state).some(key => key !== 'achievementLevels' && !Object.hasOwn(raw, key))) throw Error('存档字段无效。');
-  if (typeof raw.furUnlocked !== 'boolean') throw Error('毛皮解锁状态无效。');
+  if (Object.keys(raw).some(key => !Object.hasOwn(state, key)) || Object.keys(state).some(key => key !== 'achievementLevels' && !Object.hasOwn(raw, key))) throw Error('存档字段无效。（字段集合）');
+  if (typeof raw.furUnlocked !== 'boolean') throw Error('毛皮解锁状态无效。（毛皮）');
   state.furUnlocked = raw.furUnlocked;
-  state.happiness = validateSaveNumber(raw.happiness, 0, Number.MAX_SAFE_INTEGER, '幸福度');
-  state.downloadAllocation = validateSaveNumber(raw.downloadAllocation, 0, 100, '下载分配');
+  state.happiness = check('幸福度', () => validateSaveNumber(raw.happiness, 0, Number.MAX_SAFE_INTEGER, '幸福度'));
+  state.downloadAllocation = check('下载分配', () => validateSaveNumber(raw.downloadAllocation, 0, 100, '下载分配'));
   const savedSettings = raw.settings;
   if (!savedSettings || typeof savedSettings !== 'object' || Array.isArray(savedSettings) || Object.keys(savedSettings).some(key => !Object.hasOwn(DEFAULT_GAME_SETTINGS, key))) throw Error('游戏设置无效。');
   const settings: GameSettings = { ...DEFAULT_GAME_SETTINGS };
@@ -57,31 +70,31 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
     }
   }
   state.settings = settings;
-  validateAutoWorkers(raw, state);
+  check('自动分配', () => validateAutoWorkers(raw, state));
   // Load permanent modifiers before any cost/cap-dependent validation.
-  validateCrispr(raw, state);
+  check('CRISPR', () => validateCrispr(raw, state));
   // Gene levels scale base outputs and morale, so load them with the other modifiers.
-  validateGeneModification(raw, state);
-  validateChallenges(raw, state);
-  validateEconomyRecords(raw, state);
-  validateNeighbors(raw, state);
-  validatePowerActivationOrder(raw, state);
-  loadStageThreeState(raw, state);
-  validateUnlockRecords(raw, state);
-  validatePopulationRecords(raw, state, context.housingCapacity(state), context.now);
-  validateCivilization(raw, state);
-  validateBlackHole(raw, state);
-  validatePrestigeUnlocks(raw, state);
-  validateFactoryAssignments(raw.lines, state);
-  validateSmelterAssignments(raw.smelterIdle, state);
-  validateHistory(raw, state);
-  validateStatistics(raw, state);
-  validateProjectRecords(raw, state);
-  validateSaveSpaceship(raw, state);
-  validateStageThreeProgress(state);
-  validateStoryArchive(raw, state);
-  state.queue = validateSaveQueue(raw.queue, state);
-  validateStorageAssignments(raw, state);
-  context.clampResources(state);
+  check('基因修饰', () => validateGeneModification(raw, state));
+  check('挑战', () => validateChallenges(raw, state));
+  check('经济记录', () => validateEconomyRecords(raw, state));
+  check('临近势力', () => validateNeighbors(raw, state));
+  check('供电顺序', () => validatePowerActivationOrder(raw, state));
+  check('第三阶段', () => loadStageThreeState(raw, state));
+  check('解锁记录', () => validateUnlockRecords(raw, state));
+  check('人口记录', () => validatePopulationRecords(raw, state, context.housingCapacity(state), context.now));
+  check('文明', () => validateCivilization(raw, state));
+  check('黑洞', () => validateBlackHole(raw, state));
+  check('威望解锁', () => validatePrestigeUnlocks(raw, state));
+  check('生产线分配', () => validateFactoryAssignments(raw.lines, state));
+  check('冶炼厂工位', () => validateSmelterAssignments(raw.smelterIdle, state));
+  check('历史', () => validateHistory(raw, state));
+  check('统计', () => validateStatistics(raw, state));
+  check('工程记录', () => validateProjectRecords(raw, state));
+  check('飞船', () => validateSaveSpaceship(raw, state));
+  check('第三阶段进度', () => validateStageThreeProgress(state));
+  check('剧情档案', () => validateStoryArchive(raw, state));
+  state.queue = check('建造队列', () => validateSaveQueue(raw.queue, state));
+  check('存储分配', () => validateStorageAssignments(raw, state));
+  check('资源截断', () => context.clampResources(state));
   return state;
 }
