@@ -50,6 +50,19 @@
 
 ---
 
+## 2026/10/22 beta 0.9.33 日志区延伸到底部：右栏改为固定列
+
+- **问题**：`.logs` 原本是 `height:38vh`，日志区被固定视口比例截成一小块，页面底部大片空白浪费。
+- **右栏固定**：`.col-right` 加 `pinned-column` class，与左栏同一套做法（`position:sticky; top:0`、`display:flex; flex-direction:column`）。队列面板保持自然高度，日志面板 `.logs-panel` 用 `flex:1 1 auto; min-height:0` 吸收剩余高度，`.logs` 改为 `flex:1 1 auto; height:auto`，于是它自然延伸到页面底部。
+- **踩到的坑：右栏高度不能直接写 `100vh`**。左栏从视口顶端开始，`height:100vh` 刚好；但右栏上方还有 topbar（24px）与标签栏（12px 间距），列顶在 `top:36`，写 `100vh` 会让底边超出视口 36px（实测日志区底部余量 -28px，反而溢出）。改为 `height:calc(100vh - var(--pinned-top-offset))`。
+- **偏移量不硬编码**：新增 `src/vue/pinned-column-offset.ts` 的 `usePinnedColumnOffset(ref)`，挂载时实测列在文档中的顶部位置，写进元素自身的 `--pinned-top-offset` 自定义属性，并监听 `resize`（`requestAnimationFrame` 去抖）。不写死 36px 是因为它随视口宽度、topbar 换行与浏览器缩放而变。
+- **滚动逻辑未改**：`.logs` 的 `overflow-y:auto` 保持不变，滚动仍发生在日志容器内部。已确认 `.layout[data-focus-layout]>.col-right{display:none}` 特异度（0,2,1）高于新加的 `.col-right.pinned-column`（0,2,0），专注布局的隐藏与恢复不受影响（宽屏与默认视口都验证过）。
+- **窄屏不动**：`max-width:860px` 下 `.logs{height:250px}` 原样保留，符合用户「窄屏保持现状」的选择。
+- **测试**：`tests/browser/acceptance.html` 新增宽屏/窄屏几何断言（宽屏检查日志区贴底余量 ≤12px、右栏底边不越出视口、`overflow-y` 仍为 auto；窄屏检查高度仍是 250px）。`tests/run-browser.cjs` 增加可选 `ACCEPTANCE_WINDOW="1440,900"` 参数，因为无头浏览器默认视口只有 756px 宽，走的是窄屏分支，宽屏规则测不到——不设该变量时行为与历史完全一致。
+- **连带修正**：`tests/focus-layout.test.ts` 的断言 `/<aside class="col-right">/` 因模板新增 `ref` 与 `pinned-column` 而失配，改为匹配 class 标记 `/<aside [^>]*class="col-right pinned-column"/`，测试意图（右列是真实兄弟节点）不变。
+- **兼容**：无存档结构变化，`CONFIG.version` 仍为 33。
+- **验证**：`npm run check` 通过：780 项模块测试、经典 VM 回归（失败 0）、Edge 浏览器验收 602 项、类型检查与生产构建。
+
 ## 2026/10/22 beta 0.9.32 性能与代码质量整理
 
 - **临近势力预览只算一次**：`InternalPanel.vue` 原先在模板一行里调用 `preview(id)` 5 次、`militaryLoss(id)` 2 次，而 `militaryLoss` 内部又调一次 `preview`，合计每行每次渲染跑 7 次完整 `previewRaid`（战力、门槛、期望伤亡、掠夺、军事削减全套）。`preview()` 是普通函数不是 computed，`props.revision;` 只是声明依赖、没有任何缓存，所以每次输入都会重算三行。改为 `raidPreviews` / `neighborStrengths` 两个 computed，按 revision 与当前草稿士兵数失效，模板只读结果。

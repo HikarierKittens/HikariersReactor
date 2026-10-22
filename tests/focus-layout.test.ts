@@ -101,8 +101,10 @@ test('App wires the tech tree through the shared primitive, not a bespoke boolea
   // The only condition: the 科技 tab while its 已研究 sub-view is open.
   assert.match(app, /requests: \{ tech: \(\) => techView\.value === 'completed' \}/);
   // The layout root carries the attributes and the right column is a real sibling.
+  // The右列 also carries `pinned-column` and a template ref for the pinned-height composable,
+  // so match the class token instead of the exact attribute string.
   assert.match(app, /<div class="layout" v-bind="focusLayout\.layoutAttributes\.value">/);
-  assert.match(app, /<aside class="col-right">/);
+  assert.match(app, /<aside [^>]*class="col-right pinned-column"/);
   // No ad-hoc hiding flag leaked into the template.
   assert.doesNotMatch(app, /v-if="[^"]*hideQueue/);
 });

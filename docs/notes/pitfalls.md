@@ -258,3 +258,11 @@
 - **症状**：开启 `noUnusedLocals` 后，`App.vue` 的 `const leftScrollContainer = leftScroll.container;` 报 `'leftScrollContainer' is declared but its value is never read`。
 - **原因**：它只被模板里的 `ref="leftScrollContainer"` 使用。TypeScript 看不见模板，所以视为未使用——**但删掉它就真的坏了**，左栏滚动隔离会失效。
 - **做法**：保留变量并加 `void leftScrollContainer;` 显式读取，附注释说明是模板 ref。判断某个「未使用」变量能不能删，先 `grep` 模板里的 `ref="<名字>"`。同类要留意：`ref=`、`defineExpose`、事件里用到的具名函数。
+
+## 41. 给右栏写 `height:100vh` 会向下溢出，而且无头浏览器测不到宽屏规则
+
+- **症状**：把右栏改成固定列、`height:100vh` 想让日志区贴底，结果日志区底部余量是 **-28px**——不但没贴底，反而越出视口。
+- **原因**：右栏不在视口顶端，上方还有 topbar 与标签栏，列顶在 `top:36`。`100vh` 是视口高度，加在 36px 的起点上，底边必然超出 36px。左栏没这个问题是因为它排在第一行、从顶端开始。
+- **做法**：`height:calc(100vh - var(--pinned-top-offset))`，偏移量由 `src/vue/pinned-column-offset.ts` 的 `usePinnedColumnOffset` 实测后写入（`rect.top + scrollY`）。**不要硬编码 36px**，它随视口宽度、topbar 换行与缩放变化。
+- **连带陷阱**：`tests/run-browser.cjs` 的无头浏览器默认视口只有 **756px 宽**，低于 861px 的断点，所以宽屏 CSS 规则**根本不会生效**，断言会静默走窄屏分支、通过得毫无意义。加 `ACCEPTANCE_WINDOW="1440,900"` 才会真正测宽屏。任何只在 `min-width:861px` 内生效的改动，都必须用这个环境变量验一遍。
+- **另一个连带**：`tests/focus-layout.test.ts` 曾用 `/<aside class="col-right">/` 匹配右列，模板一加 `ref` 或 class 就失配。断言「结构存在」时应匹配 class 标记而不是完整属性串。

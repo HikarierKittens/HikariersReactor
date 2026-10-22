@@ -65,6 +65,7 @@ import { investInShipComponent, type ShipComponentId } from '../simulation/space
 import TooltipPanel from './components/TooltipPanel.vue';
 import { useFocusLayout } from './focus-layout';
 import { useIsolatedScroll, ISOLATED_SCROLL_CLASS } from './isolated-scroll';
+import { usePinnedColumnOffset } from './pinned-column-offset';
 import type { GameStore } from '../app/store';
 
 const props = defineProps<{ store: GameStore }>();
@@ -120,6 +121,12 @@ const leftScroll = useIsolatedScroll({ attribute: 'data-isolated-scroll' });
 // value is read here to keep noUnusedLocals from flagging a live binding.
 const leftScrollContainer = leftScroll.container;
 void leftScrollContainer;
+/**
+ * 右栏固定：列高必须扣掉它上方的 topbar 与标签栏，否则底边会超出视口。
+ * 偏移量由 `usePinnedColumnOffset` 实测后写进 `--pinned-top-offset`，样式表只负责减。
+ */
+const rightColumn = ref<HTMLElement | null>(null);
+usePinnedColumnOffset(rightColumn);
 const logFilter = ref('all');
 const logFilters = [{ id: 'all', name: '全部' }, { id: 'queue', name: '队列' }, { id: 'event', name: '普通事件' }, { id: 'progress', name: '进度事件' }, { id: 'achievement', name: '成就' }, { id: 'system', name: '系统' }];
 const visibleLogs = computed(() => { props.store.revision(); return state.value.logs.filter(log => logFilter.value === 'all' || log.type === logFilter.value); });
@@ -561,7 +568,7 @@ onUnmounted(() => {
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.9.32</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.9.33</span>
     </header>
 
     <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
@@ -729,7 +736,7 @@ onUnmounted(() => {
         </section>
       </main>
 
-      <aside class="col-right">
+      <aside ref="rightColumn" class="col-right pinned-column">
         <section class="panel">
           <div class="panel-head"><h2>队列</h2><span>{{ state.queue.length ? `${state.queue.length} 项` : '空闲' }}</span></div>
           <div class="queue-body">
@@ -755,7 +762,7 @@ onUnmounted(() => {
             </section>
           </div>
         </section>
-        <section class="panel">
+        <section class="panel logs-panel">
           <div class="panel-head"><h2>日志记录</h2><div class="log-tools"><button id="clearLogs" @click="store.mutate(s => { s.logs = []; })">清空</button></div></div>
           <nav class="log-filters" aria-label="日志筛选"><button v-for="filter in logFilters" :key="filter.id" :class="{ active: logFilter === filter.id }" :data-log-filter="filter.id" :aria-pressed="logFilter === filter.id" @click="logFilter = filter.id">{{ filter.name }}</button></nav>
           <div class="logs">

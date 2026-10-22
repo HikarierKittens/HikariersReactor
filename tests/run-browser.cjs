@@ -55,8 +55,12 @@ async function main() {
     }
 
     const dom = await new Promise((resolve, reject) => {
+      // ACCEPTANCE_WINDOW="1440,900" widens the viewport so wide-screen-only layout rules
+      // (e.g. the pinned right column) can be asserted; unset keeps the historical default.
+      const windowArg = process.env.ACCEPTANCE_WINDOW ? [`--window-size=${process.env.ACCEPTANCE_WINDOW}`] : [];
       const child = spawn(browser, [
         '--headless', '--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage',
+        ...windowArg,
         // Keep the console: a failing case is otherwise a black box (the dumped DOM only shows
         // the last rendered line). These lines are surfaced only when the run fails.
         '--enable-logging=stderr', '--log-level=0',

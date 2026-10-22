@@ -221,6 +221,15 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 
 - 集装箱子页解锁条件为 `calculateContainerCapacity(state) > 0 || state.containers > 0`，允许制造首个集装箱。资源管理入口在集装箱或质量喷射任一可用时显示，条件消失回退世界。ARPA建筑子页检查 `tech.includes('arpa')`，未解锁时回退其他可用ARPA子页。
 
+### 左右两列的固定与高度（beta 0.9.33）
+
+- 左栏 `.col-left.pinned-column` 与右栏 `.col-right.pinned-column` 用同一套做法：`position:sticky; top:0` + `display:flex; flex-direction:column`，列内滚动区吸收剩余高度。
+- **右栏高度不能用 `100vh`**：它在页面上并不从视口顶端开始，上方还有 topbar 与标签栏。写 `100vh` 会让底边超出视口同样的距离（日志区底部余量实测 -28px）。正确写法是 `height:calc(100vh - var(--pinned-top-offset))`。
+- 偏移量由 `src/vue/pinned-column-offset.ts` 的 `usePinnedColumnOffset(ref)` 实测写入：读列在文档坐标中的顶部位置（`rect.top + scrollY`），设为元素自身的 `--pinned-top-offset`，并在 `resize` 时用 `requestAnimationFrame` 去抖重算。**不要改回硬编码的 `36px`**——它随视口宽度、topbar 换行和浏览器缩放变化。
+- 右栏内部：队列面板保持自然高度，日志面板 `.logs-panel` 是 `flex:1 1 auto; min-height:0`，`.logs` 是 `flex:1 1 auto; height:auto`。滚动仍在 `.logs` 内部（`overflow-y:auto` 未变）。
+- 窄屏（`max-width:860px`）不参与这套规则，`.logs{height:250px}` 保持不变。
+- 验收：无头浏览器默认视口只有 756px 宽，走窄屏分支，**宽屏规则测不到**。用 `ACCEPTANCE_WINDOW="1440,900" npm run test:browser` 才会覆盖宽屏断言；不设该变量时行为与历史一致。
+
 - `ResourceManagementPanel.vue` 的集装箱和质量喷射使用局部 `.management-list` / `.management-row`，代替多行卡片。Flex布局不换行，名称、说明与加减控件居中同行；内容宽度收缩，窄屏由列表横向滚动，按钮不会被隐藏。
 - 不修改全局卡片样式，不影响其他页面。
 

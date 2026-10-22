@@ -443,6 +443,26 @@ try {
   click($('[data-log-filter="queue"]')); await flush();
   log($$('.log-line').length === 1 && $('.log-line').classList.contains('t-queue'), '队列日志可独立筛选');
   click($('[data-log-filter="all"]')); store.mutate(state => { state.logs = logUiSnapshot; }); await flush();
+  // 右栏与左栏一样固定：日志区一路延伸到页面底部，而不是被固定视口比例截成一小块。
+  // 窄屏（<861px）保持固定高度、不参与这个断言，所以只在宽屏下检查。
+  {
+    const colRight = $('.col-right'), logsBox = $('.logs');
+    const wide = window.innerWidth >= 861;
+    const rightRect = colRight.getBoundingClientRect(), logsRect = logsBox.getBoundingClientRect();
+    if (wide) {
+      // 贴底：日志区底边与视口底边的差距只允许留列内 padding（8px），不能差出一大截。
+      const gap = Math.round(window.innerHeight - logsRect.bottom);
+      log(gap >= 0 && gap <= 12, `宽屏日志区延伸到页面底部 [底部余量=${gap}px]`);
+      // 右栏锁定在视口内，但列顶不在视口顶端（上方有 topbar 与标签栏），所以它的高度
+      // 应当等于「视口高度 − 顶部偏移」，底边不越出视口。
+      log(rightRect.bottom <= window.innerHeight + 1 && rightRect.height > window.innerHeight * .8,
+        `宽屏右栏锁定在视口内 [右栏高=${Math.round(rightRect.height)}, 底边=${Math.round(rightRect.bottom)}, 视口=${window.innerHeight}]`);
+      // 滚动逻辑不变：日志仍在 `.logs` 自身容器内滚（overflow-y:auto），不靠整页滚动。
+      log(getComputedStyle(logsBox).overflowY === 'auto', `日志仍在自身容器内滚动 [overflow-y=${getComputedStyle(logsBox).overflowY}]`);
+    } else {
+      log(Math.round(logsRect.height) === 250, `窄屏日志区保持固定高度 [${Math.round(logsRect.height)}px]`);
+    }
+  }
   const governmentTipSnapshot = JSON.parse(JSON.stringify(S()));
   store.mutate(state => { state.tech.push('government', 'advancedGovernment'); state.lastReformTime = null; state.government = 'none'; }); await flush();
   click($('[data-internal-view="government"]')); await flush();

@@ -29,6 +29,20 @@
      `flex:1 1 auto` 在这里是对的：滚动区**就是要**占满剩余高度，
      内容不足时也不会留空白，因为空白在可滚动容器内部、不产生滚动条。 */
   .col-left .col-left-scroll{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:16px}
+  /* 右列同左列一样固定：日志区因此能一路延伸到页面底部，而不是被 38vh 截成一小块。
+     队列面板保持自然高度，日志面板 `flex:1` 吸收余下的全部高度，滚动仍发生在
+     `.logs` 内部（overflow-y:auto 不变）——只是它的高度从固定视口比例变成了弹性填充。
+     队列很长时，队列自身先吃满 `max-height:40vh`，日志区仍有 `min-height` 兜底。 */
+  .col-right.pinned-column{
+    position:sticky;top:0;
+    /* 右列上方还有 topbar 与标签栏，列不是从视口顶端开始的：直接 height:100vh 会让
+       底边超出视口（实测溢出的正是这段偏移）。用 --pinned-top-offset 扣掉它。 */
+    align-self:start;height:calc(100vh - var(--pinned-top-offset,0px));max-height:calc(100vh - var(--pinned-top-offset,0px));
+    display:flex;flex-direction:column;
+    padding-bottom:8px;box-sizing:border-box;
+  }
+  .col-right .logs-panel{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+  .col-right .logs{flex:1 1 auto;height:auto;min-height:150px}
 }
 /* 窄屏没有固定列，滚动区退回普通流：不设高度，整页照常滚动。 */
 @media(max-width:860px){.col-left .col-left-scroll{display:flex;flex-direction:column;gap:16px}}

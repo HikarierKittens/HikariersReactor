@@ -41,6 +41,7 @@ src/app/runtime.ts 状态唯一所有者：tick / save / load / import / reset
 | 独立滚动区 | `src/vue/isolated-scroll.ts`（`useIsolatedScroll`、`canScrollIn`） | `App.vue` 的 `.col-left-scroll`（左栏统一滚动区）、`assets/css/style.css` | `isolated-scroll` |
 | 左栏统一滚动 | `App.vue` 的 `.col-left-scroll`（资源列表+锻造物+威望资源共用一个容器；文明面板在区外） | `assets/css/style.css`（`.col-left .col-left-scroll{flex:1 1 auto;min-height:0}`） | `isolated-scroll` |
 | 左列固定（滚动解耦） | `assets/css/style.css`（`.pinned-column`，`min-width:861px` 内） | `App.vue` 的 `.col-left` | `isolated-scroll` |
+| 右列固定与日志贴底 | `assets/css/style.css`（`.col-right.pinned-column`、`.logs-panel`、`.logs`）、`src/vue/pinned-column-offset.ts`（`usePinnedColumnOffset` 实测 `--pinned-top-offset`） | `App.vue` 的 `.col-right`（模板 ref `rightColumn`）与 `.logs-panel` | `acceptance`（宽屏需 `ACCEPTANCE_WINDOW`） |
 | 资源明细弹窗宽度 | `assets/css/style.css`（`.resource-detail` 作用域内的宽度与列宽规则） | `TooltipPanel.vue`（`.resource-columns` 标记） | `resource-tooltip-width` |
 | 科技树布局 | `src/vue/tech-tree.ts`（`layoutTechTree`、`TECH_NODES_PER_ROW = 10`） | `TechPanel.vue` | `tech-tree` |
 | 科技分类与配色 | `src/vue/tech-categories.ts`（`TECH_CATEGORIES` 全量映射、`TECH_CATEGORY_META`） | `TechPanel.vue`、`TooltipPanel.vue`（悬停副标题）、`assets/css/style.css` | `tech-categories` |
@@ -88,6 +89,7 @@ src/app/runtime.ts 状态唯一所有者：tick / save / load / import / reset
 |---|---|
 | `npm run typecheck` | 约 9 秒 |
 | `npm test`（107 个文件、780 项 + VM 回归） | 约 7 秒 |
+| `ACCEPTANCE_WINDOW="1440,900" npm run test:browser`（宽屏布局断言） | 约 8 秒 |
 | `npm run test:browser` | 约 5 秒 |
 | `npm run build` | 约 2 秒 |
 | `npm run check`（全部） | 约 25 秒 |
