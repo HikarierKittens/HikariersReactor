@@ -283,7 +283,6 @@ const content = computed<TipContent | null>(() => {
       const result = uiPreview.production(state, props.revision);
       const breakdown = calculateResourceBreakdown(id, state, result);
       tip.title = '电力固定供给与占用';
-      tip.description = '电力为固定供给，不累积库存；可用电力为总发电量减去已开启建筑的请求用电量，实际耗电仅计入已供电的建筑。';
       add('总发电量', formatResourceNumber(result.power.generated));
       add('请求用电量', formatResourceNumber(result.powerGrid.requested));
       add('实际耗电', formatResourceNumber(result.power.used));

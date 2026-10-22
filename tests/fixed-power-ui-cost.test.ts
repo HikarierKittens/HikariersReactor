@@ -104,5 +104,7 @@ test('power UI uses fixed supply values in its own no-stock/no-rate/no-bar branc
   assert.match(powerTip, /电力固定供给与占用/);
   assert.match(powerTip, /result\.power\.used/);
   assert.doesNotMatch(powerTip, /signedRate|calculateStorageDetails/);
+  // 玩家要求删掉那段「电力为固定供给，不累积库存……」的说明：标题与数值行保留，只去掉长句。
+  assert.doesNotMatch(powerTip, /不累积库存|电力为固定供给/);
   assert.match(tooltip, /resource === 'energy' \? '' : '\/s'/);
 });
