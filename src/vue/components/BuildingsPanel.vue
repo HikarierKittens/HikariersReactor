@@ -64,7 +64,7 @@ const NEW_SPACE_GROUPS: { id: SpaceMissionId; name: string; list: BuildingId[] }
   { id: 'asteroidBelt', name: '小行星带', list: ['iridiumMiningShip', 'ironMiningShip', 'e710MiningShip', 'e710Container'] },
   { id: 'misen', name: '米神星', list: ['e710Warehouse', 'e710Reactor', 'interstellarDock'] },
 ];
-const SPACE_IDS = new Set<BuildingId>([...SPACE, ...MOON, ...ASRIEL, 'constraintArray', 'signalRepeater', 'shortRangeRelay', 'anchorFreightStation', 'civilianRouteStation', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'hydrogenPowerPlant', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'geothermalPlant', 'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'stellarForge', 'hazardousMaterialStorage', 'blackHoleStation', 'penroseSphere', 'dysonSphere', ...NEW_SPACE_GROUPS.flatMap(group => group.list)]);
+const SPACE_IDS = new Set<BuildingId>([...SPACE, ...MOON, ...ASRIEL, 'constraintArray', 'signalRepeater', 'shortRangeRelay', 'anchorFreightStation', 'civilianRouteStation', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'hydrogenPowerPlant', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation', 'geothermalPlant', 'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'stellarForge', 'hazardousMaterialStorage', 'aiDataCenter', 'blackHoleStation', 'penroseSphere', 'dysonSphere', ...NEW_SPACE_GROUPS.flatMap(group => group.list)]);
 const sections = computed(() => {
   props.revision;
   return baseSections.value.map(section => ({ ...section, list: withConstructionPhases(section.list, props.state) }));
@@ -99,7 +99,7 @@ const baseSections = computed(() => {
     // 超频-13 opens the black-hole regions below 维度边界; 能量护盾 opens the two mission regions.
     if (props.state.tech.includes('overclocking13')) regions.push({ id: 'alphaSector', name: '天元六alpha星区', list: (['adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'dysonSphere'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) });
     if (props.state.tech.includes('energyShield')) regions.push(
-      { id: 'neutronStar', name: '卡尔维拉', list: (['stellarForge', 'hazardousMaterialStorage'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) },
+      { id: 'neutronStar', name: '卡尔维拉', list: (['stellarForge', 'hazardousMaterialStorage', 'aiDataCenter'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) },
       { id: 'blackHole', name: 'DSR-8086', list: (['blackHoleStation', 'penroseSphere', 'massEjector'] satisfies BuildingId[]).filter(id => buildingUnlocked(id, props.state)) },
     );
     return regions.filter(section => section.list.length || ['dimensionalBoundary', 'alphaSector', 'neutronStar', 'blackHole'].includes(section.id));

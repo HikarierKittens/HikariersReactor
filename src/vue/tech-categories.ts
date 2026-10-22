@@ -85,6 +85,10 @@ export const TECH_CATEGORIES: Record<TechnologyId, TechCategory> = {
   neutronConstructionMaterials: 'infrastructure', neutronVault: 'infrastructure',
   intelligentBankingSystem: 'infrastructure', higherDimensionalStorage: 'infrastructure',
   virtualReality: 'infrastructure', virtualEntertainment: 'infrastructure', hazardousMaterialStorage: 'infrastructure',
+  // AI数据中心 is 卡尔维拉 infrastructure whose payoff is industrial output, so its
+  // follow-up researches live in 生产与工业; the centre itself stays in the space family.
+  aiDataCenter: 'space', aiCementWorkshop: 'production', advancedAdamantiteProcessing: 'production',
+  advancedGrapheneProcessing: 'production',
   steelContainers: 'infrastructure',
 
   // ── 军事 ──

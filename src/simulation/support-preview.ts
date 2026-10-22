@@ -33,6 +33,8 @@ export interface SupportPreview {
   shipCrew: ShipCrew;
   /** Whole funded 710研究站 units (knowledge storage). */
   researchStationUnits: number;
+  /** Whole funded 危险物质库 units: its E-710/中子 capacity now follows its upkeep. */
+  hazardousStorageUnits: number;
   /** Whole funded 黑洞星际站 units (raise the 空间撕裂者 knowledge-cap effect). */
   blackHoleStationUnits: number;
 }
@@ -72,7 +74,10 @@ export function buildSettlementLedger(state: GameState, dt = 1, quantumLevel?: n
   const aiSupercoreUnits = settleQuantumCores(state, pool, dt);
   const digital = settleDigitalSupport(state, pool, dt);
   // Happiness only scales ordinary space outputs, never power or maintenance.
-  const space = settleSpaceProduction(state, pool, dt, 1, plants.inputUnits.geothermalPlant || 0, plants.inputUnits.hydrogenPowerPlant || 0);
+  // The caller's iterated quantum level also reaches the space chain, so the graphene
+  // bonus (高级石墨烯加工) reflects the same level this ledger reports instead of
+  // solving quantum again from inside its own settlement.
+  const space = settleSpaceProduction(state, pool, dt, 1, plants.inputUnits.geothermalPlant || 0, plants.inputUnits.hydrogenPowerPlant || 0, quantumLevel ?? 0);
   const e710WarehouseUnits = settleE710WarehousePower(state, pool, dt);
   const biologyRunning = Math.max(0, (state.buildings.biologyLab || 0) - (state.stoppedBuildings?.biologyLab || 0));
   const biologyUnits = Math.min(biologyRunning, Math.floor((Math.max(0, pool.energy) + 1e-8) / (2 * dt)));
@@ -98,6 +103,7 @@ export function buildSettlementLedger(state: GameState, dt = 1, quantumLevel?: n
     ironMiningShips: space.inputs.ironMiningShip || 0,
     shipCrew: allocateShipCrew(state),
     researchStationUnits: space.inputs.e710ResearchStation || 0,
+    hazardousStorageUnits: space.inputs.hazardousMaterialStorage || 0,
     blackHoleStationUnits: space.inputs.blackHoleStation || 0,
     space,
     plants,

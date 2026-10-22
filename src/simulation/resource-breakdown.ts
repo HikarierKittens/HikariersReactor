@@ -1,6 +1,7 @@
 import { HYPERSPACE_SOURCE_IDS, calculateHyperspaceOutputFactor, calculateHyperspaceLocalMultiplier } from './hyperspace-output';
 import { calculateRefiningMultiplier, withPoweredMetalRefining } from './refining';
 import { RESEARCH_SATELLITE_LAB_OUTPUT } from './building-effects';
+import { calculateAiCementMultiplier, calculateAiGrapheneMultiplier } from './ai-data-center';
 import { BUILDINGS } from '../data/buildings';
 import { calculateQuantumManufacturingMultiplier } from './quantum';
 import { RESOURCES, CRAFT_RECIPES, FACTORY_OPTIONS } from '../data/resources';
@@ -70,7 +71,7 @@ export function calculateResourceBreakdown(
     const n = id === 'smelter' ? calculateSmelterSlotCapacity(state) : state.buildings[id];
     if (!n && !b.unlimited) continue;
     const speed = (HYPERSPACE_SOURCE_IDS.includes(id)
-      ? (result.inputUnits[id] || 0) * calculateHyperspaceOutputFactor(resource, state, result.morale.happiness, result.stageThree.ports) * calculateHyperspaceLocalMultiplier(id, state, result.inputUnits.adamantiteProcessor || 0)
+      ? (result.inputUnits[id] || 0) * calculateHyperspaceOutputFactor(resource, state, result.morale.happiness, result.stageThree.ports, result.quantum.level) * calculateHyperspaceLocalMultiplier(id, state, result.inputUnits.adamantiteProcessor || 0)
       : result.outputs[id] || 0)
       * (isSpaceResourceSource(id) ? calculateSpaceMultiplier(id, state, result.asriel) : 1)
      
@@ -366,10 +367,15 @@ export function calculateResourceFactorRows(
       pct('星环空间站', factor, true);
       local *= factor;
     }
+    if (id === 'grapheneFactory') {
+      const f = calculateAiGrapheneMultiplier(state, result.quantum.level);
+      pct('高级石墨烯加工', f, true); local *= f;
+    }
 
     if (id === 'catCafe') { const f = state.tech.includes('masterpieceCat') ? 1.2 : 1; pct('绝世好猫', f, true); local *= f; }
     if (id === 'lab') { const f = 1 + RESEARCH_SATELLITE_LAB_OUTPUT * (state.buildings.researchSatellite || 0); pct('科研卫星', f, true); local *= f; }
     if (id === 'cementWorkshop') { const f = 1 + (result.inputUnits.cementMixer || 0) * .05; pct('供能水泥工匠', f, true); local *= f; }
+    if (id === 'cementWorkshop') { const f = calculateAiCementMultiplier(state, result.quantum.level); pct('AI水泥工坊', f, true); local *= f; }
     if (b.workerOutput) {
       if (b.boostResource) { const f = 1 + n * ((id === 'lumber' || id === 'quarry') ? .02 : .05); pct(calculateBuildingName(id, state), f, true); local *= f; }
       if (b.minerBoost) { const f = 1 + (result.inputUnits[id === 'coalMine' ? 'automatedCoalMining' : 'automatedMining'] || 0) * .05; pct(id === 'coalMine' ? '供能煤矿' : '供能矿底', f, true); local *= f; }

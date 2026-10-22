@@ -46,6 +46,8 @@ src/app/runtime.ts 状态唯一所有者：tick / save / load / import / reset
 | 已退役科技名单 | `src/data/technologies.ts`（`RETIRED_TECHNOLOGIES`，data 层以便 simulation 复用） | `simulation/unlocks.ts`（永不可研究）、`state/validate-unlocks.ts`（跳前置校验）、`TechPanel.vue`（隐藏） | `tech-categories` `retired` |
 | 士兵战斗力/防御力数值 | `src/data/military.ts`（`COMBAT_POWER_TECH_BONUS`、`DEFENSE_TECH_BONUS`） | `simulation/government.ts` | `soldier-stats` |
 | 工种工具倍率 | `src/simulation/building-production.ts`（`calculateToolMultiplier`） | 结算与悬停共用 | `t20-technologies` |
+| AI数据中心全部数值 | `src/simulation/ai-data-center.ts`（电力 `calculateAiDataCenterPower`、量子 `AI_DATA_CENTER_QUANTUM_BONUS`、水泥/石墨烯/精金加成） | `simulation/quantum.ts`、`space-settlement.ts`、`ground-settlement.ts`、`power-grid.ts`、`building-production.ts`、`resource-breakdown.ts`、`vue/building-tooltip-rows.ts` | `t21-ai-data-center` |
+| 工厂生产线默认与抽取 | `src/simulation/factory.ts`（`assignNewFactoryLines`、`countFreeFactoryLines`）、`simulation/commands.ts`（`changeFactoryAssignment`） | `purchases.ts`（建造后调用）、`FactoryModal.vue`（`canGrow` 按钮态） | `factory-default-lines building-limits` |
 | 建筑悬浮提示 | `src/vue/building-tooltip-rows.ts` | TooltipPanel | `lab-tooltip description-effects-split` |
 | 预览缓存 | `src/vue/preview-cache.ts` | 各面板 | `preview-reuse ui-preview-cache` |
 
@@ -84,7 +86,7 @@ src/app/runtime.ts 状态唯一所有者：tick / save / load / import / reset
 | 步骤 | 实测耗时 |
 |---|---|
 | `npm run typecheck` | 约 9 秒 |
-| `npm test`（93 个文件、738 项 + VM 回归） | 约 7 秒 |
+| `npm test`（95 个文件、757 项 + VM 回归） | 约 7 秒 |
 | `npm run test:browser` | 约 5 秒 |
 | `npm run build` | 约 2 秒 |
 | `npm run check`（全部） | 约 25 秒 |

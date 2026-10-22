@@ -12,7 +12,7 @@
 import { createNeighborsState } from '../simulation/neighbors';
 
 const ADDITIVE_BUILDING_IDS = [
-  'dysonSphere', 'hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage',
+  'dysonSphere', 'hazardousMaterialStorage', 'aiDataCenter', 'gatewayRouter', 'downloadExecutable', 'quantumStorage',
   'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder',
   'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule',
   'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore', 'solarFarm', 'hospital',

@@ -20,6 +20,8 @@ export interface StorageSnapshot {
   stageThree?: { repeaters?: number; ports?: number; freight: number; civilian: number; iceShips?: number; asteroidBases?: number };
   e710ContainerUnits?: number;
   e710WarehouseUnits?: number;
+  /** Funded 危险物质库 units: its capacity now follows the 10 电力 + 0.25 氘/s upkeep. */
+  hazardousStorageUnits?: number;
   researchStationUnits?: number;
   blackHoleStationUnits?: number;
   biologyUnits: number;
@@ -53,6 +55,7 @@ function withStorageSupportFallback(state: GameState, snapshot: StorageSnapshot)
     },
     get e710ContainerUnits() { return snapshot.e710ContainerUnits ?? support().e710ContainerUnits; },
     get e710WarehouseUnits() { return snapshot.e710WarehouseUnits ?? support().e710WarehouseUnits; },
+    get hazardousStorageUnits() { return snapshot.hazardousStorageUnits ?? support().hazardousStorageUnits; },
     get labUnits() { return snapshot.labUnits ?? support().labUnits; },
     get researchStationUnits() { return snapshot.researchStationUnits ?? support().researchStationUnits; },
     get blackHoleStationUnits() { return snapshot.blackHoleStationUnits ?? support().blackHoleStationUnits; },
@@ -91,6 +94,7 @@ function accumulateStorageRows(
       : id === 'civilianRouteStation' ? (state.buildings[id] ? stageThree.civilian : 0)
       : id === 'e710Container' ? (detailResource === 'e710' ? snapshot.e710ContainerUnits! : 0)
       : id === 'e710Warehouse' ? (detailResource === 'e710' ? snapshot.e710WarehouseUnits! : 0)
+      : id === 'hazardousMaterialStorage' ? snapshot.hazardousStorageUnits!
       : id === 'moonBase' ? snapshot.moonBaseUnits
       : id === 'quantizedCompressionModule' ? (state.buildings[id] ? snapshot.digital!.compressionUnits : 0)
       : id === 'ethMiner' ? snapshot.digital!.minerUnits

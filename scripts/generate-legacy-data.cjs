@@ -34,6 +34,9 @@ const registry = [
   ['spaceship', 'simulation/spaceship'],
   ['validate-spaceship', 'state/validate-spaceship'],
   ['refining', 'simulation/refining'],
+  // AI数据中心 数值唯一来源: quantum, building-production, hyperspace-output, power-grid,
+  // ground-settlement 与 resource-breakdown 都在全局作用域里读它，所以必须先注入。
+  ['ai-data-center', 'simulation/ai-data-center'],
   ['quantum', 'simulation/quantum'],
   ['factory', 'simulation/factory'],
   ['space-fuel', 'simulation/space-fuel'],

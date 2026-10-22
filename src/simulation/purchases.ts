@@ -16,6 +16,7 @@ import { calculateProjectCost, calculateProjectRemainingCost, isProjectUnlocked,
 import { isBuildingUnlocked, isTechnologyUnlocked } from './unlocks';
 import { applyWorldUnification } from './neighbors';
 import { hasContinuousEnergyInput, calculateBuildingName } from './building-production';
+import { assignNewFactoryLines } from './factory';
 import type { BuildingId } from '../types/buildings';
 import type { TechnologyId } from '../types/technologies';
 import type { ResourceRecipe } from '../types/economy';
@@ -134,6 +135,10 @@ export function constructBuildingState(state: GameState, id: BuildingId, moonAva
   }
   if (countRunningBuildings(id, state) > beforeRunning) registerBuiltPowerUnits(state, id, beforeCompleted);
   else state.powerActivationOrder = reconcilePowerActivationOrder(state);
+  // 新建造的工厂默认加入合金生产线 (beta 0.9.28). Placement happens after the stop decision:
+  // a factory that starts stopped (missing support or power) grants no line, so assigning
+  // one there would make the save invalid. Capacity is read from the settled counts.
+  if (building.lines) assignNewFactoryLines(state, id, 1);
   if (id === 'massEjector' && state.buildings[id] === 1) addLog(state, MASS_EJECTION_UNLOCK_LOG, 'progress');
 }
 export const STABILIZE_BLACK_HOLE_LOG = '黑洞已稳定：奇异质量按40倍转化为普通质量，并加入了100k中子的质量。';

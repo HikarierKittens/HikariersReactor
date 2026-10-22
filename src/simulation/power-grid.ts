@@ -1,5 +1,6 @@
 import { BUILDINGS } from '../data/buildings';
 import { hasContinuousEnergyInput } from './building-production';
+import { calculateAiDataCenterPower } from './ai-data-center';
 import { countRunningBuildings } from './housing';
 import { clampSoldiersToArmyLimit } from './military';
 import { settlePowerPlants, isPowerProducer } from './power';
@@ -41,6 +42,8 @@ export function getBuildingPowerDemand(id: BuildingId, state: GameState): number
   if (id === 'navigationBeacon') return state.tech.includes('spaceBroadcasting') ? 3 : 2;
   if (id === 'metalRefinery') return state.tech.includes('advancedMetalRefining') ? 4 : 0;
   if (id === 'aiSupercore') return 100;
+  // 每多建造一座 AI数据中心，所有 AI数据中心的单座耗电都提高 5。
+  if (id === 'aiDataCenter') return calculateAiDataCenterPower(state);
   if (id === 'agiAscensionCore') return Math.max(0, 10000 - 100 * Math.max(0, (state.buildings.coreCooler || 0) - (state.stoppedBuildings?.coreCooler || 0)));
   if (id === 'refinery') return state.tech.includes('crudeOilRefiningOptimization') ? 2 : BUILDINGS.refinery.input?.energy || 0;
   if (['mine', 'coalMine', 'lumber', 'quarry'].includes(id)) return state.tech.includes('automatedMining') ? 1 : 0;

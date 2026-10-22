@@ -6,11 +6,13 @@ import { calculateGlobalOutputMultiplier } from './crafting';
 import { isPowerProducer } from './power';
 import { calculateSmelterSlotCapacity, calculateRunningSmelterSlots } from './factory';
 import { RESEARCH_SATELLITE_LAB_OUTPUT } from './building-effects';
+import { calculateAiCementMultiplier } from './ai-data-center';
 import type { GameState } from '../types/state';
 import type { BuildingId } from '../types/buildings';
 import type { ResourceId, ResourceAmounts, ResourceRecipe } from '../types/economy';
 
-export function settleGroundProduction(state: GameState, pool: ResourceAmounts, dt: number, happiness: number, inputUnits: Record<string, number>, outputs: Record<string, number>, boosts: { mixerUnits: number; miningUnits: number; coalMiningUnits: number; lumberUnits: number; quarryUnits: number; dataUnits: number; digital?: { aesUnits?: number } }): void {
+/** `quantumLevel` feeds the AI水泥工坊 bonus; callers pass their settled level. */
+export function settleGroundProduction(state: GameState, pool: ResourceAmounts, dt: number, happiness: number, inputUnits: Record<string, number>, outputs: Record<string, number>, boosts: { mixerUnits: number; miningUnits: number; coalMiningUnits: number; lumberUnits: number; quarryUnits: number; dataUnits: number; digital?: { aesUnits?: number }; quantumLevel?: number }): void {
   const entries = (recipe: ResourceRecipe) => Object.entries(recipe) as [ResourceId, number][];
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
     // 冶炼厂 settles per steel-assigned 冶炼厂工位 (including 恒星熔炉 slots); each slot is one legacy smelter.
@@ -29,7 +31,7 @@ export function settleGroundProduction(state: GameState, pool: ResourceAmounts, 
     }
     let speed = units * calculateProductionMultiplier(Object.keys(out)[0] ?? '', happiness, state);
     if (id === 'catCafe') speed *= state.tech.includes('masterpieceCat') ? 1.2 : 1;
-    if (id === 'cementWorkshop') speed *= 1 + boosts.mixerUnits * .05;
+    if (id === 'cementWorkshop') speed *= (1 + boosts.mixerUnits * .05) * calculateAiCementMultiplier(state, boosts.quantumLevel ?? 0);
     if (b.boostResource) speed *= 1 + n * (id === 'lumber' || id === 'quarry' ? .02 : .05);
     if (b.minerBoost) speed *= 1 + (id === 'coalMine' ? boosts.coalMiningUnits : boosts.miningUnits) * .05;
     if (id === 'lumber' || id === 'quarry') speed *= 1 + (id === 'lumber' ? boosts.lumberUnits : boosts.quarryUnits) * .05;

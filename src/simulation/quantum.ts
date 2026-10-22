@@ -1,6 +1,7 @@
 import { calculateSupportPreview } from './support-preview';
 import { calculateStorageDetails } from './storage';
 import { countRunningBuildings } from './housing';
+import { AI_DATA_CENTER_QUANTUM_BONUS } from './ai-data-center';
 import type { StorageSnapshot } from './storage';
 import type { GameState } from '../types/state';
 import type { ResourceAmounts, ResourceId } from '../types/economy';
@@ -14,6 +15,8 @@ export interface QuantumSnapshot {
   base: number;
   cores: number;
   agi: number;
+  /** Funded 运行中 AI数据中心 count (each adds +5% to the base multiplier). */
+  centers: number;
   level: number;
 }
 /** Completed cores are indivisible; partial segments never reserve fuel or grant quantum. */
@@ -46,8 +49,12 @@ export function calculateQuantumSnapshot(state: GameState, snapshot?: StorageSna
   // AGI adds fifty percentage points per funded component to the base multiplier,
   // alongside AI supercores; it cannot grant quantum before AI II unlocks the base.
   const agi = .5 * (snapshot.digital?.agiComponentUnits ?? 0);
-  const level = Math.floor(base * (1 + .25 * cores + agi) * 100) / 100;
-  return { knowledgeCapacity, base, cores, agi, level };
+  // 每座运行中的 AI数据中心 同样加算 5 个百分点到基础倍率（与 AI超级核心同一层级）。
+  // The power grid already writes unfunded units into `stoppedBuildings`, so the running
+  // count is the funded count on every settlement path — no extra snapshot field needed.
+  const centers = countRunningBuildings('aiDataCenter', state);
+  const level = Math.floor(base * (1 + .25 * cores + AI_DATA_CENTER_QUANTUM_BONUS * centers + agi) * 100) / 100;
+  return { knowledgeCapacity, base, cores, agi, centers, level };
 }
 export function calculateQuantumLevel(state: GameState, dt = 1): number { return calculateQuantumSnapshot(state, undefined, undefined, dt).level; }
 export function calculateSwarmSupportCapacity(state: GameState, quantumLevel?: number): number {

@@ -41,7 +41,7 @@ export const HARMONY_BUILDING_IDS = new Set<BuildingId>([
   'swarmControlStation', 'swarmSatellite', 'swarmFactory', 'atmosphericCollector', 'galacticFuelDepot', 'talosMoonMiningStation', 'miningDrone', 'oilExtractor', 'aiSupercore',
   'iridiumMiningShip', 'ironMiningShip', 'e710MiningShip', 'e710Container', 'e710Warehouse', 'e710Reactor', 'interstellarDock',
   'constraintArray', 'signalRepeater', 'shortRangeRelay', 'anchorFreightStation', 'civilianRouteStation', 'hyperspaceSpaceport', 'iceMiningShip', 'asteroidBase', 'hydrogenPowerPlant', 'comprehensiveMiningFacility', 'gasCloudMiningShip', 'highTechFarmPlatform', 'fusionPowerPlant', 'metalMiningShip', 'fuelMiningShip', 'spaceRipper', 'highTechFactory', 'e710ResearchStation',
-  'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'stellarForge', 'hazardousMaterialStorage', 'blackHoleStation', 'penroseSphere', 'dysonSphere', 'massEjector',
+  'adamantiteMiningShip', 'adamantiteProcessor', 'grapheneFactory', 'stellarForge', 'hazardousMaterialStorage', 'aiDataCenter', 'blackHoleStation', 'penroseSphere', 'dysonSphere', 'massEjector',
   'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule',
   'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore',
 ]);

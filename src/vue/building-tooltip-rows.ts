@@ -14,6 +14,8 @@ import { calculateTrainingBoost } from '../simulation/government';
 import { HOSPITAL_HEAL_PER_DAY, isHospitalIdle } from '../simulation/hospital';
 import { calculateStarRingCoefficient } from '../simulation/asriel';
 import { calculateQuantumSnapshot, calculateQuantumLevel, calculateQuantumSwarmFactoryReduction } from '../simulation/quantum';
+import { countRunningBuildings } from '../simulation/housing';
+import { AI_CEMENT_DIVISOR, AI_GRAPHENE_DIVISOR, ADAMANTITE_PROCESSOR_AI_BONUS, calculateAdamantiteProcessorBonus, calculateAiCementBonusPerCenter, calculateAiGrapheneBonusPerCenter } from '../simulation/ai-data-center';
 import { isChallengeGeneActive } from '../simulation/challenges';
 import { allocateShipCrew, SHIP_CREW_SIZE, SHIP_CREW_JOB_NAME, type ShipCrewId } from '../simulation/ship-crew';
 import { orderedCostEntries } from './format';
@@ -136,7 +138,20 @@ export function addBuildingEffectRows(ctx: BuildingTooltipContext): void {
   if (building.lines) add('生产线容量', `+${number(building.lines)}`);
   if (id === 'smelter') add('冶炼厂工位', '+1', false, '冶炼厂本身不产出也不消耗资源；资源由钢冶炼工位产出和消耗，可在设置中查看配方并分配。');
   if (id === 'stellarForge') { add('冶炼厂工位', '+2'); add('工匠上限', '+2'); add('锻造工具加成', '+10%'); }
-  if (id === 'adamantiteProcessor') add('精金采矿船产量', '+20%');
+  if (id === 'adamantiteProcessor') add('精金采矿船产量', `+${percent(calculateAdamantiteProcessorBonus(state) * 100)}%`);
+  // AI数据中心: the desc line reports the live 量子水平, so the number on screen is the
+  // same snapshot function the settlement uses rather than a UI-side re-derivation.
+  if (id === 'aiDataCenter') {
+    const quantum = calculateQuantumLevel(state);
+    tip.description = `${building.desc || ''}\n当前量子水平：${quantum.toFixed(2)}`;
+    const centers = countRunningBuildings('aiDataCenter', state);
+    add('量子水平', '+5%', false, `每座完整建成并运行的中心加算5%基础倍率（当前 ${centers} 座）。`);
+    // 后续科技的实时效果：只在该科技已研究时列出。数值是「单座中心」的加成，
+    // 总加成 = 单座 × 运行中的中心数，与结算读的是同一个单座函数。
+    if (state.tech.includes('aiCementWorkshop')) add('水泥产量', `+${percent(calculateAiCementBonusPerCenter(quantum) * 100)}%/座`, false, `每座运行中的中心：量子水平 ${quantum.toFixed(2)} / ${AI_CEMENT_DIVISOR}%。`);
+    if (state.tech.includes('advancedGrapheneProcessing')) add('石墨烯产量', `+${percent(calculateAiGrapheneBonusPerCenter(quantum) * 100)}%/座`, false, `每座运行中的中心：量子水平 ${quantum.toFixed(2)} / ${AI_GRAPHENE_DIVISOR}%。`);
+    if (state.tech.includes('advancedAdamantiteProcessing')) add('精金精炼站加成数值', `+${percent(ADAMANTITE_PROCESSOR_AI_BONUS * 100)}%/座`, false, '每座运行中的中心使精金精炼站的基础加成数值+2%。');
+  }
   if (id === 'vrCenter') add('幸福度', '+2.5%', false, '仍受幸福度上限限制。');
   if (id === 'blackHoleStation') add('空间撕裂者知识容量效果', '+1%');
   const containerCap = calculateBuildingContainerCap(id, state);

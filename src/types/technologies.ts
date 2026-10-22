@@ -17,6 +17,7 @@ export type TechnologyId =
   | 'dimensionPioneer' | 'highTechFactory' | 'higherDimensionalStorage' | 'e710ResearchStation' | 'ripperOverclock'
   | 'overclocking13' | 'superMetal' | 'grapheneProcessing' | 'nanoAlloy' | 'dysonSphere' | 'dysonSphereII' | 'virtualReality' | 'virtualTraining'
   | 'virtualEntertainment' | 'aerogel' | 'plasmaResearch' | 'plasmaMining' | 'energyShield' | 'stellarForge' | 'hazardousMaterialStorage' | 'penroseTheory'
+  | 'aiDataCenter' | 'aiCementWorkshop' | 'advancedAdamantiteProcessing' | 'advancedGrapheneProcessing'
   | 'globalObservationCalibration' | 'anomalyMapping' | 'fieldConstraintTheory'
   | 'advancedMetalRefining'
   | 'spaceControlTower'

@@ -3,6 +3,7 @@ import { BUILDINGS } from '../data/buildings';
 import { CONFIG } from '../data/config';
 import { applySpaceFuelDiscount } from './space-fuel';
 import { calculateGeneOutputFactor } from './genes';
+import { calculateAiDataCenterPower } from './ai-data-center';
 import { SPACE_RIPPER_OVERCLOCK_ENERGY } from './building-effects';
 import type { BuildingId } from '../types/buildings';
 import type { ResourceRecipe } from '../types/economy';
@@ -66,6 +67,8 @@ export function calculateBuildingInput(id: BuildingId, state: GameState): Resour
   if (id === 'navigationBeacon') return { energy: state.tech.includes('spaceBroadcasting') ? 3 : 2 };
   if (id === 'metalRefinery') return state.tech.includes('advancedMetalRefining') ? { energy: 4 } : {};
   if (id === 'aiSupercore') return { helium3: 25, energy: 100 };
+  // 每多建造一座 AI数据中心，所有 AI数据中心的单座耗电都提高 5。
+  if (id === 'aiDataCenter') return { energy: calculateAiDataCenterPower(state) };
   if (id === 'agiAscensionCore') return { energy: Math.max(0, 10000 - 100 * Math.max(0, (state.buildings.coreCooler || 0) - (state.stoppedBuildings?.coreCooler || 0))) };
   if (id === 'refinery' && state.tech.includes('crudeOilRefiningOptimization')) return { energy: 2 };
   const input = BUILDINGS[id].input || {};

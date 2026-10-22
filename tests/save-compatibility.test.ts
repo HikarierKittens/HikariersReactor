@@ -21,7 +21,9 @@ test('frozen pre-beta0.6.5 JSON upgrades missing building entries and the schema
   const before = structuredClone(raw); freeze(raw);
   const state = validateCurrentSave(raw, context);
   const expected = structuredClone(before);
-  const additive = ['dysonSphere', 'hazardousMaterialStorage', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore', 'solarFarm', 'hospital',
+  // Pinned copy of `ADDITIVE_BUILDING_IDS`: this test freezes one historical JSON, so the
+  // expected backfill has to be spelled out rather than imported from the code under test.
+  const additive = ['dysonSphere', 'hazardousMaterialStorage', 'aiDataCenter', 'gatewayRouter', 'downloadExecutable', 'quantumStorage', 'downloadCache', 'subcomputeNode', 'quantizedCompressionModule', 'dataCompression', 'cpuDecoder', 'cellCore', 'memoryCore', 'ethMiner', 'dataDecryptionModule', 'softRouterNode', 'aesComputeModule', 'worldSimulator', 'agiCoreComponent', 'coreCooler', 'agiAscensionCore', 'solarFarm', 'hospital',
     // Schema 32 split each segmented project into completed + construction IDs.
     'agiCoreComponentSegments', 'agiAscensionCoreSegments', 'spaceRipperSegments', 'dysonSphereSegments', 'penroseSphereSegments', 'aiSupercoreSegments', 'dysonSphereL2', 'dysonSphereL2Segments'];
   for (const field of fields) for (const id of additive) expected[field][id] = 0;

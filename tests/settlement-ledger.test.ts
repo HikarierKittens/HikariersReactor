@@ -102,6 +102,7 @@ function oracleSupportPreview(state: GameState, dt = 1) {
     ironMiningShips: space.inputs.ironMiningShip || 0,
     shipCrew: allocateShipCrew(state),
     researchStationUnits: space.inputs.e710ResearchStation || 0,
+    hazardousStorageUnits: space.inputs.hazardousMaterialStorage || 0,
     blackHoleStationUnits: space.inputs.blackHoleStation || 0,
   };
 }

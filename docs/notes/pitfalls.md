@@ -168,3 +168,31 @@
 - **原因**：那条测试锁的是**注册表层**的约定（分段态与完成态共用 `name`，靠行内计数区分），但没断言**渲染后**的行是否唯一。而未开工时两条记录的计数**都是 `0`**，原设计假定的「靠计数区分」在这个窗口期失效。测试和界面各自都「自洽」，合起来却是坏的。
 - **做法**：修 `withConstructionPhases`，让未建成时**只渲染建造行**，完成体建成后才出现——而不是给分段行加后缀。理由是完成体在未建成时既不能购买也没有开关，纯展示行没有信息价值。**改动前先看既有测试与 `docs/agent-map.md` 里的设计决定**，避免用「加后缀」这种和既定约定打架的方案。
 - **更一般的教训**：当一个 UI bug 与某条通过的测试看起来矛盾时，先确认那条测试锁的是**哪一层**。层与层之间的空隙（这里是「注册表正确」→「渲染正确」）正是 bug 藏身处。断言要落在**用户能看到的那一层**：这次补的 `tests/segmented-row-names.test.ts` 直接断言 `withConstructionPhases` 的返回列表，比断言注册表字段更贴近界面。
+
+## 28. 进了 `HYPERSPACE_CONSUMER_IDS` 才算真的扣费
+
+- **症状**：AI数据中心建好后，电网 `requested` / `used` 都把它算进去了，但 `rates.energy` 一点没降。也就是说电力「被要求了却没被扣」。
+- **原因**：卡尔维拉建筑有两条并行路径。`getBuildingPowerDemand` 只影响**电网的分配与缺电停用判定**；真正从池子里扣资源的是 `space-settlement` 里的两个循环——`HYPERSPACE_SOURCE_IDS`（有产出）和 `HYPERSPACE_CONSUMER_IDS`（只有维护费）。新建筑忘了进任何一个循环，就变成「计入需求但不扣费」。
+- **做法**：没有任何 `output` 的维护型建筑必须加入 `HYPERSPACE_CONSUMER_IDS`（`hyperspace-output.ts`）。同时**不要在循环里写死数字**——`pool-replay` 里的 `* 10` 曾经和注册表的 `energy: 10` 并存，本次把精金精炼站改成 5 时只改注册表就会让重放与结算各扣一个数。统一读 `calculateBuildingInput(id, state)`。
+- **验证手法**：加完建筑后直接跑 `calculateProduction`，对比 `power.used` 与 `generated - rates.energy`。两者不等就说明有人算了需求却没扣费。
+
+## 29. 会自己算数值的结算函数不能反向调用「求值」入口
+
+- **症状**：在 `settleSpaceProduction` 里调用 `calculateQuantumLevel(state)` 后，测试直接栈溢出 / 无限递归。
+- **原因**：`calculateQuantumLevel` → `calculateQuantumSnapshot`（无快照分支）→ `calculateSupportPreview` → `buildSettlementLedger` → `settleSpaceProduction` → 回到起点。
+- **做法**：**结算函数只接受调用方传进来的既有数值，绝不自己求解**。本次把量子水平的求解提到 `calculateProduction` / `buildSettlementLedger` 的入口处，再作为 `quantumLevel` 参数向下传给 `settleSpaceProduction`、`settleGroundProduction`、`replaySettledPool`、`replaySpaceDebits`。附带好处是「显示与结算同源」：石墨烯加成只解一次，工具提示与池子重放不可能不一致。
+- **顺带**：这类参数故意**默认 `0`** 而不是「省略时自动求解」。默认值是安全的常量，漏传最多是「本次没有加成」，不会变成递归；如果默认写成求解，任何一个新的调用点都会埋一颗定时炸弹。
+
+## 30. 新增按钮态前，先看旧禁用条件是否还成立
+
+- **症状**：生产线抽取的后端逻辑（`changeFactoryAssignment`）测试全绿，但浏览器里玩家点不动——`»` 按钮在容量满时是 `disabled`。
+- **原因**：模板里的禁用条件还是旧规则 `used >= cap`，而新规则是「有空余**或**有合金可抽」。后端能力已扩展，前端闸门没跟着放开。
+- **做法**：把「能否增长」抽成一个具名函数放在组件里（本次是 `canGrow(id)`），模板只调它。这样规则变更时只有一处要改，而且函数名直接表达语义（`used >= cap` 这种表达式读起来像「满了」，很容易骗过 review）。
+- **一般化**：**给某个动作放宽条件时，`grep` 一下这个动作的所有闸门**——后端早退、按钮 `disabled`、`aria-*`、空态文案。只改一层的结果是「功能测试通过但界面不可用」，而这类问题模块测试永远抓不到，只有浏览器验收或真人点击才会暴露。
+
+## 31. 工具提示的 `percent` 是 `formatEffectNumber`，不是 `vue/format` 的 `percent`
+
+- **症状**：AI数据中心改成「单座加成」后，模块测试断言 `+0.06%/座` 通过，浏览器验收却拿到 `+0.0629%/座`，同一个数字两种格式化结果。
+- **原因**：`TooltipPanel.vue` 给 `addBuildingEffectRows` 传的是 `percent = formatEffectNumber`（`shared/format.ts`，绝对值 <10000 时保留**四位**小数），而 `vue/format.ts` 的 `percent` 是两位小数。自写显示测试时顺手 `import { percent } from '../vue/format'`，就等于用了一个真实界面根本不会用的格式化函数。
+- **做法**：写显示断言时**照抄组件实际传入的实参**（这里是 `formatEffectNumber`），不要用「名字看起来对」的那个函数。浏览器验收里则不要硬拼期望字符串，改成解析出行内数字再用容差比较（`Math.abs(shown - q/1.75) < 1e-3`），这样格式化精度变化不会误伤断言，而「显示总量还是单座」的语义差异仍然能被抓到。
+- **一般化**：凡是「测试里复刻组件行为」的用例，复刻的必须包括**依赖注入的实参**。`addBuildingEffectRows` 把格式化器做成参数，本身就是为了让显示与组件不漂移；测试绕过去注入别的函数，等于把这道保险卸掉。

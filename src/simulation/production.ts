@@ -72,21 +72,26 @@ export function calculateProduction(state: GameState, dt = 1) {
   // 基因合成 diverts a share of the knowledge that survives dl.exe, exactly like the
   // download does: it scales with production and never draws on stored knowledge.
   const geneSynthesis = createGeneSynthesisPool(state, ledger.biologyUnits, dt, digitalProduction.pool);
-  const replay = replaySettledPool(state, ledger, dt, morale.happiness, geneSynthesis.pool);
-  const pool = replay.pool, before = { ...state.resources };
-  const outputs = replay.outputs, inputUnits = replay.inputUnits;
   const space = ledger.space;
   const { moon, asriel } = space;
   const aiSupercoreUnits = ledger.aiSupercoreUnits;
   const e710WarehouseUnits = ledger.e710WarehouseUnits;
   const biologyUnits = ledger.biologyUnits, dataUnits = ledger.dataCenterUnits, labUnits = ledger.labUnits;
+  const settlementSnapshot = { digital: ledger.digital, stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, labUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, hazardousStorageUnits: ledger.hazardousStorageUnits, blackHoleStationUnits: ledger.blackHoleStationUnits };
+  // One quantum settlement per step. Knowledge storage is independent of every output
+  // multiplier, so this can be solved before the pool replay and then shared by the
+  // graphene (高级石墨烯加工), cement (AI水泥工坊) and factory (量子制造) factors —
+  // otherwise each consumer would re-solve quantum and could disagree with the tooltip.
+  const quantum = calculateQuantumSnapshot(state, settlementSnapshot, aiSupercoreUnits);
+  const replay = replaySettledPool(state, ledger, dt, morale.happiness, geneSynthesis.pool, quantum.level);
+  const pool = replay.pool, before = { ...state.resources };
+  const outputs = replay.outputs, inputUnits = replay.inputUnits;
   return withPoweredMetalRefining(state, space.metalRefineryUnits, state => {
-    const quantum = calculateQuantumSnapshot(state, { digital: ledger.digital, stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, labUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, blackHoleStationUnits: ledger.blackHoleStationUnits }, aiSupercoreUnits);
     const factory = settleFactoryLines(state, pool, dt, morale.happiness, asriel, calculateSpaceFuelMultiplier(state, inputUnits.spaceWaystation || 0), quantum.level);
     Object.assign(inputUnits, factory.inputs); Object.assign(outputs, factory.outputs);
     const automation = settleAutomationPower(state, pool, dt);
     Object.assign(inputUnits, automation.inputs);
-    settleGroundProduction(state, pool, dt, morale.happiness, inputUnits, outputs, { ...automation, dataUnits, digital: ledger.digital });
+    settleGroundProduction(state, pool, dt, morale.happiness, inputUnits, outputs, { ...automation, dataUnits, digital: ledger.digital, quantumLevel: quantum.level });
     if (state.tech.includes('titaniumSmelting')) {
       const titanium = (calculateBuildingOutput('smelter', state).metal || 0) * .1 * (inputUnits.smelter || 0) * calculateProductionMultiplier('titanium', morale.happiness, state) * calculateGlobalOutputMultiplier('titanium', state);
       pool.titanium += titanium * dt; outputs.titaniumByproduct = titanium;
@@ -100,7 +105,7 @@ export function calculateProduction(state: GameState, dt = 1) {
     // Public power figures use the grid's signed headroom, not actualPower.available
     // (the clamped unspent budget); `used` still comes from the funded settlement.
     const power = { ...actualPower, available: ledger.grid.available };
-    const final = finalizeProduction(state, pool, before, dt, { digital: ledger.digital, stageThree: space.stageThree, biologyUnits, dataCenterUnits: dataUnits, labUnits, moonBaseUnits: moon.baseUnits, moon, asriel, e710ContainerUnits: space.e710ContainerUnits, e710WarehouseUnits, researchStationUnits: ledger.researchStationUnits, blackHoleStationUnits: ledger.blackHoleStationUnits });
+    const final = finalizeProduction(state, pool, before, dt, settlementSnapshot);
     return { ...final, rates: { ...final.rates, energy: power.available }, power, powerGrid: { requested: ledger.grid.requested, allocated: ledger.grid.allocated, failed: ledger.grid.failed }, digital: digitalProduction.result(), outputs, inputUnits, morale, moon, asriel, quantum, stageThree: space.stageThree, ejected, geneSynthesis: geneSynthesis.result() };
   });
 }

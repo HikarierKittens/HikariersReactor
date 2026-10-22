@@ -46,6 +46,25 @@ export function countAssignedLines(state: Pick<GameState, 'lines'>): number {
   return Object.values(state.lines || {}).reduce((sum, count) => sum + count, 0);
 }
 
+/** Free line capacity: owned capacity minus everything currently assigned. */
+export function countFreeFactoryLines(state: GameState): number {
+  return Math.max(0, calculateFactoryCapacity(state) - countAssignedLines(state));
+}
+
+/**
+ * 新建造的工厂，其生产线默认加入合金生产线 (beta 0.9.28).
+ *
+ * `added` is the number of newly completed units. The assignment is clamped to the
+ * capacity those units actually created: a factory that starts stopped (missing
+ * support or power) grants no line, so assigning one would make the save invalid.
+ */
+export function assignNewFactoryLines(state: GameState, id: BuildingId, added: number): number {
+  const lines = (BUILDINGS[id].lines || 0) * Math.max(0, added);
+  const assign = Math.min(lines, countFreeFactoryLines(state));
+  if (assign > 0) state.lines.alloy = (state.lines.alloy || 0) + assign;
+  return assign;
+}
+
 /** Owned 冶炼厂工位 (冶炼厂 +1, 恒星熔炉 +2), ignoring stopped smelters; bounds the idle setting. */
 export function calculateSmelterSlotCapacity(state: Pick<GameState, 'buildings'>): number {
   return (state.buildings.smelter || 0) + 2 * (state.buildings.stellarForge || 0);

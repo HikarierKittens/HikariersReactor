@@ -9,7 +9,7 @@ import { CRAFT_RECIPES } from '../data/resources';
 import { isResourceUnlocked } from './unlocks';
 import type { GameState, GovernmentId } from '../types/state';
 import type { CraftId, ResourceId, FactoryLineId } from '../types/economy';
-import { calculateFactoryCapacity, countAssignedLines, calculateSmelterSlotCapacity } from './factory';
+import { calculateFactoryCapacity, countAssignedLines, calculateSmelterSlotCapacity, countFreeFactoryLines } from './factory';
 import { isFactoryLineUnlocked } from './factory-settlement';
 
 import { calculateContainerRecipe, calculateContainerCapacity, countAssignedContainers, isContainerAssignable, calculateAlloyContainerCapacity, countAssignedAlloyContainers, ALLOY_CONTAINER_RECIPE } from './containers';
@@ -53,11 +53,24 @@ export function changeAlloyContainerAssignment(state: GameState, id: string, del
   return amount;
 }
 
+/**
+ * Assign or withdraw factory lines.
+ *
+ * Growing a line needs free capacity, but any shortfall is drawn out of the 合金生产线
+ * instead (beta 0.9.28): alloy is the default sink for new factories, so it doubles as
+ * the pool the player converts away from. Alloy never borrows from itself.
+ */
 export function changeFactoryAssignment(state: GameState, id: string, delta: number): number {
   if (!Number.isSafeInteger(delta) || !delta || !Object.hasOwn(state.lines, id) || (delta > 0 && !isFactoryLineUnlocked(id, state))) return 0;
   const line = id as FactoryLineId;
-  const amount = delta > 0 ? Math.min(delta, calculateFactoryCapacity(state) - countAssignedLines(state)) : -Math.min(-delta, state.lines[line]);
-  if (amount) state.lines[line] += amount;
+  // 合金 is the source, never the recipient, of an internal transfer.
+  const available = delta > 0 ? countFreeFactoryLines(state) + (line === 'alloy' ? 0 : state.lines.alloy) : state.lines[line];
+  const amount = delta > 0 ? Math.min(delta, available) : -Math.min(-delta, available);
+  if (amount) {
+    const borrowed = Math.max(0, amount - countFreeFactoryLines(state));
+    if (borrowed) state.lines.alloy -= borrowed;
+    state.lines[line] += amount;
+  }
   return amount;
 }
 /** Move 冶炼厂工位 between 钢冶炼 (delta > 0) and idle (delta < 0). */

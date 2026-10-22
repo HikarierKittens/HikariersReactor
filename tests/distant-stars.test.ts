@@ -115,9 +115,12 @@ test('alpha-sector miners and graphene settle like hyperspace sources with break
   for (const dt of [.2, 1]) {
     const s = alpha(); s.buildings.adamantiteMiningShip = 2; s.buildings.grapheneFactory = 1; s.buildings.adamantiteProcessor = 3;
     const before = clone(s), p = calculateProduction(s, dt); assert.deepEqual(s, before);
-    near(p.rates.adamantite, .5 * 1.6); near(p.rates.graphene, 2);
-    near(p.power.generated, 1000); near(p.power.used, 45); near(p.power.available, 955);
-    near(p.rates.energy, 955, 'energy');
+    // 精金精炼站 grants +10% per funded station (beta 0.9.28, was 20%): 2 miners × 1.3.
+    near(p.rates.adamantite, .5 * 1.3); near(p.rates.graphene, 2);
+    // Each refinery now burns 5 电力/s instead of 10: 3 funded = 15, plus the graphene
+    // factory (5) and the two miners' own 5 each = 30 in total.
+    near(p.power.generated, 1000); near(p.power.used, 30); near(p.power.available, 970);
+    near(p.rates.energy, 970, 'energy');
     near(p.rates.helium3, -10); near(p.rates.deuterium, -2); near(p.rates.oil, -15);
     for (const id of ['adamantite', 'graphene', 'energy', 'helium3', 'deuterium', 'oil'] as ResourceId[]) near(calculateResourceBreakdown(id, s, p).net, p.rates[id], id);
     const rows = calculateResourceFactorRows('adamantite', s, p).rows;
@@ -140,15 +143,19 @@ test('stellar forge generates 25 energy/s while keeping its passive forge effect
 test('adamantite refinery bonuses require whole funded running stations with breakdown parity', () => {
   assert.equal(BUILDINGS.adamantiteMiningShip.output!.adamantite, .25);
   assert.equal(BUILDINGS.adamantiteProcessor.name, '精金精炼站');
+  // beta 0.9.28: each funded station gives +10% (was 20%) and burns 5 电力/s (was 10).
+  assert.equal(calculateBuildingInput('adamantiteProcessor', fresh()).energy, 5);
   for (const dt of [.2, 1]) {
     // `requested` counts every enabled unit, funded or not: available is generated minus requested.
+    // Each unit of `used` is 5 电力 (refineries) plus the miner's own 5 电力 upkeep.
+    // `requested` = 5 × enabled processors + 5 for the miner, funded or not.
     for (const [stopped, energy, funded, rate, upkeep, requested] of [
-      [0, 25, 2, .35, -25, 25],
-      [1, 25, 1, .3, -15, 15],
+      [0, 25, 2, .3, -15, 15],
+      [1, 25, 1, .275, -10, 10],
       [2, 25, 0, .25, -5, 5],
-      [0, 5, 0, .25, -5, 25],
-      [0, 19, 1, .3, -15, 25], // A fractionally affordable second refinery grants no bonus.
-    ]) {
+      [0, 9, 0, .25, -5, 15], // Below two refineries' upkeep: no bonus, but the miner still runs.
+      [0, 4, 0, 0, 0, 15], // Below even the miner's upkeep: nothing runs at all.
+    ] as const) {
       const s = alpha(); s.buildings.adamantiteMiningShip = 1; s.buildings.adamantiteProcessor = 2;
       s.stoppedBuildings.adamantiteProcessor = stopped!; supplyPower(s, energy!);
       const p = calculateProduction(s, dt);

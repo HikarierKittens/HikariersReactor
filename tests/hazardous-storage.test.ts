@@ -11,9 +11,11 @@ import { calculateStorageDetails, calculateStorageTotals } from '../src/simulati
 import { calculateSupportPreview } from '../src/simulation/support-preview';
 import { isBuildingUnlocked, isTechnologyUnlocked } from '../src/simulation/unlocks';
 import { calculateBuildingScale } from '../src/simulation/costs';
+import { calculateProduction } from '../src/simulation/production';
 import { supplyPower } from './support/power';
 
 const fresh = () => createInitialState(CONFIG.version, 60, 0);
+const near = (a: number, b: number, label = '') => assert.ok(Math.abs(a - b) < 1e-7, `${label} ${a} != ${b}`);
 const snapshot = (s: ReturnType<typeof fresh>) => {
   const p = calculateSupportPreview(s);
   return { ...p, moonBaseUnits: p.moon.baseUnits };
@@ -41,19 +43,33 @@ test('hazardous storage research follows stellar forge and gates the regional bu
   }
 });
 
-test('hazardous stores add passive E710 and neutron capacity with detail/total parity', () => {
+test('hazardous stores grant E710/neutron capacity only while their upkeep is funded', () => {
+  // beta 0.9.28 gave 危险物质库 a 10 电力 + 0.25 氘/s upkeep, so its capacity now follows the
+  // funded units instead of the owned count: an unpowered store holds nothing.
   const s = fresh();
   const before = calculateStorageTotals(s, snapshot(s));
   s.buildings.hazardousMaterialStorage = 3;
-  s.tech.push('higherDimensionalStorage');
-  const p = snapshot(s), after = calculateStorageTotals(s, p);
+  s.tech.push('hazardousMaterialStorage', 'higherDimensionalStorage');
+  s.neutronStarMissionCompleted = true;
+  Object.assign(s.resources, { deuterium: 1000 });
+  // No power: every store stops, so no capacity is granted.
+  const unfunded = snapshot(s);
+  assert.equal(unfunded.hazardousStorageUnits, 0);
+  assert.equal(calculateStorageTotals(s, unfunded).e710, before.e710);
+  assert.equal(calculateStorageTotals(s, unfunded).neutron, before.neutron);
+  // Fund all three: 3 × (500 E-710, 32k 中子).
+  supplyPower(s, 1000);
+  const funded = snapshot(s);
+  assert.equal(funded.hazardousStorageUnits, 3);
+  const after = calculateStorageTotals(s, funded);
   for (const [resource, capacity] of [['e710', 1500], ['neutron', 96000]] as const) {
     assert.equal(after[resource] - before[resource], capacity);
-    const details = calculateStorageDetails(resource, s, p);
+    const details = calculateStorageDetails(resource, s, funded);
     assert.equal(details.total, after[resource]);
     assert.equal(details.rows.find(row => row.name.startsWith('危险物质库'))?.value, capacity);
   }
-});
+  // 氘 is the second half of the upkeep: three stores burn 0.75/s.
+  near(calculateProduction(s, 1).rates.deuterium, -0.75, 'deuterium upkeep');});
 
 test('asteroid base new capacities double alongside existing stores', () => {
   const s = fresh();

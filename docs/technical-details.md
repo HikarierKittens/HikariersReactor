@@ -64,6 +64,19 @@
 - production.digital与supportPreview.digital为UI及容量共享结果；bytes容量10000+10000*受支持量子存储器，无其他储量全局加成。ResourcePanel、价格/储量/收支明细均用B/KB/MB等1000进制，精确值不变。
 - schema31兼容归零缺失四建筑的数量/工人/停用、bytes库存/容器记录及downloadAllocation；显式非法不修复，校准已研究却没路由不回填赠品。数字页和滑块旧存档默认未开放/0分流；软重置按原规则清除本周目数字进度。
 
+### AI数据中心与卡尔维拉维护费（beta 0.9.28）
+
+- **数值单一来源** `simulation/ai-data-center.ts`：`calculateAiDataCenterPower`（`25 + 5 × (已建造 − 1)`）、`calculateAiCementBonusPerCenter` / `calculateAiCementMultiplier`、`calculateAiGrapheneBonusPerCenter` / `calculateAiGrapheneMultiplier`、`calculateAdamantiteProcessorBonus`。`getBuildingPowerDemand`、`calculateBuildingInput`、`quantum.ts`、`space-settlement.ts`、`ground-settlement.ts`、`resource-breakdown.ts`、`building-tooltip-rows.ts` 全部调这里，禁止再出现字面量 `25` / `1.75` / `5`。量子水平的 +5% 直接以 `AI_DATA_CENTER_QUANTUM_BONUS × centers` 写在 `quantum.ts` 的倍率里（只此一处，不再单独导出函数）。
+- **单座加成是原子量**：`calculateAiCementBonusPerCenter(quantumLevel) = 量子水平 / 1.75 / 100`，倍率函数是 `1 + 运行座数 × 单座加成`。工具提示显示的就是这个单座值（后缀 `/座`），所以「界面显示的数 × 座数」永远等于结算用的倍率，不存在界面再写一遍 `/1.75` 的可能。工具提示的 `percent` 实参是 `formatEffectNumber`（四位小数），不是 `vue/format` 的 `percent`（两位小数）——写显示测试时必须照抄组件传入的函数，否则断言值与真实界面不符。
+- **电力加价的计数口径是「已建造总数」**，不是「运行中数量」。加价描述的是「多一座中心让每座更耗电」，与供能无关；若按运行数计，缺电时每座耗电会自己降下来，形成「越缺电越省电」的漏洞。
+- **量子水平**：`QuantumSnapshot` 新增 `centers`。`level = floor(base × (1 + .25×cores + .05×centers + agi) × 100)/100`。`centers` 直接取 `countRunningBuildings('aiDataCenter')`——电网的 `powerActivationOrder` 结算会把未获供能的单位写入 `stoppedBuildings`，这个计数因此天然等于「已付清维护」，不需要新增快照字段。
+- **维护费入账**：AI数据中心、危险物质库都加入 `HYPERSPACE_CONSUMER_IDS`。`space-settlement` 的消费者循环用 `calculateBuildingInput` 读配方（而不是 `BUILDINGS[id].input`），因为 AI数据中心的单座耗电是动态的。`pool-replay` 的对应位置同样改为读 `calculateBuildingInput`，否则重放与结算会各扣一个数。
+- **量子水平只解一次**：`calculateProduction` 先算 `calculateQuantumSnapshot`，再把 `quantumLevel` 传给 `replaySettledPool` → `replaySpaceDebits` → `settleSpaceProduction`，以及 `settleGroundProduction`。`buildSettlementLedger` 也把 `quantumLevel` 传给 `settleSpaceProduction`。**`settleSpaceProduction` 内部绝不调用 `calculateQuantumLevel`**：那会经由 `calculateSupportPreview` 递归回自身。
+- **危险物质库容量跟随供能**：`StorageSnapshot` 新增可选 `hazardousStorageUnits`，`support-preview` 从 `space.inputs.hazardousMaterialStorage` 填充，`accumulateStorageRows` 用它替代 `state.buildings[id]`。`withStorageSupportFallback` 里提供懒加载兜底，与 `e710WarehouseUnits` 同一模式。
+- **工厂生产线**：`calculateFactoryCapacity` 仍按运行中的 `lines` 求和。`assignNewFactoryLines(state, id, added)` 在 `constructBuildingState` 的 **stop 决策之后**调用——先分配会让「起手就停用」的工厂凭空多出一条线，产生 `lines > capacity` 的非法存档。`changeFactoryAssignment` 的可用量 = 空余容量 + （非合金线时）合金线数量。
+- **VM 回归**：`scripts/generate-legacy-data.cjs` 的 `ai-data-center` 必须排在 `quantum` 之前，因为这些桥接脚本是靠全局变量互相引用的，顺序错了会得到 `ReferenceError: AI_DATA_CENTER_QUANTUM_BONUS is not defined`。
+- **存档**：`aiDataCenter` 加入 `ADDITIVE_BUILDING_IDS`，`CONFIG.version` 不变（仍是 33）——本次只新增建筑计数，没有结构变化。
+
 ### 成本与库存格式（beta 0.6.7）
 
 危险物质库cost增加cash2000000/alloy50000，与已有adamantite10000/nanoAlloy10000均使用1.265递增。formatCostNumber用于悬停费用、建筑成本及ARPA工程投入/需求，formatResourceNumber用于库存/储量，两者达到1000就切换下一SI单位；formatRateNumber/formatEffectNumber保持原10000阈值。只影响显示，实际计费与库存精度不变，无存档字段变化且升级兼容逻辑保留。

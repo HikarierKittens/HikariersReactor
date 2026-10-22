@@ -48,6 +48,24 @@
 
 ---
 
+## 2026/10/22 beta 0.9.28 AI数据中心与卡尔维拉平衡
+
+- **危险物质库加维护费**：`buildings.ts` 增加 `input: { energy: 10, deuterium: .25 }`、`toggleable: true`、`settledByOtherSystem: true`，并从 `存储` 语义改为 `HYPERSPACE_CONSUMER_IDS` 成员。容量因此跟随**已付清维护费的整座数量**：`StorageSnapshot` 新增 `hazardousStorageUnits`，由 `support-preview` 的 `space.inputs.hazardousMaterialStorage` 提供；`accumulateStorageRows` 用它替代 `state.buildings[id]`。副作用是关闭或断电后 E-710 / 中子容量立即失效——这是维护费应有的语义，已向用户确认。
+- **精金精炼站 20%→10%、耗电 10→5**：数值全部收敛到新文件 `simulation/ai-data-center.ts`（`ADAMANTITE_PROCESSOR_BONUS = .1`）。`space-settlement`、`pool-replay`、`resource-breakdown` 不再硬编码 `10`，一律读 `calculateBuildingInput('adamantiteProcessor', …).energy`，避免三处各写一个数字。
+- **新建工厂默认合金线**：新增 `assignNewFactoryLines(state, id, added)`（`simulation/factory.ts`），在 `purchases.ts` 的 `constructBuildingState` 末尾调用。**必须在 stop 决策之后调用**：起手就停用的工厂不产生生产线容量，先分配会造出 `lines > capacity` 的非法存档（`validateFactoryAssignments` 会拒载）。
+- **生产线抽取**：`changeFactoryAssignment` 改为「先用空余容量，不足部分从合金线扣除」，合金线自身只能收缩、不能自借。`FactoryModal` 的 `»` 按钮禁用条件同步改为 `canGrow()`：原来 `used >= cap` 会让玩家永远点不动抽取。这个按钮状态是新机制最容易漏改的地方。
+- **AI数据中心（T21 科技 + 卡尔维拉建筑）**：科技 `aiDataCenter` 前置 `['nanoAlloy', 'energyShield']` + `spaceMissionRequired: 'neutronStar'`，价格 200 万知识 + 15000 纳米合金 + 20000 石墨烯；建筑 `cost` 为 200k 知识（1.15）与秘银 / 纳米合金 / 石墨烯 / 精金（1.20）。
+  - **电力**：`calculateAiDataCenterPower` = `25 + 5 × (已建造总数 − 1)`，`getBuildingPowerDemand` 与 `calculateBuildingInput` 共用。注意这里是**已建造总数**而非已供能数量：加价为「单建筑的电力消耗」，与供能与否无关。
+  - **量子水平**：`calculateQuantumSnapshot` 把 `+5% × 运行中中心数` 加进基础倍率，与 AI超级核心的 `+25%` 同一层级（用户确认过按加算实现）。中心的运行数直接取 `countRunningBuildings('aiDataCenter')`——电网会把缺电单位写进 `stoppedBuildings`，因此这个数天然等于「已付清维护」的数量，不需要额外的快照字段。
+  - **维护费入账**：AI数据中心加入 `HYPERSPACE_CONSUMER_IDS`，由 `space-settlement` 的消费者循环按 `calculateBuildingInput` 扣电力。**这一条曾经漏掉**：电网把它算作 `requested`，但没有任何结算路径真正扣电，导致 `power.used` 偏高、`rates.energy` 却不下降。
+- **三个后续科技**：`aiCementWorkshop`（175 万）、`advancedAdamantiteProcessing`（180 万）、`advancedGrapheneProcessing`（190 万），前置均为 `['aiDataCenter']`，档位 T21。三者各自的倍率函数都在 `ai-data-center.ts` 内，水泥 / 石墨烯 / 精金三条结算路径与 `resource-breakdown` 的因子行读同一函数。
+- **量子水平只解一次**：`production.ts` 把 `calculateQuantumSnapshot` 提到 `replaySettledPool` 之前，并把 `quantumLevel` 一路传给 `settleSpaceProduction` / `settleGroundProduction` / `replaySettledPool` / `replaySpaceDebits`。石墨烯加成同时影响池子重放与支持预览，若各自再解一次量子会与工具提示不一致。`settleSpaceProduction` **不能**自己调 `calculateQuantumLevel`：它会穿过 `support-preview` 回到自己，形成无限递归。
+- **工具提示**：`building-tooltip-rows.ts` 里 AI数据中心的 `tip.description` 追加「当前量子水平：X.XX」，后续科技效果只在该科技已研究时列出。危险物质库的维护费由通用的「消耗行」自动生成，无需额外文字。
+- **后续科技数值按单座显示**（收尾调整）：三个后续科技的加成行只写**单座中心**的数值并加 `/座` 后缀，不再写「单座 × 座数」的总量。为此在 `ai-data-center.ts` 抽出 `calculateAiCementBonusPerCenter` / `calculateAiGrapheneBonusPerCenter`，倍率函数改为 `1 + 运行座数 × 单座加成`，界面与结算共用同一个单座公式（避免界面再手写一次 `/1.75`）。注意工具提示的 `percent` 实参是 `formatEffectNumber`（四位小数）而不是 `vue/format` 的 `percent`（两位小数）——测试必须照抄组件实际传入的格式化函数，否则断言值与界面不符。
+- **文档同步**：`docs/glossary.md`（量子水平来源、危险物质库维护费、加成按单座显示）、`docs/technical-details.md`（结算顺序与量子传递）、`docs/agent-map.md`（`ai-data-center.ts` 进权威表、测试计数）、`README.md` 与 `App.vue` 版本号。
+- **测试**：新增 `tests/t21-ai-data-center.test.ts`（10 项，含一项驱动真实 `addBuildingEffectRows` 的单座显示断言）与 `tests/factory-default-lines.test.ts`（9 项）。更新 6 个既有文件：`distant-stars`（精金 10%/5 电力的新期望值）、`hazardous-storage`（供能才给容量）、`settlement-ledger`（新增 `hazardousStorageUnits` 字段）、`save-compatibility`（增量列表补 `aiDataCenter`）、`scripts/generate-legacy-data.cjs`（`ai-data-center` 必须早于 `quantum` 注入，否则 VM 回归里是 `ReferenceError`）、以及 7 个 fixture 的科技排除列表（新科技带 `spaceMissionRequired`，与危险物质库同理会被 `validateUnlockRecords` 拒绝）。浏览器验收新增 4 项：单座数值、单座石墨烯、精金 +2%/座、以及量子水平非零的前置断言。
+- **验证**：`npm run check` 全绿——757 项模块测试（原 738 + 19）、VM 回归、浏览器验收 590 项 RESULT: PASS、类型检查与生产构建。
+
 ## 2026/10/21 beta 0.9.27 科技调整：高级混凝土升 T16、戴森球升级技术隐藏
 
 - **高级混凝土降到 T16**：`tier: 26 → 16`。造价（46万知识 + 1000铱 + 2500合金 + 5万纳米管）与效果（水泥工人 +30%，不增加原料消耗）**均未改动**。前置仍是「硅酸盐水泥 + 碳纳米管」，两者分别是 T5 与 T14，低于 T16，所以科技树里它不会画在依赖项上方。实测渲染后档位标签止于 `25`（T26 已不存在），该节点落在 T16 标签行上。

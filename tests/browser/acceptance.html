@@ -889,6 +889,25 @@ try {
   click($('[data-buy="factory"]').closest('.building-control').querySelector('.building-gear')); await flush();
   click($('[data-line-option="alloy"][data-line-delta="1"]')); await flush();
   log(S().lines.alloy === 1 && $('[data-line-option="alloy"]').closest('.factory-row').querySelector('strong').textContent === '1', '工厂弹窗即时更新合金生产线分配');
+  {
+    // beta 0.9.28: with no spare capacity, raising any other line draws the shortfall out of
+    // the alloy line. (The auto-assign default is covered by tests/factory-default-lines.test.ts;
+    // here we assert the UI path the player actually clicks.)
+    const snapshot = structuredClone(S());
+    store.mutate(state => {
+      // 聚合物生产线 is technology-gated; unlock it so the row renders and stays enabled.
+      if (!state.tech.includes('polymer')) state.tech.push('polymer');
+      state.lines.alloy = state.buildings.factory - (state.stoppedBuildings.factory || 0);
+      state.lines.polymer = 0;
+    });
+    await flush();
+    const beforeAlloy = S().lines.alloy;
+    log(beforeAlloy > 0, `测试前提：合金生产线占满全部可用容量 [alloy=${beforeAlloy}]`);
+    click($('[data-line-option="polymer"][data-line-delta="1"]')); await flush();
+    log(S().lines.polymer === 1 && S().lines.alloy === beforeAlloy - 1,
+      `无空余容量时增加其他生产线从合金抽取 [alloy=${S().lines.alloy},polymer=${S().lines.polymer}]`);
+    store.runtime.replaceState(snapshot); store.refresh(); await flush();
+  }
   log($('#factoryModal').matches(':modal'), '工厂弹窗通过showModal进入原生模态层');
   {
     const box = $('#factoryModal').getBoundingClientRect(), row = $('#factoryModal .factory-row').getBoundingClientRect();
@@ -1268,7 +1287,55 @@ try {
     store.mutate(state=>{state.neutronStarMissionCompleted=true;state.tech.push('stellarForge','hazardousMaterialStorage');});await flush();
     log(!!$('[data-building-group="neutronStar"] [data-buy="hazardousMaterialStorage"]'),'危险物质库研究后显示于卡尔维拉');
     await showTip('[data-buy="hazardousMaterialStorage"]');
-    log($('#gameTooltip').textContent.includes('32k') && $('#gameTooltip').textContent.includes('500'),'危险物质库悬停容量使用公制显示');await escapeTip();
+    log($('#gameTooltip').textContent.includes('32k') && $('#gameTooltip').textContent.includes('500'),'危险物质库悬停容量使用公制显示');
+    // 维护费 (beta 0.9.28): 10 电力 and 0.25 氘/s are listed as effect rows.
+    {
+      const rows=[...($('#gameTooltip')?.querySelectorAll('.resource-factor')||[])].map(row=>row.textContent.replace(/\s+/g,''));
+      log(rows.some(row=>row.startsWith('电力-10'))&&rows.some(row=>row.startsWith('氘-0.25')),`危险物质库悬停显示10电力与0.25氘维护费 [${rows}]`);
+    }
+    await escapeTip();
+    store.mutate(state=>Object.assign(state,snapshot));await flush();
+  }
+  {
+    // AI数据中心 (beta 0.9.28): T21 卡尔维拉 technology + building, desc shows live 量子水平.
+    const snapshot=structuredClone(S());
+    store.mutate(state=>{
+      state.neutronStarMissionCompleted=true;
+      for(const id of ['energyShield','nanoAlloy','aiDataCenter']) if(!state.tech.includes(id)) state.tech.push(id);
+    });await flush();
+    log(!!$('[data-building-group="neutronStar"] [data-buy="aiDataCenter"]'),'AI数据中心研究后显示于卡尔维拉');
+    await showTip('[data-buy="aiDataCenter"]');
+    {
+      const text=$('#gameTooltip').textContent;
+      log(text.includes('当前量子水平')&&/当前量子水平：\d+\.\d{2}/.test(text),`AI数据中心悬停实时显示当前量子水平 [${text.slice(0,80)}]`);
+      const rows=[...($('#gameTooltip')?.querySelectorAll('.resource-factor')||[])].map(row=>row.textContent.replace(/\s+/g,''));
+      log(rows.some(row=>row.startsWith('量子水平+5%')),`AI数据中心悬停列出量子水平+5% [${rows}]`);
+      log(rows.some(row=>row.startsWith('电力-25')),`AI数据中心首座悬停列出电力-25 [${rows}]`);
+    }
+    await escapeTip();
+    // Building one more centre raises each unit's upkeep to 30 (25 + 5 × 1).
+    store.mutate(state=>{state.buildings.aiDataCenter=2;state.stoppedBuildings.aiDataCenter=0;state.buildings.solarSatellite=200000;});await flush();
+    await showTip('[data-buy="aiDataCenter"]');
+    {
+      const rows=[...($('#gameTooltip')?.querySelectorAll('.resource-factor')||[])].map(row=>row.textContent.replace(/\s+/g,''));
+      log(rows.some(row=>row==='电力-30'),`两座AI数据中心时每座耗电25+5=30 [${rows}]`);
+    }
+    await escapeTip();
+    // (beta 0.9.29) 后续科技的加成按「单座中心」显示，玩家看到的是单位速率而不是总量。
+    store.mutate(state=>{for(const id of ['artificialIntelligenceII','aiCementWorkshop','advancedAdamantiteProcessing','advancedGrapheneProcessing']) if(!state.tech.includes(id)) state.tech.push(id);state.buildings.library=200;state.stoppedBuildings.library=0;});await flush();
+    await showTip('[data-buy="aiDataCenter"]');
+    {
+      const rows=[...($('#gameTooltip')?.querySelectorAll('.resource-factor')||[])].map(row=>row.textContent.replace(/\s+/g,''));
+      const text=$('#gameTooltip').textContent;
+      const q=Number((/当前量子水平：([0-9.]+)/.exec(text)||[])[1]);
+      // 行文本形如「水泥产量+0.0629%/座每座运行中的中心：…」，取前缀之后、百分号之前的数字。
+      const perCentre=name=>{const row=rows.find(r=>r.startsWith(name+'+'));return row?Number(row.slice(name.length+1).split('%')[0]):NaN;};
+      log(q>0,`前置：AI数据中心量子水平大于0 [${q}]`);
+      log(Math.abs(perCentre('水泥产量')-q/1.75)<1e-3,`水泥加成为单座数值而非总量 [${q}, ${perCentre('水泥产量')}]`);
+      log(Math.abs(perCentre('石墨烯产量')-q/5)<1e-3,`石墨烯加成为单座数值而非总量 [${q}, ${perCentre('石墨烯产量')}]`);
+      log(perCentre('精金精炼站加成数值')===2,`精金精炼站加成按每座+2%显示而非总量 [${perCentre('精金精炼站加成数值')}, ${rows}]`);
+    }
+    await escapeTip();
     store.mutate(state=>Object.assign(state,snapshot));await flush();
   }
   store.mutate(state=>{state.blackHoleMissionCompleted=true;state.tech.push('penroseTheory');});await flush();

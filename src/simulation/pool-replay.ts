@@ -39,6 +39,7 @@ export function replaySettledPool(
   dt: number,
   happiness: number,
   pool: ResourceAmounts = { ...state.resources },
+  quantumLevel = 0,
 ): SettledPoolReplay {
   state = ledger.grid.state;
   const inputUnits: Record<string, number> = {};
@@ -92,11 +93,12 @@ export function replaySettledPool(
   // Their actual-happiness outputs change later allocation, so replaying a
   // happiness=1 ledger would grant unpaid units. Re-evaluate this narrow suffix.
   if (HYPERSPACE_SOURCE_IDS.some(id => state.buildings[id] > 0)) {
-    const space = settleSpaceProduction(state, pool, dt, happiness, ledger.plants.inputUnits.geothermalPlant || 0, ledger.plants.inputUnits.hydrogenPowerPlant || 0);
+    const space = settleSpaceProduction(state, pool, dt, happiness, ledger.plants.inputUnits.geothermalPlant || 0, ledger.plants.inputUnits.hydrogenPowerPlant || 0, quantumLevel);
     Object.assign(inputUnits, space.inputs); Object.assign(outputs, space.outputs);
     // Publish the actual allocation for production/storage consumers of this ledger.
     ledger.space = space;
     ledger.researchStationUnits = space.inputs.e710ResearchStation || 0;
+    ledger.hazardousStorageUnits = space.inputs.hazardousMaterialStorage || 0;
     ledger.blackHoleStationUnits = space.inputs.blackHoleStation || 0;
     const warehouses = settleE710WarehousePower(state, pool, dt);
     ledger.e710WarehouseUnits = warehouses;
@@ -109,7 +111,7 @@ export function replaySettledPool(
   }
   const spaceInputs = ledger.space.inputs;
   for (const [id, count] of Object.entries(spaceInputs)) inputUnits[id] = (inputUnits[id] || 0) + (count || 0);
-  const spaceOutputs = replaySpaceDebits(state, ledger, dt, pool, happiness, inputUnits);
+  const spaceOutputs = replaySpaceDebits(state, ledger, dt, pool, happiness, inputUnits, quantumLevel);
   Object.assign(outputs, spaceOutputs);
 
   // 4. E-710 warehouse power: fixed 7 energy per funded unit.
@@ -170,7 +172,7 @@ function replayPlantDebits(state: GameState, ledger: SettlementLedger, dt: numbe
 /** Space chain debits and happiness-scaled outputs replayed from ledger units. */
 function replaySpaceDebits(
   state: GameState, ledger: SettlementLedger, dt: number,
-  pool: ResourceAmounts, happiness: number, inputUnits: Record<string, number>,
+  pool: ResourceAmounts, happiness: number, inputUnits: Record<string, number>, quantumLevel: number,
 ): Record<string, number> {
   const outputs: Record<string, number> = {};
   const space = ledger.space;
@@ -209,7 +211,7 @@ function replaySpaceDebits(
   charge(pool, 'helium3', .5 * fuelMultiplier * e710ContainerUnits * dt);
 
   // Processor power is reserved before source production, matching the ledger.
-  charge(pool, 'energy', (spaceUnits.adamantiteProcessor || 0) * 10 * dt);
+  charge(pool, 'energy', (spaceUnits.adamantiteProcessor || 0) * (calculateBuildingInput('adamantiteProcessor', state).energy || 0) * dt);
   outputs.adamantiteProcessor = spaceUnits.adamantiteProcessor || 0;
   // Hyperspace facilities (710富集区 & stable zone): fixed funded units with
   // per-building input charge then output credit, exactly like the historical
@@ -221,18 +223,19 @@ function replaySpaceDebits(
       charge(pool, resource, amount * actual * dt);
     }
     for (const [resource, amount] of Object.entries(BUILDINGS[id].output || {}) as [ResourceId, number][]) {
-      const speed = actual * calculateHyperspaceOutputFactor(resource, state, happiness, stageThree.ports) * calculateHyperspaceLocalMultiplier(id, state, spaceUnits.adamantiteProcessor || 0);
+      const speed = actual * calculateHyperspaceOutputFactor(resource, state, happiness, stageThree.ports, quantumLevel) * calculateHyperspaceLocalMultiplier(id, state, spaceUnits.adamantiteProcessor || 0);
       outputs[id] = actual;
       credit(pool, resource, amount * speed * calculateGlobalOutputMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt);
     }
   }
 
-  // Pure hyperspace consumers (710研究站): maintenance only.
+  // Pure hyperspace consumers (710研究站, 危险物质库, AI数据中心): maintenance only.
   for (const id of HYPERSPACE_CONSUMER_IDS) {
     const actual = spaceUnits[id] || 0;
     if (!actual) continue;
     outputs[id] = actual;
-    for (const [resource, amount] of Object.entries(BUILDINGS[id].input || {}) as [ResourceId, number][]) charge(pool, resource, amount * actual * dt);
+    // The dynamic recipe keeps AI数据中心's per-unit upkeep in step with the owned count.
+    for (const [resource, amount] of Object.entries(calculateBuildingInput(id, state)) as [ResourceId, number][]) charge(pool, resource, amount * actual * dt);
   }
 
   // Outer-system mining ships: ratio-derived units replayed as fixed counts.

@@ -13,7 +13,7 @@ import { calculateGlobalOutputMultiplier } from './crafting';
 import type { ResourceAmounts, ResourceId } from '../types/economy';
 import type { GameState } from '../types/state';
 
-export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, dt: number, happiness: number, geothermalUnits = 0, hydrogenUnits = 0) {
+export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, dt: number, happiness: number, geothermalUnits = 0, hydrogenUnits = 0, quantumLevel = 0) {
   const inputs: Record<string, number> = {}, outputs: Record<string, number> = {};
   const waystations = reserveWaystationPower(state, pool, dt);
   inputs.spaceWaystation = outputs.spaceWaystation = waystations;
@@ -77,10 +77,11 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
   // Hyperspace facilities (710富集区 & stable zone) run on energy + helium/deuterium
   // inputs without asteroid support; outputs use ordinary multipliers like ice ships.
   // Fund processors before the miners: stopped/unfunded stations never grant a bonus.
+  const processorPower = calculateBuildingInput('adamantiteProcessor', state).energy || 0;
   const processorRunning = Math.max(0, (state.buildings.adamantiteProcessor || 0) - (state.stoppedBuildings.adamantiteProcessor || 0));
-  const fundedProcessors = Math.min(processorRunning, Math.floor((Math.max(0, pool.energy) + 1e-8) / (10 * dt)));
+  const fundedProcessors = Math.min(processorRunning, Math.floor((Math.max(0, pool.energy) + 1e-8) / (processorPower * dt)));
   inputs.adamantiteProcessor = outputs.adamantiteProcessor = fundedProcessors;
-  pool.energy = Math.max(0, pool.energy - fundedProcessors * 10 * dt);
+  pool.energy = Math.max(0, pool.energy - fundedProcessors * processorPower * dt);
   // 天元六alpha星区 producers share this loop; 精金精炼站 boosts the adamantite miners.
   for (const id of HYPERSPACE_SOURCE_IDS) {
     const running = Math.max(0, (state.buildings[id] || 0) - (state.stoppedBuildings[id] || 0));
@@ -97,7 +98,7 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
     // Multi-resource buildings expose funded units, not a sum of resource-local speeds.
     outputs[id] = actual;
     for (const [resource, amount] of Object.entries(out) as [ResourceId, number][]) {
-      const speed = actual * calculateHyperspaceOutputFactor(resource, state, happiness, stageThree.ports) * calculateHyperspaceLocalMultiplier(id, state, fundedProcessors);
+      const speed = actual * calculateHyperspaceOutputFactor(resource, state, happiness, stageThree.ports, quantumLevel) * calculateHyperspaceLocalMultiplier(id, state, fundedProcessors);
       pool[resource] = (pool[resource] || 0)
         + amount * speed * calculateGlobalOutputMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt;
     }
@@ -106,7 +107,9 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
   for (const id of HYPERSPACE_CONSUMER_IDS) {
     const running = Math.max(0, (state.buildings[id] || 0) - (state.stoppedBuildings[id] || 0));
     if (!running) continue;
-    const recipe = Object.entries(BUILDINGS[id].input || {}) as [ResourceId, number][];
+    // Registry recipe, not the raw literal: AI数据中心's per-unit upkeep follows the owned
+    // count, so reading the dynamic input keeps the debit identical to the grid's request.
+    const recipe = Object.entries(calculateBuildingInput(id, state)) as [ResourceId, number][];
     // Whole funded units only: the station's storage bonus must not flicker fractionally.
     let actual = running;
     for (const [resource, amount] of recipe) actual = Math.min(actual, Math.floor((Math.max(0, pool[resource] || 0) + 1e-8) / (amount * dt)));

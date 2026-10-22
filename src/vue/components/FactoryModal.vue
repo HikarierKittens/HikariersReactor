@@ -13,6 +13,11 @@ const emit = defineEmits<{ assign: [id: FactoryLineId, delta: number] }>();
 
 const cap = computed(() => { props.revision; return calculateFactoryCapacity(props.state); });
 const used = computed(() => { props.revision; return countAssignedLines(props.state); });
+/** A line can grow while there is free capacity OR alloy to draw the shortfall from. */
+function canGrow(id: FactoryLineId): boolean {
+  props.revision;
+  return used.value < cap.value || (id !== 'alloy' && (props.state.lines.alloy || 0) > 0);
+}
 const rows = computed(() => {
   props.revision;
   const quantumLevel = props.state.tech.includes('quantumManufacturing') ? calculateQuantumLevel(props.state) : 0;
@@ -43,7 +48,7 @@ const rows = computed(() => {
         <span class="factory-name" :data-tip="row.recipe" tabindex="0" :aria-label="`${row.name}生产线配方：${row.recipe}${row.locked ? '尚未解锁' : ''}`">{{ row.name }}<span v-if="row.locked" class="small subtle">（未解锁）</span></span>
         <button :data-line-option="row.id" :data-line-delta="-1" :disabled="row.count <= 0" :aria-label="`减少${row.name}生产线`" @click="emit('assign', row.id, -clickMultiplier($event))">«</button>
         <strong>{{ fmt(row.count) }}</strong>
-        <button :data-line-option="row.id" :data-line-delta="1" :disabled="row.locked || used >= cap" :aria-label="`增加${row.name}生产线`" @click="emit('assign', row.id, clickMultiplier($event))">»</button>
+        <button :data-line-option="row.id" :data-line-delta="1" :disabled="row.locked || !canGrow(row.id)" :aria-label="`增加${row.name}生产线`" @click="emit('assign', row.id, clickMultiplier($event))">»</button>
       </div>
     </div>
   </div>

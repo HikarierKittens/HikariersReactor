@@ -13,7 +13,7 @@ export type BuildingId =
   | 'fusionPowerPlant' | 'metalMiningShip' | 'fuelMiningShip'
   | 'spaceRipper' | 'highTechFactory' | 'e710ResearchStation'
   | 'adamantiteMiningShip' | 'adamantiteProcessor' | 'grapheneFactory' | 'vrCenter'
-  | 'stellarForge' | 'hazardousMaterialStorage' | 'blackHoleStation' | 'penroseSphere' | 'dysonSphere' | 'massEjector'
+  | 'stellarForge' | 'hazardousMaterialStorage' | 'aiDataCenter' | 'blackHoleStation' | 'penroseSphere' | 'dysonSphere' | 'massEjector'
   | 'spaceRipperSegments' | 'penroseSphereSegments' | 'dysonSphereSegments'
   | 'dysonSphereL2' | 'dysonSphereL2Segments' | 'aiSupercoreSegments'
   | 'constraintArray' | 'shortRangeRelay' | 'anchorFreightStation' | 'civilianRouteStation'
