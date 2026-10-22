@@ -50,6 +50,14 @@
 
 ---
 
+## 2026/10/23 beta 0.9.42 实验室知识成本蠕变 +0.02
+
+- `src/data/buildings.ts` 的 `lab.costScales.knowledge` 从 **1.18** 改为 **1.20**。其余四项（copper/cement/metalPlate/cash 均为 1.2）不动。
+- `tests/building-cost-creep.test.ts` 的硬编码期望值同步为 1.2，注释更新为 0.9.42 的缘由。
+- **注意**：`buildings.ts` 里另有 `moonObservatory.costScales.knowledge = 1.18`，是月球观测站自己的值，**不要**跟着改。两处都是 1.18 但含义不同，改动时必须按建筑定位。
+- **验证**：`npm run check` 通过：793 项模块测试、经典 VM 回归（失败 0）、Edge 浏览器验收、类型检查与生产构建。
+- **兼容**：纯数值调整，无存档结构变化，`CONFIG.version` 仍为 33。已建造的实验室不受影响，只影响后续购买价格。
+
 ## 2026/10/23 beta 0.9.41 蜂群卫星发电量科技（钛铱合金面板 / 石墨烯导电板）
 
 - **新增科技**：

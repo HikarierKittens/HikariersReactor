@@ -1220,7 +1220,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     "slots": 1,
     "tech": "science",
     "costScales": {
-      "knowledge": 1.18,
+      "knowledge": 1.2,
       "copper": 1.2,
       "cement": 1.2,
       "metalPlate": 1.2,

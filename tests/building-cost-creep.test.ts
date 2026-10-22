@@ -156,8 +156,8 @@ test('balance pass: 17 ground buildings carry +0.02 base creep in both registrie
   };
   for (const [id, scale] of Object.entries(raised) as [BuildingId, number][]) {
     for (const [resource, raw] of Object.entries(BUILDINGS[id].costScales!)) {
-      // 实验室 knowledge kept its own lower creep (1.17 → 1.18).
-      close(raw, id === 'lab' && resource === 'knowledge' ? 1.18 : scale);
+      // 实验室 knowledge carries its own creep, raised by +0.02 in 0.9.42 (1.18 → 1.20).
+      close(raw, id === 'lab' && resource === 'knowledge' ? 1.2 : scale);
       assert.equal(BUILDING_COST_SCALES[id]![resource as ResourceId], raw, `${id}/${resource}`);
     }
   }
