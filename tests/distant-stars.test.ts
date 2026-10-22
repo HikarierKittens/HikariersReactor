@@ -116,7 +116,7 @@ test('alpha-sector miners and graphene settle like hyperspace sources with break
     const s = alpha(); s.buildings.adamantiteMiningShip = 2; s.buildings.grapheneFactory = 1; s.buildings.adamantiteProcessor = 3;
     const before = clone(s), p = calculateProduction(s, dt); assert.deepEqual(s, before);
     // 精金精炼站 grants +10% per funded station (beta 0.9.28, was 20%): 2 miners × 1.3.
-    near(p.rates.adamantite, .5 * 1.3); near(p.rates.graphene, 2);
+    near(p.rates.adamantite, .5 * 1.3); near(p.rates.graphene, 1.5);
     // Each refinery now burns 5 电力/s instead of 10: 3 funded = 15, plus the graphene
     // factory (5) and the two miners' own 5 each = 30 in total.
     near(p.power.generated, 1000); near(p.power.used, 30); near(p.power.available, 970);
@@ -174,7 +174,7 @@ test('adamantite refinery bonuses require whole funded running stations with bre
 test('star-ring bonus applies to distant ordinary resources while the old port bonus is gone', () => {
   const s = alpha(); s.buildings.grapheneFactory = 1; s.buildings.hyperspaceSpaceport = 1;
 
-  const plain = calculateProduction(s, 1).rates.graphene; near(plain, 2);
+  const plain = calculateProduction(s, 1).rates.graphene; near(plain, 1.5);
   s.asrielMissionCompleted = true; s.tech.push('planetaryExploration');
   s.buildings.asrielSpaceport = 1; s.buildings.asrielResidence = 4; s.buildings.starRingStation = 2; s.population = 10; s.workers.asrielResidence = 4;
   Object.assign(s.resources, { helium3: 1e4, food: 1e4 });

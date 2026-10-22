@@ -41,7 +41,7 @@ export const EJECTION_MASSES: Partial<Record<ResourceId, number>> = {
   aerogel: .0000001, neutron: .00004,
 };
 /** Exotic matter only adds exotic mass. Both are the heaviest ejectables by far. */
-export const EXOTIC_EJECTION_MASSES: Partial<Record<ResourceId, number>> = { e710: .00001, nanoAlloy: .0000002 };
+export const EXOTIC_EJECTION_MASSES: Partial<Record<ResourceId, number>> = { e710: .000004, nanoAlloy: .00000001 };
 
 export function createBlackHoleState(): BlackHoleState {
   return { mass: BLACK_HOLE_INITIAL_MASS, exoticMass: 0, unstable: false, ejection: {} };

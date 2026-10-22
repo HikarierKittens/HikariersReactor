@@ -93,7 +93,7 @@ export function replaySettledPool(
   // Their actual-happiness outputs change later allocation, so replaying a
   // happiness=1 ledger would grant unpaid units. Re-evaluate this narrow suffix.
   if (HYPERSPACE_SOURCE_IDS.some(id => state.buildings[id] > 0)) {
-    const space = settleSpaceProduction(state, pool, dt, happiness, ledger.plants.inputUnits.geothermalPlant || 0, ledger.plants.inputUnits.hydrogenPowerPlant || 0, quantumLevel);
+    const space = settleSpaceProduction(state, pool, dt, happiness, ledger.plants.inputUnits.hydrogenPowerPlant || 0, quantumLevel);
     Object.assign(inputUnits, space.inputs); Object.assign(outputs, space.outputs);
     // Publish the actual allocation for production/storage consumers of this ledger.
     ledger.space = space;
@@ -283,8 +283,7 @@ function replaySpaceDebits(
     const out = calculateBuildingOutput(id, state);
     const units = moon.allocations[id];
     inputUnits[id] = units;
-    outputs[id] = units * calculateProductionMultiplier(Object.keys(out)[0] ?? '', happiness, state)
-      * (id === 'iridiumMine' ? 1 + .05 * (ledger.plants.inputUnits.geothermalPlant || 0) : 1);
+    outputs[id] = units * calculateProductionMultiplier(Object.keys(out)[0] ?? '', happiness, state);
     for (const [resource, value] of Object.entries(out) as [ResourceId, number][]) {
       credit(pool, resource, value * outputs[id] * calculateGlobalOutputMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt);
     }

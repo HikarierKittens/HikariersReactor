@@ -25,8 +25,8 @@ test('hyperspace sources no longer receive a port bonus and keep breakdown parit
  const s=state(), p=calculateProduction(s,.2);
  assert.equal(p.pool.energy,0,'electricity is a fixed budget, not stored');
  assert.equal(p.outputs.metalMiningShip,1);
- near(p.rates.stone,8); near(p.rates.copper,4); near(p.rates.aluminum,3);
- near(p.rates.deuterium,.25-.2); near(p.rates.helium3,2-5);
+ near(p.rates.stone,4); near(p.rates.copper,2); near(p.rates.aluminum,1.5);
+ near(p.rates.deuterium,.2-.2); near(p.rates.helium3,1-5);
  for(const id of ['stone','copper','aluminum','deuterium','helium3'] as ResourceId[]) near(calculateResourceBreakdown(id,s,p).net,p.rates[id]);
  s.buildings.metalRefinery=2;
  const refined=calculateProduction(s,.2);

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONFIG } from '../src/data/config';
 import { TECHNOLOGIES } from '../src/data/technologies';
+import { BUILDINGS } from '../src/data/buildings';
 
 import { RESOURCES } from '../src/data/resources';
 import { createInitialState } from '../src/state/create-state';
@@ -127,22 +128,23 @@ test('hyperspace buildings fund whole units, never bootstrap, and use ordinary m
     assert.equal(p.inputUnits.metalMiningShip, 1);
     // Facility e710 +.05 minus the funded constraint array upkeep -.25.
     near(p.rates.e710 ?? 0, .05 - .25, 'e710 facility output minus array upkeep');
-    near(p.rates.neutron ?? 0, .25, 'neutron from facility');
+    near(p.rates.neutron ?? 0, .15, 'neutron from facility');
     near(p.rates.uranium ?? 0, .1, 'uranium from facility');
-    near(p.rates.helium3, 2 - 10, 'gas ship helium net');
-    // Gas produces .25; consumers metal .2 + fuel .2 + fusion .5 + farm .2.
-    near(p.rates.deuterium ?? 0, .25 - (.2 + .2 + .5 + .2), 'deuterium net');
-    near(p.rates.stone ?? 0, 8, 'metal ship stone');
-    near(p.rates.copper ?? 0, 4, 'metal ship copper');
-    near(p.rates.coal ?? 0, 2.5, 'fuel ship coal');
-    near(p.rates.wood ?? 0, 8, 'farm wood');
-    near(p.rates.food ?? 0, 10 - s.population * CONFIG.foodPerCat, 'farm food');
+    near(p.rates.helium3, 1 - 10, 'gas ship helium net');
+    // Gas produces .2; consumers metal .2 + fuel .2 + fusion .5 + farm .2.
+    near(p.rates.deuterium ?? 0, .2 - (.2 + .2 + .5 + .2), 'deuterium net');
+    // 金属采矿舰与燃料采矿舰的产出在 0.9.38 全部减半。
+    near(p.rates.stone ?? 0, 4, 'metal ship stone');
+    near(p.rates.copper ?? 0, 2, 'metal ship copper');
+    near(p.rates.coal ?? 0, 1.25, 'fuel ship coal');
+    near(p.rates.wood ?? 0, 4, 'farm wood');
+    near(p.rates.food ?? 0, 5 - s.population * CONFIG.foodPerCat, 'farm food');
     // Happiness scales ordinary outputs: derive the expectation from actual morale.
     s.population = 0;
     s.resources.deuterium = 2 * dt;
     const happy = calculateProduction(s, dt);
     assert.ok(happy.morale.happiness >= 100, 'zero population removes pop pressure');
-    near(happy.rates.copper ?? 0, 4 * happy.morale.happiness / 100, 'copper scales with happiness');
+    near(happy.rates.copper ?? 0, 2 * happy.morale.happiness / 100, 'copper scales with happiness');
   }
 });
 
@@ -236,4 +238,33 @@ test('deuterium holdings and era buildings survive a full save round trip', () =
   assert.ok(restored.tech.includes('fusionPower'));
   const again = validateCurrentSave(clone(restored), context);
   assert.deepEqual(again.resources.deuterium, 123);
+});
+
+test('0.9.38 balance pass: mining ship, farm, gas cloud and graphene base outputs', () => {
+  // 直接锁基础属性，这样任何一次「顺手改数值」都会被抓住，不必等到整条结算链跑偏。
+  assert.deepEqual(BUILDINGS.metalMiningShip.output, { stone: 4, copper: 2, iron: 2, aluminum: 1.5, titanium: 1, iridium: .25 });
+  assert.deepEqual(BUILDINGS.fuelMiningShip.output, { coal: 1.25, oil: 1.25 });
+  assert.deepEqual(BUILDINGS.gasCloudMiningShip.output, { helium3: 1, deuterium: .2 });
+  assert.deepEqual(BUILDINGS.comprehensiveMiningFacility.output, { e710: .05, neutron: .15, uranium: .1 });
+  assert.deepEqual(BUILDINGS.highTechFarmPlatform.output, { food: 5, wood: 4, water: .5 });
+  assert.deepEqual(BUILDINGS.grapheneFactory.output, { graphene: 1.5 });
+  // 采矿舰减半只动产出，输入（氘燃料）与成本不变。
+  assert.deepEqual(BUILDINGS.metalMiningShip.input, { deuterium: .2 });
+  assert.deepEqual(BUILDINGS.fuelMiningShip.input, { deuterium: .2 });
+});
+
+test('0.9.38 balance pass: geothermal plants no longer boost lunar iridium', () => {
+  const state = createInitialState(CONFIG.version, 60, 0);
+  state.tech.push('planetaryExploration');
+  state.resources.helium3 = 5000;
+  state.kerberosMissionCompleted = true;
+  state.buildings.geothermalPlant = 3;
+  state.buildings.moonBase = 1; state.buildings.iridiumMine = 1;
+  supplyPower(state, 100);
+  const withPlants = calculateProduction(state, 1).rates.iridium ?? 0;
+  state.stoppedBuildings.geothermalPlant = 3;
+  supplyPower(state, 100);
+  const withoutPlants = calculateProduction(state, 1).rates.iridium ?? 0;
+  // 停掉地热会少发电，但绝不能再影响铱矿产量（旧机制是每座 +5%）。
+  assert.ok(Math.abs(withPlants - withoutPlants) < 1e-9, `iridium independent of geothermal [${withPlants} vs ${withoutPlants}]`);
 });

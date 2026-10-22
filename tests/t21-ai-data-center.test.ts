@@ -191,7 +191,7 @@ test('高级石墨烯加工 scales graphene by (量子水平 / 5)% per running c
   Object.assign(s.resources, { oil: 1e9 });
   const quantum = calculateQuantumLevel(s);
   const before = calculateProduction(s, 1).rates.graphene;
-  near(before, 2, 'no tech yet');
+  near(before, 1.5, 'no tech yet');
   s.tech.push('advancedGrapheneProcessing');
   const after = calculateProduction(s, 1).rates.graphene;
   near(after / before, 1 + 3 * quantum / AI_GRAPHENE_DIVISOR / 100);

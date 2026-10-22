@@ -286,4 +286,10 @@
 - **风险**：如果当时写的是 `exoticRows.every(...)`（空数组的 every 恒为真），这条断言会永远通过，等于没测。
 - **做法**：先在用例里把需要的资源/建筑解锁，再重新查询 DOM；并且**必须显式断言行数**（`exoticRows.length === 2`），不能只靠 `every`。用完把 `unlockedResources` 之类被改动的状态还原，否则会泄漏到后续用例。
 
+## 45. 删掉带默认值的函数参数后，旧调用点会静默错位
+
+- **症状**：移除地热发电站的铱矿加成后，`settleSpaceProduction` 的 `geothermalUnits` 变成未使用参数（TS6133），于是从签名里删掉。`npm run typecheck` 全绿，但 `pool-replay.test.ts` 报「回放与顺序结算在水产量上差 0.002」——一个看起来像浮点噪声、实际是真分叉的错误。
+- **原因**：测试里保留着一份手写的旧签名调用 `settleSpaceProduction(state, pool, dt, happiness, plants.inputUnits.geothermalPlant || 0, plants.inputUnits.hydrogenPowerPlant || 0)`。参数删除后，`geothermalPlant` 的值被当作 `hydrogenUnits` 传入，`hydrogenPowerPlant` 的值被丢弃。**全是 number 且都有默认值，类型检查无法发现。**
+- **做法**：删除或重排多默认参数时，不要只依赖 typecheck——用 `grep "函数名("` 过一遍**全部**调用点（包括 `tests/` 里手写的辅助函数），逐一核对实参含义。更稳的做法是这类位置参数超过 4 个时改用对象参数。
+
 

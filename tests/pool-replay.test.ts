@@ -26,7 +26,7 @@ function legacySequentialPool(state: GameState, _ledger: SettlementLedger, dt: n
   const aiSupercoreUnits = settleQuantumCores(state, pool, dt);
   inputUnits.aiSupercore = outputs.aiSupercore = aiSupercoreUnits;
   Object.assign(outputs, plants.outputs); Object.assign(inputUnits, plants.inputUnits);
-  const space = settleSpaceProduction(state, pool, dt, happiness, plants.inputUnits.geothermalPlant || 0, plants.inputUnits.hydrogenPowerPlant || 0);
+  const space = settleSpaceProduction(state, pool, dt, happiness, plants.inputUnits.hydrogenPowerPlant || 0);
   Object.assign(inputUnits, space.inputs); Object.assign(outputs, space.outputs);
   const e710WarehouseUnits = settleE710WarehousePower(state, pool, dt);
   inputUnits.e710Warehouse = outputs.e710Warehouse = e710WarehouseUnits;

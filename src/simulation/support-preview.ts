@@ -77,7 +77,7 @@ export function buildSettlementLedger(state: GameState, dt = 1, quantumLevel?: n
   // The caller's iterated quantum level also reaches the space chain, so the graphene
   // bonus (高级石墨烯加工) reflects the same level this ledger reports instead of
   // solving quantum again from inside its own settlement.
-  const space = settleSpaceProduction(state, pool, dt, 1, plants.inputUnits.geothermalPlant || 0, plants.inputUnits.hydrogenPowerPlant || 0, quantumLevel ?? 0);
+  const space = settleSpaceProduction(state, pool, dt, 1, plants.inputUnits.hydrogenPowerPlant || 0, quantumLevel ?? 0);
   const e710WarehouseUnits = settleE710WarehousePower(state, pool, dt);
   const biologyRunning = Math.max(0, (state.buildings.biologyLab || 0) - (state.stoppedBuildings?.biologyLab || 0));
   const biologyUnits = Math.min(biologyRunning, Math.floor((Math.max(0, pool.energy) + 1e-8) / (2 * dt)));

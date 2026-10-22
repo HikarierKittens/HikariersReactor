@@ -124,7 +124,6 @@ export function addBuildingEffectRows(ctx: BuildingTooltipContext): void {
   if (id === 'ecologicalDome') add('每行星居民猫粮产量', '+0.25/s');
   if (id === 'planetaryFoundry') add('每行星居民锻造工具加成', '+3%');
   if (id === 'miningDrone') add('塔卫二采矿站产量', '+5%');
-  if (id === 'geothermalPlant') add('月球铱矿产量', '+5%');
   if (id === 'ecologicalDome') add('每座Asriel居住站猫口容量', '+0.05');
   if (building.cap) add('猫口容量', `+${number(building.cap + (id === 'asrielResidence' ? .05 * snapshot.asriel.allocations.ecologicalDome : 0))}`);
   if (building.soldierCap) add('士兵容量', `+${number(building.soldierCap)}`, false,

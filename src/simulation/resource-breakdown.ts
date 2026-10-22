@@ -341,7 +341,6 @@ export function calculateResourceFactorRows(
       / (id === 'lumber' || id === 'quarry' ? 1 + (result.inputUnits[id === 'lumber' ? 'automatedLumber' : 'automatedQuarry'] || 0) * .05 : 1)
       / (id === 'lab' ? 1 + RESEARCH_SATELLITE_LAB_OUTPUT * (state.buildings.researchSatellite || 0) : 1)
       / (id === 'catCafe' ? chipFactoryOutputMultiplier(state) : 1)
-      / (id === 'iridiumMine' && resource === 'iridium' ? 1 + .05 * (result.inputUnits.geothermalPlant || 0) : 1)
       / (id === 'talosMoonMiningStation' && resource === 'neutron' ? 1 + .05 * (state.buildings.miningDrone || 0) : 1)
       / calculateSpaceMultiplier(id, state, result.asriel)
       / calculateHyperspaceLocalMultiplier(id, state, result.inputUnits.adamantiteProcessor || 0);
@@ -352,11 +351,6 @@ export function calculateResourceFactorRows(
     if (id === 'adamantiteMiningShip') {
       const factor = calculateHyperspaceLocalMultiplier(id, state, result.inputUnits.adamantiteProcessor || 0);
       pct(calculateBuildingName('adamantiteProcessor', state), factor, true); local *= factor;
-    }
-    if (id === 'iridiumMine' && resource === 'iridium') {
-      const factor = 1 + .05 * (result.inputUnits.geothermalPlant || 0);
-      pct('地热发电站', factor, true);
-      local *= factor;
     }
     if (id === 'talosMoonMiningStation' && resource === 'neutron') {
       const factor = 1 + .05 * (state.buildings.miningDrone || 0);

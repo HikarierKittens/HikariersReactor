@@ -152,7 +152,7 @@ test('planetary foundries share artisans and boost both crafting paths only whil
   assert.equal(calculateProduction(state).outputs['craft:plank'], undefined);
 });
 
-test('Kerberos mission is independent and geothermal generation boosts only lunar iridium', () => {
+test('Kerberos mission is independent and geothermal generation no longer boosts lunar iridium', () => {
   const state = createInitialState(CONFIG.version, 60, 0);
   state.tech.push('planetaryExploration');
   assert.equal(isBuildingUnlocked('geothermalPlant', state), false);
@@ -171,15 +171,16 @@ test('Kerberos mission is independent and geothermal generation boosts only luna
   assert.equal(base.outputs.geothermalPlant, 1);
   assert.deepEqual(base.power, { generated: 10, used: 4, available: 6 });
   assert.ok(Math.abs(base.rates.energy - 6) < 1e-8, '10 geothermal energy minus 4 lunar base maintenance');
+  // 0.9.38 移除了「每座地热发电站 +5% 月球铱矿」：明细里不应再有这一行。
   const rows = calculateResourceFactorRows('iridium', state, base).rows;
   const mineIndex = rows.findIndex(row => row.name === BUILDINGS.iridiumMine.name);
   assert.ok(mineIndex >= 0);
-  assert.deepEqual(rows[mineIndex + 1], { name: '地热发电站', value: '+5%', child: true });
+  assert.equal(rows.some(row => row.name === '地热发电站'), false, `no geothermal row [${rows.map(row => row.name).join(' / ')}]`);
+  // 关掉地热后铱矿产量不变——加成确实没有了，而不是换个地方生效。
   const iridium = base.rates.iridium;
   state.stoppedBuildings.geothermalPlant = 1; supplyPower(state, 10);
   const off = calculateProduction(state);
-  assert.equal(calculateResourceFactorRows('iridium', state, off).rows.some(row => row.name === '地热发电站'), false);
-  assert.ok(Math.abs(iridium / off.rates.iridium - 1.05) < 1e-8);
+  assert.ok(Math.abs(iridium - off.rates.iridium) < 1e-8, `iridium unchanged [${iridium} vs ${off.rates.iridium}]`);
 });
 
 test('space garrison increases soldiers without support and reinforced containers double current base', () => {

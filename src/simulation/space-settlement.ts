@@ -13,7 +13,7 @@ import { calculateGlobalOutputMultiplier } from './crafting';
 import type { ResourceAmounts, ResourceId } from '../types/economy';
 import type { GameState } from '../types/state';
 
-export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, dt: number, happiness: number, geothermalUnits = 0, hydrogenUnits = 0, quantumLevel = 0) {
+export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, dt: number, happiness: number, hydrogenUnits = 0, quantumLevel = 0) {
   const inputs: Record<string, number> = {}, outputs: Record<string, number> = {};
   const waystations = reserveWaystationPower(state, pool, dt);
   inputs.spaceWaystation = outputs.spaceWaystation = waystations;
@@ -67,8 +67,7 @@ export function settleSpaceProduction(state: GameState, pool: ResourceAmounts, d
   for (const id of ['iridiumMine', 'helium3Mine'] as const) {
     const out = calculateBuildingOutput(id, state);
     inputs[id] = moon.allocations[id];
-    outputs[id] = moon.allocations[id] * calculateProductionMultiplier(Object.keys(out)[0] ?? '', happiness, state)
-      * (id === 'iridiumMine' ? 1 + .05 * geothermalUnits : 1);
+    outputs[id] = moon.allocations[id] * calculateProductionMultiplier(Object.keys(out)[0] ?? '', happiness, state);
     for (const [resource, value] of Object.entries(out) as [ResourceId, number][]) pool[resource] += value * outputs[id] * calculateGlobalOutputMultiplier(resource, state) * calculateSpaceMultiplier(id, state, asriel) * dt;
   }
   const e710ContainerUnits = calculateE710ContainerUnits(state, pool, dt, fuelMultiplier);

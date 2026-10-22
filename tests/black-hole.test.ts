@@ -57,26 +57,27 @@ test('data: techs, building and ejection table follow the spec', () => {
     if (expected) assert.ok(ejectionMass(id) > 0, `${id} has a mass`);
   }
   for (const id of ['cash', 'energy', 'knowledge', 'dna', 'genes']) assert.equal(isEjectableResource(id), false, id);
-  assert.equal(ejectionMass('e710'), 1e-5); assert.equal(ejectionMass('nanoAlloy'), 2e-7);
+  assert.equal(ejectionMass('e710'), 4e-6); assert.equal(ejectionMass('nanoAlloy'), 1e-8);
   assert.ok(EJECTION_MASSES.stone! > EJECTION_MASSES.water!);
   assert.ok(EJECTION_MASSES.uranium! > EJECTION_MASSES.iron! && EJECTION_MASSES.iron! > EJECTION_MASSES.aluminum!);
   assert.equal(formatBlackHoleMass(10), '10.00000000');
 });
 
-test('ejection masses follow the 0.9.36 spec: fixed values, light-to-heavy order, 氘 and 氦-3 untouched', () => {
-  // 玩家指定的精确值。
-  assert.equal(ejectionMass('e710'), 1e-5);
-  assert.equal(ejectionMass('nanoAlloy'), 2e-7);
+test('ejection masses follow the spec: fixed values and light-to-heavy order', () => {
+  // 玩家指定的精确值（0.9.38 平衡性更新下调了两项奇异物质）。
+  assert.equal(ejectionMass('e710'), 4e-6);
+  assert.equal(ejectionMass('nanoAlloy'), 1e-8);
   assert.equal(ejectionMass('neutron'), 4e-5);
   assert.equal(ejectionMass('adamantite'), 1e-5);
   assert.equal(ejectionMass('aerogel'), 1e-7);
-  // 氘、氦-3 保持原值（唯一被明确排除的两项）。
+  // 氘、氦-3 保持原值（0.9.36 起就明确排除）。
   assert.equal(ejectionMass('deuterium'), 2e-8);
   assert.equal(ejectionMass('helium3'), 3e-8);
-  // 氘与氦-3 必须仍是最轻的两项，否则「排除」就失去了意义。
-  const sorted = (Object.keys(RESOURCES) as ResourceId[]).filter(isEjectableResource)
+  // 纳米合金 1e-8 现在比氘还轻，因此「氘/氦-3 是最轻两项」不再成立；
+  // 真正的不变量是它们仍是最轻的**普通**物质（奇异物质另算）。
+  const ordinary = (Object.keys(RESOURCES) as ResourceId[]).filter(id => isEjectableResource(id) && !isExoticResource(id))
     .map(id => [id, ejectionMass(id)] as const).sort((a, b) => a[1] - b[1]);
-  assert.deepEqual(sorted.slice(0, 2).map(entry => entry[0]), ['deuterium', 'helium3']);
+  assert.deepEqual(ordinary.slice(0, 2).map(entry => entry[0]), ['deuterium', 'helium3']);
   // 木头远比铁轻，铁比铝重，铀接近最重的一档：物质特性顺序必须成立。
   assert.ok(ejectionMass('wood') < ejectionMass('iron'), 'wood is lighter than iron');
   assert.ok(ejectionMass('iron') > ejectionMass('aluminum'));
@@ -84,9 +85,10 @@ test('ejection masses follow the 0.9.36 spec: fixed values, light-to-heavy order
   assert.ok(ejectionMass('aerogel') < ejectionMass('wood'), 'aerogel is extremely porous');
   assert.ok(ejectionMass('neutron') > ejectionMass('mithril'), 'neutron is by far the densest');
   // 奇异物质（E-710 / 纳米合金）按玩家指定值：E-710 比纳米合金重。
-  // 纳米合金 2e-7 刻意保持很轻（玩家确认，甚至轻于水），因此只断言它重于煤，不假设它最重。
+  // 0.9.38 把纳米合金下调到 1e-8，它现在是全场最轻的可喷射资源（比氘还轻），
+  // 因此不能再断言它重于任何普通物质——这正是玩家指定的值。
   assert.ok(ejectionMass('e710') > ejectionMass('nanoAlloy'));
-  assert.ok(ejectionMass('nanoAlloy') > ejectionMass('coal'));
+  assert.ok(ejectionMass('nanoAlloy') < ejectionMass('deuterium'), 'nanoAlloy is now the lightest ejectable');
   assert.equal(isExoticResource('e710'), true);
   assert.equal(isExoticResource('nanoAlloy'), true);
   assert.equal(isExoticResource('neutron'), false);

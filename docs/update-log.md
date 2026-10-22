@@ -50,6 +50,21 @@
 
 ---
 
+## 2026/10/22 beta 0.9.38 平衡性更新：采矿舰与太空设施产出下调
+
+- **奇异质量**：`EXOTIC_EJECTION_MASSES` 中 `e710` 1e-5 → **4e-6**，`nanoAlloy` 2e-7 → **1e-8**。纳米合金现在比氘（2e-8）还轻，是全场最轻的可喷射资源；「氘/氦-3 是最轻两项」的不变量因此改为限定在**普通**物质内。
+- **建筑基础属性**（`data/buildings.ts`）：金属采矿舰 `stone 8→4, copper 4→2, iron 4→2, aluminum 3→1.5, titanium 2→1, iridium .5→.25`；燃料采矿舰 `coal/oil 2.5→1.25`；气体云采矿舰 `helium3 2→1, deuterium .25→.2`；综合采矿设施 `neutron .25→.15`；高科技农场平台 `food 10→5, wood 8→4, water 2→.5`；石墨烯厂 `graphene 2→1.5`。**输入（氘燃料）与成本均未改动**。
+- **石墨烯 0.15 是笔误**：玩家原话是 0.15，经确认实际意图为 **1.5**（小数点写偏），已按 1.5 实现。
+- **移除地热发电站铱矿增产**：原本「每座地热发电站给月球铱矿 +5%」，实现分散在四处，已全部清除：
+  - `space-settlement.ts`：`outputs[id]` 的 `* (id === 'iridiumMine' ? 1 + .05 * geothermalUnits : 1)`。
+  - `pool-replay.ts`：同类倍率（预览回放路径）。
+  - `resource-breakdown.ts`：两处——`sourceValue` 的反推除数、以及明细里 `pct('地热发电站', …)` 那一整段（连同 `local *= factor`）。
+  - `vue/building-tooltip-rows.ts`：`add('月球铱矿产量', '+5%')`。
+- **签名变更的连带陷阱**：`settleSpaceProduction` 的 `geothermalUnits` 参数在移除后成为未使用参数（TS6133），已从签名删除并同步全部调用点。**`tests/pool-replay.test.ts` 里保留着一份手写的旧签名调用**，删除参数后它把 `geothermalPlant` 的值静默当作 `hydrogenUnits` 传入——类型检查不报错（都是 number 且有默认值），表现为「回放与顺序结算在水产量上差 0.002」。已修正。**以后改这类多默认参数的签名，必须 grep 全部调用点，不能只靠 typecheck。**
+- **测试**：`tests/black-hole.test.ts` 更新两项指定值与排序不变量；`tests/deuterium-era.test.ts` 更新结算断言并新增两项专项测试（直接锁 `BUILDINGS.*.output` 基础属性；地热开关不影响铱矿产量）；`tests/space-support.test.ts` 把「地热 +5%」改为「明细无此行且产量不变」；`tests/distant-stars.test.ts`、`tests/t21-ai-data-center.test.ts`、`tests/hyperspace-output-parity.test.ts`、`tests/pool-replay.test.ts` 更新被带动的基础值。`tests/browser/acceptance.html` 农场提示断言 `+8/s` → `+4/s`。
+- **验证**：`npm run check` 通过：786 项模块测试、经典 VM 回归（失败 0）、Edge 浏览器验收 606 项、类型检查与生产构建。
+- **兼容**：纯数值与机制移除，无存档结构变化，`CONFIG.version` 仍为 33。
+
 ## 2026/10/22 beta 0.9.37 质量喷射的调整粒度改为 1
 
 - **问题**：`ResourceManagementPanel.vue` 的喷射加减按钮硬编码了 `10 * clickMultiplier($event)`，单次点击就跳 10 单位，无法精细分配。全项目其他面板（工作猫、生产线、集装箱、冶炼工位等）都是 `clickMultiplier($event)` 直接相乘，只有这一处多乘了 10。

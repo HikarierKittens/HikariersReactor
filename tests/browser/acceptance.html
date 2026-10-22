@@ -1290,7 +1290,7 @@ try {
   click($('[data-tab="buildings"]'));await flush();
   log(['highTechFarmPlatform','fusionPowerPlant','metalMiningShip','fuelMiningShip'].every(id=>!!$(`[data-building-group="hyperspaceStable"] [data-buy="${id}"]`)),'农场聚变金属燃料舰均位于稳定区域');
   await showTip('[data-buy="highTechFarmPlatform"]');
-  log($('#gameTooltip')?.textContent.includes('木材')&&$('#gameTooltip')?.textContent.includes('+8/s')&&$('#gameTooltip')?.textContent.includes('-0.2/s'),'农场详情显示木材8/s与氘0.2/s维护');await escapeTip();
+  log($('#gameTooltip')?.textContent.includes('木材')&&$('#gameTooltip')?.textContent.includes('+4/s')&&$('#gameTooltip')?.textContent.includes('-0.2/s'),'农场详情显示木材4/s与氘0.2/s维护');await escapeTip();
   click($('[data-tab="tech"]'));await flush();
   for(const [id,price] of [['highTechFactory',800000],['dimensionPioneer',1000000],['e710ResearchStation',850000]]){
     store.mutate(state=>{state.resources.knowledge=price;});await flush();click($(`[data-research="${id}"]`));await flush();
