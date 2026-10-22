@@ -48,6 +48,16 @@
 
 ---
 
+## 2026/10/22 beta 0.9.29 削弱敌方军事与临近势力界面精简
+
+- **军事削弱**：`data/neighbors.ts` 新增 `NEIGHBOR_MILITARY_RAID_CAP = .1` 与 `NEIGHBOR_MILITARY_FLOOR_SHARE = .25`；`simulation/neighbors.ts` 新增 `raidMilitaryDamage(ratio)`、`neighborMilitaryFloor(id)`、`calculateRaidMilitaryLoss(id, state, ratio)`。`ratio` 沿用 `previewRaid` 已有的「我方战力 ÷ 本次行动所需战力」，因此优势越大削得越多（`ratio` 1 → 5%，2 → 10%，之后封顶），无需再引一条新的战力公式。
+- **只削不灭**：下限按**初始上限** `NEIGHBORS[id].military.max × .25` 计算，不按当前值。按当前值算会让每次突袭都顺手把下限压低，正是这个下限要防的滚雪球。`advanceNeighbors` 的日常增长不变，所以削弱是「压制」而非「永久删除」。
+- **应用位置**：`executeRaid` 在掠夺之后、占领判定之前结算，用 `preview.militaryLoss`（基于突袭前兵力算出），避免削弱自身抬高 `ratio` 而放大本回合的收益。`RaidOutcome` 与 `RaidPreview` 各新增 `militaryLoss` 字段（`RaidPreview` 另有 `militaryLossShare` 供界面显示百分比），并追加一条 `军事 -N` 日志。
+- **撤离游戏不削减**：已占领势力本来就被 `executeRaid` 的 `occupied` 提前返回拦下，因此「占领后不再削减」不需要额外分支。
+- **界面精简**：`InternalPanel.vue` 删除 `data-neighbor-loot` 整行；预览行由三行长句压缩为一行「战力 a/b · 伤亡 ≈c · 敌方军事 −d」。因为界面不再展示掠夺量，`preview()` 也不再传 `raidEconomy`，顺带减少了每次按键的重算；`previewRaid` 的 `loot` 仍保留（`raid-economy.test.ts` 与结算读它）。
+- **测试**：新增 `tests/neighbor-military-raid.test.ts`（8 项：比例换算、下限口径、10% 上限、预览与结算一致、反复突袭收敛到下限、削弱后确实更好打、被拒绝的行动不削、档位越高同样兵力削得越少）。浏览器验收把 2 条旧文案断言改为新写法，并新增「不再显示可掠夺预估」「预览显示可削减军事」「突袭后敌方军事下降」等断言（591→597）。
+- **验证**：`npm run check` 通过：771 项模块测试、经典 VM 回归、Edge 浏览器验收 597 项、类型检查与生产构建。
+
 ## 2026/10/22 beta 0.9.28 AI数据中心与卡尔维拉平衡
 
 - **危险物质库加维护费**：`buildings.ts` 增加 `input: { energy: 10, deuterium: .25 }`、`toggleable: true`、`settledByOtherSystem: true`，并从 `存储` 语义改为 `HYPERSPACE_CONSUMER_IDS` 成员。容量因此跟随**已付清维护费的整座数量**：`StorageSnapshot` 新增 `hazardousStorageUnits`，由 `support-preview` 的 `space.inputs.hazardousMaterialStorage` 提供；`accumulateStorageRows` 用它替代 `state.buildings[id]`。副作用是关闭或断电后 E-710 / 中子容量立即失效——这是维护费应有的语义，已向用户确认。

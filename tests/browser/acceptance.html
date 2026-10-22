@@ -482,16 +482,29 @@ try {
   log(!$('#taxRateValue')?.parentElement || !document.querySelector('.government-col')?.textContent.includes('每个证券交易所'),
     '税收区不再显示银行家与证券交易所说明');
   // A raid shows its strength preview and only fires once soldiers are assigned.
+  // Pin the defender so the military-reduction assertions below are deterministic.
+  store.mutate(state => { state.neighbors.values.commonwealth.military = 40; state.neighbors.values.commonwealth.economy = 30; }); await flush();
   click($('[data-neighbor-action="commonwealth"][data-tier="0"]')); await flush();
-  log($('[data-neighbor-preview="commonwealth"]')?.textContent.includes('我方战力'), '选择行动后显示战力预估');
+  {
+    const previewText = $('[data-neighbor-preview="commonwealth"]')?.textContent || '';
+    log(previewText.includes('战力'), `选择行动后显示战力预估 [${previewText}]`);
+    // 精简后的行只用 / 和 · 分隔，不再有「我方战力」「预计伤亡」这类长句。
+    log(!previewText.includes('我方战力') && !previewText.includes('预计伤亡'), '战力与伤亡为精简写法');
+    log(!$('[data-neighbor-loot]') && !document.querySelector('[data-neighbors]').textContent.includes('可掠夺'),
+      '不再显示可掠夺资源预估');
+  }
   log($('[data-neighbor-raid="commonwealth"]')?.disabled === true, '未派遣士兵时执行按钮禁用');
   const soldiersInput = $('[data-neighbor-soldiers="commonwealth"]');
   soldiersInput.value = '100'; soldiersInput.dispatchEvent(new Event('input', { bubbles: true })); await flush();
-  log($('[data-neighbor-preview="commonwealth"]')?.textContent.includes('预计伤亡'), '填写士兵后显示预计伤亡');
+  log($('[data-neighbor-preview="commonwealth"]')?.textContent.includes('伤亡'), '填写士兵后显示预计伤亡');
+  log($('[data-neighbor-preview="commonwealth"]')?.textContent.includes('敌方军事'), '预览中显示可削减的敌方军事');
   log($('[data-neighbor-raid="commonwealth"]')?.disabled === false, '满足战力后可执行偷袭');
   const soldiersBeforeRaid = S().soldiers;
+  const militaryBeforeRaid = S().neighbors.values.commonwealth.military;
   click($('[data-neighbor-raid="commonwealth"]')); await flush();
   log(S().soldiers < soldiersBeforeRaid, '偷袭实际消耗士兵');
+  log(S().neighbors.values.commonwealth.military < militaryBeforeRaid,
+    `偷袭成功后削减敌方军事 [before=${militaryBeforeRaid.toFixed(1)}, after=${S().neighbors.values.commonwealth.military.toFixed(1)}]`);
   // The log must name the resources the raid actually carried home.
   const lootLog = S().logs.find(entry => entry.text.includes('掠夺'));
   log(!!lootLog, `偷袭后在日志中记录掠夺资源 [${S().logs.slice(0, 2).map(l => l.text).join(' / ')}]`);

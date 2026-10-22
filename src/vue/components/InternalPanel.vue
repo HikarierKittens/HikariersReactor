@@ -12,7 +12,6 @@ import {
 } from '../../data/neighbors';
 import { isNeighborsUnlocked, isWorldUnified, previewRaid, neighborStrength, garrisonedSoldiers } from '../../simulation/neighbors';
 import { hospitalHealPerDay } from '../../simulation/hospital';
-import { buildRaidEconomy } from '../../simulation/neighbor-economy';
 
 const props = defineProps<{ state: GameState; revision: number }>();
 const emit = defineEmits<{
@@ -127,11 +126,17 @@ function dispatchRaid(id: NeighborId): void {
   emit('raid', id, tier(id), count);
   raidSoldiers.value = { ...raidSoldiers.value, [id]: 0 };
 }
-/** Rebuilt once per view revision: the panel calls preview() for every row and keystroke. */
-const raidEconomy = computed(() => { props.revision; return buildRaidEconomy(props.state, props.revision); });
+/** Rebuilt once per view revision: the panel calls preview() for every row and keystroke.
+ *  The raid loot estimate is no longer shown, so the preview runs without an economy
+ *  context: its loot comes back empty and the per-keystroke cost stays trivial. */
 function preview(id: NeighborId) {
   props.revision;
-  return previewRaid(props.state, id, tier(id), soldierDraft(id), raidEconomy.value);
+  return previewRaid(props.state, id, tier(id), soldierDraft(id));
+}
+/** Rounded military points this action would take off the defender, for the compact preview. */
+function militaryLoss(id: NeighborId): number {
+  props.revision;
+  return Math.round(preview(id).militaryLoss);
 }
 function strength(id: NeighborId) {
   props.revision;
@@ -224,11 +229,8 @@ function setTax(event: Event): void {
               <button :data-neighbor-raid="id" :disabled="availableSoldiers < 1 || soldierDraft(id) < 1 || !preview(id).available" @click="dispatchRaid(id)">执行{{ RAID_ACTIONS[tier(id)].name }}</button>
             </div>
             <p class="small" :data-neighbor-preview="id">
-              我方战力 {{ fmt(preview(id).strength) }} / 需要 {{ fmt(preview(id).required) }}；预计伤亡 {{ fmt(Math.round(preview(id).expectedLosses)) }}
-              <template v-if="tier(id) === 3">；占领需存活 {{ RAID_ACTIONS[3].minSurvivors }} 名以上</template>
-              <template v-if="preview(id).reason"> · {{ preview(id).reason }}</template>
+              战力 {{ fmt(preview(id).strength) }}/{{ fmt(preview(id).required) }} · 伤亡 ≈{{ fmt(Math.round(preview(id).expectedLosses)) }}<template v-if="militaryLoss(id) >= 1"> · 敌方军事 −{{ fmt(militaryLoss(id)) }}</template><template v-if="tier(id) === 3"> · 需存活 {{ RAID_ACTIONS[3].minSurvivors }}+</template><template v-if="preview(id).reason"> · {{ preview(id).reason }}</template>
             </p>
-            <p class="small subtle" data-neighbor-loot>可掠夺：<template v-for="[resource, amount] in Object.entries(preview(id).loot)" :key="resource">{{ RESOURCES[resource as keyof typeof RESOURCES].name }} {{ fmt(amount as number) }} </template></p>
           </template>
         </div>
       </section>

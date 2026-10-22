@@ -213,3 +213,17 @@
 - **自愈**：已经被写坏的存档由 `save-compatibility.ts` 的 `clampActivationOrder` 在载入时夹到运行数。**修复必须严格限定在「数量超限」这一种情况**：条目要恰好是 `{id, count}` 正整数，否则原样透传。第一版实现重建了 `{id, count}` 对象，结果把 `extra: true` 和超长数组（10001 条）都「修复」成了合法档，被既有测试 `explicit malformed activation order is rejected` 抓到——这正是那条测试存在的意义。
 - **诊断经验**：载入失败原本只有一句笼统日志，只能靠猜。给 `validateCurrentSave` 每步加阶段标签、并用 `console.warn` 把真实原因打到控制台后，这次问题一条命令就定位了。注意用 `console.warn` 而不是 `console.error`：验收页把所有 `console.error` 记成失败断言。
 - **配套测试**：`tests/power-order-repair.test.ts`（4 项）覆盖写入端不污染、负载逐座登记、超限夹取、不臆造缺失条目；`tests/power-order-save.test.ts` 的同名用例改为「超限夹取」并保留「格式非法仍拒绝」的整组断言。
+
+## 34. `ratio` 可能是 `Infinity`，别用 `!Number.isFinite` 一刀切成 0
+
+- **症状**：新加的「削减敌方军事」里，`raidMilitaryDamage(Infinity)` 返回 0，本该返回 10% 上限。测试 `the reduction share scales with how decisively we outmatch the defender` 直接抓到。
+- **原因**：`previewRaid` 里 `const ratio = required > 0 ? strength / required : Infinity`——当守备为 0（`required === 0`，例如敌方军事已被削到下限以下或为 0）时 `ratio` 就是 `Infinity`。防御性写法 `if (!Number.isFinite(ratio) || ratio <= 0) return 0` 把「无限优势」当成了「非法输入」。
+- **做法**：只挡真正的非法值（`Number.isNaN(ratio) || ratio <= 0`），让 `Infinity` 自然走 `Math.min(1, ratio / 2)` 落到上限。凡是拿 `strength / required` 比值做后续计算的函数，都要先问一句「分母为 0 时这里是什么」。
+- **相关**：`assert.ok(x, someOptional)` 在 `exactOptionalPropertyTypes` 下会报 TS2769（`string | undefined` 不能当 message），用 `String(...)` 或 `?? ''` 包一层。
+- **配套测试**：`tests/neighbor-military-raid.test.ts`（8 项）。其中 4 项在「执行端不真正扣军事」时会变红，是这套机制的核心守卫。
+
+## 35. 界面砍掉预估后，别忘了 simulation 里那份 `loot` 还有别的读法
+
+- **症状**：临近势力面板按需求删掉「可掠夺资源预估」后，很容易顺手把 `previewRaid` 的 `loot` 一起删掉，以为没人用了。
+- **原因**：`loot` 的消费者不止界面。`tests/raid-economy.test.ts` 大量用 `previewRaid(...).loot` 断言经济差异，`executeRaid` 也走同一套 `raidLoot`。删掉会让结算失去预览依据、并让一批测试失去意义。
+- **做法**：只删界面那一行，以及因它而死的 `buildRaidEconomy` 调用；`previewRaid` 的 `loot` 字段保留。界面侧不传 `economy` 时 `loot` 回退为 `EMPTY_ECONOMY` 的空对象，正好顺带省掉每次按键的一次重算。

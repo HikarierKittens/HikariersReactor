@@ -1,5 +1,6 @@
 import {
-  NEIGHBORS, NEIGHBOR_IDS, OCCUPATION_OPINION_RECOVERY, OCCUPATION_OUTPUT_BONUS,
+  NEIGHBORS, NEIGHBOR_IDS, NEIGHBOR_MILITARY_FLOOR_SHARE, NEIGHBOR_MILITARY_RAID_CAP,
+  OCCUPATION_OPINION_RECOVERY, OCCUPATION_OUTPUT_BONUS,
   OCCUPATION_SOLDIERS, OCCUPATION_TAX_PENALTY, RAID_ACTIONS, RAID_ECONOMY_FLOOR, RAID_STORAGE_BASE,
   RAID_ECONOMY_SPAN, RAID_TIERS, RETALIATION_LOSS,
   RETALIATION_OPINION, SOLDIER_FOOD_UPKEEP, UNIFICATION_OUTPUT_BONUS, UNIFICATION_STORAGE_BONUS,
@@ -79,6 +80,49 @@ export function neighborStrength(id: NeighborId, state: Pick<GameState, 'neighbo
   return value.military * (1 + value.economy / 400);
 }
 
+/**
+ * Share of the defender's standing army one successful attack destroys.
+ *
+ * `ratio` is our strength over the strength the chosen action requires, so the reward tracks
+ * how decisively we won rather than which button was pressed: clearing the gate by a hair
+ * returns a small share, doubling it reaches the cap. The cap (10%) keeps a single raid from
+ * erasing a neighbour, and the result never takes them below their floor.
+ */
+export function raidMilitaryDamage(ratio: number): number {
+  // `ratio` is Infinity when the defender has no standing strength left (required === 0), and
+  // that must read as the full cap rather than as an invalid input; only real garbage is 0.
+  if (Number.isNaN(ratio) || ratio <= 0) return 0;
+  const cap = NEIGHBOR_MILITARY_RAID_CAP;
+  // ratio 1 -> cap/2, ratio 2 -> cap, then flat. Sub-1 ratios only occur below the gate,
+  // which never executes; clamp them so a preview of an impossible raid still reports 0.
+  if (ratio < 1) return 0;
+  return cap * Math.min(1, ratio / 2);
+}
+
+/**
+ * The neighbour's military floor: a share of the spawn maximum.
+ *
+ * Measured against `military.max` rather than the current value on purpose. Using the current
+ * value would let each raid lower the floor in turn, which is the runaway the floor exists to
+ * prevent.
+ */
+export function neighborMilitaryFloor(id: NeighborId): number {
+  return NEIGHBORS[id].military.max * NEIGHBOR_MILITARY_FLOOR_SHARE;
+}
+
+/**
+ * Military loss one successful attack inflicts, in absolute points, honouring the floor.
+ *
+ * Returns 0 when the neighbour is already at (or below) the floor, so the UI can stay silent
+ * instead of advertising a reduction that cannot happen.
+ */
+export function calculateRaidMilitaryLoss(id: NeighborId, state: Pick<GameState, 'neighbors'>, ratio: number): number {
+  const current = state.neighbors.values[id].military;
+  const floor = neighborMilitaryFloor(id);
+  const room = Math.max(0, current - floor);
+  return Math.min(room, current * raidMilitaryDamage(ratio));
+}
+
 export interface RaidPreview {
   available: boolean;
   reason: string;
@@ -90,6 +134,10 @@ export interface RaidPreview {
   expectedLosses: number;
   /** Loot per resource at this economy level. */
   loot: Partial<Record<ResourceId, number>>;
+  /** Absolute military points this attack would destroy, after the floor is honoured. */
+  militaryLoss: number;
+  /** The share of the defender's army that loss represents, for display. */
+  militaryLossShare: number;
 }
 
 /**
@@ -115,6 +163,7 @@ export function previewRaid(
   const expectedLosses = soldiers * action.losses * (ratio >= 1 ? 1 / Math.sqrt(ratio) : 2 - ratio * .5)
     * defenseCasualtyMultiplier(state as Pick<GameState, 'tech'>);
   const unified = isWorldUnified(state as Pick<GameState, 'tech'>);
+  const militaryLoss = unified ? 0 : calculateRaidMilitaryLoss(id, state, ratio);
   return {
     available: !unified && soldiers > 0 && strength >= required,
     reason: unified ? '世界已经统一，没有敌对国家。'
@@ -125,6 +174,8 @@ export function previewRaid(
     ratio,
     expectedLosses: Math.max(0, Math.min(soldiers, expectedLosses)),
     loot: unified ? {} : raidLoot(state, id, tier, economy ?? EMPTY_ECONOMY),
+    militaryLoss,
+    militaryLossShare: raidMilitaryDamage(ratio),
   };
 }
 
@@ -201,6 +252,8 @@ export interface RaidOutcome {
   loot: Partial<Record<ResourceId, number>>;
   opinionAfter: number;
   retaliated: boolean;
+  /** Military points actually taken off the defender by this attack. */
+  militaryLoss: number;
 }
 
 /**
@@ -232,7 +285,7 @@ export function executeRaid(
   random: () => number = Math.random,
   economy?: RaidEconomyContext,
 ): RaidOutcome {
-  const fail = (reason: string): RaidOutcome => ({ ok: false, reason, captured: false, soldiersLost: 0, wounded: 0, loot: {}, opinionAfter: 0, retaliated: false });
+  const fail = (reason: string): RaidOutcome => ({ ok: false, reason, captured: false, soldiersLost: 0, wounded: 0, loot: {}, opinionAfter: 0, retaliated: false, militaryLoss: 0 });
   if (!NEIGHBOR_IDS.includes(id as NeighborId)) return fail('未知的势力。');
   if (isWorldUnified(state)) return fail('世界已经统一，没有敌对国家。');
   if (!neighborsActive(state)) return fail('研究政府后才能与临近势力接触。');
@@ -263,6 +316,17 @@ export function executeRaid(
     loot[resource] = granted;
   }
 
+  // A successful attack also burns down part of the defender's standing army, scaled by how
+  // decisively we outmatched them. `preview` resolved this against the pre-raid military, so
+  // the loss cannot be amplified by its own effect.
+  const militaryLoss = preview.militaryLoss;
+  if (militaryLoss > 0) {
+    state.neighbors.values[neighborId].military = Math.max(
+      neighborMilitaryFloor(neighborId),
+      state.neighbors.values[neighborId].military - militaryLoss,
+    );
+  }
+
   state.neighbors.values[neighborId].opinion = Math.max(0,
     state.neighbors.values[neighborId].opinion - RAID_ACTIONS[tier].opinionCost);
   state.neighbors.lastActionTime = state.time;
@@ -289,9 +353,12 @@ export function executeRaid(
   if (lootText) {
     addLog(state, `${RAID_ACTIONS[tier].name}${NEIGHBORS[neighborId].name}：掠夺 ${lootText}。`, 'progress');
   }
+  if (militaryLoss > 0) {
+    addLog(state, `${NEIGHBORS[neighborId].name}军事 -${formatResourceNumber(militaryLoss)}。`, 'progress');
+  }
   return {
     ok: true, captured, soldiersLost: lostTotal, wounded, loot, opinionAfter: opinion,
-    retaliated: retaliation !== null,
+    retaliated: retaliation !== null, militaryLoss,
   };
 }
 

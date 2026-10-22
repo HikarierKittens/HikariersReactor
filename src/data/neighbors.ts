@@ -165,6 +165,23 @@ export const RETALIATION_OPINION = 10;
 export const RETALIATION_LOSS = .12;
 
 /**
+ * 军事削弱: a successful attack also burns down the defender's standing army.
+ *
+ * The share scales with how decisively we outmatch them (`ratio` = our strength over the
+ * strength this action needs), capped at `NEIGHBOR_MILITARY_RAID_CAP`. A raid that barely
+ * clears the gate chips away at the enemy; one at double the threshold takes the full cap.
+ */
+export const NEIGHBOR_MILITARY_RAID_CAP = .1;
+/**
+ * Floor as a share of the neighbour's spawn maximum (`military.max`).
+ *
+ * Without a floor, repeated raids would grind a neighbour to zero and every later raid would
+ * be free loot. The floor keeps them permanently weakened but still a real defence, and it
+ * is measured against `max` rather than the current value so raiding cannot ratchet it down.
+ */
+export const NEIGHBOR_MILITARY_FLOOR_SHARE = .25;
+
+/**
  * How strongly the neighbour's economy scales a raid's loot.
  *
  * 0.5 → half, 1.0 → full. `economy / 100` is the share of the maximum roll, so a
