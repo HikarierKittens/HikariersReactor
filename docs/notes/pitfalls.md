@@ -266,3 +266,17 @@
 - **做法**：`height:calc(100vh - var(--pinned-top-offset))`，偏移量由 `src/vue/pinned-column-offset.ts` 的 `usePinnedColumnOffset` 实测后写入（`rect.top + scrollY`）。**不要硬编码 36px**，它随视口宽度、topbar 换行与缩放变化。
 - **连带陷阱**：`tests/run-browser.cjs` 的无头浏览器默认视口只有 **756px 宽**，低于 861px 的断点，所以宽屏 CSS 规则**根本不会生效**，断言会静默走窄屏分支、通过得毫无意义。加 `ACCEPTANCE_WINDOW="1440,900"` 才会真正测宽屏。任何只在 `min-width:861px` 内生效的改动，都必须用这个环境变量验一遍。
 - **另一个连带**：`tests/focus-layout.test.ts` 曾用 `/<aside class="col-right">/` 匹配右列，模板一加 `ref` 或 class 就失配。断言「结构存在」时应匹配 class 标记而不是完整属性串。
+
+## 42. 验证「产量详细信息」时用错了数据源
+
+- **症状**：删掉「多重曝光技术」的明细行后，断言「factor rows 里没有它」怎么写都通过——把 `pct('多重曝光技术', ...)` 故意加回去也不失败。
+- **原因**：产量详细信息的数据源是 `calculateResourceFactorRows(...)`（返回 `{ rows }`，倍数行），不是 `calculateResourceBreakdown(...)`（返回 `{ entries }`，来源汇总行）。两者同在 `resource-breakdown.ts`，名字相近。对 `entries` 断言「某个倍数行不存在」永远为真。
+- **做法**：改摘要明细前先确认界面读的是哪个函数；倍数行断言一律走 `calculateResourceFactorRows`。
+- **连带陷阱**：删明细行时**不能连带删掉 `local *= ...`**。`local` 参与同函数内的 `expected` 自检，删了会让明细与结算分叉，而这个 bug 不会在任何单项测试里直接报出来。
+
+## 43. 拿资源总产出做比值，单项加成会被其他来源稀释
+
+- **症状**：芯片工厂加成应为 ×1.2 与 ×1.5，实测总现金产出比却只有 1.16 与 1.4，看起来像加成没生效。
+- **原因**：`cash` 由「芯片工厂产出」与「猫猫税收」两部分组成，税收不随科技变化。总产出比值 = (加成部分 + 固定部分) / 总量，必然小于真实倍率。
+- **做法**：断言落在该建筑自己那一行（在 entries 里按名字找），或直接用单座 `calculateBuildingOutput`。不要拿资源总产出做比值。
+

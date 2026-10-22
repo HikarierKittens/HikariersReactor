@@ -18,7 +18,7 @@ export const DNA_BASE_IDS: readonly DnaId[] = ['C', 'G', 'A', 'T'];
 export const DNA_KNOWLEDGE_COST = 200000;
 
 export const GENE_DEFINITIONS: Record<GeneId, GeneDefinition> = {
-  goodCat: { name: '好猫基因', dna: 'C', perLevel: .04, desc: '每一级，猫咖的资金基础产量+4%' },
+  goodCat: { name: '好猫基因', dna: 'C', perLevel: .04, desc: '每一级，芯片工厂的资金基础产量+4%' },
   hardWorking: { name: '吃苦耐劳', dna: 'C', perLevel: .04, desc: '每一级，矿工和煤矿工人基础产量+4%' },
   maturationAcceleration: { name: '成熟加速', dna: 'C', perLevel: .01, desc: '每一级，人口增长速率+1%' },
   superWorkshop: { name: '超级工坊', dna: 'G', perLevel: .02, desc: '每一级，水泥工人基础产量+2%' },

@@ -174,7 +174,7 @@ export const UNIFICATION_ALLOY_CONTAINER_SLOTS = 5;
 export const UNIFICATION_HANGAR_STORAGE_MULTIPLIER = 2;
 /** 燃料库 / 轨道燃料库 / 星系燃料库: +50% on 石油 / 氦-3 / 铀. */
 export const UNIFICATION_FUEL_DEPOT_BONUS = .5;
-/** 银行 / 猫咖: +25% on their cash capacity. */
+/** 银行 / 芯片工厂: +25% on their cash capacity. */
 export const UNIFICATION_BANK_BONUS = .25;
 /** 仓库 / 高级存储枢纽: +100% on their base contribution. */
 export const UNIFICATION_WAREHOUSE_MULTIPLIER = 2;

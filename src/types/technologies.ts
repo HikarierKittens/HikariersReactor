@@ -40,6 +40,7 @@ export type TechnologyId =
   | 'tourismIndustry'
   | 'catCafe'
   | 'masterpieceCat'
+  | 'radiationHardenedChip'
   | 'moonExploration'
   | 'moonObservatory'
   | 'planetaryExploration'

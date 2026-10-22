@@ -12,10 +12,13 @@ import { createAlloyContainers, changeAlloyContainerAssignment } from '../src/si
 import { createMilestoneState } from './fixtures/milestones';
 import { validateStorageAssignments } from '../src/state/validation';
 import { resetRunState } from '../src/simulation/prestige';
-import { calculateResourceBreakdown } from '../src/simulation/resource-breakdown';
+import { chipFactoryOutputMultiplier } from '../src/simulation/chip-factory';
+import { BUILDINGS } from '../src/data/buildings';
 import { calculateContainerUnitCapacity } from '../src/simulation/containers';
 import { calculateBuildingInput } from '../src/simulation/building-production';
+import { calculateResourceBreakdown, calculateResourceFactorRows } from '../src/simulation/resource-breakdown';
 import { TECHNOLOGIES } from '../src/data/technologies';
+import type { TechnologyId } from '../src/types/technologies';
 import { validateAndMigrateSave } from '../src/state/validate-save';
 import { createInitialState } from '../src/state/create-state';
 import { calculateProduction } from '../src/simulation/production';
@@ -185,4 +188,62 @@ test('原油精炼优化 raises refinery base oil to 1.5/s and power to 2/s in r
     const short = calculateProduction(state, dt);
     assert.ok(Math.abs((short.inputUnits.refinery ?? 0) - 2) < 1e-8, `funded ${short.inputUnits.refinery}`);
   }
+});
+
+test('芯片工厂 two output techs stack multiplicatively and only touch chip factories', () => {
+  // 只比较芯片工厂自身那一行：总现金里还有「猫猫税收」，它不随这两个科技变化，
+  // 直接拿总产出做比值会把加成稀释成 1.16 / 1.4，看起来像加成没生效。
+  const cafeRate = (techs: TechnologyId[]) => {
+    const state = createInitialState(CONFIG.version, 60, 0);
+    state.tech.push('catCafe', ...techs);
+    state.population = 10;
+    state.buildings.catCafe = 4;
+    state.buildings.solarSatellite = 20;
+    const result = calculateProduction(state, 1);
+    const rows = calculateResourceBreakdown('cash', state, result);
+    const row = rows.entries.find(entry => entry.name === '芯片工厂产出');
+    assert.ok(row, `chip factory row present [${rows.entries.map(e => e.name).join(' / ')}]`);
+    return row.value;
+  };
+  const plain = createInitialState(CONFIG.version, 60, 0);
+  assert.equal(chipFactoryOutputMultiplier(plain), 1, 'no bonus before either tech');
+  assert.equal(chipFactoryOutputMultiplier({ tech: ['masterpieceCat'] as typeof plain.tech }), 1.2);
+  assert.equal(chipFactoryOutputMultiplier({ tech: ['radiationHardenedChip'] as typeof plain.tech }), 1.25);
+  // Independent factors multiply: 1.2 x 1.25 = 1.5, NOT an additive 1.45.
+  assert.ok(Math.abs(chipFactoryOutputMultiplier({ tech: ['masterpieceCat', 'radiationHardenedChip'] as typeof plain.tech }) - 1.5) < 1e-9);
+
+  const base = cafeRate([]);
+  const withMasterpiece = cafeRate(['masterpieceCat']);
+  const withRadiation = cafeRate(['radiationHardenedChip']);
+  const withBoth = cafeRate(['masterpieceCat', 'radiationHardenedChip']);
+  assert.ok(Math.abs(withMasterpiece / base - 1.2) < 1e-9, `多重曝光技术 x1.2 [${withMasterpiece}/${base}]`);
+  assert.ok(Math.abs(withRadiation / base - 1.25) < 1e-9, `抗辐射芯片 x1.25 [${withRadiation}/${base}]`);
+  assert.ok(Math.abs(withBoth / base - 1.5) < 1e-9, `两者相乘 x1.5 [${withBoth}/${base}]`);
+  assert.ok(Math.abs(withBoth / base - 1.45) > 1e-6, 'not an additive 1.45');
+});
+
+test('芯片工厂 detail hides the output techs but still multiplies the settled value', () => {
+  const state = createInitialState(CONFIG.version, 60, 0);
+  state.tech.push('catCafe', 'masterpieceCat', 'radiationHardenedChip');
+  state.population = 10;
+  state.buildings.catCafe = 2;
+  state.buildings.solarSatellite = 20;
+  const result = calculateProduction(state, 1);
+  // 产量详细信息 (factor rows) must NOT list either tech: they raise the base output directly.
+  const factorNames = calculateResourceFactorRows('cash', state, result).rows.map(row => row.name);
+  assert.ok(!factorNames.some(name => name.includes('多重曝光技术')), `no 多重曝光技术 row [${factorNames.join(' / ')}]`);
+  assert.ok(!factorNames.some(name => name.includes('抗辐射芯片')), `no 抗辐射芯片 row [${factorNames.join(' / ')}]`);
+  // The sources list still shows the chip factory itself, so the bonus is not silently lost from the UI.
+  const entryNames = calculateResourceBreakdown('cash', state, result).entries.map(entry => entry.name);
+  assert.ok(entryNames.some(name => name.includes('芯片工厂')), `chip factory row present [${entryNames.join(' / ')}]`);
+});
+
+test('芯片工厂 techs are ordered as requested: ARPA prerequisite and iridium-gated T12', () => {
+  assert.deepEqual(TECHNOLOGIES.masterpieceCat.pre, ['arpa']);
+  assert.equal(TECHNOLOGIES.masterpieceCat.name, '多重曝光技术');
+  assert.equal(TECHNOLOGIES.radiationHardenedChip.tier, 12);
+  assert.equal(TECHNOLOGIES.radiationHardenedChip.resourceRequired, 'iridium');
+  assert.deepEqual(TECHNOLOGIES.radiationHardenedChip.cost, { knowledge: 150000, iridium: 1000 });
+  assert.equal(BUILDINGS.catCafe.name, '芯片工厂');
+  assert.equal(BUILDINGS.catCafe.desc, '卖芯片可比卖牙膏赚钱多了');
 });

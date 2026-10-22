@@ -87,7 +87,7 @@ export function addBuildingEffectRows(ctx: BuildingTooltipContext): void {
   }
   if (id === 'touristCenter') {
     add('每座剧场', '+2$/s');
-    add('每座运行中的猫咖', '+5$/s');
+    add('每座运行中的芯片工厂', '+5$/s');
     add('每座纪念碑', '+4$/s');
   }
   if (id === 'foundry' && state.tech.includes('castingToolUpgrade')) add('锻造工具加成', '+3%');

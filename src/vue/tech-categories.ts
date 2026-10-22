@@ -78,6 +78,7 @@ export const TECH_CATEGORIES: Record<TechnologyId, TechCategory> = {
   superContainers: 'infrastructure', stockTrading: 'infrastructure', catCafe: 'infrastructure',
   oilStorage: 'infrastructure', intelligentManagementSystem: 'infrastructure', intelligentStorage: 'infrastructure',
   savingsBonds: 'infrastructure', monument: 'infrastructure', masterpieceCat: 'infrastructure',
+  radiationHardenedChip: 'infrastructure',
   tourismIndustry: 'infrastructure', uraniumStorage: 'infrastructure', stockExchange: 'infrastructure',
   arpaResearchInstitute: 'infrastructure', tourism: 'infrastructure', helium3Storage: 'infrastructure',
   reinforcedContainers: 'infrastructure', dimensionCompression: 'infrastructure', iridiumSteelVault: 'infrastructure',

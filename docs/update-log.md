@@ -50,6 +50,19 @@
 
 ---
 
+## 2026/10/22 beta 0.9.35 猫咖→芯片工厂，绝世好猫→多重曝光技术，新增抗辐射芯片
+
+- **改名**：`data/buildings.ts` 的 `catCafe.name` 改为「芯片工厂」并新增 `desc`（`BuildingDefinition.desc` 原本就是可选的 flavor 字段，无需改类型）。ID `catCafe` 保持不变——它是存档字段名，改名会断档。科技 `catCafe` 的名称同步改为「芯片工厂」。
+- **科技前置**：`masterpieceCat` 由 `['catCafe','genetics']` 改为 `['arpa']`，名称改为「多重曝光技术」，效果文案改为「芯片工厂的基础资金产量+20%」。
+- **新增 T12 科技** `radiationHardenedChip`「抗辐射芯片」：`pre: []` + `resourceRequired: 'iridium'`（沿用既有「解锁某资源后可研究」闸门，与 `iridiumSteelVault`、`railgun` 同款），`cost: { knowledge: 150000, iridium: 1000 }`。已在 `types/technologies.ts` 的 `TechnologyId` 与 `vue/tech-categories.ts` 的分类表登记——漏登记会直接编译失败，这是有意的强制约束。
+- **单一真相**：新增 `simulation/chip-factory.ts` 的 `chipFactoryOutputMultiplier(state)`。此前 `masterpieceCat` 的 ×1.2 在**三处**各写了一遍（`ground-settlement.ts` 结算、`resource-breakdown.ts` 的 `sourceValue` 反推、同文件 `pct` 明细行）。现在两个科技都收敛到这一个函数，且**相乘**（1.2 × 1.25 = 1.5），三处调用点全部改为调用它。
+- **明细不再显示这两个科技**：`calculateResourceFactorRows`（产量详细信息的数据源）里删掉 `pct('绝世好猫', ...)`，只保留 `local *= chipFactoryOutputMultiplier(state)`。**注意 `local` 必须继续乘**：它参与同函数内 `expected` 的自检，删掉会导致明细与结算分叉。
+- **连带改名**：`data/genes.ts`（好猫基因）、`data/neighbors.ts`、`data/technologies.ts`（4 条科技文案）、`simulation/unification-storage.ts`、`vue/building-tooltip-rows.ts`（游客中心的参考行）里的「猫咖」全部改为「芯片工厂」，「绝世好猫」改为「多重曝光技术」。
+- **测试**：`tests/containers-cafe-smelting.test.ts` 新增 3 项。断言总量 ×1.5 而非 ×1.45；断言 factor rows 里不再出现两个科技名；断言前置、T12、铱闸门与改动后的建筑名/desc。三条都验证过「改前是红的」：把倍率改成加法 → 第一条失败；把 `pct('多重曝光技术')` 加回 → 第二条失败并打印出实际行名。
+- **踩坑记录**：第一次测试写的是对**总现金产出**做比值，得到 1.16 / 1.4，看起来像加成没生效。实际是 `cash` 里还含「猫猫税收」这个不随科技变化的部分，把加成稀释了。断言必须落在芯片工厂自己那一行。
+- **兼容**：无存档结构变化，`CONFIG.version` 仍为 33。211 项科技的可达性已用脚本验证，无孤儿节点。
+- **验证**：`npm run check` 通过：783 项模块测试、经典 VM 回归（失败 0）、Edge 浏览器验收 602 项、类型检查与生产构建。
+
 ## 2026/10/22 beta 0.9.34 电力悬停提示去掉长句说明
 
 - **改动**：`TooltipPanel.vue` 的 `id === 'energy'` 分支删掉 `tip.description = '电力为固定供给，不累积库存……'` 这一行。标题「电力固定供给与占用」与四个数值行（总发电量、请求用电量、实际耗电、可用电力）保持不变。模板里描述是 `v-if="content.description"`，删掉后不渲染空节点。

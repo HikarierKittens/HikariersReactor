@@ -24,6 +24,7 @@ import { isPowerProducer } from './power';
 import { countRunningBuildings } from './housing';
 import { calculateGovernmentMultiplier, calculateTaxBase, calculateBankerMultiplier, soldierFurPerSoldier } from './government';
 import { calculateForgingToolBonus, calculateOverclockCraftMultiplier, artisanCraftRate } from './crafting';
+import { chipFactoryOutputMultiplier } from './chip-factory';
 import { geneExtraBonus } from './genes';
 import { CONFIG } from '../data/config';
 import { formatRateNumber, formatByteNumber } from '../shared/format';
@@ -339,7 +340,7 @@ export function calculateResourceFactorRows(
       / (id === 'cementWorkshop' ? 1 + (result.inputUnits.cementMixer || 0) * .05 : 1)
       / (id === 'lumber' || id === 'quarry' ? 1 + (result.inputUnits[id === 'lumber' ? 'automatedLumber' : 'automatedQuarry'] || 0) * .05 : 1)
       / (id === 'lab' ? 1 + RESEARCH_SATELLITE_LAB_OUTPUT * (state.buildings.researchSatellite || 0) : 1)
-      / (id === 'catCafe' ? (state.tech.includes('masterpieceCat') ? 1.2 : 1) : 1)
+      / (id === 'catCafe' ? chipFactoryOutputMultiplier(state) : 1)
       / (id === 'iridiumMine' && resource === 'iridium' ? 1 + .05 * (result.inputUnits.geothermalPlant || 0) : 1)
       / (id === 'talosMoonMiningStation' && resource === 'neutron' ? 1 + .05 * (state.buildings.miningDrone || 0) : 1)
       / calculateSpaceMultiplier(id, state, result.asriel)
@@ -372,7 +373,9 @@ export function calculateResourceFactorRows(
       pct('高级石墨烯加工', f, true); local *= f;
     }
 
-    if (id === 'catCafe') { const f = state.tech.includes('masterpieceCat') ? 1.2 : 1; pct('绝世好猫', f, true); local *= f; }
+    // 芯片工厂的两个科技直接抬高基础产量（见 simulation/chip-factory.ts），因此不在明细里
+    // 单列成加成行；但 `local` 仍要乘上它们，否则第 395 行的 `expected` 会与真实产出分叉。
+    if (id === 'catCafe') local *= chipFactoryOutputMultiplier(state);
     if (id === 'lab') { const f = 1 + RESEARCH_SATELLITE_LAB_OUTPUT * (state.buildings.researchSatellite || 0); pct('科研卫星', f, true); local *= f; }
     if (id === 'cementWorkshop') { const f = 1 + (result.inputUnits.cementMixer || 0) * .05; pct('供能水泥工匠', f, true); local *= f; }
     if (id === 'cementWorkshop') { const f = calculateAiCementMultiplier(state, result.quantum.level); pct('AI水泥工坊', f, true); local *= f; }

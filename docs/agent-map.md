@@ -48,6 +48,7 @@ src/app/runtime.ts 状态唯一所有者：tick / save / load / import / reset
 | 已退役科技名单 | `src/data/technologies.ts`（`RETIRED_TECHNOLOGIES`，data 层以便 simulation 复用） | `simulation/unlocks.ts`（永不可研究）、`state/validate-unlocks.ts`（跳前置校验）、`TechPanel.vue`（隐藏） | `tech-categories` `retired` |
 | 士兵战斗力/防御力数值 | `src/data/military.ts`（`COMBAT_POWER_TECH_BONUS`、`DEFENSE_TECH_BONUS`） | `simulation/government.ts` | `soldier-stats` |
 | 工种工具倍率 | `src/simulation/building-production.ts`（`calculateToolMultiplier`） | 结算与悬停共用 | `t20-technologies` |
+| 芯片工厂产量倍率 | `src/simulation/chip-factory.ts`（`chipFactoryOutputMultiplier`，多重曝光技术 ×1.2 与抗辐射芯片 ×1.25 **相乘**） | `ground-settlement.ts`（结算）、`resource-breakdown.ts`（`sourceValue` 反推 + `local`）三处共用 | `containers-cafe` |
 | AI数据中心全部数值 | `src/simulation/ai-data-center.ts`（电力 `calculateAiDataCenterPower`、量子 `AI_DATA_CENTER_QUANTUM_BONUS`、水泥/石墨烯/精金加成） | `simulation/quantum.ts`、`space-settlement.ts`、`ground-settlement.ts`、`power-grid.ts`、`building-production.ts`、`resource-breakdown.ts`、`vue/building-tooltip-rows.ts` | `t21-ai-data-center` |
 | 工厂生产线默认与抽取 | `src/simulation/factory.ts`（`assignNewFactoryLines`、`countFreeFactoryLines`）、`simulation/commands.ts`（`changeFactoryAssignment`） | `purchases.ts`（建造后调用）、`FactoryModal.vue`（`canGrow` 按钮态） | `factory-default-lines building-limits` |
 | 建筑悬浮提示 | `src/vue/building-tooltip-rows.ts` | TooltipPanel | `lab-tooltip description-effects-split` |

@@ -1392,8 +1392,9 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     },
   },
   "catCafe": {
-    "name": "猫咖",
+    "name": "芯片工厂",
     "icon": "",
+    "desc": "卖芯片可比卖牙膏赚钱多了",
     "moraleCap": 1,
     "cost": {
       "cash": 50000,

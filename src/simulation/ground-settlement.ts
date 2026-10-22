@@ -6,6 +6,7 @@ import { calculateGlobalOutputMultiplier } from './crafting';
 import { isPowerProducer } from './power';
 import { calculateSmelterSlotCapacity, calculateRunningSmelterSlots } from './factory';
 import { RESEARCH_SATELLITE_LAB_OUTPUT } from './building-effects';
+import { chipFactoryOutputMultiplier } from './chip-factory';
 import { calculateAiCementMultiplier } from './ai-data-center';
 import type { GameState } from '../types/state';
 import type { BuildingId } from '../types/buildings';
@@ -30,7 +31,7 @@ export function settleGroundProduction(state: GameState, pool: ResourceAmounts, 
       continue;
     }
     let speed = units * calculateProductionMultiplier(Object.keys(out)[0] ?? '', happiness, state);
-    if (id === 'catCafe') speed *= state.tech.includes('masterpieceCat') ? 1.2 : 1;
+    if (id === 'catCafe') speed *= chipFactoryOutputMultiplier(state);
     if (id === 'cementWorkshop') speed *= (1 + boosts.mixerUnits * .05) * calculateAiCementMultiplier(state, boosts.quantumLevel ?? 0);
     if (b.boostResource) speed *= 1 + n * (id === 'lumber' || id === 'quarry' ? .02 : .05);
     if (b.minerBoost) speed *= 1 + (id === 'coalMine' ? boosts.coalMiningUnits : boosts.miningUnits) * .05;

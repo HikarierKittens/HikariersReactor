@@ -37,7 +37,7 @@ export function unificationFuelMultiplier(state: TechOnly): number {
   return isWorldUnified(state) ? 1 + UNIFICATION_FUEL_DEPOT_BONUS : 1;
 }
 
-/** 银行 / 猫咖 cash capacity. */
+/** 银行 / 芯片工厂 cash capacity. */
 export function unificationCashMultiplier(state: TechOnly): number {
   return isWorldUnified(state) ? 1 + UNIFICATION_BANK_BONUS : 1;
 }
