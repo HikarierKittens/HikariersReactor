@@ -35,6 +35,32 @@ export type BuildingId =
   | 'planetaryFoundry' | 'spaceGarrison' | 'geothermalPlant'
   | 'hangar' | 'spaceFactory' | 'starRingStation' | 'spaceWaystation' | 'catCafe' | 'touristCenter';
 
+/** Row-effect kind understood by TooltipPanel's dedup and grouping rules. */
+export type EffectRowType = 'detail' | 'production' | 'multiplier';
+
+/**
+ * One fixed effect row of a building tooltip. Both the label and the value are
+ * literals: if either has to be computed, the row belongs in
+ * `building-tooltip-rows.ts` instead, next to the mechanic that produces it.
+ */
+export interface BuildingEffectRow {
+  /** Row label in the 建筑效果 block, e.g. '冶炼厂工位'. */
+  name: string;
+  /** Row value exactly as displayed, e.g. '+2' or '-0.25/s'. */
+  value: string;
+  /** Renders the value in the danger colour (maintenance and other costs). */
+  negative?: boolean;
+  /**
+   * Small print under the row. Only for conditions the label cannot carry
+   * (stacking rules, "only while running"); never a restatement of the value.
+   */
+  note?: string;
+  /** 'multiplier' rows are grouped with percentage bonuses by the panel. */
+  effectType?: EffectRowType;
+  /** Only listed while the named technology is researched. */
+  requiresTech?: TechnologyId;
+}
+
 export interface BuildingDefinition {
   name: string;
   icon: string;
@@ -46,6 +72,16 @@ export interface BuildingDefinition {
    * describe numbers; most buildings have no description at all.
    */
   desc?: string;
+  /**
+   * Effect rows whose label and value are both fixed literals, kept beside the
+   * building they describe so the wording lives with the data instead of inside
+   * the tooltip builder's `if (id === ...)` chain.
+   *
+   * Rows whose value depends on tech, live snapshots or a calculation stay in
+   * `building-tooltip-rows.ts`: this field is data only and must never grow a
+   * callback, or the data layer would start depending on the simulation layer.
+   */
+  effectRows?: BuildingEffectRow[];
   input?: ResourceRecipe;
   output?: ResourceRecipe;
   workerOutput?: ResourceRecipe;

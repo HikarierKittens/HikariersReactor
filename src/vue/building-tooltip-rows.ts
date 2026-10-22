@@ -20,7 +20,8 @@ import { SHIP_CREW_SIZE, SHIP_CREW_JOB_NAME, type ShipCrewId } from '../simulati
 import { orderedCostEntries } from './format';
 
 /** Row-effect kind understood by TooltipPanel's dedup rules. */
-export type EffectRowType = 'detail' | 'production' | 'multiplier';
+export type { EffectRowType };
+import type { EffectRowType } from '../types/buildings';
 
 export interface BuildingTooltipContext {
   id: BuildingId;
@@ -47,6 +48,18 @@ export interface BuildingTooltipContext {
  */
 export function addBuildingEffectRows(ctx: BuildingTooltipContext): void {
   const { id, building, state, snapshot, count, tip, add, number, percent, formatEffectNumber } = ctx;
+  // 声明式行的渲染时机因建筑而异（有的要排在派生行之前，有的之后），
+  // 所以渲染点由下方各处显式调用；这里保证同一座建筑最多渲染一次。
+  let declaredRendered = false;
+  const addDeclared = (): void => {
+    if (declaredRendered) return;
+    declaredRendered = true;
+    for (const row of building.effectRows ?? []) {
+      if (row.requiresTech === undefined || state.tech.includes(row.requiresTech)) {
+        add(row.name, row.value, row.negative, row.note, row.effectType);
+      }
+    }
+  };
   // Every effect row below is derived from the registry's mechanics; there is no
   // hand-written effect text to fall back on.
   // 实验室: three lines in the 建筑效果 block instead of the old duplicated rows
@@ -85,46 +98,44 @@ export function addBuildingEffectRows(ctx: BuildingTooltipContext): void {
   if (building.boostResource) {
     add(`${RESOURCES[building.boostResource].name}产量`, `+${id === 'lumber' || id === 'quarry' ? 2 : 5}%`);
   }
-  if (id === 'touristCenter') {
-    add('每座剧场', '+2$/s');
-    add('每座运行中的芯片工厂', '+5$/s');
-    add('每座纪念碑', '+4$/s');
+  // 声明式行的渲染时机因建筑而异（顺序必须与重构前逐行一致）：
+  //   asteroidBase     -> 排在 getBuildingEffectRows 之后
+  //   agiCoreComponent -> 排在幸福度之后
+  //   metalRefinery    -> 排在铝产量之后
+  //   aiSupercore      -> 排在「已建成核心」之后（在该分支内处理）
+  //   softRouterNode   -> 排在 CPU算力 之后
+  // 其余建筑统一在派生行之后渲染。
+  if (id === 'agiCoreComponent') {
+    if (building.morale) add('幸福度', `+${percent(building.morale)}%`);
+    addDeclared();
   }
+  if (building.cpuCompute) add('CPU算力', `+${number(id === 'cellCore' && state.tech.includes('cellMultithreading') ? 4 : building.cpuCompute)}`);
+  if (id !== 'agiCoreComponent' && id !== 'metalRefinery' && id !== 'aiSupercore' && id !== 'asteroidBase') addDeclared();
   if (id === 'foundry' && state.tech.includes('castingToolUpgrade')) add('锻造工具加成', '+3%');
-  if (id === 'asrielControlTower') add('火星支持', '+1');
-  if (id === 'anchorFreightStation' || id === 'civilianRouteStation') add('占用稳定度', '2');
   for (const row of getBuildingEffectRows(id, state, { repeaters: snapshot.stageThree?.repeaters ?? 0, asteroidBases: snapshot.stageThree?.asteroidBases ?? 0, blackHoleStations: snapshot.blackHoleStationUnits ?? 0 })) {
     add(row.label, row.value, false, row.note);
   }
-  if (id === 'asteroidBase') add('锚点货运站容量', '+5%', false, '仅运行时生效，按运行基地数量累加。');
-  if (id === 'shortRangeRelay') { add('运行时：Asriel支持', '+2'); add('占用稳定度', '2'); }
+  if (id === 'asteroidBase') addDeclared();
   if (id === 'metalRefinery') {
     const advanced = state.tech.includes('advancedMetalRefining');
+    // 声明行里含「供能时：钢产量」，它原本排在铝产量之后；这里先渲染铝产量再把钢产量补上，
+    // 因此金属精炼厂的声明行延后到派生行之后。
     add(advanced ? '供能时：铝产量' : '铝产量', advanced ? '+8%' : '+6%');
-    if (advanced) { add('供能时：钢产量', '+1%'); add('供能时：铱产量', '+0.5%'); }
+    addDeclared();
+    if (advanced) add('供能时：铱产量', '+0.5%');
   }
-  if (id === 'moonObservatory') add('学校知识容量', '+5%');
-  if (id === 'particleAccelerator') {
-    if (isChallengeGeneActive(state, 'particleImbalance')) {
-      const bonus = 0.05;
-      add('普通资源产量（含知识，不含电力）', `+${number(bonus * 100)}%`);
-      add('锻造物产量', `+${number(bonus * 25)}%`);
-    }
-    else add('粒子产量加成', '+10%');
-    if (state.tech.includes('knowledgeInheritance')) add('图书馆知识容量', `+${number(10)}%`);
+  // 粒子失衡期间改为两条折算行，因此这条正常状态的加成只能留在代码里。
+  if (id === 'particleAccelerator' && !isChallengeGeneActive(state, 'particleImbalance')) add('粒子产量加成', '+10%');
+  if (id === 'particleAccelerator' && isChallengeGeneActive(state, 'particleImbalance')) {
+    const bonus = 0.05;
+    add('普通资源产量（含知识，不含电力）', `+${number(bonus * 100)}%`);
+    add('锻造物产量', `+${number(bonus * 25)}%`);
   }
+  if (id === 'particleAccelerator' && state.tech.includes('knowledgeInheritance')) add('图书馆知识容量', `+${number(10)}%`);
   if (id === 'researchSatellite') {
     add('科学家知识产量', `+${number(RESEARCH_SATELLITE_LAB_OUTPUT * 100)}%`);
     add('实验室知识容量', `+${number(RESEARCH_SATELLITE_LAB_CAPACITY * 100)}%`);
   }
-  if (id === 'asrielMine') {
-    add('每行星居民铜产量', '+0.25/s');
-    add('每行星居民钛产量', '+0.05/s');
-  }
-  if (id === 'ecologicalDome') add('每行星居民猫粮产量', '+0.25/s');
-  if (id === 'planetaryFoundry') add('每行星居民锻造工具加成', '+3%');
-  if (id === 'miningDrone') add('塔卫二采矿站产量', '+5%');
-  if (id === 'ecologicalDome') add('每座Asriel居住站猫口容量', '+0.05');
   if (building.cap) add('猫口容量', `+${number(building.cap + (id === 'asrielResidence' ? .05 * snapshot.asriel.allocations.ecologicalDome : 0))}`);
   if (building.soldierCap) add('士兵容量', `+${number(building.soldierCap)}`);
   if (building.trainingBoost) add('训练效果', `+${percent(calculateTrainingBoost(state))}%`);
@@ -133,8 +144,6 @@ export function addBuildingEffectRows(ctx: BuildingTooltipContext): void {
       isHospitalIdle(state) ? '当前没有伤兵。' : '伤兵由临近势力的军事行动产生；治愈后自动回到士兵序列。');
   }
   if (building.lines) add('生产线容量', `+${number(building.lines)}`);
-  if (id === 'smelter') add('冶炼厂工位', '+1', false, '冶炼厂本身不产出也不消耗资源；资源由钢冶炼工位产出和消耗，可在设置中查看配方并分配。');
-  if (id === 'stellarForge') { add('冶炼厂工位', '+2'); add('工匠上限', '+2'); add('锻造工具加成', '+10%'); }
   if (id === 'adamantiteProcessor') add('精金采矿船产量', `+${percent(calculateAdamantiteProcessorBonus(state) * 100)}%`);
   // AI数据中心: the desc line reports the live 量子水平, so the number on screen is the
   // same snapshot function the settlement uses rather than a UI-side re-derivation.
@@ -148,17 +157,14 @@ export function addBuildingEffectRows(ctx: BuildingTooltipContext): void {
     if (state.tech.includes('advancedGrapheneProcessing')) add('石墨烯产量', `+${percent(calculateAiGrapheneBonusPerCenter(quantum) * 100)}%`);
     if (state.tech.includes('advancedAdamantiteProcessing')) add('精金精炼站加成数值', `+${percent(ADAMANTITE_PROCESSOR_AI_BONUS * 100)}%`);
   }
-  if (id === 'vrCenter') add('幸福度', '+2.5%', false, '仍受幸福度上限限制。');
-  if (id === 'blackHoleStation') add('空间撕裂者知识容量效果', '+1%');
   const containerCap = calculateBuildingContainerCap(id, state);
   const alloyContainerCap = calculateBuildingAlloyContainerCap(id, state);
   if (containerCap) add('集装箱容量', `+${number(containerCap)}`);
   if (alloyContainerCap) add('合金集装箱容量', `+${number(alloyContainerCap)}`);
   if (building.moraleCap) add('幸福度上限', `+${percent(building.moraleCap)}%`);
-  if (building.morale) add('幸福度', `+${percent(building.morale)}%`);
+  if (building.morale && id !== 'agiCoreComponent') add('幸福度', `+${percent(building.morale)}%`);
   if (id === 'navigationBeacon' && state.tech.includes('spaceBroadcasting')) add('幸福度', '+3%');
   if (id === 'moonBase' || id === 'navigationBeacon') add('月球支持', `+${id === 'moonBase' ? 2 : 1}`);
-  if (id === 'asrielSpaceport') add('Asriel支持', '+4');
   if (id === 'swarmControlStation') add('戴森群支持', `+${formatEffectNumber(20 + (state.tech.includes('quantumSwarm') ? calculateQuantumSnapshot(state).level : 0))}`);
   if (building.knowledgeBoost) add('知识产量', `+${percent(building.knowledgeBoost * 100)}%`);
   if (building.jobs) add('Asriel居民容量', `+${number(building.jobs)}`);
@@ -166,28 +172,11 @@ export function addBuildingEffectRows(ctx: BuildingTooltipContext): void {
     const coefficient = calculateStarRingCoefficient(state, snapshot.asriel.allocations.alienMaterialLab || 0);
     add('每Asriel行星居民使太空资源产量', `+${percent(coefficient * 100)}%`);
   }
-  if (id === 'spaceWaystation') {
-    add('太空区域石油消耗量', '-5%', false, '不作用于超空间/遥远星际的建筑与探索任务。');
-    add('太空区域氦-3消耗量', '-5%');
-  }
-  if (id === 'communityCenter') {
-    add('人口增长速率', '+10%');
-    add('幸福度', '+25%');
-    add('只能建造一个', '');
-  }
   const miningPowered = (id === 'mine' || id === 'coalMine') && state.tech.includes('automatedMining');
   const gatheringPowered = (id === 'lumber' || id === 'quarry') && state.tech.includes('automatedMining');
   if (gatheringPowered) add(id === 'lumber' ? '每座供能伐木场：伐木工人产量' : '每座供能采石场：石工产量', '+5%');
   const mixerPowered = id === 'cementWorkshop' && state.tech.includes('cementMixer');
   if (miningPowered) add(id === 'mine' ? '每座供电矿井：矿工产量' : '每座供电煤矿：煤矿工人产量', '+5%');
-  if (mixerPowered) add('每座供电水泥工坊：水泥工人产量', '+5%');
-  if (building.cpuCompute) add('CPU算力', `+${number(id === 'cellCore' && state.tech.includes('cellMultithreading') ? 4 : building.cpuCompute)}`);
-  if (id === 'dataCompression') {
-    add('锚点货运站容量', '+20%', false, '按有效运行数量累加。');
-    add('量子存储器容量', '+25%', false, '按有效运行数量累加。');
-    if (state.tech.includes('deepCore')) add('记忆核心容量', '+15%', false, '按有效运行数量累加。');
-  }
-  if (id === 'cpuDecoder') add('量化压缩模块知识容量', '+10%', false, '按有效运行数量累加。');
   if (id === 'gatewayRouter') {
     add('数据带宽', state.tech.includes('layer3Switch') ? '+7.5' : '+5');
     if (state.tech.includes('layer3Switch')) tip.description = (building.desc || '').replace('提供5带宽', '提供7.5带宽');
@@ -196,15 +185,9 @@ export function addBuildingEffectRows(ctx: BuildingTooltipContext): void {
     add('字节容量', `+${formatByteNumber(building.bytesCap! * (1 + .15 * (snapshot.digital?.dataCompressionUnits ?? 0)), false, 10000)}`, false, '包含有效运行数据压缩的加成。');
     if (state.tech.includes('encryptedDataAnalysis')) add('加密数据容量', `+${number(25000)}`);
   }
-  if (id === 'softRouterNode') add('数据带宽', '+4');
-  if (id === 'agiCoreComponent') { add('量子水平', '+50%', false, '完整建成并运行时生效。'); add('字节产量', '+50%', false, '完整建成并运行时生效。', 'multiplier'); }
-  if (id === 'coreCooler') add('AGI飞升核心电力占用', '-100', false, '按有效运行数量累加，最低为0。');
   if (id === 'agiAscensionCore') tip.footnote = '默认关闭；完整建成、启用且获得完整供能后可数字化飞升。';
   if (id === 'ethMiner') add('现金容量', `+${number(building.cashCap!)}`);
-  if (id === 'dataDecryptionModule') add('加密数据产量', '+25%', false, '按有效运行数量累加。', 'multiplier');
   if (id === 'quantumStorage') add('字节容量', `+${formatByteNumber(building.bytesCap! * (1 + .25 * (snapshot.digital?.dataCompressionUnits ?? 0)), false, 10000)}`, false, '包含有效运行数据压缩的加成。');
-  if (id === 'downloadCache') add('字节产量', '+10%');
-  if (id === 'downloadExecutable') add('数据下载', '1k知识/s → 1B/s', false, '配置0%～100%的实际知识产出用于下载；不主动消耗知识库存。');
   if (building.bandwidthUse) add('数据带宽', `−${number(building.bandwidthUse)}`, true);
   if (building.cpuComputeUse) add('CPU算力', `−${number(building.cpuComputeUse)}`, true);
   const storage = calculateStorageBonuses(id, state, snapshot.moon, snapshot.asriel, snapshot.digital);
@@ -217,7 +200,6 @@ export function addBuildingEffectRows(ctx: BuildingTooltipContext): void {
   // Maintenance always follows all benefits and capacity effects.
   if (building.asrielSupport && id !== 'asrielSpaceport') add('Asriel支持', `-${number(building.asrielSupport)}`, true);
   if (building.moonSupport) add('月球支持', `-${number(building.moonSupport)}`, true);
-  if (id === 'swarmSatellite') add('戴森群支持', '-1', true);
   if (!building.workerOutput && id !== 'smelter') for (const [resource, amount] of orderedCostEntries(calculateBuildingInput(id, state))) {
     add(RESOURCES[resource as ResourceId].name, `-${number(amount)}${resource === 'energy' ? '' : '/s'}`, true);
   }
@@ -229,9 +211,7 @@ export function addBuildingEffectRows(ctx: BuildingTooltipContext): void {
     // One-off project: once the core exists its construction row is retired, so there is no
     // segment counter left to report; the completed entry only counts cores.
     add('已建成核心', `${count}`);
-    add('量子水平', '+25%');
-    add('氦-3', '-25/s', true);
-    add('电力', '-100', true);
+    addDeclared();
   }
   // 每多建造一座 AI数据中心，所有 AI数据中心的单座耗电都提高 5。它跟在维护消耗之后，
   // 因为这是对「电力」那一行数值的加价说明，不是又一份独立消耗。

@@ -2,17 +2,30 @@ import type { BuildingId, BuildingDefinition } from '../types/buildings';
 import type { ResourceRecipe } from '../types/economy';
 
 export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
-  softRouterNode: { settledByOtherSystem: true, name: '软路由节点', icon: '', tech: 'softRoutingNode', slots: 0, toggleable: true, bandwidth: 4, cpuCompute: 3, input: { energy: 10 }, cost: { cash: 2500000, encryptedData: 25, nanoAlloy: 25000 }, costScales: { cash: 1.27, encryptedData: 1.27, nanoAlloy: 1.27 },
+  softRouterNode: {
+    effectRows: [
+    { name: '数据带宽', value: '+4' },
+    ],
+  settledByOtherSystem: true, name: '软路由节点', icon: '', tech: 'softRoutingNode', slots: 0, toggleable: true, bandwidth: 4, cpuCompute: 3, input: { energy: 10 }, cost: { cash: 2500000, encryptedData: 25, nanoAlloy: 25000 }, costScales: { cash: 1.27, encryptedData: 1.27, nanoAlloy: 1.27 },
   },
   aesComputeModule: { settledByOtherSystem: true, name: 'AES算力模块', icon: '', tech: 'aes114514', slots: 0, toggleable: true, cpuComputeUse: 1, output: { encryptedData: .005 }, knowledgeBoost: .1, cost: { cash: 4000000, bytes: 50000, encryptedData: 50, nanoAlloy: 25000 }, costScales: { cash: 1.265, bytes: 1.265, encryptedData: 1.265, nanoAlloy: 1.265 },
   },
   worldSimulator: { settledByOtherSystem: true, name: '世界模拟器', icon: '', tech: 'highPrecisionWorldSimulation', slots: 0, toggleable: true, cpuComputeUse: 3, cap: 8, soldierCap: 4, morale: 5, moraleCap: 5, input: { energy: 10 }, cost: { cash: 5000000, bytes: 25000, encryptedData: 100, nanoAlloy: 25000 }, costScales: { cash: 1.26, bytes: 1.26, encryptedData: 1.26, nanoAlloy: 1.26 },
   },
-  agiCoreComponent: { settledByOtherSystem: true, name: 'AGI核心组件', icon: '', tech: 'agi', slots: 0, toggleable: true, buildable: false, max: 1, input: { energy: 100, water: 1000 }, morale: 25, cost: {},
+  agiCoreComponent: {
+    effectRows: [
+    { name: '量子水平', value: '+50%', note: '完整建成并运行时生效。' },
+    { name: '字节产量', value: '+50%', note: '完整建成并运行时生效。', effectType: 'multiplier' },
+    ],
+  settledByOtherSystem: true, name: 'AGI核心组件', icon: '', tech: 'agi', slots: 0, toggleable: true, buildable: false, max: 1, input: { energy: 100, water: 1000 }, morale: 25, cost: {},
   },
   agiCoreComponentSegments: { settledByOtherSystem: true, name: 'AGI核心组件', icon: '', tech: 'agi', slots: 0, segmentedRequired: 100, completesInto: 'agiCoreComponent', cost: { cash: 5000000, bytes: 50000, encryptedData: 500, nanoAlloy: 25000 }, costScales: { cash: 1, bytes: 1, encryptedData: 1, nanoAlloy: 1 },
   },
-  coreCooler: { settledByOtherSystem: true, name: '核心散热器', icon: '', tech: 'digitalAscension', slots: 0, toggleable: true,  cost: { cash: 1000000, bytes: 10000, encryptedData: 10, nanoAlloy: 10000 }, costScales: { cash: 1.1, bytes: 1.1, encryptedData: 1.1, nanoAlloy: 1.1 },
+  coreCooler: {
+    effectRows: [
+    { name: 'AGI飞升核心电力占用', value: '-100', note: '按有效运行数量累加，最低为0。' },
+    ],
+  settledByOtherSystem: true, name: '核心散热器', icon: '', tech: 'digitalAscension', slots: 0, toggleable: true,  cost: { cash: 1000000, bytes: 10000, encryptedData: 10, nanoAlloy: 10000 }, costScales: { cash: 1.1, bytes: 1.1, encryptedData: 1.1, nanoAlloy: 1.1 },
   },
   agiAscensionCore: { settledByOtherSystem: true, name: 'AGI飞升核心', icon: '', tech: 'digitalAscension', slots: 0, toggleable: true, buildable: false, max: 1, input: { energy: 10000 }, cost: {},
     desc: '完整供能并启用后，可进行数字化飞升。',
@@ -21,18 +34,36 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   },
   gatewayRouter: { settledByOtherSystem: true, name: '网关路由', icon: '', tech: 'aiCoreCalibration', slots: 0, toggleable: true, bandwidth: 5, input: { energy: 25 }, cost: { bytes: 1000 }, costScales: { bytes: 1.30 },
   },
-  downloadExecutable: { settledByOtherSystem: true, name: 'dl.exe', icon: '', tech: 'aiCoreCalibration', slots: 0, toggleable: true, bandwidthUse: 1, max: 1, cost: { bytes: 0 }, costScales: { bytes: 1 },
+  downloadExecutable: {
+    effectRows: [
+    { name: '数据下载', value: '1k知识/s → 1B/s', note: '配置0%～100%的实际知识产出用于下载；不主动消耗知识库存。' },
+    ],
+  settledByOtherSystem: true, name: 'dl.exe', icon: '', tech: 'aiCoreCalibration', slots: 0, toggleable: true, bandwidthUse: 1, max: 1, cost: { bytes: 0 }, costScales: { bytes: 1 },
   },
   quantumStorage: { settledByOtherSystem: true, name: '量子存储器', icon: '', tech: 'binaryWorld', slots: 0, toggleable: true, bandwidthUse: 1, bytesCap: 10000, cost: { bytes: 1000 }, costScales: { bytes: 1.27 },
   },
-  downloadCache: { settledByOtherSystem: true, name: '下载缓存器', icon: '', tech: 'binaryWorld', slots: 0, toggleable: true, bandwidthUse: 1, downloadBoost: .1, cost: { bytes: 1000 }, costScales: { bytes: 1.24 },
+  downloadCache: {
+    effectRows: [
+    { name: '字节产量', value: '+10%' },
+    ],
+  settledByOtherSystem: true, name: '下载缓存器', icon: '', tech: 'binaryWorld', slots: 0, toggleable: true, bandwidthUse: 1, downloadBoost: .1, cost: { bytes: 1000 }, costScales: { bytes: 1.24 },
   },
   subcomputeNode: { settledByOtherSystem: true, name: '子算力节点', icon: '', tech: 'subcomputeNode', slots: 0, toggleable: true, bandwidthUse: 3, cpuCompute: 2, cost: { bytes: 10000 }, costScales: { bytes: 1.275 },
   },
   quantizedCompressionModule: { settledByOtherSystem: true, name: '量化压缩模块', icon: '', tech: 'quantizedCompression', slots: 0, toggleable: true, cpuComputeUse: 1, knowledgeCap: 100000, cost: { knowledge: 100000, bytes: 10000 }, costScales: { knowledge: 1.25, bytes: 1.25 } },
-  dataCompression: { settledByOtherSystem: true, name: '数据压缩', icon: '', tech: 'dataCompressor', slots: 0, toggleable: true, cpuComputeUse: 1, cost: { knowledge: 50000, bytes: 10000 }, costScales: { knowledge: 1.285, bytes: 1.285 },
+  dataCompression: {
+    effectRows: [
+    { name: '锚点货运站容量', value: '+20%', note: '按有效运行数量累加。' },
+    { name: '量子存储器容量', value: '+25%', note: '按有效运行数量累加。' },
+    { name: '记忆核心容量', value: '+15%', note: '按有效运行数量累加。', requiresTech: 'deepCore' },
+    ],
+  settledByOtherSystem: true, name: '数据压缩', icon: '', tech: 'dataCompressor', slots: 0, toggleable: true, cpuComputeUse: 1, cost: { knowledge: 50000, bytes: 10000 }, costScales: { knowledge: 1.285, bytes: 1.285 },
   },
-  cpuDecoder: { settledByOtherSystem: true, name: 'CPU解码器', icon: '', tech: 'cpuDecoding', slots: 0, toggleable: true, bandwidthUse: 2, cpuComputeUse: 1, output: { bytes: 100 }, cost: { knowledge: 50000, bytes: 20000, nanoAlloy: 10000 }, costScales: { knowledge: 1.25, bytes: 1.25, nanoAlloy: 1.25 },
+  cpuDecoder: {
+    effectRows: [
+    { name: '量化压缩模块知识容量', value: '+10%', note: '按有效运行数量累加。' },
+    ],
+  settledByOtherSystem: true, name: 'CPU解码器', icon: '', tech: 'cpuDecoding', slots: 0, toggleable: true, bandwidthUse: 2, cpuComputeUse: 1, output: { bytes: 100 }, cost: { knowledge: 50000, bytes: 20000, nanoAlloy: 10000 }, costScales: { knowledge: 1.25, bytes: 1.25, nanoAlloy: 1.25 },
   },
   cellCore: { settledByOtherSystem: true, name: 'CELL核心', icon: '', tech: 'deepCore', slots: 0, toggleable: true, cpuCompute: 3, input: { energy: 25 }, cost: { bytes: 50000 }, costScales: { bytes: 1.27 },
   },
@@ -40,7 +71,11 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   },
   ethMiner: { settledByOtherSystem: true, name: 'eth_miner', icon: '', tech: 'cryptocurrency', slots: 0, toggleable: true, cpuComputeUse: 1, cashCap: 512000, input: { energy: 10 }, output: { cash: 512 }, cost: { bytes: 100000 }, costScales: { bytes: 1.25 },
   },
-  dataDecryptionModule: { settledByOtherSystem: true, name: '数据解密模块', icon: '', tech: 'encryptedDataAnalysis', slots: 0, toggleable: true, cpuComputeUse: 2, output: { encryptedData: .01 }, cost: { bytes: 10000 }, costScales: { bytes: 1.24 },
+  dataDecryptionModule: {
+    effectRows: [
+    { name: '加密数据产量', value: '+25%', note: '按有效运行数量累加。', effectType: 'multiplier' },
+    ],
+  settledByOtherSystem: true, name: '数据解密模块', icon: '', tech: 'encryptedDataAnalysis', slots: 0, toggleable: true, cpuComputeUse: 2, output: { encryptedData: .01 }, cost: { bytes: 10000 }, costScales: { bytes: 1.24 },
   },
   signalRepeater: { settledByOtherSystem: true, name: '信号中继', icon: '', tech: 'accessPointBeacon', slots: 0, toggleable: true, input: { energy: 10 }, cost: { cash: 1200000, alloy: 20000, copper: 30000, nanotubes: 15000, e710: 80 }, costScales: { cash: 1.21, alloy: 1.21, copper: 1.21, nanotubes: 1.21, e710: 1.21 },
   },
@@ -52,7 +87,11 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   iceMiningShip: { settledByOtherSystem: true, name: '采冰船', icon: '', tech: 'dimensionBeaconDeployment', slots: 0, toggleable: true, input: { energy: 5, helium3: 5 }, output: { water: 1 }, cost: { cash: 800000, alloy: 15000, iridium: 3000, nanotubes: 8000, e710: 50 }, costScales: { cash: 1.19, alloy: 1.19, iridium: 1.19, nanotubes: 1.19, e710: 1.19 },
     desc: '采集冰喷发物获取水。',
   },
-  asteroidBase: { settledByOtherSystem: true, name: '小行星基地', icon: '', tech: 'dimensionBeaconDeployment', buildingRequired: 'iceMiningShip', slots: 0, toggleable: true, input: { energy: 10 }, cost: { cash: 1500000, alloy: 30000, iridium: 8000, nanotubes: 20000, e710: 100 }, costScales: { cash: 1.21, alloy: 1.21, iridium: 1.21, nanotubes: 1.21, e710: 1.21 },
+  asteroidBase: {
+    effectRows: [
+    { name: '锚点货运站容量', value: '+5%', note: '仅运行时生效，按运行基地数量累加。' },
+    ],
+  settledByOtherSystem: true, name: '小行星基地', icon: '', tech: 'dimensionBeaconDeployment', buildingRequired: 'iceMiningShip', slots: 0, toggleable: true, input: { energy: 10 }, cost: { cash: 1500000, alloy: 30000, iridium: 8000, nanotubes: 20000, e710: 100 }, costScales: { cash: 1.21, alloy: 1.21, iridium: 1.21, nanotubes: 1.21, e710: 1.21 },
     desc: '在异常小行星群建立小型基地。',
   },
   comprehensiveMiningFacility: { settledByOtherSystem: true, name: '综合采矿设施', icon: '', tech: 'hyperspaceMiningSurvey', slots: 0, toggleable: true, input: { energy: 20, helium3: 10 }, output: { e710: .05, neutron: .15, uranium: .1 }, cost: { cash: 3000000, alloy: 50000, iridium: 12000, nanotubes: 40000, e710: 300 }, costScales: { cash: 1.23, alloy: 1.23, iridium: 1.23, nanotubes: 1.23, e710: 1.23 },
@@ -89,7 +128,13 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   },
   grapheneFactory: { settledByOtherSystem: true, name: '石墨烯厂', icon: '', tech: 'grapheneProcessing', slots: 0, toggleable: true, input: { oil: 15, energy: 5 }, output: { graphene: 1.5 }, cost: { cash: 3000000, alloy: 50000, polymer: 60000, nanotubes: 40000, adamantite: 250 }, costScales: { cash: 1.25, alloy: 1.25, polymer: 1.25, nanotubes: 1.25, adamantite: 1.25 },
   },
-  stellarForge: { settledByOtherSystem: true, name: '恒星熔炉', icon: '', tech: 'stellarForge', spaceMissionRequired: 'neutronStar', slots: 0, powerPlant: true, alwaysRunning: true, output: { energy: 25 }, cost: { cash: 5000000, alloy: 100000, nanoAlloy: 15000, mithril: 20000, e710: 500 }, costScales: { cash: 1.275, alloy: 1.275, nanoAlloy: 1.275, mithril: 1.275, e710: 1.275 },
+  stellarForge: {
+    effectRows: [
+    { name: '冶炼厂工位', value: '+2' },
+    { name: '工匠上限', value: '+2' },
+    { name: '锻造工具加成', value: '+10%' },
+    ],
+  settledByOtherSystem: true, name: '恒星熔炉', icon: '', tech: 'stellarForge', spaceMissionRequired: 'neutronStar', slots: 0, powerPlant: true, alwaysRunning: true, output: { energy: 25 }, cost: { cash: 5000000, alloy: 100000, nanoAlloy: 15000, mithril: 20000, e710: 500 }, costScales: { cash: 1.275, alloy: 1.275, nanoAlloy: 1.275, mithril: 1.275, e710: 1.275 },
     desc: '借助中子星的极端环境进行冶炼与锻造。',
   },
   // 危险物质库 now carries maintenance (10 电力 + 0.25 氘/s), so it is a space consumer:
@@ -102,7 +147,11 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     costScales: { knowledge: 1.15, mithril: 1.2, nanoAlloy: 1.2, graphene: 1.2, adamantite: 1.2 },
     desc: '让CatGPT和DeepSleep来优化喵星机器的运转',
   },
-  blackHoleStation: { settledByOtherSystem: true, name: '黑洞星际站', icon: '', tech: 'energyShield', spaceMissionRequired: 'blackHole', slots: 0, toggleable: true, input: { energy: 10 }, cost: { cash: 1000000, knowledge: 100000, neutron: 2500, adamantite: 500, e710: 100 }, costScales: { cash: 1.3, knowledge: 1.3, neutron: 1.3, adamantite: 1.3, e710: 1.3 },
+  blackHoleStation: {
+    effectRows: [
+    { name: '空间撕裂者知识容量效果', value: '+1%' },
+    ],
+  settledByOtherSystem: true, name: '黑洞星际站', icon: '', tech: 'energyShield', spaceMissionRequired: 'blackHole', slots: 0, toggleable: true, input: { energy: 10 }, cost: { cash: 1000000, knowledge: 100000, neutron: 2500, adamantite: 500, e710: 100 }, costScales: { cash: 1.3, knowledge: 1.3, neutron: 1.3, adamantite: 1.3, e710: 1.3 },
   },
   dysonSphere: { settledByOtherSystem: true, name: '戴森球', icon: '', tech: 'dysonSphere', slots: 0, powerPlant: true, alwaysRunning: true, buildable: false, max: 1, output: { energy: 500 }, cost: {},
     desc: '环绕恒星的巨型能量收集结构。',
@@ -122,21 +171,42 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   massEjector: { settledByOtherSystem: true, name: '质量喷射器', icon: '', tech: 'massEjector', spaceMissionRequired: 'blackHole', slots: 0, toggleable: true, input: { energy: 10 }, cost: { cash: 3000000, adamantite: 20000, nanoAlloy: 8000, mithril: 3000, aerogel: 4000 }, costScales: { cash: 1.28, adamantite: 1.28, nanoAlloy: 1.28, mithril: 1.28, aerogel: 1.28 },
     desc: '向黑洞喷射物质。',
   },
-  vrCenter: { settledByOtherSystem: true, name: 'VR中心', icon: '', tech: 'virtualEntertainment', slots: 0, toggleable: true, support: 1, asrielSupport: 1, cost: { cash: 500000, nanoAlloy: 10000, aerogel: 2500 }, costScales: { cash: 1.275, nanoAlloy: 1.275, aerogel: 1.275 },
+  vrCenter: {
+    effectRows: [
+    { name: '幸福度', value: '+2.5%', note: '仍受幸福度上限限制。' },
+    ],
+  settledByOtherSystem: true, name: 'VR中心', icon: '', tech: 'virtualEntertainment', slots: 0, toggleable: true, support: 1, asrielSupport: 1, cost: { cash: 500000, nanoAlloy: 10000, aerogel: 2500 }, costScales: { cash: 1.275, nanoAlloy: 1.275, aerogel: 1.275 },
   },
-  civilianRouteStation: { settledByOtherSystem: true, name: '民用航线站', icon: '', tech: 'fieldConstraintTheory', slots: 0, toggleable: true, cap: 5, input: { energy: 15, food: 50 }, cost: { cash: 1200000, alloy: 20000, iridium: 6000, nanotubes: 20000, e710: 100 }, costScales: { cash: 1.21, alloy: 1.21, iridium: 1.21, nanotubes: 1.21, e710: 1.21 },
+  civilianRouteStation: {
+    effectRows: [
+    { name: '占用稳定度', value: '2' },
+    ],
+  settledByOtherSystem: true, name: '民用航线站', icon: '', tech: 'fieldConstraintTheory', slots: 0, toggleable: true, cap: 5, input: { energy: 15, food: 50 }, cost: { cash: 1200000, alloy: 20000, iridium: 6000, nanotubes: 20000, e710: 100 }, costScales: { cash: 1.21, alloy: 1.21, iridium: 1.21, nanotubes: 1.21, e710: 1.21 },
     desc: '研究场约束理论后可建。',
   },
-  anchorFreightStation: { settledByOtherSystem: true, name: '锚点货运站', icon: '', tech: 'fieldConstraintTheory', slots: 0, toggleable: true, input: { energy: 15 }, cost: { cash: 1500000, alloy: 30000, iridium: 8000, nanotubes: 25000, e710: 150 }, costScales: { cash: 1.2, alloy: 1.2, iridium: 1.2, nanotubes: 1.2, e710: 1.2 },
+  anchorFreightStation: {
+    effectRows: [
+    { name: '占用稳定度', value: '2' },
+    ],
+  settledByOtherSystem: true, name: '锚点货运站', icon: '', tech: 'fieldConstraintTheory', slots: 0, toggleable: true, input: { energy: 15 }, cost: { cash: 1500000, alloy: 30000, iridium: 8000, nanotubes: 25000, e710: 150 }, costScales: { cash: 1.2, alloy: 1.2, iridium: 1.2, nanotubes: 1.2, e710: 1.2 },
     desc: '研究场约束理论后可建。',
   },
   constraintArray: { settledByOtherSystem: true, name: '场约束阵列', icon: '', tech: 'fieldConstraintTheory', slots: 0, toggleable: true, input: { energy: 50, e710: .25 }, cost: { cash: 1000000, alloy: 20000, iridium: 5000, nanotubes: 15000, e710: 100 }, costScales: { cash: 1.2, alloy: 1.2, iridium: 1.2, nanotubes: 1.2, e710: 1.2 },
   },
-  shortRangeRelay: { settledByOtherSystem: true, name: '短程通信节点', icon: '', tech: 'fieldConstraintTheory', slots: 0, toggleable: true, input: { energy: 10 }, cost: { cash: 750000, copper: 30000, alloy: 10000, nanotubes: 10000, e710: 50 }, costScales: { cash: 1.2, copper: 1.2, alloy: 1.2, nanotubes: 1.2, e710: 1.2 },
+  shortRangeRelay: {
+    effectRows: [
+    { name: '运行时：Asriel支持', value: '+2' },
+    { name: '占用稳定度', value: '2' },
+    ],
+  settledByOtherSystem: true, name: '短程通信节点', icon: '', tech: 'fieldConstraintTheory', slots: 0, toggleable: true, input: { energy: 10 }, cost: { cash: 750000, copper: 30000, alloy: 10000, nanotubes: 10000, e710: 50 }, costScales: { cash: 1.2, copper: 1.2, alloy: 1.2, nanotubes: 1.2, e710: 1.2 },
     desc: '研究场约束理论后可建。只传递信息，不运输货物。',
   },
 
   asrielControlTower: {
+    effectRows: [
+    { name: '火星支持', value: '+1' },
+    ],
+
     settledByOtherSystem: true, name: 'Asriel控制塔', icon: '', tech: 'spaceControlTower', slots: 0, toggleable: true, input: { energy: 2 },
     cost: { cash: 200000, iron: 20000, alloy: 7200 },
     costScales: { cash: 1.25, iron: 1.25, alloy: 1.25 },
@@ -147,6 +217,12 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     costScales: { cash: 1.25, metal: 1.25, mithril: 1.25, e710: 1.25 },
   },
   aiSupercore: {
+    effectRows: [
+    { name: '量子水平', value: '+25%' },
+    { name: '氦-3', value: '-25/s', negative: true },
+    { name: '电力', value: '-100', negative: true },
+    ],
+
     settledByOtherSystem: true, name: 'AI超级核心', icon: '', tech: 'artificialIntelligenceII', slots: 0, toggleable: true, buildable: false, max: 1, input: { helium3: 25, energy: 100 },
     cost: {},
   },
@@ -186,6 +262,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     costScales: { cash: 1.25, metal: 1.25, neutron: 1.25, mithril: 1.25 },
   },
   miningDrone: {
+    effectRows: [
+    { name: '塔卫二采矿站产量', value: '+5%' },
+    ],
+
     name: '采矿无人机', icon: '', tech: 'talosMoonScanning', slots: 0,
     cost: { cash: 75000, metal: 5000, neutron: 150, helium3: 500, e710: 10 },
     costScales: { cash: 1.2, metal: 1.2, neutron: 1.2, helium3: 1.2, e710: 1.2 },
@@ -209,6 +289,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     desc: '控制与维持蜂群卫星运行。',
   },
   swarmSatellite: {
+    effectRows: [
+    { name: '戴森群支持', value: '-1', negative: true },
+    ],
+
     name: '蜂群卫星', icon: '',
     tech: 'dysonTheory', slots: 0, toggleable: true, powerPlant: true, swarmSupport: -1,
     output: { energy: 0.5 }, cost: { cash: 5000, copper: 1500, iridium: 100, helium3: 25 },
@@ -246,6 +330,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     costScales: { cash: 1.2, metal: 1.2, aluminum: 1.2, polymer: 1.2, helium3: 1.2 },
   },
   planetaryFoundry: {
+    effectRows: [
+    { name: '每行星居民锻造工具加成', value: '+3%' },
+    ],
+
     settledByOtherSystem: true, name: '行星铸造厂', icon: '',
     cost: { cash: 50000, copper: 25000, cement: 10000, wroughtIron: 3000 },
     costScales: { cash: 1.235, copper: 1.235, cement: 1.235, wroughtIron: 1.235 },
@@ -527,7 +615,11 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
       "cash": 1.19
     }
   },
-  "metalRefinery": { settledByOtherSystem: true,
+  "metalRefinery": {
+    effectRows: [
+    { name: '供能时：钢产量', value: '+1%', requiresTech: 'advancedMetalRefining' },
+    ],
+  settledByOtherSystem: true,
     "name": "金属精炼厂",
     "icon": "",
     "cost": {
@@ -546,6 +638,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     },
   },
   "cementWorkshop": {
+    effectRows: [
+    { name: '每座供电水泥工坊：水泥工人产量', value: '+5%', requiresTech: 'cementMixer' },
+    ],
+
     "name": "水泥工坊",
     "icon": "",
     "cost": {
@@ -602,6 +698,12 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     desc: '为整齐堆放的集装箱留出位置。',
   },
   "communityCenter": {
+    effectRows: [
+    { name: '人口增长速率', value: '+10%' },
+    { name: '幸福度', value: '+25%' },
+    { name: '只能建造一个', value: '' },
+    ],
+
     "name": "猫猫社区",
     "icon": "",
     "cost": {
@@ -1075,6 +1177,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     desc: '成排的光伏板把阳光直接变成电力。',
   },
   "smelter": {
+    effectRows: [
+    { name: '冶炼厂工位', value: '+1', note: '冶炼厂本身不产出也不消耗资源；资源由钢冶炼工位产出和消耗，可在设置中查看配方并分配。' },
+    ],
+
     "name": "冶炼厂",
     "icon": "",
     "cost": {
@@ -1194,6 +1300,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     desc: '齿轮转动，流水线开始工作。',
   },
   "moonObservatory": {
+    effectRows: [
+    { name: '学校知识容量', value: '+5%' },
+    ],
+
     settledByOtherSystem: true, "name": "月球观测站",
     "icon": "",
     "cost": {
@@ -1216,6 +1326,10 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     },
   },
   "asrielSpaceport": {
+    effectRows: [
+    { name: 'Asriel支持', value: '+4' },
+    ],
+
     settledByOtherSystem: true, "name": "Asriel太空港",
     "icon": "",
     "cost": {
@@ -1265,6 +1379,11 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     },
   },
   "asrielMine": {
+    effectRows: [
+    { name: '每行星居民铜产量', value: '+0.25/s' },
+    { name: '每行星居民钛产量', value: '+0.05/s' },
+    ],
+
     settledByOtherSystem: true, "name": "Asriel矿井",
     "icon": "",
     "cost": {
@@ -1287,6 +1406,11 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     },
   },
   "ecologicalDome": {
+    effectRows: [
+    { name: '每行星居民猫粮产量', value: '+0.25/s' },
+    { name: '每座Asriel居住站猫口容量', value: '+0.05' },
+    ],
+
     settledByOtherSystem: true, "name": "生态穹顶",
     "icon": "",
     "cost": {
@@ -1375,6 +1499,11 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     },
   },
   "spaceWaystation": {
+    effectRows: [
+    { name: '太空区域石油消耗量', value: '-5%', note: '不作用于超空间/遥远星际的建筑与探索任务。' },
+    { name: '太空区域氦-3消耗量', value: '-5%' },
+    ],
+
     settledByOtherSystem: true, "name": "电磁发射器",
     "icon": "",
     "cost": {
@@ -1424,6 +1553,12 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     },
   },
   "touristCenter": {
+    effectRows: [
+    { name: '每座剧场', value: '+2$/s' },
+    { name: '每座运行中的芯片工厂', value: '+5$/s' },
+    { name: '每座纪念碑', value: '+4$/s' },
+    ],
+
     "name": "游客中心",
     "icon": "",
     "cost": {

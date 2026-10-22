@@ -50,6 +50,20 @@
 
 ---
 
+## 2026/10/23 beta 0.9.40 建筑固定效果行迁入注册表（`effectRows`）
+
+- **动机**：`vue/building-tooltip-rows.ts` 里有 80 多条 `if (id === 'xxx') add(...)`，改一座建筑的说明要在 `data/buildings.ts` 和它之间来回跳，不便于维护。玩家要求把"建筑说明"收拢到 `buildings.ts`。
+- **划界**：不是所有行都能搬。逐条分类后：**43 行**的名称与值都是字面量（可声明化）；其余行的值要读 `state.tech` / 快照 / 调用 `calculate*`，是**逻辑**不是文字，搬进 `data/` 会让数据层依赖模拟层，破坏单向依赖。因此只搬前者。
+- **结构**：`types/buildings.ts` 新增 `BuildingEffectRow { name, value, negative?, note?, effectType?, requiresTech? }`，`BuildingDefinition.effectRows?: BuildingEffectRow[]`。`EffectRowType` 一并从 vue 层移到 types 层（vue 层重新导出，原有导入不变）。
+- **渲染**：`addBuildingEffectRows` 里新增 `addDeclared()`，按 `requiresTech` 过滤后逐行 `add(...)`，并用 `declaredRendered` 保证同一建筑只渲染一次。
+- **关键坑：行顺序**。`addDeclared()` 不能无脑放在函数开头，因为各建筑的声明行原本位于不同位置（`agiCoreComponent` 在幸福度之后、`asteroidBase` 在 `getBuildingEffectRows` 之后、`metalRefinery` 在铝产量之后、`aiSupercore` 在「已建成核心」之后、`softRouterNode` 在 CPU算力 之后）。这 5 座在各自的正确位置单独调用，其余统一渲染。函数内有注释列明。
+- **验证方式（可复用）**：不靠"测试全绿"判断，而是把重构前后**全部 132 座建筑的效果行 dump 成 JSON 逐行 diff**（脚本放在 `tmp/`，用完即删）。第一轮 dump 抓出 8 处问题：`stellarForge`/`blackHoleStation` 行重复、`shortRangeRelay` 丢行、`aiSupercore` 三倍重复、4 座建筑顺序变化。迭代到 **0 处差异**才收工。
+- **新增测试**：`tests/description-effects-split.test.ts` 增加一项——断言 `effectRows` 的值只能是字面量（不许出现 `${`、`return`、`=>`），且 builder 里**不得再残留**同名同值的 `add(...)`（防重复渲染）。这条测试当场抓出 `shortRangeRelay` 的`占用稳定度`重复。
+- **测试调整**：`tests/artisan-display-consistency.test.ts` 原来在**源码文本里**正则搜索 `id === 'stellarForge' ... add('锻造工具加成', '+10%')`，迁移后该行不再在代码里，改为断言 `BUILDINGS.stellarForge.effectRows` 中存在该行。
+- **`desc` 规则不变**：`desc` 仍然是纯风味、禁止出现数字（`description-effects-split.test.ts` 的 `MECHANIC_MARKERS` 守着），说明文字一律走 `effectRows[].note`。
+- **验证**：`npm run check` 通过：788 项模块测试、经典 VM 回归（失败 0）、Edge 浏览器验收 606 项、类型检查与生产构建。
+- **兼容**：纯代码结构，无存档结构变化，`CONFIG.version` 仍为 33。
+
 ## 2026/10/22 beta 0.9.39 军营详情移除士兵上限小字
 
 - **改动**：`vue/building-tooltip-rows.ts` 中 `building.soldierCap` 那一行原本是 `add('士兵容量', '+N', false, id === 'barracks' ? '军营数量决定士兵数量上限：关闭军营会立即取消其士兵名额……' : undefined)`，去掉了第 4 个 `note` 参数与 `id === 'barracks'` 判断，现在只剩 `add('士兵容量', '+N')`。

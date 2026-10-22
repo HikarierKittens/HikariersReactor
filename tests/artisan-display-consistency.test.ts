@@ -5,6 +5,7 @@ import { CONFIG } from '../src/data/config';
 import { createInitialState } from '../src/state/create-state';
 import { TECHNOLOGIES } from '../src/data/technologies';
 import { CRAFT_RECIPES } from '../src/data/resources';
+import { BUILDINGS } from '../src/data/buildings';
 import {
   artisanCraftRate, calculateAutomaticCraftingMultipliers, changeCraftAssignment,
   countCraftWorkers, trimAssignedCraftWorkers,
@@ -96,6 +97,10 @@ test('the artisan output multiplier is output-only and stays a single factor', (
 test('the forge tool pool is labelled 锻造工具加成 in building hints', () => {
   const rows = readFileSync('src/vue/building-tooltip-rows.ts', 'utf8');
   assert.match(rows, /id === 'foundry'[^\n]*add\('锻造工具加成', '\+3%'\)/);
-  assert.match(rows, /id === 'stellarForge'[^\n]*add\('锻造工具加成', '\+10%'\)/);
+  // 恒星熔炉的固定效果行住在注册表里（见 effectRows），不再写死在 builder。
+  const stellarRows = BUILDINGS.stellarForge.effectRows ?? [];
+  const forgeRow = stellarRows.find(row => row.name === '锻造工具加成');
+  assert.ok(forgeRow, `stellarForge keeps a 锻造工具加成 row [${stellarRows.map(row => row.name).join(' / ')}]`);
+  assert.equal(forgeRow.value, '+10%');
   assert.match(rows, /id === 'particleAccelerator'[\s\S]{0,260}add\('锻造物产量'/);
 });

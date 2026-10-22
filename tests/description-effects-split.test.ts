@@ -30,10 +30,35 @@ test('technology descriptions are flavor only', () => {
 
 test('buildings derive every effect; technologies keep authored effect lines', () => {
   const buildings = readFileSync(new URL('../src/data/buildings.ts', import.meta.url), 'utf8');
-  assert.doesNotMatch(buildings, /effects\s*:/, 'building effects are derived from registry mechanics, never stored');
+  // Numbers are never hand-written into an effect line. What the registry may store
+  // is `effectRows`: rows whose label AND value are both fixed literals, kept beside
+  // the building so the wording lives with the data. Anything computed stays derived.
+  assert.doesNotMatch(buildings, /\beffects\s*:/, 'building effects are derived from registry mechanics, never stored');
   const techs = TECHNOLOGIES as Record<string, { effects?: string[] }>;
   assert.ok(Object.values(techs).filter(t => (t.effects ?? []).length).length > 100,
     'technologies keep hand-written effect lines so players can read what they unlock');
+});
+
+test('declared effect rows are literals only, never callbacks or computed values', () => {
+  for (const [id, building] of Object.entries(BUILDINGS) as [string, (typeof BUILDINGS)[keyof typeof BUILDINGS]][]) {
+    for (const row of building.effectRows ?? []) {
+      // A value carrying an interpolation or a function would mean the row has to be
+      // computed, which belongs in the tooltip builder next to its mechanic.
+      assert.doesNotMatch(row.value, /\$\{|\breturn\b|=>/, `${id} row ${row.name} must stay a literal`);
+      assert.equal(typeof row.value, 'string', `${id} row ${row.name} value must be a string`);
+      assert.ok(row.name.length > 0, `${id} has a row without a label`);
+    }
+  }
+  // The wording of a moved row must not also survive in the builder, or the tooltip
+  // would render it twice (this actually happened during the 0.9.40 move).
+  const builder = readFileSync(new URL('../src/vue/building-tooltip-rows.ts', import.meta.url), 'utf8');
+  for (const building of Object.values(BUILDINGS) as (typeof BUILDINGS)[keyof typeof BUILDINGS][]) {
+    for (const row of building.effectRows ?? []) {
+      if (row.requiresTech) continue;
+      const literal = `add('${row.name}', '${row.value}'`;
+      assert.equal(builder.includes(literal), false, `duplicated row left in builder: ${literal}`);
+    }
+  }
 });
 
 test('most entries carry no description, matching the default-empty rule', () => {

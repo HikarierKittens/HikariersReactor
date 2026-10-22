@@ -286,6 +286,12 @@
 - **风险**：如果当时写的是 `exoticRows.every(...)`（空数组的 every 恒为真），这条断言会永远通过，等于没测。
 - **做法**：先在用例里把需要的资源/建筑解锁，再重新查询 DOM；并且**必须显式断言行数**（`exoticRows.length === 2`），不能只靠 `every`。用完把 `unlockedResources` 之类被改动的状态还原，否则会泄漏到后续用例。
 
+## 46. 把效果行搬进数据后，builder 里的旧行留着会渲染两遍
+
+- **症状**：0.9.40 把建筑固定效果行迁进 `buildings.ts` 的 `effectRows` 后，`npm test` 全绿，但 `stellarForge`/`blackHoleStation` 的同一行出现了两次，`aiSupercore` 出现三遍，`shortRangeRelay` 反而丢了一行。
+- **原因**：迁移只做了"加"没做"删"，而现有测试并不检查每座建筑的完整行列表，所以全绿是假象。另外 `addDeclared()` 若在两个位置各调用一次，会重复渲染。
+- **做法**：①迁移必须成对增删；②`addDeclared()` 用 `declaredRendered` 标记保证单次渲染；③新增断言「builder 里不得残留同名同值的 `add(...)`」；④**用 dump-diff 验证而不是只信测试**：把重构前后全部建筑的效果行序列化后逐行比对，顺序也要一致。
+
 ## 45. 删掉带默认值的函数参数后，旧调用点会静默错位
 
 - **症状**：移除地热发电站的铱矿加成后，`settleSpaceProduction` 的 `geothermalUnits` 变成未使用参数（TS6133），于是从签名里删掉。`npm run typecheck` 全绿，但 `pool-replay.test.ts` 报「回放与顺序结算在水产量上差 0.002」——一个看起来像浮点噪声、实际是真分叉的错误。

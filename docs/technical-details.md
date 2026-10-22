@@ -229,6 +229,20 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 - **不在明细里单列**：`calculateResourceFactorRows` 里没有 `pct('多重曝光技术', ...)`，但 `local *= chipFactoryOutputMultiplier(state)` 必须保留——`local` 参与 `expected` 自检，删掉会让明细与结算分叉。
 - 新增 `TechnologyId` 必须同时登记 `vue/tech-categories.ts` 的分类表，漏了会直接编译失败（`Record<TechnologyId, TechCategory>`），这是有意的强制约束。
 
+### 建筑效果行的两个来源（beta 0.9.40）
+
+改一座建筑的说明前，先判断它属于哪一类：
+
+- **`data/buildings.ts` 的 `effectRows`**：名称与值都是字面量的固定行，连同 `note`（行下方的小字）、`negative`、`effectType`、`requiresTech`。这是 0.9.40 起的默认位置——**想改文案先在这里找**。
+- **`vue/building-tooltip-rows.ts`**：需要读取 `state.tech`、快照或调用 `calculate*` 才能得出数值的行。它们是逻辑，**不要**搬进 `data/`，否则数据层会依赖模拟层。
+
+约束与陷阱：
+
+- `effectRows` 的值必须是纯字符串。测试会拒绝含 `${`、`=>`、`return` 的值。
+- 迁移行时**必须同步删除 builder 里的旧 `add(...)`**，否则同一行会渲染两次（0.9.40 实际发生过）。测试会用「同名同值的 `add(` 不得出现在 builder 里」来兜底。
+- **行顺序没有默认保证**：`addDeclared()` 在 builder 里被显式放在不同位置，因为各建筑的声明行原本夹在派生行中间。调整时如果要改某座建筑的行序，先确认它是否用了特殊位置（函数顶部注释列了 `agiCoreComponent`、`asteroidBase`、`metalRefinery`、`aiSupercore`、`softRouterNode` 五处）。
+- 改动后**不要只跑测试**：把 132 座建筑的效果行 dump 成 JSON 对比重构前的输出，逐行 diff 到 0 差异，才能确认顺序没变。
+
 ### 质量喷射的质量表与列表（beta 0.9.36）
 
 - 唯一来源是 `simulation/black-hole.ts` 的 `EJECTION_MASSES`（普通物质）与 `EXOTIC_EJECTION_MASSES`（奇异物质），`ejectionMass(id)` 依次查两者。
