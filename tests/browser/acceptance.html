@@ -1336,6 +1336,11 @@ try {
       log(Math.abs(perCentre('石墨烯产量')-q/5)<1e-3,`石墨烯加成为单座数值而非总量 [${q}, ${perCentre('石墨烯产量')}]`);
       log(perCentre('精金精炼站加成数值')===2,`精金精炼站加成按每座+2%显示而非总量 [${perCentre('精金精炼站加成数值')}]`);
       log(['量子水平','水泥产量','石墨烯产量','精金精炼站加成数值'].every(name=>{const row=rowText(name);return row.endsWith('%')&&!row.includes('/座')&&!row.includes('每座');}),`效果行没有额外小字说明或/座后缀 [${rows}]`);
+      // (beta 0.9.28) 每多一座，所有 AI数据中心的单座耗电+5。这一行是「电力」数值的加价说明，
+      // 显示在最下面，只写步进值本身。
+      const surcharge=rows.find(r=>r.startsWith('AI数据中心耗电'));
+      log(surcharge==='AI数据中心耗电+5',`耗电加价行显示在最下面且为+5 [${surcharge}]`);
+      log(rows[rows.length-1]===surcharge,`耗电加价行是最后一行 [${rows[rows.length-1]}]`);
     }
     await escapeTip();
     store.mutate(state=>Object.assign(state,snapshot));await flush();

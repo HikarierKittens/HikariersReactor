@@ -242,6 +242,31 @@ test('the tooltip lists the bonus of a single centre, with no suffix or extra ex
   assert.ok(idleCement.startsWith('+') && idleCement.endsWith('%'), 'idle centre still lists the per-centre rate');
 });
 
+test('the power surcharge row sits last and reports the per-extra-centre step', () => {
+  // Each extra centre raises every centre's draw, so the row explains the 电力 number above it.
+  // It must stay the final row and carry the plain step value, with no suffix or note.
+  const s = calvira();
+  s.buildings.aiDataCenter = 3;
+  const { value: rows, note } = aiTip(s);
+  assert.equal(rows.get('AI数据中心耗电'), `+${formatEffectNumber(AI_DATA_CENTER_POWER_STEP)}`, 'plain step value');
+  assert.equal(note.get('AI数据中心耗电'), '', 'no extra explanation');
+  assert.ok(!(rows.get('AI数据中心耗电') ?? '').includes('/座'), 'no /座 suffix');
+  // 电力 itself already carries the surcharge, so the two rows are consistent.
+  const expectedPower = AI_DATA_CENTER_POWER + AI_DATA_CENTER_POWER_STEP * (s.buildings.aiDataCenter - 1);
+  assert.equal(rows.get('电力'), `-${formatEffectNumber(expectedPower)}`);
+  // Last row: nothing in the builder may be appended after it.
+  const tip = { description: '', footnote: '', rows: [] as unknown[] };
+  const names: string[] = [];
+  addBuildingEffectRows({
+    id: 'aiDataCenter', building: BUILDINGS.aiDataCenter, state: s, snapshot: storageSnapshot(s),
+    count: s.buildings.aiDataCenter, tip,
+    add: (name: string) => { names.push(name); },
+    number: (n: number) => String(Number(n.toFixed(2))), percent: formatEffectNumber,
+    formatEffectNumber,
+  });
+  assert.equal(names[names.length - 1], 'AI数据中心耗电', 'rendered last');
+});
+
 
 test('the three follow-up technologies hang off AI数据中心 at T21 with the requested prices', () => {
   const expectations = [

@@ -14,7 +14,7 @@ import { calculateTrainingBoost } from '../simulation/government';
 import { HOSPITAL_HEAL_PER_DAY, isHospitalIdle } from '../simulation/hospital';
 import { calculateStarRingCoefficient } from '../simulation/asriel';
 import { calculateQuantumSnapshot, calculateQuantumLevel, calculateQuantumSwarmFactoryReduction } from '../simulation/quantum';
-import { AI_DATA_CENTER_QUANTUM_BONUS, ADAMANTITE_PROCESSOR_AI_BONUS, calculateAdamantiteProcessorBonus, calculateAiCementBonusPerCenter, calculateAiGrapheneBonusPerCenter } from '../simulation/ai-data-center';
+import { AI_DATA_CENTER_POWER_STEP, AI_DATA_CENTER_QUANTUM_BONUS, ADAMANTITE_PROCESSOR_AI_BONUS, calculateAdamantiteProcessorBonus, calculateAiCementBonusPerCenter, calculateAiGrapheneBonusPerCenter } from '../simulation/ai-data-center';
 import { isChallengeGeneActive } from '../simulation/challenges';
 import { allocateShipCrew, SHIP_CREW_SIZE, SHIP_CREW_JOB_NAME, type ShipCrewId } from '../simulation/ship-crew';
 import { orderedCostEntries } from './format';
@@ -235,4 +235,7 @@ export function addBuildingEffectRows(ctx: BuildingTooltipContext): void {
     add('氦-3', '-25/s', true);
     add('电力', '-100', true);
   }
+  // 每多建造一座 AI数据中心，所有 AI数据中心的单座耗电都提高 5。它跟在维护消耗之后，
+  // 因为这是对「电力」那一行数值的加价说明，不是又一份独立消耗。
+  if (id === 'aiDataCenter') add('AI数据中心耗电', `+${number(AI_DATA_CENTER_POWER_STEP)}`, true);
 }
