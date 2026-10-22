@@ -1,5 +1,5 @@
 import {
-  NEIGHBORS, NEIGHBOR_IDS, NEIGHBOR_MILITARY_FLOOR_SHARE, NEIGHBOR_MILITARY_RAID_CAP,
+  MILITARY_RAID_TIER, NEIGHBORS, NEIGHBOR_IDS, NEIGHBOR_MILITARY_FLOOR_SHARE, NEIGHBOR_MILITARY_RAID_CAP,
   OCCUPATION_OPINION_RECOVERY, OCCUPATION_OUTPUT_BONUS,
   OCCUPATION_SOLDIERS, OCCUPATION_TAX_PENALTY, RAID_ACTIONS, RAID_ECONOMY_FLOOR, RAID_STORAGE_BASE,
   RAID_ECONOMY_SPAN, RAID_TIERS, RETALIATION_LOSS,
@@ -113,10 +113,13 @@ export function neighborMilitaryFloor(id: NeighborId): number {
 /**
  * Military loss one successful attack inflicts, in absolute points, honouring the floor.
  *
- * Returns 0 when the neighbour is already at (or below) the floor, so the UI can stay silent
- * instead of advertising a reduction that cannot happen.
+ * Only 扫荡 (tier 2) reduces the defender's military: it is the one action that targets the
+ * enemy's forces rather than its caravans. Other actions leave `military` untouched, so this
+ * returns 0 for them and the UI stays silent instead of advertising a reduction that will not
+ * happen. Returns 0 at (or below) the floor for the same reason.
  */
-export function calculateRaidMilitaryLoss(id: NeighborId, state: Pick<GameState, 'neighbors'>, ratio: number): number {
+export function calculateRaidMilitaryLoss(id: NeighborId, state: Pick<GameState, 'neighbors'>, ratio: number, tier: RaidTier): number {
+  if (tier !== MILITARY_RAID_TIER) return 0;
   const current = state.neighbors.values[id].military;
   const floor = neighborMilitaryFloor(id);
   const room = Math.max(0, current - floor);
@@ -163,7 +166,7 @@ export function previewRaid(
   const expectedLosses = soldiers * action.losses * (ratio >= 1 ? 1 / Math.sqrt(ratio) : 2 - ratio * .5)
     * defenseCasualtyMultiplier(state as Pick<GameState, 'tech'>);
   const unified = isWorldUnified(state as Pick<GameState, 'tech'>);
-  const militaryLoss = unified ? 0 : calculateRaidMilitaryLoss(id, state, ratio);
+  const militaryLoss = unified ? 0 : calculateRaidMilitaryLoss(id, state, ratio, tier);
   return {
     available: !unified && soldiers > 0 && strength >= required,
     reason: unified ? '世界已经统一，没有敌对国家。'
@@ -175,7 +178,8 @@ export function previewRaid(
     expectedLosses: Math.max(0, Math.min(soldiers, expectedLosses)),
     loot: unified ? {} : raidLoot(state, id, tier, economy ?? EMPTY_ECONOMY),
     militaryLoss,
-    militaryLossShare: raidMilitaryDamage(ratio),
+    // Only meaningful where a reduction can actually happen, so non-扫荡 actions report none.
+    militaryLossShare: militaryLoss > 0 ? raidMilitaryDamage(ratio) : 0,
   };
 }
 
@@ -352,9 +356,6 @@ export function executeRaid(
   const lootText = describeLoot(loot);
   if (lootText) {
     addLog(state, `${RAID_ACTIONS[tier].name}${NEIGHBORS[neighborId].name}：掠夺 ${lootText}。`, 'progress');
-  }
-  if (militaryLoss > 0) {
-    addLog(state, `${NEIGHBORS[neighborId].name}军事 -${formatResourceNumber(militaryLoss)}。`, 'progress');
   }
   return {
     ok: true, captured, soldiersLost: lostTotal, wounded, loot, opinionAfter: opinion,

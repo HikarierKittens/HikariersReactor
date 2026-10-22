@@ -48,6 +48,15 @@
 
 ---
 
+## 2026/10/22 beta 0.9.30 扫荡专属削弱与界面整理
+
+- **只有扫荡削减军事**：`data/neighbors.ts` 新增 `MILITARY_RAID_TIER: RaidTier = 2`（扫荡）。`calculateRaidMilitaryLoss` 多一个 `tier` 参数，非该档位直接返回 0，把「哪个行动能削」收敛到数据层单一常量，不在结算里硬编码 `2`。语义理由：偷袭/抢劫打的是商队与补给线，占领本身就是结束战斗，只有扫荡是成建制洗劫据点、正面消耗对方兵力。
+- **说明文案**：`RAID_ACTIONS[2].desc` 追加「扫荡城市可以削减敌方兵力。」——这是用户要求的原话，按 `AGENTS.md` 第 9 条之外唯一允许的界面补充，因为它是需求本身。
+- **`militaryLossShare` 跟随实际情况**：改为 `militaryLoss > 0 ? raidMilitaryDamage(ratio) : 0`。原来只算比例不看档位，会让偷袭的预览也报 5%–10% 的份额，与实际不削减矛盾。
+- **削减不再写日志**：删除 `executeRaid` 里的 `军事 -N` 日志行；`RaidOutcome.militaryLoss` 字段保留供界面与测试读取。
+- **测试**：`tests/neighbor-military-raid.test.ts` 重写为 9 项，核心新增两项守卫——「only 扫荡 reduces the defender military」（另外三档逐档断言预览与结算都不削减）与「扫荡 never writes a log line about the military reduction」。既有用例的档位从偷袭改为扫荡。浏览器验收把「偷袭削减军事」改为「偷袭不削减」+ 独立扫荡段验证削减与不写日志，并新增扫荡说明文案断言（597→601）。
+- **验证**：`npm run check` 通过：772 项模块测试、经典 VM 回归、Edge 浏览器验收 601 项、类型检查与生产构建。
+
 ## 2026/10/22 beta 0.9.29 削弱敌方军事与临近势力界面精简
 
 - **军事削弱**：`data/neighbors.ts` 新增 `NEIGHBOR_MILITARY_RAID_CAP = .1` 与 `NEIGHBOR_MILITARY_FLOOR_SHARE = .25`；`simulation/neighbors.ts` 新增 `raidMilitaryDamage(ratio)`、`neighborMilitaryFloor(id)`、`calculateRaidMilitaryLoss(id, state, ratio)`。`ratio` 沿用 `previewRaid` 已有的「我方战力 ÷ 本次行动所需战力」，因此优势越大削得越多（`ratio` 1 → 5%，2 → 10%，之后封顶），无需再引一条新的战力公式。

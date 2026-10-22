@@ -497,18 +497,38 @@ try {
   const soldiersInput = $('[data-neighbor-soldiers="commonwealth"]');
   soldiersInput.value = '100'; soldiersInput.dispatchEvent(new Event('input', { bubbles: true })); await flush();
   log($('[data-neighbor-preview="commonwealth"]')?.textContent.includes('伤亡'), '填写士兵后显示预计伤亡');
-  log($('[data-neighbor-preview="commonwealth"]')?.textContent.includes('敌方军事'), '预览中显示可削减的敌方军事');
+  // 只有扫荡会削减敌方兵力，所以偷袭的预览里不该出现这一项。
+  log(!$('[data-neighbor-preview="commonwealth"]')?.textContent.includes('敌方军事'),
+    '偷袭预览不显示军事削减');
   log($('[data-neighbor-raid="commonwealth"]')?.disabled === false, '满足战力后可执行偷袭');
   const soldiersBeforeRaid = S().soldiers;
   const militaryBeforeRaid = S().neighbors.values.commonwealth.military;
   click($('[data-neighbor-raid="commonwealth"]')); await flush();
   log(S().soldiers < soldiersBeforeRaid, '偷袭实际消耗士兵');
-  log(S().neighbors.values.commonwealth.military < militaryBeforeRaid,
-    `偷袭成功后削减敌方军事 [before=${militaryBeforeRaid.toFixed(1)}, after=${S().neighbors.values.commonwealth.military.toFixed(1)}]`);
+  log(S().neighbors.values.commonwealth.military === militaryBeforeRaid,
+    `偷袭不削减敌方军事 [before=${militaryBeforeRaid.toFixed(1)}, after=${S().neighbors.values.commonwealth.military.toFixed(1)}]`);
   // The log must name the resources the raid actually carried home.
   const lootLog = S().logs.find(entry => entry.text.includes('掠夺'));
   log(!!lootLog, `偷袭后在日志中记录掠夺资源 [${S().logs.slice(0, 2).map(l => l.text).join(' / ')}]`);
   log(lootLog?.text.includes(RESOURCES.food.name) === true, '掠夺日志包含猫粮及其数量');
+  // 扫荡 is the action that actually reduces the defender's standing army.
+  store.mutate(state => { state.soldiers = 200; state.neighbors.values.commonwealth.military = 40; state.neighbors.values.commonwealth.opinion = 60; }); await flush();
+  click($('[data-neighbor-action="commonwealth"][data-tier="2"]')); await flush();
+  log(document.querySelector('[data-neighbors]').textContent.includes('扫荡城市可以削减敌方兵力'),
+    '扫荡说明标注可削减敌方兵力');
+  {
+    const sweepInput = $('[data-neighbor-soldiers="commonwealth"]');
+    sweepInput.value = '200'; sweepInput.dispatchEvent(new Event('input', { bubbles: true })); await flush();
+    log($('[data-neighbor-preview="commonwealth"]')?.textContent.includes('敌方军事'), '扫荡预览显示可削减的敌方军事');
+    const beforeSweep = S().neighbors.values.commonwealth.military;
+    const logCountBefore = S().logs.length;
+    click($('[data-neighbor-raid="commonwealth"]')); await flush();
+    log(S().neighbors.values.commonwealth.military < beforeSweep,
+      `扫荡成功后削减敌方军事 [before=${beforeSweep.toFixed(1)}, after=${S().neighbors.values.commonwealth.military.toFixed(1)}]`);
+    // 削减不写日志：新增的日志条目里不能出现「军事」。
+    const newLogs = S().logs.slice(0, S().logs.length - logCountBefore).map(entry => entry.text).join(' / ');
+    log(!newLogs.includes('军事'), `削减军事不写日志 [${newLogs}]`);
+  }
   store.mutate(state => { state.soldiers = 0; }); await flush();
   log(!$('[data-neighbors]'), '士兵归零且无占领后临近势力重新隐藏');
   store.mutate(state => { state.soldiers = 200; }); await flush();

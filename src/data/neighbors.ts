@@ -127,7 +127,7 @@ export const RAID_ACTIONS: Record<RaidTier, RaidActionDefinition> = {
   2: {
     id: 2,
     name: '扫荡',
-    desc: '成建制地洗劫外围据点，把能搬走的全部搬走。敌方会拼死抵抗。',
+    desc: '成建制地洗劫外围据点，把能搬走的全部搬走。敌方会拼死抵抗。扫荡城市可以削减敌方兵力。',
     baseSeconds: 30,
     tierMultiplier: 5,
     minSurvivors: 0,
@@ -180,6 +180,11 @@ export const NEIGHBOR_MILITARY_RAID_CAP = .1;
  * is measured against `max` rather than the current value so raiding cannot ratchet it down.
  */
 export const NEIGHBOR_MILITARY_FLOOR_SHARE = .25;
+/**
+ * The only action that reduces the defender's military: 扫荡 targets the enemy's forces,
+ * while 偷袭/抢劫 hit caravans and supply lines and 占领 already ends the fight.
+ */
+export const MILITARY_RAID_TIER: RaidTier = 2;
 
 /**
  * How strongly the neighbour's economy scales a raid's loot.
