@@ -61,19 +61,9 @@ function withStorageSupportFallback(state: GameState, snapshot: StorageSnapshot)
   };
 }
 
-/** One row contribution inside the shared storage pass. */
-interface StorageRowContext {
-  counts: Partial<Record<BuildingId, number>>;
-  freightMultiplier: number;
-  crispr: { particleUpgrade?: string; particleBonus: number; casimirBonus: number };
-}
-
-/**
- * Shared single-pass core: every building contributes once, per-resource amounts
- * accumulate into `totals` while `rows` records detail for one optional resource.
- * Ordering and name strings must match the historical per-resource loop exactly.
- */
-function baseStorage(resource: ResourceId, state: GameState): number {
+/** Base capacity before any building: the resource's own cap. Electricity is a supply
+ *  budget, not an inventory, so it never has storage. */
+function baseStorage(resource: ResourceId): number {
   return resource === 'energy' ? 0 : RESOURCES[resource].cap;
 }
 
@@ -233,8 +223,8 @@ export function calculateStorageDetails(resource: ResourceId, state: GameState, 
     return { rows: [{ name: '基础储量', value: 50000 }, ...(extra ? [{ name: '记忆核心 ×' + formatNumber(digital.memoryUnits), value: extra }] : [])], total: 50000 + extra };
   }
   if (RESOURCES[resource].crafted) return { rows: [], total: Infinity };
-  const rows: StorageDetails['rows'] = [{ name: '基础储量', value: baseStorage(resource, state) }];
-  const totals: Partial<Record<ResourceId, number>> = { [resource]: baseStorage(resource, state) };
+  const rows: StorageDetails['rows'] = [{ name: '基础储量', value: baseStorage(resource) }];
+  const totals: Partial<Record<ResourceId, number>> = { [resource]: baseStorage(resource) };
   accumulateStorageRows(state, snapshot, resource, totals, rows);
   // Each completed 空间撕裂者 raises the knowledge cap by 20% (passive, ignores funding).
   if (resource === 'knowledge') {
@@ -254,7 +244,7 @@ export function calculateStorageTotals(state: GameState, snapshot: StorageSnapsh
   snapshot = withStorageSupportFallback(state, snapshot);
   const totals: Partial<Record<ResourceId, number>> = {};
   for (const resource of Object.keys(RESOURCES) as ResourceId[]) {
-    totals[resource] = RESOURCES[resource].crafted ? Infinity : baseStorage(resource, state);
+    totals[resource] = RESOURCES[resource].crafted ? Infinity : baseStorage(resource);
   }
   // One shared building pass covers every resource whose contributions are
   // resource-independent; cash replays separately (exchange interest scales its rows

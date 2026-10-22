@@ -1,4 +1,4 @@
-import { calculateGlobalOutputMultiplier, calculateMasteryMultiplier } from './crafting';
+import { calculateGlobalOutputMultiplier } from './crafting';
 import { calculateProductionMultiplier } from './multipliers';
 import { BUILDINGS } from '../data/buildings';
 import { countRunningBuildings } from './housing';

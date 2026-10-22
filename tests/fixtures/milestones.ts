@@ -25,7 +25,6 @@ const EXPEDITION_TECH = ['outerPlanetExploration', 'asteroidBeltMining', 'astero
 
 /** Completed regional missions and the ARPA projects the space milestones rely on. */
 const SPACE_MISSION_FLAGS = ['asrielMissionCompleted', 'kerberosMissionCompleted', 'solarMissionCompleted', 'talosMissionCompleted', 'talosMoonMissionCompleted', 'asteroidBeltMissionCompleted', 'misenMissionCompleted'] as const;
-const CORE_ARPA = ['rocketPlatform', 'monument', 'geneSequencing'] as const;
 
 export interface MilestoneOptions {
   /** Explicit tech ids merged into the milestone list (deduplicated). */

@@ -10,8 +10,8 @@ import { calculateBuildingCost, canPayCost, isBuildingFullyBuilt } from '../../s
 import { withConstructionPhases } from '../construction-rows';
 import { hasContinuousEnergyInput, calculateBuildingName } from '../../simulation/building-production';
 import { countRunningBuildings } from '../../simulation/housing';
-import { calculateQuantumLevel, calculateSwarmSupportCapacity } from '../../simulation/quantum';
-import { floorWithPrecision, formatCostNumber } from '../../shared/format';
+import { calculateSwarmSupportCapacity } from '../../simulation/quantum';
+import { formatCostNumber } from '../../shared/format';
 import { REGIONAL_MISSIONS, calculateRegionalMissionCost, isRegionalMissionAvailable, isRegionalMissionCompleted, type RegionalMissionId, type SpaceMissionId } from '../../simulation/space-missions';
 import { uiPreview } from '../preview-cache';
 import { isHyperspaceUnlocked } from '../../simulation/stage-three';
@@ -143,8 +143,6 @@ const REGION_DESCRIPTIONS: Record<string, string> = {
 const hyperspaceBalance = computed(() => { props.revision; return uiPreview.support(props.state, props.revision).stageThree; });
 const moonBalance = computed(() => { props.revision; return moonSnapshot(props.state, 1, props.revision); });
 const asrielBalance = computed(() => { props.revision; return uiPreview.support(props.state, props.revision).asriel; });
-const quantumLevel = computed(() => { props.revision; return calculateQuantumLevel(props.state); });
-function quantumText(value: number): string { return (floorWithPrecision(value * 100) / 100).toFixed(2); }
 const swarmBalance = computed(() => {
   props.revision;
   const capacity = calculateSwarmSupportCapacity(props.state);
@@ -235,7 +233,7 @@ function outputText(id: BuildingId): string {
 function toggleLabel(id: BuildingId): boolean {
   return ['cementWorkshop', 'mine', 'coalMine', 'lumber', 'quarry', 'metalRefinery'].includes(id);
 }
-function canGather(id: string): boolean {
+function canGather(_id: string): boolean {
   return props.state.clicks >= 0 && props.worldView === 'home';
 }
 </script>
@@ -272,11 +270,11 @@ function canGather(id: string): boolean {
         <span class="region-description" role="tooltip" :id="`region-tip-${section.id}`">{{ REGION_DESCRIPTIONS[section.id] }}</span>
       </span>
       <span v-else>{{ section.name }}</span>
-      <span v-if="section.id === 'anomaly'" v-bind="regionBalanceBind(hyperspaceBalance, '超空间稳定度')" data-hyperspace-balance>{{ regionBalanceText(hyperspaceBalance) }}</span>
-      <span v-else-if="section.id === 'eruptingAsteroids'" v-bind="regionBalanceBind(hyperspaceBalance, '喷发小行星群支持')" data-asteroid-support-balance>{{ regionBalanceText({ used: hyperspaceBalance.asteroidUsed, capacity: hyperspaceBalance.asteroidCapacity }) }}</span>
-      <span v-else-if="section.id === 'moon'" v-bind="regionBalanceBind(moonBalance, '月球支持')" id="moonSupportBalance">{{ regionBalanceText(moonBalance) }}</span>
-      <span v-else-if="section.id === 'asriel'" v-bind="regionBalanceBind(asrielBalance, 'Asriel支持')" id="asrielSupportBalance">{{ regionBalanceText(asrielBalance) }}</span>
-      <span v-else-if="section.id === 'solar'" v-bind="regionBalanceBind(swarmBalance, '戴森群支持')" id="swarmSupportBalance">{{ regionBalanceText(swarmBalance) }}</span>
+      <span v-if="section.id === 'anomaly'" v-bind="regionBalanceBind('超空间稳定度')" data-hyperspace-balance>{{ regionBalanceText(hyperspaceBalance) }}</span>
+      <span v-else-if="section.id === 'eruptingAsteroids'" v-bind="regionBalanceBind('喷发小行星群支持')" data-asteroid-support-balance>{{ regionBalanceText({ used: hyperspaceBalance.asteroidUsed, capacity: hyperspaceBalance.asteroidCapacity }) }}</span>
+      <span v-else-if="section.id === 'moon'" v-bind="regionBalanceBind('月球支持')" id="moonSupportBalance">{{ regionBalanceText(moonBalance) }}</span>
+      <span v-else-if="section.id === 'asriel'" v-bind="regionBalanceBind('Asriel支持')" id="asrielSupportBalance">{{ regionBalanceText(asrielBalance) }}</span>
+      <span v-else-if="section.id === 'solar'" v-bind="regionBalanceBind('戴森群支持')" id="swarmSupportBalance">{{ regionBalanceText(swarmBalance) }}</span>
     </h3>
     <div class="building-grid">
       <template v-for="mission in [visibleMission(section.id)]" :key="mission">

@@ -26,7 +26,7 @@ import { calculateGovernmentMultiplier, calculateTaxBase, calculateBankerMultipl
 import { calculateForgingToolBonus, calculateOverclockCraftMultiplier, artisanCraftRate } from './crafting';
 import { geneExtraBonus } from './genes';
 import { CONFIG } from '../data/config';
-import { formatNumber, formatRateNumber, formatByteNumber } from '../shared/format';
+import { formatRateNumber, formatByteNumber } from '../shared/format';
 import type { BuildingId } from '../types/buildings';
 import type { ResourceId } from '../types/economy';
 import type { GameState } from '../types/state';

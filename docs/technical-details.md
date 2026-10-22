@@ -234,6 +234,8 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 "exactOptionalPropertyTypes": true,
 "noImplicitReturns": true,
 "noFallthroughCasesInSwitch": true,
+"noUnusedLocals": true,
+"noUnusedParameters": true,
 "isolatedModules": true,
 "verbatimModuleSyntax": true
 ```
@@ -242,6 +244,8 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 - 合法 `data-*` 属性通过窄类型声明 `src/vue/html-attributes.d.ts` 支持（HTML/SVG），不开放任意未知属性。
 - 脚本工具链由 `tsconfig.scripts.json` 覆盖（`types: ["node"]`，`skipLibCheck: false`）。
 - **禁止**通过关闭检查、批量 `!`、`as any`、"禁用规则" 压掉诊断；用存在性守卫与类型收窄修复。
+- **未使用检查（beta 0.9.32 起）**：`noUnusedLocals` / `noUnusedParameters` 在清掉全部 49 条历史遗留后开启。签名要求但当前不读的参数一律改名加 `_` 前缀（如 `_waystations`、`_metalCapacity`），不要靠删除参数改动调用方，也不要留着未使用变量。
+- **唯一豁免：Vue 模板 ref**。`<script setup>` 里为 `ref="x"` 准备的变量 TypeScript 看不见模板中的使用，会被误报。做法是保留变量、加 `void x;` 显式读取并注释说明（现有唯一一例是 `App.vue` 的 `leftScrollContainer`，它是 `useIsolatedScroll` 接管左栏滚动的挂载点，删了滚动隔离就失效）。
 
 ## 3. 核心运行时架构
 

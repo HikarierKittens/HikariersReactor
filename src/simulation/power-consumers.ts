@@ -1,5 +1,4 @@
 import { calculateBuildingInput } from './building-production';
-import { BUILDINGS } from '../data/buildings';
 import { countRunningBuildings } from './housing';
 import type { GameState } from '../types/state';
 import type { ResourceAmounts, ResourceId } from '../types/economy';

@@ -71,7 +71,7 @@ test('AI power warning compares whole cores rather than construction segments', 
 });
 import { calculateQuantumLevel, calculateQuantumSnapshot, calculateSwarmSupportCapacity } from '../src/simulation/quantum';
 import { calculateSpaceMultiplier } from '../src/simulation/asriel';
-import { buyBuildingsInBatch } from '../src/simulation/purchases';
+
 import { SHIP_COMPONENTS, investInShipComponent } from '../src/simulation/spaceship';
 import { launchEscapePrestige, resetRunState } from '../src/simulation/prestige';
 import { calculateEscapePrestigeReward, calculateCasimirReward } from '../src/simulation/government';

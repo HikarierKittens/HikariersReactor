@@ -5,7 +5,7 @@ import { RESOURCES } from '../src/data/resources';
 import { createInitialState } from '../src/state/create-state';
 import { settleQuantumCores } from '../src/simulation/quantum';
 import { settlePowerPlants } from '../src/simulation/power';
-import { allocateMoonSupport } from '../src/simulation/moon';
+
 import { settleSpaceProduction } from '../src/simulation/space-settlement';
 import { settleE710WarehousePower, settleResearchAndCulture } from '../src/simulation/power-consumers';
 import { calculatePowerGrid } from '../src/simulation/power-grid';
@@ -16,7 +16,7 @@ import type { GameState } from '../src/types/state';
 import type { ResourceId } from '../src/types/economy';
 
 /** Independent supply-first sequential settlers on a clone pool. */
-function legacySequentialPool(state: GameState, ledger: SettlementLedger, dt: number, happiness: number) {
+function legacySequentialPool(state: GameState, _ledger: SettlementLedger, dt: number, happiness: number) {
   const pool = { ...state.resources };
   const inputUnits: Record<string, number> = {}, outputs: Record<string, number> = {};
   const plants = settlePowerPlants(pool, dt, state);

@@ -3,11 +3,12 @@ import type { BuildingId } from '../types/buildings';
 import type { AsrielSupportedBuilding, AsrielSupport, ResourceAmounts } from '../types/economy';
 import type { GameState } from '../types/state';
 
-type SupportState = Pick<GameState, 'buildings' | 'stoppedBuildings'>;
 const priority: readonly AsrielSupportedBuilding[] = ['asrielResidence', 'asrielMine', 'ecologicalDome', 'planetaryFoundry', 'alienMaterialLab', 'vrCenter'];
 
-/** Caller supplies the available pool after power generation and lunar maintenance. */
-export function allocateAsrielSupport(state: GameState, resources: ResourceAmounts, dt: number, waystations = 0, fuelMultiplier = calculateSpaceFuelMultiplier(state)): AsrielSupport {
+/** Caller supplies the available pool after power generation and lunar maintenance.
+ *  `_waystations` is kept in the signature for the established call sites; the station
+ *  count no longer changes the allocation. */
+export function allocateAsrielSupport(state: GameState, resources: ResourceAmounts, dt: number, _waystations = 0, fuelMultiplier = calculateSpaceFuelMultiplier(state)): AsrielSupport {
   if (!Number.isFinite(dt) || dt <= 0) throw new RangeError('dt must be positive and finite');
   if (!Number.isFinite(fuelMultiplier) || fuelMultiplier <= 0) throw new RangeError('fuel multiplier must be positive and finite');
   for (const resource of ['energy', 'helium3', 'food'] as const) {

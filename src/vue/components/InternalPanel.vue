@@ -87,7 +87,6 @@ function reform(id: GovernmentId): void {
 /** Per-neighbour draft state: chosen action tier and how many soldiers to send. */
 const raidTier = ref<Record<string, RaidTier>>({});
 const raidSoldiers = ref<Record<string, number>>({});
-const raidOpen = ref(false);
 
 const neighborsUnlocked = computed(() => {
   props.revision;
@@ -126,21 +125,35 @@ function dispatchRaid(id: NeighborId): void {
   emit('raid', id, tier(id), count);
   raidSoldiers.value = { ...raidSoldiers.value, [id]: 0 };
 }
-/** Rebuilt once per view revision: the panel calls preview() for every row and keystroke.
+/** One preview per neighbour per render: the template reads this map instead of calling
+ *  previewRaid 7 times a row (it was 5 preview() + 2 militaryLoss() calls, and militaryLoss
+ *  called preview again). Computed so a keystroke recomputes each row once, not per binding.
  *  The raid loot estimate is no longer shown, so the preview runs without an economy
  *  context: its loot comes back empty and the per-keystroke cost stays trivial. */
-function preview(id: NeighborId) {
+const raidPreviews = computed(() => {
   props.revision;
-  return previewRaid(props.state, id, tier(id), soldierDraft(id));
+  const map = {} as Record<NeighborId, ReturnType<typeof previewRaid> & { militaryLossRounded: number }>;
+  for (const id of NEIGHBOR_IDS) {
+    const preview = previewRaid(props.state, id, tier(id), soldierDraft(id));
+    map[id] = { ...preview, militaryLossRounded: Math.round(preview.militaryLoss) };
+  }
+  return map;
+});
+function preview(id: NeighborId) {
+  return raidPreviews.value[id];
 }
 /** Rounded military points this action would take off the defender, for the compact preview. */
 function militaryLoss(id: NeighborId): number {
-  props.revision;
-  return Math.round(preview(id).militaryLoss);
+  return raidPreviews.value[id].militaryLossRounded;
 }
-function strength(id: NeighborId) {
+const neighborStrengths = computed(() => {
   props.revision;
-  return neighborStrength(id, props.state);
+  const map = {} as Record<NeighborId, number>;
+  for (const id of NEIGHBOR_IDS) map[id] = neighborStrength(id, props.state);
+  return map;
+});
+function strength(id: NeighborId) {
+  return neighborStrengths.value[id];
 }
 function isOccupied(id: NeighborId): boolean {
   props.revision;

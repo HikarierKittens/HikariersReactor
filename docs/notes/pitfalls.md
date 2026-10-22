@@ -240,3 +240,21 @@
 - **症状**：想验证新测试改前会失败，执行 `git stash push -- a.ts b.ts new-module.ts`，结果 `error: pathspec ... did not match any file(s) known to git`——未跟踪文件让整条命令失败，**一个文件都没被 stash**，测试跑的还是新代码，于是「全绿」被误当成验证通过。
 - **做法**：验证红有两种可靠方式——只 stash 已跟踪文件（接受导入失败的编译级红），或**把关键判定临时改成恒假**（例如把 `isWorldUnified` 换成 `() => false`）跑一遍，确认断言真的失败，再改回来。后者是行为级红，更有说服力。
 - **配合**：跑完立刻恢复并重跑一次确认绿，别把临时改动留在工作区。
+
+## 38. 上一次会话残留的「临时置假」改动，会让下一次开工时基线莫名其妙是红的
+
+- **症状**：新会话一开始跑 `npm run check`，780 项里有 23 项失败（存档、购买、队列、猫窝都不对），但 `git log` 显示最初那次 commit 是全绿的。
+- **原因**：上一轮验证红时把 `isBuildingUnlocked` 临时改成 `if (id === 'nest') return false;`，恢复步骤没执行，改动一直躺在工作区。
+- **做法**：**开工第一步永远是 `git status --short`**，而不是直接跑测试。看到不认识的改动先判断来源。同理，收尾前也要 `git status` 确认没有残留的临时改动被一起提交。
+
+## 39. 按行号切分测试文件：要处理 CRLF、别名 import 和 default import
+
+- **症状**：把 1277 行的 `tests/modules.test.ts` 拆成多个文件时，生成结果出现 `Cannot find name 'assert'`、`'purchases' has no exported member named 'requestPurchase'`、`The 'type' modifier cannot be used when 'import type' is used`，或整段中文变乱码。
+- **原因**：四个独立陷阱——(1) 文件是 **CRLF**，按 `\n` 切分后每行尾残留 `\r`，写回时混进正文；(2) `import assert from 'node:assert/strict'` 是 **default import**，没有花括号，只解析花括号会把整条丢掉；(3) `requestPurchaseModule as requestPurchase` 是**别名**，重建时若用 `as` 后的名字会把源导出名写错；(4) 原文件 specifier 自身写作 `type BuildingId`，整条又是 `import type`，拼回去变成 `type type BuildingId`。
+- **做法**：读文件用 `fs.readFileSync(..., 'utf8')` 并按 `/\r?\n/` 切分；解析 import 时保留 `specifier.raw` 原样（别名不能拆）；遇到整条 `import type` 要剥掉 specifier 里的 `type`；default/namespace import 单独分支处理。拆分后**先数测试数量**（`^test\(` 计数）核对与拆分前一致，再跑 typecheck——数量对得上才说明没漏掉测试。
+
+## 40. `noUnusedLocals` 会误报 Vue 模板 ref
+
+- **症状**：开启 `noUnusedLocals` 后，`App.vue` 的 `const leftScrollContainer = leftScroll.container;` 报 `'leftScrollContainer' is declared but its value is never read`。
+- **原因**：它只被模板里的 `ref="leftScrollContainer"` 使用。TypeScript 看不见模板，所以视为未使用——**但删掉它就真的坏了**，左栏滚动隔离会失效。
+- **做法**：保留变量并加 `void leftScrollContainer;` 显式读取，附注释说明是模板 ref。判断某个「未使用」变量能不能删，先 `grep` 模板里的 `ref="<名字>"`。同类要留意：`ref=`、`defineExpose`、事件里用到的具名函数。

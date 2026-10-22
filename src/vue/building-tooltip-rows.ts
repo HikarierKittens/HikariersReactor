@@ -16,7 +16,7 @@ import { calculateStarRingCoefficient } from '../simulation/asriel';
 import { calculateQuantumSnapshot, calculateQuantumLevel, calculateQuantumSwarmFactoryReduction } from '../simulation/quantum';
 import { AI_DATA_CENTER_POWER_STEP, AI_DATA_CENTER_QUANTUM_BONUS, ADAMANTITE_PROCESSOR_AI_BONUS, calculateAdamantiteProcessorBonus, calculateAiCementBonusPerCenter, calculateAiGrapheneBonusPerCenter } from '../simulation/ai-data-center';
 import { isChallengeGeneActive } from '../simulation/challenges';
-import { allocateShipCrew, SHIP_CREW_SIZE, SHIP_CREW_JOB_NAME, type ShipCrewId } from '../simulation/ship-crew';
+import { SHIP_CREW_SIZE, SHIP_CREW_JOB_NAME, type ShipCrewId } from '../simulation/ship-crew';
 import { orderedCostEntries } from './format';
 
 /** Row-effect kind understood by TooltipPanel's dedup rules. */

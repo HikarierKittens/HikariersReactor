@@ -39,9 +39,7 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
   // Every check is wrapped with a stage label so a rejected save reports which step
   // refused it. The label is appended to the existing message, so the copy players
   // already see stays identical; only our diagnostics (and tests) get the extra text.
-  let stage = '版本';
   const check = <T>(label: string, run: () => T): T => {
-    stage = label;
     try {
       return run();
     } catch (error) {

@@ -8,8 +8,9 @@ import type { BuildingId } from '../types/buildings';
 import type { ResourceId } from '../types/economy';
 import type { GameState } from '../types/state';
 
-/** Legacy hook kept for save compatibility: communityCenter no longer boosts production. */
-export function calculateCommunityMultiplier(id: string, state: Pick<GameState, 'buildings'>): number {
+/** Legacy hook kept for save compatibility: communityCenter no longer boosts production.
+ *  Both parameters stay in the signature because callers pass them positionally. */
+export function calculateCommunityMultiplier(_id: string, _state: Pick<GameState, 'buildings'>): number {
   return 1;
 }
 export function calculateKnowledgeMultiplier(state: Pick<GameState, 'buildings'>, dataUnits: number, digital?: { aesUnits?: number }): number {

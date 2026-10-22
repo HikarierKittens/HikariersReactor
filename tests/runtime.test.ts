@@ -11,7 +11,7 @@ import { enqueueProject } from '../src/simulation/project-queue';
 import { requestPurchaseModule } from '../src/simulation/purchases';
 import { validateAndMigrateSave } from '../src/state/validate-save';
 import { validateProjectRecords } from '../src/state/validate-projects';
-import { validateCivilization } from '../src/state/validate-civilization';
+
 import { persistGame } from '../src/state/persistence';
 import { settlePurchaseQueue } from '../src/simulation/purchases';
 import { createMilestoneState } from './fixtures/milestones';

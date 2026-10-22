@@ -48,6 +48,19 @@
 
 ---
 
+---
+
+## 2026/10/22 beta 0.9.32 性能与代码质量整理
+
+- **临近势力预览只算一次**：`InternalPanel.vue` 原先在模板一行里调用 `preview(id)` 5 次、`militaryLoss(id)` 2 次，而 `militaryLoss` 内部又调一次 `preview`，合计每行每次渲染跑 7 次完整 `previewRaid`（战力、门槛、期望伤亡、掠夺、军事削减全套）。`preview()` 是普通函数不是 computed，`props.revision;` 只是声明依赖、没有任何缓存，所以每次输入都会重算三行。改为 `raidPreviews` / `neighborStrengths` 两个 computed，按 revision 与当前草稿士兵数失效，模板只读结果。
+- **成就精通系数去硬编码**：`AchievementsPanel.vue` 模板里写死 `(entry.level + 1) * 0.25`，改为 `percent((entry.level + 1) * ACHIEVEMENT_MASTERY_PER_GRADE * 100)`。**数值行为不变**（`ACHIEVEMENT_MASTERY_PER_GRADE = .0025` 恰好就是 0.25%），改的是「系数改了界面不会静默不同步」。注意 `src/vue/format.ts` 的 `percent(n)` 只是把 n 保留 2 位小数并去尾零、**不再乘 100**，所以传进去的必须是百分数值。
+- **清除死代码并开启编译期检查**：`tsconfig.json` 增加 `noUnusedLocals` 与 `noUnusedParameters`。开启前先清掉全部 49 条（源码 23 条、测试 26 条），包括 `commands.ts` 未使用的 `calculateFactoryCapacity`/`countAssignedLines`、`production-finalize.ts` 未使用的 `calculateStorageDetails`、`story.ts` 与 `validate-stage-three.ts` 未使用的 `BUILDINGS`、`storage.ts` 从未被引用的 `StorageRowContext` 类型，以及删掉 `BuildingsPanel.vue` 的 `quantumLevel`/`quantumText` 后级联失效的两个 import。
+- **有意保留的参数**：`multipliers.ts` 的 `calculateCommunityMultiplier(_id, _state)` 是存档兼容钩子（communityCenter 已不再加成产量）；`asriel.ts` 的 `_waystations`、`building-effects.ts` 的 `_state`、`costs.ts` 的 `_resource`、`events.ts` 的 `_metalCapacity`、`pool-replay.test.ts` 的 `_ledger` 属于既有签名，用下划线标注而非删除。`regionBalanceBind` 的 `source` 参数则是真无用，已移除并同步 5 处调用点。
+- **Vue 模板 ref 的工具链误报**：`App.vue` 的 `leftScrollContainer` 只被模板 `ref="leftScrollContainer"` 使用，TypeScript 看不见模板引用，会被 `noUnusedLocals` 误报。保留变量并加 `void leftScrollContainer;` 显式读取，附注释说明原因——**不要删这个变量**，它是 `useIsolatedScroll` 接管左栏滚动的唯一挂载点。
+- **测试文件按主题拆分**：`tests/modules.test.ts`（1277 行、74 个测试、58 条 import 散落在全文各处）拆成 `logs-queue`、`achievements-workers`、`building-economy`、`space-support`、`containers-cafe-smelting`、`projects-genetics`、`persistence-validation`、`simulation-core`、`format-display` 九个文件。**测试体逐字未改**，只把 import 提升到各文件头部并按实际使用裁剪。拆分后 74 个测试一个不少，总数仍为 780。运行器本就自动发现 `tests/**/*.test.ts`，无需登记。
+- **兼容**：无存档结构变化，`CONFIG.version` 仍为 33；无新增字段。
+- **验证**：`npm run check` 通过：780 项模块测试、经典 VM 回归（失败 0）、Edge 浏览器验收 601 项、类型检查与生产构建。
+
 ## 2026/10/22 beta 0.9.31 世界统一效果重做：储量加成改为强化具体建筑
 
 - **废弃一刀切**：删除 `UNIFICATION_STORAGE_BONUS`、`unificationStorageMultiplier`、`storage.ts` 的 `pushUnificationRow`（detail 与 batched 两条路径都删）。原先「所有普通资源储量 +25%」会让每种资源免费涨上限，建存储建筑变得没意义；改成强化存储建筑本身，多出来的空间来自「拥有这些建筑」。

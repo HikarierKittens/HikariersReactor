@@ -50,8 +50,9 @@ export function calculateHarmonyCreepReduction(state: Partial<Pick<GameState, 'p
   return (Math.log(50 + harmony) - Math.log(50)) * .01;
 }
 
-/** Collect every active dynamic creep contribution for one building/resource. */
-export function calculateDynamicCreep(id: BuildingId, resource: ResourceId, state: Pick<GameState, 'government'> & Partial<Pick<GameState, 'crispr' | 'tech' | 'buildings' | 'prestige'>>): DynamicCreepTerm[] {
+/** Collect every active dynamic creep contribution for one building/resource.
+ *  `_resource` is part of the signature; today every creep term is resource-independent. */
+export function calculateDynamicCreep(id: BuildingId, _resource: ResourceId, state: Pick<GameState, 'government'> & Partial<Pick<GameState, 'crispr' | 'tech' | 'buildings' | 'prestige'>>): DynamicCreepTerm[] {
   const terms: DynamicCreepTerm[] = [];
   // Segmented projects have a permanent creep of exactly 1: no dynamic term may apply.
   if (BUILDINGS[id].segmentedRequired) return terms;

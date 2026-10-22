@@ -3,7 +3,6 @@ import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { addLog, updateProgression } from '../simulation/progression';
 import { ACHIEVEMENTS } from '../data/progression';
 import { hasContinuousEnergyInput } from '../simulation/building-production';
-import { BUILDINGS } from '../data/buildings';
 import type { BuildingId } from '../types/buildings';
 import type { TechnologyId } from '../types/technologies';
 import { sampleEventInterval } from '../simulation/events';
@@ -116,7 +115,11 @@ const focusLayout = useFocusLayout({
  * 只是挂载点从资源面板上移到了这里，任何后续加入左栏的面板都自动继承。
  */
 const leftScroll = useIsolatedScroll({ attribute: 'data-isolated-scroll' });
+// Bound to the 左栏 container through `ref="leftScrollContainer"` in the template, which is
+// what hands the element to useIsolatedScroll. TypeScript cannot see template refs, so the
+// value is read here to keep noUnusedLocals from flagging a live binding.
 const leftScrollContainer = leftScroll.container;
+void leftScrollContainer;
 const logFilter = ref('all');
 const logFilters = [{ id: 'all', name: '全部' }, { id: 'queue', name: '队列' }, { id: 'event', name: '普通事件' }, { id: 'progress', name: '进度事件' }, { id: 'achievement', name: '成就' }, { id: 'system', name: '系统' }];
 const visibleLogs = computed(() => { props.store.revision(); return state.value.logs.filter(log => logFilter.value === 'all' || log.type === logFilter.value); });
@@ -558,7 +561,7 @@ onUnmounted(() => {
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.9.31</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.9.32</span>
     </header>
 
     <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>

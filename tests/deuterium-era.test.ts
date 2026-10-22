@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CONFIG } from '../src/data/config';
 import { TECHNOLOGIES } from '../src/data/technologies';
-import { BUILDINGS } from '../src/data/buildings';
+
 import { RESOURCES } from '../src/data/resources';
 import { createInitialState } from '../src/state/create-state';
 import type { GameState } from '../src/types/state';
@@ -15,12 +15,12 @@ import { calculateResourceBreakdown } from '../src/simulation/resource-breakdown
 import { isBuildingUnlocked, isTechnologyUnlocked } from '../src/simulation/unlocks';
 import { requestPurchaseModule } from '../src/simulation/purchases';
 import { isContainerAssignable } from '../src/simulation/containers';
-import { advancePopulationGrowth, calculateGrowthMultiplier } from '../src/simulation/population';
+import { calculateGrowthMultiplier } from '../src/simulation/population';
 import { calculateProductionMultiplier } from '../src/simulation/multipliers';
 import { createMilestoneState } from './fixtures/milestones';
 import { supplyPower } from './support/power';
 import type { BuildingId } from '../src/types/buildings';
-import type { ResourceId } from '../src/types/economy';
+
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 const near = (a: number, b: number, label?: string) => assert.ok(Math.abs(a - b) <= 1e-7 * Math.max(1, Math.abs(b)), `${label ?? ''}: ${a} != ${b}`);

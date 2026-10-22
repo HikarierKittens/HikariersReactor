@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CONFIG, SAVE_EXPORT_KEYS } from '../src/data/config';
+import { SAVE_EXPORT_KEYS } from '../src/data/config';
 import {
   SAVE_ENVELOPE_PREFIX, SaveCipherError, decodeSaveText, decryptSaveText,
   encryptSaveText, isEncryptedSave, isSaveCryptoAvailable, parseSaveKey,

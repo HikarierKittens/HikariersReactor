@@ -3,7 +3,7 @@ import { recordKnowledgeSpent } from './statistics';
 import { affordableResourcePercent, calculateResourceRemainingCost, investResourceProgress, resourceCompletionPercent } from './project-funding';
 import { ARPA_PROJECTS, MONUMENT_MATERIALS } from '../data/projects';
 import type { ArpaProjectId, GameState } from '../types/state';
-import type { ResourceRecipe, ResourceId } from '../types/economy';
+import type { ResourceRecipe } from '../types/economy';
 
 export function calculateProjectDescription(id: ArpaProjectId, state: Pick<GameState, 'tech'>): string {
   const base = ARPA_PROJECTS[id].desc;

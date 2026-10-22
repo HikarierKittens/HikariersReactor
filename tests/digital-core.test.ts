@@ -9,7 +9,7 @@ import { calculateProduction } from '../src/simulation/production';
 import { calculateStorageDetails, calculateStorageTotals } from '../src/simulation/storage';
 import { calculateSupportPreview } from '../src/simulation/support-preview';
 import { calculateResourceBreakdown, calculateResourceFactorRows } from '../src/simulation/resource-breakdown';
-import { calculateGlobalOutputMultiplier, calculateMasteryMultiplier } from '../src/simulation/crafting';
+import { calculateGlobalOutputMultiplier } from '../src/simulation/crafting';
 import { calculateProductionMultiplier } from '../src/simulation/multipliers';
 import { supplyPower } from './support/power';
 

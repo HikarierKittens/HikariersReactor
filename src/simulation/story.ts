@@ -1,4 +1,3 @@
-import { BUILDINGS } from '../data/buildings';
 import type { GameState, StoryArchive, StoryChapterId } from '../types/state';
 
 export const STORY_CHAPTER_IDS: readonly StoryChapterId[] = ['firstShelter', 'beyondStone', 'sleeplessCity', 'aboveRoof', 'secondHome', 'interplanetaryRoutes', 'strangeElement', 'anotherMind', 'essPlan', 'firstEscape', 'geneRewrite', 'nuclearChoice', 'dysonSwarm', 'coreCalibration', 'anomalyConfirmed', 'twoMaps', 'anomalyResponse', 'controlledField', 'firstSignal', 'firstTransfer', 'anomalyTopology', 'remoteAnchor'];

@@ -9,7 +9,7 @@ import { CRAFT_RECIPES } from '../data/resources';
 import { isResourceUnlocked } from './unlocks';
 import type { GameState, GovernmentId } from '../types/state';
 import type { CraftId, ResourceId, FactoryLineId } from '../types/economy';
-import { calculateFactoryCapacity, countAssignedLines, calculateSmelterSlotCapacity, countFreeFactoryLines } from './factory';
+import { calculateSmelterSlotCapacity, countFreeFactoryLines } from './factory';
 import { isFactoryLineUnlocked } from './factory-settlement';
 
 import { calculateContainerRecipe, calculateContainerCapacity, countAssignedContainers, isContainerAssignable, calculateAlloyContainerCapacity, countAssignedAlloyContainers, ALLOY_CONTAINER_RECIPE } from './containers';

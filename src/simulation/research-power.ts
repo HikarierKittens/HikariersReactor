@@ -2,7 +2,7 @@ import { buildSettlementLedger } from './support-preview';
 import { calculatePowerGrid } from './power-grid';
 import { allocateMoonSupport } from './moon';
 import { allocateAsrielSupport } from './asriel';
-import type { ResourceAmounts, ResourceId } from '../types/economy';
+import type { ResourceAmounts } from '../types/economy';
 import type { GameState } from '../types/state';
 
 /** Legacy funding chain for pure maintenance callers; skips biology power by

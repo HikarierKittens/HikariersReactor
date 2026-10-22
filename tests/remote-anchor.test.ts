@@ -1,16 +1,16 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CONFIG } from '../src/data/config';
-import { TECHNOLOGIES } from '../src/data/technologies';
-import { createInitialState } from '../src/state/create-state';
+
+
+
 import { validateCurrentSave } from '../src/state/validate-save';
 import { calculateSupportPreview } from '../src/simulation/support-preview';
 import { calculateProduction } from '../src/simulation/production';
 import { calculateResourceBreakdown } from '../src/simulation/resource-breakdown';
 import type { ResourceId } from '../src/types/economy';
 import { researchTechnologyNow } from '../src/simulation/purchases';
-import { investInProject } from '../src/simulation/projects';
-import { isBuildingUnlocked, isTechnologyUnlocked } from '../src/simulation/unlocks';
+
+import { isBuildingUnlocked } from '../src/simulation/unlocks';
 import { updateProgression } from '../src/simulation/progression';
 import { resetRunState, launchNuclearPrestige, launchEscapePrestige } from '../src/simulation/prestige';
 import { SHIP_COMPONENTS } from '../src/simulation/spaceship';

@@ -7,11 +7,7 @@ import {
   NEIGHBORS, NEIGHBOR_IDS, OCCUPATION_OUTPUT_BONUS, OCCUPATION_TAX_PENALTY, RAID_ACTIONS,
   SOLDIER_FOOD_UPKEEP,
 } from '../src/data/neighbors';
-import {
-  abandonOccupation, advanceNeighbors, createNeighborsState, executeRaid, garrisonedSoldiers,
-  isNeighborsUnlocked, neighborStrength, occupationOutputMultiplier, occupationTaxRate,
-  previewRaid, raidStrength, soldierFoodUpkeep,
-} from '../src/simulation/neighbors';
+import { abandonOccupation, advanceNeighbors, createNeighborsState, executeRaid, garrisonedSoldiers, isNeighborsUnlocked, occupationOutputMultiplier, occupationTaxRate, previewRaid, raidStrength, soldierFoodUpkeep } from '../src/simulation/neighbors';
 import { calculateGlobalOutputMultiplier } from '../src/simulation/crafting';
 import { calculateTaxBase } from '../src/simulation/government';
 import { buildRaidEconomy } from '../src/simulation/neighbor-economy';

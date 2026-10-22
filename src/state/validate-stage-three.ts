@@ -1,4 +1,3 @@
-import { BUILDINGS } from '../data/buildings';
 import type { GameState, StageThreeState } from '../types/state';
 export function loadStageThreeState(raw: Record<string, unknown>, state: GameState): void {
   const saved = raw.stageThree;

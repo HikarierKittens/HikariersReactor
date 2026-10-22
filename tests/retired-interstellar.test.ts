@@ -18,7 +18,6 @@ const clone=<T>(x:T):T=>JSON.parse(JSON.stringify(x));
 const context={now:0,eventInterval:60,housingCapacity:()=>1000,clampResources:()=>{}};
 const retiredTech=['interstellarScoutPlan','interstellarCalibration'];
 const retiredProjects=['interstellarScout','extrasolarAnchor'];
-const retiredFlags=['scoutArrived','interstellarSignal','interstellarCargo'];
 const retiredStories=['scoutDeparture','anotherSun','distantFoundation','distantReply','firstInterstellarCargo'];
 function ready(){
  const s=createInitialState(CONFIG.version,60,0);s.tech=Object.keys(TECHNOLOGIES).filter(id=>!['spaceControlTower','hydrogenRecovery','icebreakingPlan','higherDimensionalStorage','ripperOverclock','hazardousMaterialStorage','aiDataCenter','aiCementWorkshop','advancedAdamantiteProcessing','advancedGrapheneProcessing','overclocking13','superMetal','grapheneProcessing','nanoArmor','nanoExoskeleton','advancedConcrete','nanoAlloy','dysonSphere','dysonSphereII','virtualReality','virtualTraining','virtualEntertainment','aerogel','plasmaResearch','plasmaMining','energyShield','stellarForge','penroseTheory','massEjector','gravityConversion','stabilizeBlackHole','exoticRunaway'].includes(id)) as TechnologyId[];s.prestige.nuclearResets=1;

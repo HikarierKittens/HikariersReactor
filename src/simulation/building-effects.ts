@@ -24,10 +24,10 @@ export function calculateRipperKnowledgeBonusValue(blackHoleStations: number): n
 
 function percent(value: number): string { return `${Number((value * 100).toFixed(4))}%`; }
 
-/** Build the shared effect rows for hyperspace stability and asteroid support buildings. */
-export function getBuildingEffectRows(id: BuildingId, state: Pick<GameState, 'tech'>, snapshot: EffectSnapshot): BuildingEffectRow[] {
+/** Build the shared effect rows for hyperspace stability and asteroid support buildings.
+ *  `_state` and `_asteroidBases` are part of the shared signature; these rows do not read them. */
+export function getBuildingEffectRows(id: BuildingId, _state: Pick<GameState, 'tech'>, snapshot: EffectSnapshot): BuildingEffectRow[] {
   const repeaters = snapshot.repeaters || 0;
-  const asteroidBases = snapshot.asteroidBases || 0;
   switch (id) {
     case 'constraintArray':
       return [{ label: '运行时：稳定度', value: `+${2 + REPEATER_BONUS_PER_ARRAY * repeaters}` }];

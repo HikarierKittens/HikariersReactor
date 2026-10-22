@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { BUILDINGS } from '../src/data/buildings';
+
 import { CONFIG } from '../src/data/config';
 import { NEIGHBOR_IDS } from '../src/data/neighbors';
 import { TECHNOLOGIES } from '../src/data/technologies';
@@ -17,7 +17,7 @@ import {
 import { calculateStorageDetails, calculateStorageTotals } from '../src/simulation/storage';
 import { calculateSupportPreview } from '../src/simulation/support-preview';
 import { calculateTechnologyTier } from '../src/simulation/technology';
-import { isBuildingUnlocked, isTechnologyUnlocked } from '../src/simulation/unlocks';
+import { isTechnologyUnlocked } from '../src/simulation/unlocks';
 import { requestPurchaseModule } from '../src/simulation/purchases';
 import type { GameState } from '../src/types/state';
 import type { TechnologyId } from '../src/types/technologies';

@@ -9,8 +9,8 @@ import { validateAndMigrateSave } from '../src/state/validate-save';
 import { launchEscapePrestige } from '../src/simulation/prestige';
 import { SHIP_COMPONENTS } from '../src/simulation/spaceship';
 import { calculateProduction } from '../src/simulation/production';
-import { advanceGameTick } from '../src/simulation/tick';
-import { settlePurchaseQueue } from '../src/simulation/purchases';
+
+
 import type { TechnologyId } from '../src/types/technologies';
 import type { GameState, ShipComponentId } from '../src/types/state';
 

@@ -6,7 +6,7 @@ import {
   COMBAT_POWER_TECH_BONUS, DEFENSE_CASUALTY_REDUCTION, DEFENSE_TECH_BONUS,
   SOLDIER_BASE_COMBAT_POWER, SOLDIER_BASE_DEFENSE, SOLDIER_FUR_BASE, SOLDIER_FUR_POWER_EXPONENT,
 } from '../src/data/military';
-import { RAID_ACTIONS } from '../src/data/neighbors';
+
 import { createInitialState } from '../src/state/create-state';
 import { validateAndMigrateSave } from '../src/state/validate-save';
 import {

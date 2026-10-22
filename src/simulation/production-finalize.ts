@@ -2,7 +2,7 @@ import { calculateTaxBase, calculateBankerMultiplier, calculateGovernmentMultipl
 import { calculateProductionMultiplier } from './multipliers';
 import { calculateGlobalOutputMultiplier } from './crafting';
 import { calculateFoodPerCat } from './population';
-import { calculateStorageDetails, calculateStorageTotals } from './storage';
+import { calculateStorageTotals } from './storage';
 import { soldierFoodUpkeep } from './neighbors';
 import type { StorageSnapshot } from './storage';
 import type { GameState } from '../types/state';

@@ -6,7 +6,7 @@ import { calculateProduction, previewMorale } from '../src/simulation/production
 import { calculateBiologyUnits, calculateDataCenterUnits } from '../src/simulation/research-power';
 import { capacity, moonSnapshot, moraleSnapshot, storageCap, storageSnapshot } from '../src/vue/format';
 import { createRuntime } from '../src/app/runtime';
-import { TECHNOLOGIES } from '../src/data/technologies';
+
 import { constructBuildingState, buyBuildingsInBatch, requestPurchaseModule, settlePurchaseQueue } from '../src/simulation/purchases';
 import { CONFIG } from '../src/data/config';
 import { createMilestoneState } from './fixtures/milestones';

@@ -6,11 +6,11 @@ import { CRISPR_UPGRADES } from '../src/data/crispr';
 import { RESOURCES } from '../src/data/resources';
 import { createInitialState } from '../src/state/create-state';
 import { validateAndMigrateSave } from '../src/state/validate-save';
-import { launchChallenges } from '../src/simulation/challenges';
+
 import { calculateAutomaticCraftingMultipliers, calculateForgingToolBonus, artisanCraftRate } from '../src/simulation/crafting';
 import { purchaseQueueCapacity } from '../src/simulation/purchases';
 import { buildingQueueCapacity, researchQueueCapacity } from '../src/simulation/queue-settings';
-import { calculateCrisprStorageBonus, calculateCrisprCostReduction, purchaseCrisprUpgrade } from '../src/simulation/crispr';
+import { calculateCrisprStorageBonus, purchaseCrisprUpgrade } from '../src/simulation/crispr';
 import { listActivePerks } from '../src/simulation/perks';
 import { ACHIEVEMENTS } from '../src/data/progression';
 import { calculateBuildingCost, calculateBuildingScale } from '../src/simulation/costs';

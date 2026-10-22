@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { CONFIG } from '../src/data/config';
 import { TECHNOLOGIES } from '../src/data/technologies';
 import { researchTechnologyNow, buyBuildingNow } from '../src/simulation/purchases';
-import { investInProject, isProjectUnlocked } from '../src/simulation/projects';
+
 import { createInitialState } from '../src/state/create-state';
 import { validateCurrentSave } from '../src/state/validate-save';
 import { calculateProduction } from '../src/simulation/production';

@@ -2,8 +2,9 @@ import { fmt } from '../format';
 
 type MeterSource = { used: number; capacity: number };
 
-/** Common aria/title bindings for a "当前已用 / 总量" region meter. */
-export function regionBalanceBind(source: MeterSource, label: string) {
+/** Common aria/title bindings for a "当前已用 / 总量" region meter.
+ *  The numbers themselves go through regionBalanceText; these labels never read them. */
+export function regionBalanceBind(label: string) {
   return {
     'aria-label': `${label}：已用/总量`,
     title: `${label}：当前已用 / 总量`,

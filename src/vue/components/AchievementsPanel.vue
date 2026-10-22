@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { GameState } from '../../types/state';
-import { ACHIEVEMENTS } from '../../data/progression';
+import { ACHIEVEMENTS, ACHIEVEMENT_MASTERY_PER_GRADE } from '../../data/progression';
 import { getAchievementLevel } from '../../simulation/achievement-tracking';
+import { percent } from '../format';
 
 const props = defineProps<{ state: GameState; revision: number }>();
 type AchievementFilter = 'all' | 'incomplete' | 'complete';
@@ -49,7 +50,7 @@ const visibleEntries = computed(() => entries.value.filter(entry =>
         <span :class="entry.earned ? 'check' : 'subtle'" class="small">{{ entry.earned ? '已达成' : '未达成' }}</span>
       </div>
       <p class="desc">{{ entry.definition.desc }}</p>
-      <p v-if="entry.earned" class="small check" :data-achievement-level="entry.level">等级 {{ entry.level }} · 精通 +{{ (entry.level + 1) * 0.25 }}%</p>
+      <p v-if="entry.earned" class="small check" :data-achievement-level="entry.level">等级 {{ entry.level }} · 精通 +{{ percent((entry.level + 1) * ACHIEVEMENT_MASTERY_PER_GRADE * 100) }}%</p>
     </article>
   </div>
 </template>
