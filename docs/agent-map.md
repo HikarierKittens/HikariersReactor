@@ -86,7 +86,7 @@ src/app/runtime.ts 状态唯一所有者：tick / save / load / import / reset
 | 步骤 | 实测耗时 |
 |---|---|
 | `npm run typecheck` | 约 9 秒 |
-| `npm test`（95 个文件、757 项 + VM 回归） | 约 7 秒 |
+| `npm test`（97 个文件、762 项 + VM 回归） | 约 7 秒 |
 | `npm run test:browser` | 约 5 秒 |
 | `npm run build` | 约 2 秒 |
 | `npm run check`（全部） | 约 25 秒 |

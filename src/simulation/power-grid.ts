@@ -124,14 +124,38 @@ export function registerBuiltPowerUnits(state: GameState, id: BuildingId, before
   const completed = BUILDINGS[id].segmentEffects ? state.buildings[id] : Math.floor(state.buildings[id] / (BUILDINGS[id].segmentedRequired || 1));
   const added = completed - beforeCompleted;
   if (!(added > 0)) return;
-  const newlyEnabled = Math.min(added, countRunningBuildings(id, state));
-  // Hide new units while evaluating the previous requests and their persistent order.
-  const previous = { ...state, stoppedBuildings: { ...state.stoppedBuildings, [id]: (state.stoppedBuildings[id] || 0) + newlyEnabled } };
-  const order = reconcilePowerActivationOrder(previous);
+  // `powerActivationOrder` lists *loads that need power*. A power plant or an alwaysRunning
+  // building never appears there, so registering one would push an entry the grid never
+  // consumes. That entry then makes the saved order larger than the owned count, and the
+  // next load rejects the save as "供电开启顺序数量无效".
   const demand = getBuildingPowerDemand(id, state);
+  if (!(demand > 0)) return;
+  // Running count *before* construction: the caller has already raised `buildings` and may
+  // have flagged some of the new units as stopped, so `countRunningBuildings(state)` would
+  // include them and the enabled total would be counted twice.
+  const stopped = state.stoppedBuildings[id] || 0;
+  const beforeRunning = Math.max(0, beforeCompleted - stopped);
+  const newlyEnabled = Math.max(0, countRunningBuildings(id, state) - beforeRunning);
+  // Hide new units while evaluating the previous requests and their persistent order.
+  const previous = { ...state, stoppedBuildings: { ...state.stoppedBuildings, [id]: stopped + newlyEnabled } };
+  const order = reconcilePowerActivationOrder(previous);
   const available = calculatePowerGrid(previous).available;
-  const enabled = demand > 0 ? Math.min(newlyEnabled, Math.max(0, Math.floor((available + 1e-8) / demand))) : newlyEnabled;
-  state.stoppedBuildings[id] = (state.stoppedBuildings[id] || 0) + newlyEnabled - enabled;
-  if (enabled) order.push({ id, count: enabled });
-  state.powerActivationOrder = order;
+  const enabled = Math.min(newlyEnabled, Math.max(0, Math.floor((available + 1e-8) / demand)));
+  state.stoppedBuildings[id] = stopped + newlyEnabled - enabled;
+  // `order` is already reconciled with the pre-construction running count, so the enabled
+  // total is that count plus what this construction just switched on. Pushing the new count
+  // on top of the existing entries would duplicate them and the order would end up larger
+  // than the owned count, which the save validator rejects on the next load.
+  const total = order.filter(entry => entry.id === id).reduce((sum, entry) => sum + entry.count, 0) + enabled;
+  const position = order.findIndex(entry => entry.id === id);
+  const remaining = order.filter(entry => entry.id !== id);
+  if (total > 0) {
+    // Keep the building's original priority, or append when it had none.
+    if (position === -1) remaining.push({ id, count: total });
+    else {
+      const before = order.slice(0, position).filter(entry => entry.id !== id).length;
+      remaining.splice(before, 0, { id, count: total });
+    }
+  }
+  state.powerActivationOrder = remaining;
 }

@@ -76,6 +76,9 @@
 - **工厂生产线**：`calculateFactoryCapacity` 仍按运行中的 `lines` 求和。`assignNewFactoryLines(state, id, added)` 在 `constructBuildingState` 的 **stop 决策之后**调用——先分配会让「起手就停用」的工厂凭空多出一条线，产生 `lines > capacity` 的非法存档。`changeFactoryAssignment` 的可用量 = 空余容量 + （非合金线时）合金线数量。
 - **VM 回归**：`scripts/generate-legacy-data.cjs` 的 `ai-data-center` 必须排在 `quantum` 之前，因为这些桥接脚本是靠全局变量互相引用的，顺序错了会得到 `ReferenceError: AI_DATA_CENTER_QUANTUM_BONUS is not defined`。
 - **存档**：`aiDataCenter` 加入 `ADDITIVE_BUILDING_IDS`，`CONFIG.version` 不变（仍是 33）——本次只新增建筑计数，没有结构变化。
+- **供电开启顺序只记录负载**：`registerBuiltPowerUnits` 在 `getBuildingPowerDemand(id) <= 0` 时直接 return。发电站与 `alwaysRunning` 建筑（恒星熔炉、发电机等）永远不该出现在 `powerActivationOrder` 里，写入一条永不被消费的记录会让顺序大于已建数，下次载入被 `validatePowerActivationOrder` 拒绝。登记前必须用入参 `beforeCompleted` 推建造前运行数：调用方已经抬高 `buildings`，直接读 `countRunningBuildings(state)` 会把新单位重复计入。写入时用「已有条目合计 + 本次启用」替换该建筑的原条目并保持其优先级位置，不要 `push` 新条目。
+- **超限顺序在载入时夹取**：`save-compatibility.ts` 的 `clampActivationOrder` 在 `normalizeSchemaSave` 末尾运行，把每条累计超出运行数的部分裁掉（发电建筑整条丢弃）。它只处理格式完好的 `{id, count}` 正整数条目，其余原样透传，让严格校验照常拒绝——否则会把「玩家手改的坏数据」静默修好，破坏 `explicit malformed activation order is rejected` 这组守卫。`CONFIG.version` 不变：这是修复既有数据，不是结构变化。
+- **载入失败诊断**：`validateCurrentSave` 用 `check(阶段名, …)` 包裹每步校验，拒绝时把舞台名追加到原消息；`runtime.load()` 的保护模式分支用 `console.warn` 输出 `[存档载入失败] <原因>`。用 `warn` 而非 `error`，因为验收页把每个 `console.error` 记成失败断言。
 
 ### 成本与库存格式（beta 0.6.7）
 

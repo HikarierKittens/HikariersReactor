@@ -83,9 +83,32 @@ test('explicit malformed activation order is rejected, not silently reset', () =
     const raw = historical(); raw.powerActivationOrder = order;
     assert.throws(() => validateCurrentSave(raw, context), /供电开启顺序/);
   }
+});
+
+test('an over-count activation batch is clamped to what is running, not rejected', () => {
+  // beta 0.9.28 registered power plants in `powerActivationOrder`, so the saved order could
+  // exceed the owned count and the next load was rejected. The write side is fixed; a save
+  // already written by that build is repaired here instead of stranding the player. Only the
+  // excess is dropped -- the rest of the batch survives in order.
   const raw = historical();
   raw.powerActivationOrder = [{ id: 'generator', count: raw.buildings.generator + 1 }];
-  assert.throws(() => validateCurrentSave(raw, context), /供电开启顺序/);
+  const loaded = validateCurrentSave(raw, context);
+  assert.equal(
+    (loaded.powerActivationOrder || []).filter(entry => entry.id === 'generator').reduce((sum, entry) => sum + entry.count, 0),
+    0,
+    'a power plant is not a load, so its entries are dropped entirely',
+  );
+  // A real load keeps the entries it can justify and loses only the excess.
+  const load = historical();
+  load.buildings.biologyLab = 2; load.stoppedBuildings.biologyLab = 0;
+  load.powerActivationOrder = [{ id: 'biologyLab', count: 5 }];
+  const repaired = validateCurrentSave(load, context);
+  assert.equal(
+    (repaired.powerActivationOrder || []).filter(entry => entry.id === 'biologyLab').reduce((sum, entry) => sum + entry.count, 0),
+    2,
+    'clamped down to the two running labs',
+  );
+  assert.equal(repaired.buildings.biologyLab, 2, 'the progress itself is untouched');
 });
 
 test('ordered activation batches survive save/load/import and protected recovery', async t => {

@@ -203,3 +203,13 @@
 - **原因**：给「加一行效果」这个明确需求顺手补了机制解释和单位后缀，属于**交付了需求之外的内容**，而这类文案在悬停面板里会挤占空间、也让一行数值变得啰嗦。
 - **做法**：需求没写的小字、括注、单位后缀一律不加；机制解释写进 `docs/glossary.md`（已经写入 `AGENTS.md` 第 9 条）。数值行保持「名称 + 数值」两项。
 - **配套测试**：`tests/t21-ai-data-center.test.ts` 的显示用例不只断言数值，还断言 `note === ''` 且数值不含 `/座`；浏览器验收也有一条「效果行没有额外小字说明或 `/座` 后缀」。这类断言能防止以后有人「顺手加一句解释」又把它带回来。
+
+## 33. 往 `powerActivationOrder` 写「不需要供电」的建筑，会让存档下次载入被拒
+
+- **症状**：玩家更新到 0.9.28 后一进游戏就是新档、进度归零，设置页却能看到「导出不兼容的旧版本存档」——也就是保护模式生效、原档其实没被覆盖。控制台报「供电开启顺序数量无效」。真实存档里 `stellarForge` 有 3 座，`powerActivationOrder` 却有 4 条。
+- **原因**：`registerBuiltPowerUnits` 无条件 `if (enabled) order.push({ id, count: enabled })`。恒星熔炉是 `powerPlant: true, alwaysRunning: true`，`getBuildingPowerDemand` 对它返回 0，所以 `enabled = newlyEnabled`（本次新建数）——但供电顺序只记录**需要供电的负载**，这条记录永远不会被消费，于是每建一座就多一条，累积到 `order > 已建数` 后 `validatePowerActivationOrder` 拒绝整档。
+- **另一个坑**：想用「给 `stoppedBuildings` 加一以隐藏新单位」来算历史运行数，对 `alwaysRunning` 建筑**完全无效**——`countRunningBuildings` 会忽略 `stoppedBuildings`（`housing.ts:12`）。必须用函数入参 `beforeCompleted` 推建造前的运行数。
+- **做法**：`demand <= 0` 直接 return，发电/常开建筑永不进供电顺序；写入时用「已有条目合计 + 本次启用数」替换该建筑原有条目，保留其原有优先级位置，不要 `push` 一条新的。
+- **自愈**：已经被写坏的存档由 `save-compatibility.ts` 的 `clampActivationOrder` 在载入时夹到运行数。**修复必须严格限定在「数量超限」这一种情况**：条目要恰好是 `{id, count}` 正整数，否则原样透传。第一版实现重建了 `{id, count}` 对象，结果把 `extra: true` 和超长数组（10001 条）都「修复」成了合法档，被既有测试 `explicit malformed activation order is rejected` 抓到——这正是那条测试存在的意义。
+- **诊断经验**：载入失败原本只有一句笼统日志，只能靠猜。给 `validateCurrentSave` 每步加阶段标签、并用 `console.warn` 把真实原因打到控制台后，这次问题一条命令就定位了。注意用 `console.warn` 而不是 `console.error`：验收页把所有 `console.error` 记成失败断言。
+- **配套测试**：`tests/power-order-repair.test.ts`（4 项）覆盖写入端不污染、负载逐座登记、超限夹取、不臆造缺失条目；`tests/power-order-save.test.ts` 的同名用例改为「超限夹取」并保留「格式非法仍拒绝」的整组断言。

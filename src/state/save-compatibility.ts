@@ -10,6 +10,7 @@
  * explicitly malformed value still reaches strict validation untouched.
  */
 import { createNeighborsState } from '../simulation/neighbors';
+import { BUILDINGS } from '../data/buildings';
 
 const ADDITIVE_BUILDING_IDS = [
   'dysonSphere', 'hazardousMaterialStorage', 'aiDataCenter', 'gatewayRouter', 'downloadExecutable', 'quantumStorage',
@@ -187,7 +188,63 @@ function seededFromSave(raw: Record<string, unknown>): () => number {
 /** Current-schema normalization: 31→32 splits counters, 32→33 retires finished construction
  *  phases, then absent additive records are backfilled. Every step copies what it edits. */
 export function normalizeSchemaSave(raw: Record<string, unknown>): Record<string, unknown> {
-  return normalizeAdditiveDefaults(upgradeSchema32To33(upgradeSchema31To32(raw)));
+  return clampActivationOrder(normalizeAdditiveDefaults(upgradeSchema32To33(upgradeSchema31To32(raw))));
+}
+
+/**
+ * beta 0.9.28 shipped a construction path that also registered power plants and other
+ * no-demand buildings in `powerActivationOrder`. The grid never consumed those entries, so
+ * they accumulated until the saved order exceeded the owned count and the next load was
+ * rejected as "供电开启顺序数量无效". The cause is fixed; this step repairs saves that were
+ * already written by that build, so an affected player keeps their progress instead of
+ * meeting the protected-mode screen. Only over-count entries are dropped — everything the
+ * player could legitimately have ordered is preserved, and a malformed order still reaches
+ * strict validation untouched.
+ */
+function clampActivationOrder(raw: Record<string, unknown>): Record<string, unknown> {
+  const order = raw.powerActivationOrder;
+  if (!Array.isArray(order)) return raw;
+  // A batch longer than the schema allows is explicit corruption, not the shipped bug's
+  // output: leave it for strict validation to reject rather than trimming it into shape.
+  if (order.length > 10000) return raw;
+  const counts = recordOf(raw.buildings);
+  const stopped = recordOf(raw.stoppedBuildings);
+  if (!counts) return raw;
+  const runningOf = (id: string): number | null => {
+    if (!Object.hasOwn(counts, id)) return null;
+    const owned = counts[id];
+    if (typeof owned !== 'number' || !Number.isFinite(owned)) return null;
+    const building = (BUILDINGS as Record<string, { segmentedRequired?: number; segmentEffects?: boolean; alwaysRunning?: boolean }>)[id];
+    if (!building) return null;
+    const required = building.segmentEffects ? undefined : building.segmentedRequired;
+    const complete = required ? Math.floor(owned / required) : owned;
+    if (building.alwaysRunning) return complete;
+    const off = stopped && typeof stopped[id] === 'number' && Number.isFinite(stopped[id]) ? stopped[id] as number : 0;
+    return Math.max(0, complete - off);
+  };
+  const used = new Map<string, number>();
+  const kept: unknown[] = [];
+  let changed = false;
+  for (const entry of order) {
+    const record = recordOf(entry);
+    // Only a well-formed batch entry is repaired. Anything else (extra keys, wrong types)
+    // is passed through untouched so strict validation still rejects it.
+    if (!record || Object.keys(record).length !== 2 || typeof record.id !== 'string'
+      || typeof record.count !== 'number' || !Number.isSafeInteger(record.count) || record.count <= 0) {
+      kept.push(entry);
+      continue;
+    }
+    const running = runningOf(record.id);
+    if (running === null) { kept.push(entry); continue; }
+    const already = used.get(record.id) || 0;
+    const room = Math.max(0, running - already);
+    const count = Math.min(record.count, room);
+    used.set(record.id, already + count);
+    if (count === record.count) kept.push(entry);
+    else if (count > 0) { kept.push({ id: record.id, count }); changed = true; }
+    else changed = true;
+  }
+  return changed ? { ...raw, powerActivationOrder: kept } : raw;
 }
 
 /** Kept for callers that still speak the old name; identical behaviour. */
