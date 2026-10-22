@@ -17,7 +17,7 @@ import { launchBlackHolePrestige } from '../src/simulation/prestige';
 import { calculateBankerMultiplier, calculateBlackHoleParticleReward, calculateBlackHoleCasimirReward, calculateEscapePrestigeReward, calculateCasimirReward } from '../src/simulation/government';
 import {
   BLACK_HOLE_UNSTABLE_LOG, MASS_EJECTION_UNLOCK_LOG, EJECTION_MASSES, calculateDarkEnergyReward, calculateGravityConversionEnergy,
-  changeEjectionAllocation, ejectionMass, formatBlackHoleMass, isEjectableResource,
+  changeEjectionAllocation, ejectionMass, formatBlackHoleMass, isEjectableResource, isExoticResource,
 } from '../src/simulation/black-hole';
 import type { GameState } from '../src/types/state';
 import type { ResourceId } from '../src/types/economy';
@@ -57,10 +57,39 @@ test('data: techs, building and ejection table follow the spec', () => {
     if (expected) assert.ok(ejectionMass(id) > 0, `${id} has a mass`);
   }
   for (const id of ['cash', 'energy', 'knowledge', 'dna', 'genes']) assert.equal(isEjectableResource(id), false, id);
-  assert.equal(ejectionMass('e710'), .0000005); assert.equal(ejectionMass('nanoAlloy'), .00000002);
+  assert.equal(ejectionMass('e710'), 1e-5); assert.equal(ejectionMass('nanoAlloy'), 2e-7);
   assert.ok(EJECTION_MASSES.stone! > EJECTION_MASSES.water!);
   assert.ok(EJECTION_MASSES.uranium! > EJECTION_MASSES.iron! && EJECTION_MASSES.iron! > EJECTION_MASSES.aluminum!);
   assert.equal(formatBlackHoleMass(10), '10.00000000');
+});
+
+test('ejection masses follow the 0.9.36 spec: fixed values, light-to-heavy order, 氘 and 氦-3 untouched', () => {
+  // 玩家指定的精确值。
+  assert.equal(ejectionMass('e710'), 1e-5);
+  assert.equal(ejectionMass('nanoAlloy'), 2e-7);
+  assert.equal(ejectionMass('neutron'), 4e-5);
+  assert.equal(ejectionMass('adamantite'), 1e-5);
+  assert.equal(ejectionMass('aerogel'), 1e-7);
+  // 氘、氦-3 保持原值（唯一被明确排除的两项）。
+  assert.equal(ejectionMass('deuterium'), 2e-8);
+  assert.equal(ejectionMass('helium3'), 3e-8);
+  // 氘与氦-3 必须仍是最轻的两项，否则「排除」就失去了意义。
+  const sorted = (Object.keys(RESOURCES) as ResourceId[]).filter(isEjectableResource)
+    .map(id => [id, ejectionMass(id)] as const).sort((a, b) => a[1] - b[1]);
+  assert.deepEqual(sorted.slice(0, 2).map(entry => entry[0]), ['deuterium', 'helium3']);
+  // 木头远比铁轻，铁比铝重，铀接近最重的一档：物质特性顺序必须成立。
+  assert.ok(ejectionMass('wood') < ejectionMass('iron'), 'wood is lighter than iron');
+  assert.ok(ejectionMass('iron') > ejectionMass('aluminum'));
+  assert.ok(ejectionMass('uranium') > ejectionMass('copper'));
+  assert.ok(ejectionMass('aerogel') < ejectionMass('wood'), 'aerogel is extremely porous');
+  assert.ok(ejectionMass('neutron') > ejectionMass('mithril'), 'neutron is by far the densest');
+  // 奇异物质（E-710 / 纳米合金）按玩家指定值：E-710 比纳米合金重。
+  // 纳米合金 2e-7 刻意保持很轻（玩家确认，甚至轻于水），因此只断言它重于煤，不假设它最重。
+  assert.ok(ejectionMass('e710') > ejectionMass('nanoAlloy'));
+  assert.ok(ejectionMass('nanoAlloy') > ejectionMass('coal'));
+  assert.equal(isExoticResource('e710'), true);
+  assert.equal(isExoticResource('nanoAlloy'), true);
+  assert.equal(isExoticResource('neutron'), false);
 });
 
 test('质量喷射器 tech needs a completed Penrose sphere; first ejector logs the new panel', () => {

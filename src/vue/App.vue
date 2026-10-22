@@ -568,7 +568,7 @@ onUnmounted(() => {
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.9.35</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.9.36</span>
     </header>
 
     <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>

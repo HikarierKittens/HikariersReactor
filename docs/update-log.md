@@ -50,6 +50,18 @@
 
 ---
 
+## 2026/10/22 beta 0.9.36 质量喷射：质量表重定与列表排序
+
+- **数值**：`simulation/black-hole.ts` 的 `EJECTION_MASSES` / `EXOTIC_EJECTION_MASSES` 重写。玩家指定值：`e710` 1e-5、`nanoAlloy` 2e-7、`neutron` 4e-5、`adamantite` 1e-5、`aerogel` 1e-7。`deuterium`（2e-8）与 `helium3`（3e-8）**保持原值**，仍是最轻的两项。
+- **其余资源**按物质特性上调约 20%~50%，重排后保持「轻→重」物理顺序：氘 < 氦-3 < 气凝胶 < 纳米管 ≈ 石墨烯 < 煤 < 纳米合金 < 水 < 毛皮 < 铝 < 木材 < 聚合物 < 猫粮 < 钛 < 铁 < 钢 < 石头 < 合金 < 铜 < 石油 < 水泥 < 铱 < 铀 < 金属板 < 木板 < 锻铁 < 砌砖 < E-710 = 精金 < 秘银 < 中子。
+- **注意 `nanoAlloy` 2e-7 是刻意很轻的**：它比水（2.4e-7）、铝、木材都轻，排在列表第 8 位。这是玩家确认过的指定值，不是笔误——写测试时不要假设「奇异物质一定最重」。
+- **UI 排序**：`ResourceManagementPanel.vue` 的 `ejectionRows` 追加 `.sort((a, b) => a.mass - b.mass || a.definition.name.localeCompare(b.definition.name, 'zh-Hans-CN'))`。等质量时按名称二次排序，避免同档资源在不同渲染间互换位置。
+- **UI 标红**：模板的 `<h3 class="management-name">` 加 `:class="{ exotic: row.exotic }"`，样式 `.ejection-list .management-name.exotic { color: var(--red); }`。`exotic` 来自既有的 `isExoticResource(id)`，与「每单位奇异质量」文案同源。
+- **测试**：`tests/black-hole.test.ts` 新增一项锁定全部指定值 + 轻重顺序不变量 + 氘/氦-3 排除。已确认「改前是红的」：把 `adamantite` 改回 4.2e-6 后该测试立即失败。
+- **浏览器验收**：`tests/browser/acceptance.html` 在质量喷射用例块中新增两条——DOM 顺序与每单位质量升序一致；E-710 与纳米合金的 `.management-name` 计算色相同且与其他行不同。两条都验证过改前为红（去掉 `.sort()` / 去掉 `:class` 绑定各自失败）。**该处断言先临时解锁 `e710`/`nanoAlloy`，用例末尾已还原 `unlockedResources`**，避免泄漏到后续用例。
+- **兼容**：无存档结构变化，`CONFIG.version` 仍为 33。质量表只影响结算速率，不写入存档。
+- **验证**：`npm run check` 通过：784 项模块测试、经典 VM 回归（失败 0）、Edge 浏览器验收 604 项、类型检查与生产构建。
+
 ## 2026/10/22 beta 0.9.35 猫咖→芯片工厂，绝世好猫→多重曝光技术，新增抗辐射芯片
 
 - **改名**：`data/buildings.ts` 的 `catCafe.name` 改为「芯片工厂」并新增 `desc`（`BuildingDefinition.desc` 原本就是可选的 flavor 字段，无需改类型）。ID `catCafe` 保持不变——它是存档字段名，改名会断档。科技 `catCafe` 的名称同步改为「芯片工厂」。

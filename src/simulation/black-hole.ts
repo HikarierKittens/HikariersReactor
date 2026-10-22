@@ -18,17 +18,30 @@ export const GRAVITY_ENERGY_PER_EXOTIC = 50;
 export const BLACK_HOLE_UNSTABLE_LOG = '黑洞被发现不稳定量子激发态，科学家提出了新的研究方案';
 export const MASS_EJECTION_UNLOCK_LOG = '资源管理中解锁了新的面板';
 
-/** Mass per ejected unit, roughly proportional to molecular weight (×1e-8).
- * Crafted goods weigh about as much as their recipe inputs. */
+/** Mass per ejected unit, roughly proportional to molecular/atomic weight (×1e-8).
+ * Crafted goods weigh about as much as their recipe inputs.
+ *
+ * 氘 and 氦-3 are deliberately left at their old values (2e-8 / 3e-8): they are the two
+ * lightest ejectables and anchor the bottom of the ordering. Everything else was raised
+ * 20–50% over the pre-0.9.36 table by the player's request, keeping the light-to-heavy
+ * order physically sensible (wood stays far below iron, uranium stays near the top). */
 export const EJECTION_MASSES: Partial<Record<ResourceId, number>> = {
-  deuterium: .00000002, helium3: .00000003, coal: .00000012, nanotubes: .00000012, graphene: .00000012,
-  water: .00000018, fur: .0000002, wood: .0000003, food: .0000003, polymer: .0000003, aluminum: .00000027,
-  titanium: .00000048, iron: .00000056, metal: .00000058, stone: .0000006, alloy: .0000006, copper: .00000064,
-  oil: .00000114, cement: .0000012, iridium: .00000192, uranium: .00000238, adamantite: .000003, neutron: .00001,
-  aerogel: .000001, metalPlate: .0000027, plank: .000003, wroughtIron: .0000056, brick: .000006, mithril: .0000192,
+  // 气体与最轻的碳结构。
+  deuterium: .00000002, helium3: .00000003, nanotubes: .00000015, graphene: .00000015, coal: .00000017,
+  // 有机物与水。木头必须远轻于铁。
+  water: .00000024, fur: .00000026, wood: .00000038, food: .00000041, polymer: .0000004,
+  // 轻金属。
+  aluminum: .00000035, titanium: .00000062, iron: .00000072, copper: .00000083,
+  // 石料、合金与大宗制品。
+  stone: .00000078, metal: .00000075, alloy: .00000079, cement: .0000016, metalPlate: .0000035,
+  plank: .0000039, wroughtIron: .0000073, brick: .0000078,
+  // 重液体与致密金属。
+  oil: .00000148, iridium: .0000025, uranium: .0000031, adamantite: .00001, mithril: .0000249,
+  // 气凝胶是极端多孔材料，单位体积质量极低；中子单独一档，远重于任何普通物质。
+  aerogel: .0000001, neutron: .00004,
 };
-/** Exotic matter only adds exotic mass. */
-export const EXOTIC_EJECTION_MASSES: Partial<Record<ResourceId, number>> = { e710: .0000005, nanoAlloy: .00000002 };
+/** Exotic matter only adds exotic mass. Both are the heaviest ejectables by far. */
+export const EXOTIC_EJECTION_MASSES: Partial<Record<ResourceId, number>> = { e710: .00001, nanoAlloy: .0000002 };
 
 export function createBlackHoleState(): BlackHoleState {
   return { mass: BLACK_HOLE_INITIAL_MASS, exoticMass: 0, unstable: false, ejection: {} };

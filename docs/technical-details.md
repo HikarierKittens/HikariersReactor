@@ -229,6 +229,15 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 - **不在明细里单列**：`calculateResourceFactorRows` 里没有 `pct('多重曝光技术', ...)`，但 `local *= chipFactoryOutputMultiplier(state)` 必须保留——`local` 参与 `expected` 自检，删掉会让明细与结算分叉。
 - 新增 `TechnologyId` 必须同时登记 `vue/tech-categories.ts` 的分类表，漏了会直接编译失败（`Record<TechnologyId, TechCategory>`），这是有意的强制约束。
 
+### 质量喷射的质量表与列表（beta 0.9.36）
+
+- 唯一来源是 `simulation/black-hole.ts` 的 `EJECTION_MASSES`（普通物质）与 `EXOTIC_EJECTION_MASSES`（奇异物质），`ejectionMass(id)` 依次查两者。
+- 0.9.36 重定了整张表：玩家指定 `e710` 1e-5、`nanoAlloy` 2e-7、`neutron` 4e-5、`adamantite` 1e-5、`aerogel` 1e-7；`deuterium`/`helium3` 保持原值（2e-8 / 3e-8），仍是最轻的两项。其余按原子量/分子量排布，整体较 0.9.35 上调 20%~50%。
+- **`nanoAlloy` 2e-7 刻意很轻**（轻于水、铝、木材，列表第 8 位）。这是玩家确认的指定值，写断言时不要假设「奇异物质必然最重」。
+- **连带影响**：`stabilizeBlackHole` 里赠送的质量是 `BLACK_HOLE_STABILIZE_NEUTRONS * ejectionMass('neutron')`，即 100000 × 4e-5 = **+4**（此前为 +1）。改中子质量就会连带改这里，不需要额外改代码。
+- **列表排序**：`ResourceManagementPanel.vue` 的 `ejectionRows` 按 `mass` 升序，等质量时用 `localeCompare(..., 'zh-Hans-CN')` 二次排序保证稳定。
+- **标红**：`<h3 class="management-name" :class="{ exotic: row.exotic }">`，样式取自 `var(--red)`；`row.exotic` 来自 `isExoticResource(id)`，与「每单位奇异质量」文案同一个判断。
+
 ### 左右两列的固定与高度（beta 0.9.33）
 
 - 左栏 `.col-left.pinned-column` 与右栏 `.col-right.pinned-column` 用同一套做法：`position:sticky; top:0` + `display:flex; flex-direction:column`，列内滚动区吸收剩余高度。

@@ -832,10 +832,33 @@ try {
     const columns = getComputedStyle(list).gridTemplateColumns.split(' ').length;
     const first = rows[0].getBoundingClientRect(), second = rows[1].getBoundingClientRect();
     log(columns === (innerWidth > 900 ? 2 : 1) && (columns === 1 || (second.left > first.right && Math.abs(second.top - first.top) < 2)) && list.scrollWidth <= list.clientWidth + 1, '质量喷射列表两列排列，窄屏单列且无横向溢出');
+    // 从上到下按每单位质量排序：DOM 顺序必须与数值升序一致（两列网格按行优先填充）。
+    const shown = rows.map(row => row.querySelector('.management-name').textContent.trim());
+    const masses = rows.map(row => {
+      const note = row.querySelector('.management-note').textContent;
+      const raw = note.replace(/^每单位(奇异)?质量\s*/, '').trim();
+      return Number(raw.includes('e') ? Number(raw) : parseFloat(raw));
+    });
+    const ascending = masses.every((value, index) => index === 0 || masses[index - 1] <= value + 1e-18);
+    log(ascending, `质量喷射列表按每单位质量升序 [${shown.slice(0, 4).join(' < ')} ...]`);
+    // E-710 与纳米合金是奇异物质，名称用红色显示；其他资源保持原色。
+    // 这两个资源默认未解锁，先解锁再重新读取列表，否则筛不到行、断言会静默通过。
+    store.mutate(state => { state.unlockedResources = [...new Set([...(state.unlockedResources || []), 'e710', 'nanoAlloy'])]; }); await flush();
+    const freshRows = [...$('.ejection-list').querySelectorAll('[data-eject-row]')];
+    const redOf = row => getComputedStyle(row.querySelector('.management-name')).color;
+    const isExoticName = row => /^E-710$|^纳米合金$/.test(row.querySelector('.management-name').textContent.trim());
+    const exoticRows = freshRows.filter(isExoticName);
+    const plainRows = freshRows.filter(row => !isExoticName(row));
+    log(exoticRows.length === 2 && exoticRows.every(row => redOf(row) === redOf(exoticRows[0])) && plainRows.every(row => redOf(row) !== redOf(exoticRows[0])),
+      `奇异物质名称红色标识 [${exoticRows.map(row => row.querySelector('.management-name').textContent.trim()).join('、')}]`);
   }
   click($('[data-eject-resource="wood"][data-delta="1"]')); await flush();
   log(S().blackHole.ejection.wood === 10, '质量喷射双列布局仍可正常分配');
-  store.mutate(state => { state.buildings.massEjector = 0; state.blackHole.ejection = {}; }); await flush();
+  store.mutate(state => {
+    state.buildings.massEjector = 0; state.blackHole.ejection = {};
+    // 上面为了验证奇异物质标红临时解锁了 e710 / nanoAlloy，这里还原，避免泄漏到后续用例。
+    state.unlockedResources = (state.unlockedResources || []).filter(resource => resource !== 'e710' && resource !== 'nanoAlloy');
+  }); await flush();
   click($('[data-tab="cats"]')); await flush();
   const craftButton = count => $(`[data-crafted-resource="plank"] [data-craft="plank"][data-craft-count="${count}"]`);
   // 资源列表、锻造物与威望资源共用一个滚动容器，依次排列（beta 0.9.25）。

@@ -35,7 +35,10 @@ const ejectionRows = computed(() => {
   props.revision;
   return (Object.keys(RESOURCES) as ResourceId[])
     .filter(id => isEjectableResource(id) && isResourceUnlocked(id, props.state))
-    .map(id => ({ id, definition: RESOURCES[id], rate: props.state.blackHole.ejection[id] || 0, actual: ejected.value[id] || 0, mass: ejectionMass(id), exotic: isExoticResource(id) }));
+    .map(id => ({ id, definition: RESOURCES[id], rate: props.state.blackHole.ejection[id] || 0, actual: ejected.value[id] || 0, mass: ejectionMass(id), exotic: isExoticResource(id) }))
+    // 从上到下按每单位质量升序排列，轻的在上、重的在下。等质量时按名称稳定排序，
+    // 避免同一个存档在不同渲染中互换位置。
+    .sort((a, b) => a.mass - b.mass || a.definition.name.localeCompare(b.definition.name, 'zh-Hans-CN'));
 });
 function mass(value: number): string { return value >= .001 || value === 0 ? formatBlackHoleMass(value) : value.toExponential(2); }
 
@@ -91,7 +94,7 @@ const alloyRows = computed(() => {
     </div>
     <div class="management-list ejection-list">
       <article v-for="row in ejectionRows" :key="row.id" class="management-row" :data-eject-row="row.id">
-        <h3 class="management-name">{{ row.definition.name }}</h3>
+        <h3 class="management-name" :class="{ exotic: row.exotic }">{{ row.definition.name }}</h3>
         <span class="management-note small subtle">每单位{{ row.exotic ? '奇异质量' : '质量' }} {{ mass(row.mass) }}</span>
         <div class="management-controls">
           <button :data-eject-resource="row.id" :data-delta="-1" :disabled="row.rate <= 0" :aria-label="`减少${row.definition.name}喷射`" @click="emit('eject', row.id, -10 * clickMultiplier($event))">−</button>
@@ -211,6 +214,8 @@ const alloyRows = computed(() => {
 .ejection-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
 .ejection-list .management-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; width: auto; min-width: 0; white-space: normal; }
 .ejection-list .management-name { overflow-wrap: anywhere; }
+/* 奇异物质（E-710、纳米合金）用红色名称区分，颜色取自主题变量，与正负值配色一致。 */
+.ejection-list .management-name.exotic { color: var(--red); }
 .ejection-list .management-note { grid-column: 1; min-width: 0; overflow-wrap: anywhere; }
 .ejection-list .management-controls { grid-column: 2; grid-row: 1 / 3; flex-wrap: wrap; max-width: 230px; }
 .ejection-list .management-controls > span { min-width: 0; }
