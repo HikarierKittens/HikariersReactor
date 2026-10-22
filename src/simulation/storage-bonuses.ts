@@ -5,6 +5,9 @@ import { BUILDINGS } from '../data/buildings';
 import type { BuildingId } from '../types/buildings';
 import { countAsrielResidents } from './asriel';
 import { SPACEPORT_HIGHER_DIMENSIONAL_WATER, RESEARCH_SATELLITE_LAB_CAPACITY } from './building-effects';
+import {
+  unificationCashMultiplier, unificationFuelMultiplier, unificationStorageMultiplierFor,
+} from './unification-storage';
 import type { AsrielSupport, ResourceId, ResourceRecipe } from '../types/economy';
 import type { GameState } from '../types/state';
 import type { MoonSupport } from './moon';
@@ -68,7 +71,8 @@ export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: 
     // Vault upgrades add to the flat base before additive percentage bonuses;
     // intelligent banking doubles the full per-building contribution afterwards.
     const multiplier = (1 + (state.tech.includes('iridiumAlloyWarehouse') ? .2 : 0))
-      * (state.tech.includes('intelligentBankingSystem') ? 2 : 1);
+      * (state.tech.includes('intelligentBankingSystem') ? 2 : 1)
+      * unificationCashMultiplier(state);
     if (id === 'catCafe') {
       const base = 4000 + (state.tech.includes('iridiumSteelVault') ? 2500 : 0)
         + (state.tech.includes('neutronVault') ? 3000 : 0);
@@ -80,7 +84,7 @@ export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: 
       + (state.tech.includes('neutronVault') ? 2000 : 0);
     return { cash: base * multiplier };
   }
-  if (id === 'warehouse') return Object.fromEntries((upgraded ? ADVANCED_STORAGE_RESOURCES : WAREHOUSE_RESOURCES).map(r => [r, (upgraded ? 500 : 250) * warehouseMultiplier]));
+  if (id === 'warehouse') return Object.fromEntries((upgraded ? ADVANCED_STORAGE_RESOURCES : WAREHOUSE_RESOURCES).map(r => [r, (upgraded ? 500 : 250) * warehouseMultiplier * unificationStorageMultiplierFor(id, state)]));
   if (id === 'quantizedCompressionModule') return { knowledge: 100000 * (1 + .1 * (digital ?? calculateSupportPreview(state).digital).decoderUnits) };
   if (id === 'ethMiner') return { cash: 512000 };
   if (id === 'biologyLab') return { knowledge: 3000 };
@@ -95,19 +99,22 @@ export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: 
   if (id === 'alienMaterialLab') return { knowledge: asriel ? 250 * countAsrielResidents(state, asriel)
     * (1 + (state.tech.includes('stationScienceFacilities') ? .05 * state.buildings.starRingStation : 0)) : 0, e710: 25 };
   if (id === 'spaceWaystation') return { oil: 250, helium3: 250 };
-  if (id === 'hangar') return { ...Object.fromEntries(['copper', 'iron', 'cement', 'metal', 'titanium', 'alloy', 'polymer'].map(r => [r, 8000 * warehouseMultiplier])),
-    ...(isResourceUnlocked('neutron', state) ? { neutron: 4000 * warehouseMultiplier } : {}),
-    ...(isResourceUnlocked('nanotubes', state) ? { nanotubes: 25000 * warehouseMultiplier } : {}) };
+  if (id === 'hangar') return { ...Object.fromEntries(['copper', 'iron', 'cement', 'metal', 'titanium', 'alloy', 'polymer'].map(r => [r, 8000 * warehouseMultiplier * unificationStorageMultiplierFor(id, state)])),
+    ...(isResourceUnlocked('neutron', state) ? { neutron: 4000 * warehouseMultiplier * unificationStorageMultiplierFor(id, state) } : {}),
+    ...(isResourceUnlocked('nanotubes', state) ? { nanotubes: 25000 * warehouseMultiplier * unificationStorageMultiplierFor(id, state) } : {}) };
   if (id === 'talosMoonMiningStation') return { neutron: 100 };
-  if (id === 'galacticFuelDepot') return { oil: 4000, helium3: 2500, uranium: 1500 };
+  {
+    const fuel = unificationFuelMultiplier(state);
+    if (id === 'galacticFuelDepot') return { oil: 4000 * fuel, helium3: 2500 * fuel, uranium: 1500 * fuel };
+    if (id === 'orbitalFuelDepot') return { oil: 2000 * fuel, helium3: 1000 * fuel, uranium: 500 * fuel };
+    if (id === 'fuelDepot') return { oil: 1000 * fuel, ...(state.tech.includes('uraniumStorage') ? { uranium: 250 * fuel } : {}), ...(state.tech.includes('helium3Storage') ? { helium3: 500 * fuel } : {}) };
+  }
   if (id === 'researchSatellite') return { knowledge: 1500 };
   // Base 1000 per owned 实验室; the funded second 1000 is added by
   // calculateLabKnowledgeCapacity through the shared storage pass (see storage.ts).
   if (id === 'lab') return { knowledge: 1000 * calculateLabKnowledgeMultiplier(state) };
-  if (id === 'storageHub') return Object.fromEntries(ADVANCED_STORAGE_RESOURCES.map(r => [r, (state.tech.includes('intelligentStorage') ? 2500 : 1500) * warehouseMultiplier]));
+  if (id === 'storageHub') return Object.fromEntries(ADVANCED_STORAGE_RESOURCES.map(r => [r, (state.tech.includes('intelligentStorage') ? 2500 : 1500) * warehouseMultiplier * unificationStorageMultiplierFor(id, state)]));
   if (id === 'moonBase') return { iridium: 100 };
-  if (id === 'orbitalFuelDepot') return { oil: 2000, helium3: 1000, uranium: 500 };
-  if (id === 'fuelDepot') return { oil: 1000, ...(state.tech.includes('uraniumStorage') ? { uranium: 250 } : {}), ...(state.tech.includes('helium3Storage') ? { helium3: 500 } : {}) };
   if (id === 'refinery') return { oil: 250 };
   const boostResource = BUILDINGS[id].boostResource;
   return boostResource ? { [boostResource]: 100 } : {};

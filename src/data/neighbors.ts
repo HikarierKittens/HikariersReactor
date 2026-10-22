@@ -159,7 +159,25 @@ export const OCCUPATION_OPINION_RECOVERY = .5;
  * so the output bonus, garrison and tax penalty end and are replaced by these flat bonuses.
  */
 export const UNIFICATION_OUTPUT_BONUS = .25;
-export const UNIFICATION_STORAGE_BONUS = .25;
+/*
+ * 世界统一 storage bonuses are per building family, not a blanket ordinary-resource factor.
+ *
+ * The blanket +25% was replaced on request: it made every resource cap rise, which flattened
+ * the payoff of actually building storage. The new rules target the storage facilities
+ * themselves, so upgrading them is what unlocks the extra room.
+ */
+/** 集装仓库 / 格纳库 provide this many extra container slots each. */
+export const UNIFICATION_CONTAINER_SLOTS = 10;
+/** ...and this many extra alloy containers each. */
+export const UNIFICATION_ALLOY_CONTAINER_SLOTS = 5;
+/** 格纳库's own resource capacity is doubled (+100% on its base contribution). */
+export const UNIFICATION_HANGAR_STORAGE_MULTIPLIER = 2;
+/** 燃料库 / 轨道燃料库 / 星系燃料库: +50% on 石油 / 氦-3 / 铀. */
+export const UNIFICATION_FUEL_DEPOT_BONUS = .5;
+/** 银行 / 猫咖: +25% on their cash capacity. */
+export const UNIFICATION_BANK_BONUS = .25;
+/** 仓库 / 高级存储枢纽: +100% on their base contribution. */
+export const UNIFICATION_WAREHOUSE_MULTIPLIER = 2;
 /** Opinion lost per game day per raid above zero? No: raids cost once. Retaliation needs 0. */
 export const RETALIATION_OPINION = 10;
 export const RETALIATION_LOSS = .12;

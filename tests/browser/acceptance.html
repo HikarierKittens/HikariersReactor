@@ -543,7 +543,7 @@ try {
       state.soldiers = 200;
     }); await flush();
     log(!$('[data-neighbors]') && !!$('[data-world-unified]'), '世界统一后临近势力面板替换为统一说明');
-    log($('[data-unification-bonus]')?.textContent.includes('全局产量 +25%') && $('[data-unification-bonus]')?.textContent.includes('储量 +25%'), `世界统一说明列出产量与储量加成 [${$('[data-unification-bonus]')?.textContent}]`);
+    log($('[data-unification-bonus]')?.textContent.includes('全局产量 +25%') && $('[data-unification-bonus]')?.textContent.includes('资源储量大幅提升'), `世界统一说明列出产量与储量加成 [${$('[data-unification-bonus]')?.textContent}]`);
     store.mutate(state => Object.assign(state, unifiedSnapshot)); await flush();
   }
   // 占领 must be explained in the resource detail left column: the +5% output factor and the

@@ -8,7 +8,7 @@ import { fmt, percent, storageCap, orderedCostEntries } from '../format';
 import { uiPreview } from '../preview-cache';
 import {
   NEIGHBORS, NEIGHBOR_IDS, RAID_ACTIONS, OCCUPATION_SOLDIERS, OCCUPATION_OUTPUT_BONUS,
-  OCCUPATION_TAX_PENALTY, UNIFICATION_OUTPUT_BONUS, UNIFICATION_STORAGE_BONUS, type NeighborId, type RaidTier,
+  OCCUPATION_TAX_PENALTY, UNIFICATION_OUTPUT_BONUS, type NeighborId, type RaidTier,
 } from '../../data/neighbors';
 import { isNeighborsUnlocked, isWorldUnified, previewRaid, neighborStrength, garrisonedSoldiers } from '../../simulation/neighbors';
 import { hospitalHealPerDay } from '../../simulation/hospital';
@@ -191,7 +191,7 @@ function setTax(event: Event): void {
       <section v-if="worldUnified" data-world-unified>
         <h3>世界统一</h3>
         <p class="small">敌对国家已经消失，世界被统一了。占领期间的税收、驻军与产量加成一并结束。</p>
-        <p class="small" data-unification-bonus>全局产量 +{{ UNIFICATION_OUTPUT_BONUS * 100 }}%，所有普通资源储量 +{{ UNIFICATION_STORAGE_BONUS * 100 }}%。</p>
+        <p class="small" data-unification-bonus>全局产量 +{{ UNIFICATION_OUTPUT_BONUS * 100 }}%，资源储量大幅提升。</p>
       </section>
       <section v-else-if="!neighborsUnlocked">
         <h3>临近势力</h3>

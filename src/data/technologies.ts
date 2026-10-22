@@ -160,7 +160,7 @@ export const TECHNOLOGIES: Record<TechnologyId, TechnologyDefinition> = {
     fieldHospital: { name: '战地医院', era: 2, tier: 5, knowledgeCost: 5000, cost: { knowledge: 5000, metalPlate: 20, cash: 800 }, pre: ['military', 'science'], effects: ['解锁建筑：医院，用于治愈临近势力行动中产生的伤兵'] },
     // T13 统一计划 opens the special 世界统一 research once every neighbour is occupied.
     unifiedPlan: { name: '统一计划', era: 4, tier: 13, knowledgeCost: 325, cost: { knowledge: 325 }, pre: ['alienSettlement'], effects: ['研究后解锁特殊科技：世界统一', '世界统一需要占领全部3个敌对国家'] },
-    worldUnification: { name: '世界统一', era: 4, tier: -1, knowledgeCost: 1474, cost: { knowledge: 1474 }, pre: ['unifiedPlan'], occupiedNeighborsRequired: 3, effects: ['占领全部3个敌对国家后可研究', '研究后敌对国家消失，占领带来的税收、驻军与产量加成一并结束', '全局产量+25%，所有普通资源储量+25%'] },
+    worldUnification: { name: '世界统一', era: 4, tier: -1, knowledgeCost: 1474, cost: { knowledge: 1474 }, pre: ['unifiedPlan'], occupiedNeighborsRequired: 3, effects: ['占领全部3个敌对国家后可研究', '研究后敌对国家消失，占领带来的税收、驻军与产量加成一并结束', '全局产量+25%，资源储量大幅提升'] },
     nuclearProgram: { name: '核弹计划', era: 4, tier: 10, knowledgeCost: 100000, cost: { knowledge: 100000 }, pre: ['rocketry', 'arpa'], effects: ['解锁核弹工程计划，发射后毁灭世界'] },
     automatedMining: { name: '自动化采矿', era: 3, cost: { knowledge: 1000 }, pre: ['automation', 'electricity'], effects: ['采矿场、煤矿、伐木场和采石场可启用供能，每座消耗1电力，分别为对应工人额外提供叠加的产量+5%；关闭供能仍保留岗位及基础采集'] },
     metalRefining: { name: '金属精炼', era: 2, cost: { knowledge: 800 }, pre: ['metallurgy'], effects: ['解锁金属精炼厂，建成后由石工采集铝', '每座精炼厂使铝总产量+6%'] },

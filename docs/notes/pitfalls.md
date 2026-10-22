@@ -227,3 +227,16 @@
 - **症状**：临近势力面板按需求删掉「可掠夺资源预估」后，很容易顺手把 `previewRaid` 的 `loot` 一起删掉，以为没人用了。
 - **原因**：`loot` 的消费者不止界面。`tests/raid-economy.test.ts` 大量用 `previewRaid(...).loot` 断言经济差异，`executeRaid` 也走同一套 `raidLoot`。删掉会让结算失去预览依据、并让一批测试失去意义。
 - **做法**：只删界面那一行，以及因它而死的 `buildRaidEconomy` 调用；`previewRaid` 的 `loot` 字段保留。界面侧不传 `economy` 时 `loot` 回退为 `EMPTY_ECONOMY` 的空对象，正好顺带省掉每次按键的一次重算。
+
+## 36. 新增 simulation 模块后，忘登记 legacy 注册表会让核心 VM 回归静默失败
+
+- **症状**：`npm test` 打印 `ℹ tests 780 / pass 780 / fail 0`，看着全绿，但**退出码是 1**。往上翻才能看到 `核心回归失败数：24` 和 `ReferenceError: unificationFuelMultiplier is not defined (assets/generated/storage-bonuses.js:122)`。
+- **原因**：经典的 VM 回归用的是 `assets/generated/*.js`——`scripts/generate-legacy-data.cjs` 把源码按注册表顺序拼成共享全局的 VM 脚本。新模块 `simulation/unification-storage.ts` 没进注册表，于是它的函数在 VM 全局里不存在，而依赖它的 `storage-bonuses` 照常被注入。TypeScript 那里完全正常，只有 VM 报错。
+- **做法**：新增 `simulation/*.ts` 模块时必须往注册表加一行，且**顺序要在依赖它的模块之前**。本例必须排在 `neighbors`（它调用 `isWorldUnified`）之后、`storage-bonuses` 与 `containers` 之前。
+- **教训**：`npm test` 的 `fail 0` 不代表通过，**要看退出码**；模块测试与 VM 回归是两条独立通道。
+
+## 37. 用 `git stash -- <新文件>` 验证「改前是红的」是无效的
+
+- **症状**：想验证新测试改前会失败，执行 `git stash push -- a.ts b.ts new-module.ts`，结果 `error: pathspec ... did not match any file(s) known to git`——未跟踪文件让整条命令失败，**一个文件都没被 stash**，测试跑的还是新代码，于是「全绿」被误当成验证通过。
+- **做法**：验证红有两种可靠方式——只 stash 已跟踪文件（接受导入失败的编译级红），或**把关键判定临时改成恒假**（例如把 `isWorldUnified` 换成 `() => false`）跑一遍，确认断言真的失败，再改回来。后者是行为级红，更有说服力。
+- **配合**：跑完立刻恢复并重跑一次确认绿，别把临时改动留在工作区。

@@ -3,7 +3,7 @@ import {
   OCCUPATION_OPINION_RECOVERY, OCCUPATION_OUTPUT_BONUS,
   OCCUPATION_SOLDIERS, OCCUPATION_TAX_PENALTY, RAID_ACTIONS, RAID_ECONOMY_FLOOR, RAID_STORAGE_BASE,
   RAID_ECONOMY_SPAN, RAID_TIERS, RETALIATION_LOSS,
-  RETALIATION_OPINION, SOLDIER_FOOD_UPKEEP, UNIFICATION_OUTPUT_BONUS, UNIFICATION_STORAGE_BONUS,
+  RETALIATION_OPINION, SOLDIER_FOOD_UPKEEP, UNIFICATION_OUTPUT_BONUS,
   type NeighborId, type RaidTier,
 } from '../data/neighbors';
 import { RESOURCES } from '../data/resources';
@@ -436,18 +436,13 @@ export function applyWorldUnification(state: GameState): boolean {
   const occupied = state.neighbors.occupied.length;
   if (!occupied) return false;
   state.neighbors.occupied = [];
-  addLog(state, `世界已统一：敌对国家消失，${occupied > 0 ? `原占领加成（产量 +${Math.round(occupied * OCCUPATION_OUTPUT_BONUS * 100)}%、驻军 ${occupied * OCCUPATION_SOLDIERS} 名、税收 −${occupied * OCCUPATION_TAX_PENALTY}%）随之结束；` : ''}全局产量 +${Math.round(UNIFICATION_OUTPUT_BONUS * 100)}%，普通资源储量 +${Math.round(UNIFICATION_STORAGE_BONUS * 100)}%。`, 'progress');
+  addLog(state, `世界已统一：敌对国家消失，${occupied > 0 ? `原占领加成（产量 +${Math.round(occupied * OCCUPATION_OUTPUT_BONUS * 100)}%、驻军 ${occupied * OCCUPATION_SOLDIERS} 名、税收 −${occupied * OCCUPATION_TAX_PENALTY}%）随之结束；` : ''}全局产量 +${Math.round(UNIFICATION_OUTPUT_BONUS * 100)}%，资源储量大幅提升。`, 'progress');
   return true;
 }
 
 /** Flat global output factor from 世界统一; 1 before the world is unified. */
 export function unificationOutputMultiplier(state: Pick<GameState, 'tech'>): number {
   return isWorldUnified(state) ? 1 + UNIFICATION_OUTPUT_BONUS : 1;
-}
-
-/** Flat storage factor for ordinary resources from 世界统一; 1 before it is researched. */
-export function unificationStorageMultiplier(state: Pick<GameState, 'tech'>): number {
-  return isWorldUnified(state) ? 1 + UNIFICATION_STORAGE_BONUS : 1;
 }
 
 /** Food per second spent feeding the army. */

@@ -48,6 +48,20 @@
 
 ---
 
+## 2026/10/22 beta 0.9.31 世界统一效果重做：储量加成改为强化具体建筑
+
+- **废弃一刀切**：删除 `UNIFICATION_STORAGE_BONUS`、`unificationStorageMultiplier`、`storage.ts` 的 `pushUnificationRow`（detail 与 batched 两条路径都删）。原先「所有普通资源储量 +25%」会让每种资源免费涨上限，建存储建筑变得没意义；改成强化存储建筑本身，多出来的空间来自「拥有这些建筑」。
+- **新增单一来源模块** `simulation/unification-storage.ts`：导出 `unificationContainerSlots`、`unificationAlloyContainerSlots`、`unificationStorageMultiplierFor(id, state)`、`unificationFuelMultiplier`、`unificationCashMultiplier`。因为规则横跨两个采集点——`containers.ts` 管集装箱槽位、`storage-bonuses.ts` 管每建筑容量——放一处才不会两边各写一份。
+- **数值**（`data/neighbors.ts`）：`UNIFICATION_CONTAINER_SLOTS = 10`、`UNIFICATION_ALLOY_CONTAINER_SLOTS = 5`、`UNIFICATION_HANGAR_STORAGE_MULTIPLIER = 2`、`UNIFICATION_FUEL_DEPOT_BONUS = .5`、`UNIFICATION_BANK_BONUS = .25`、`UNIFICATION_WAREHOUSE_MULTIPLIER = 2`。
+- **集装箱槽位**：`calculateBuildingContainerCap` 在 `超级集装箱`/`中子库` 调整后的值上再加 +10；`calculateBuildingAlloyContainerCap` 在 `超级集装箱` 分支内 +5（合金集装箱没有该科技时本来就不存在，所以不额外放开）。
+- **每建筑容量**：`格纳库`、`仓库`、`高级存储枢纽` 的整份贡献乘 2（含 `warehouseUpgrade` / `iridiumAlloyWarehouse` / `intelligentStorage` 等既有倍率，叠乘而非替换）；三个燃料库的 石油/氦-3/铀 乘 1.5；银行/猫咖的 cash 乘 1.25（在 vault 加算与 `intelligentBankingSystem` 之后）。
+- **`推进剂库`**：游戏数据里没有这个建筑，按用户确认按 `轨道燃料库(orbitalFuelDepot)` 处理。
+- **未被点名的资源**（知识、食物、字节等）现在完全没有统一储量加成——这是用户明确选择的「移除普通资源+25%，只保留新加成」。
+- **描述文案**：`worldUnification.effects[2]` 改为「全局产量+25%，资源储量大幅提升」；`InternalPanel.vue` 的 `data-unification-bonus` 同步；`applyWorldUnification` 的日志同步。
+- **legacy VM 回归**：`scripts/generate-legacy-data.cjs` 注册表必须新增 `['unification-storage', 'simulation/unification-storage']`，且排在 `neighbors` 之后、`storage-bonuses` 与 `containers` 之前，否则 VM 里 `unificationFuelMultiplier is not defined`，整个核心回归失败 24 项。
+- **测试**：新增 `tests/unification-storage.test.ts`（7 项：两条集装箱规则、格纳库翻倍、三个燃料库 +50%、银行/猫咖 +25%、仓库/枢纽翻倍、未点名建筑不受影响）。`tests/world-unification.test.ts` 里「raises every ordinary resource cap by 25%」改写为「boosts the named storage buildings」+ 新增「no longer multiplies every ordinary cap」。浏览器验收的面板文案断言同步（601 项不变）。
+- **验证**：`npm run check` 通过：780 项模块测试、经典 VM 回归（失败 0）、Edge 浏览器验收 601 项、类型检查与生产构建。
+
 ## 2026/10/22 beta 0.9.30 扫荡专属削弱与界面整理
 
 - **只有扫荡削减军事**：`data/neighbors.ts` 新增 `MILITARY_RAID_TIER: RaidTier = 2`（扫荡）。`calculateRaidMilitaryLoss` 多一个 `tier` 参数，非该档位直接返回 0，把「哪个行动能削」收敛到数据层单一常量，不在结算里硬编码 `2`。语义理由：偷袭/抢劫打的是商队与补给线，占领本身就是结束战斗，只有扫荡是成建制洗劫据点、正面消耗对方兵力。

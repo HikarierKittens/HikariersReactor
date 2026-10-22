@@ -33,6 +33,7 @@ src/app/runtime.ts 状态唯一所有者：tick / save / load / import / reset
 | 居民与住房 | `simulation/housing.ts`、`population.ts` | tick | `cat-housing starvation` |
 | 医院与伤兵 | `simulation/hospital.ts` | tick、InternalPanel | `hospital` |
 | 临近势力/掠夺 | `simulation/neighbors.ts`、`neighbor-economy.ts` | tick、政府页 | `neighbors neighbor-military-raid raid-economy raid-loot-log` |
+| 世界统一储量加成 | `simulation/unification-storage.ts`、`storage-bonuses.ts`、`containers.ts` | storage、containers | `unification-storage world-unification` |
 | 科技研究与队列 | `simulation/technology.ts`、`project-queue.ts`、`projects.ts` | tick、TechPanel | `tech-tree segmented-queue queue-estimates` |
 | 太空/数字世界/终局 | `simulation/space-settlement.ts`、`digital-world.ts`、`stage-three.ts` | tick、面板 | `outer-space digital-* stage-three*` |
 | 界面标签页 | `src/vue/App.vue`（`TABS`） | 各 Panel | `test:browser` |
@@ -86,7 +87,7 @@ src/app/runtime.ts 状态唯一所有者：tick / save / load / import / reset
 | 步骤 | 实测耗时 |
 |---|---|
 | `npm run typecheck` | 约 9 秒 |
-| `npm test`（98 个文件、772 项 + VM 回归） | 约 7 秒 |
+| `npm test`（99 个文件、780 项 + VM 回归） | 约 7 秒 |
 | `npm run test:browser` | 约 5 秒 |
 | `npm run build` | 约 2 秒 |
 | `npm run check`（全部） | 约 25 秒 |

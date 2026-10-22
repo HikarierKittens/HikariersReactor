@@ -1,23 +1,27 @@
 import { BUILDINGS } from '../data/buildings';
 import { RESOURCES } from '../data/resources';
 import { isResourceUnlocked } from './unlocks';
+import { unificationAlloyContainerSlots, unificationContainerSlots } from './unification-storage';
 import type { BuildingId } from '../types/buildings';
 import type { ResourceId, ResourceRecipe } from '../types/economy';
 import type { GameState } from '../types/state';
 
-/** 超级集装箱 raises 集装仓库 to 25; 中子库 replaces 格纳库's ordinary cap with 40. */
+/** 超级集装箱 raises 集装仓库 to 25; 中子库 replaces 格纳库's ordinary cap with 40.
+ *  世界统一 adds a flat +10 slots to both (on top of whichever upgrade applies). */
 export function calculateBuildingContainerCap(id: BuildingId, state: Pick<GameState, 'tech'>): number {
-  if (id === 'hangar' && state.tech.includes('neutronVault')) return 40;
-  if (id === 'containerWarehouse' && state.tech.includes('superContainers')) return 25;
+  if (id === 'hangar') return (state.tech.includes('neutronVault') ? 40 : BUILDINGS[id].containerCap || 0) + unificationContainerSlots(state);
+  if (id === 'containerWarehouse') return (state.tech.includes('superContainers') ? 25 : BUILDINGS[id].containerCap || 0) + unificationContainerSlots(state);
   return BUILDINGS[id].containerCap || 0;
 }
 export function calculateContainerCapacity(state: Pick<GameState, 'buildings' | 'tech'>): number {
   return (Object.keys(BUILDINGS) as BuildingId[]).reduce((sum, id) => sum + calculateBuildingContainerCap(id, state) * state.buildings[id], 0);
 }
-/** Alloy slots require 超级集装箱: 集装仓库 10, 格纳库 15 (replaced by 25 with 中子库). */
+/** Alloy slots require 超级集装箱: 集装仓库 10, 格纳库 15 (replaced by 25 with 中子库).
+ *  世界统一 adds a flat +5 to both. */
 export function calculateBuildingAlloyContainerCap(id: BuildingId, state: Pick<GameState, 'tech'>): number {
   if (!state.tech.includes('superContainers')) return 0;
-  return id === 'containerWarehouse' ? 10 : id === 'hangar' ? (state.tech.includes('neutronVault') ? 25 : 15) : 0;
+  const base = id === 'containerWarehouse' ? 10 : id === 'hangar' ? (state.tech.includes('neutronVault') ? 25 : 15) : 0;
+  return base ? base + unificationAlloyContainerSlots(state) : 0;
 }
 export function calculateAlloyContainerCapacity(state: Pick<GameState, 'buildings' | 'tech'>): number {
   return (['containerWarehouse', 'hangar'] as const).reduce((sum, id) => sum + calculateBuildingAlloyContainerCap(id, state) * (state.buildings[id] || 0), 0);

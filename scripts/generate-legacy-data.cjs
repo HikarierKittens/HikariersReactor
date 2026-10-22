@@ -17,6 +17,9 @@ const registry = [
   ['genes', 'simulation/genes'],
   ['neighbor-data', 'data/neighbors'],
   ['neighbors', 'simulation/neighbors'],
+  // 世界统一 storage bonuses are consumed by storage-bonuses and containers, so this must be
+  // a global before both of them (and after neighbors, whose isWorldUnified it calls).
+  ['unification-storage', 'simulation/unification-storage'],
   ['hospital', 'simulation/hospital'],
   ['validate-neighbors', 'state/validate-neighbors'],
   ['auto-workers', 'simulation/auto-workers'],

@@ -12,7 +12,7 @@ import { calculateResourceBreakdown, calculateResourceFactorRows } from '../src/
 import { calculateProduction } from '../src/simulation/production';
 import {
   applyWorldUnification, executeRaid, garrisonedSoldiers, isNeighborsUnlocked, isWorldUnified,
-  occupationOutputMultiplier, occupationTaxRate, unificationOutputMultiplier, unificationStorageMultiplier,
+  occupationOutputMultiplier, occupationTaxRate, unificationOutputMultiplier,
 } from '../src/simulation/neighbors';
 import { calculateStorageDetails, calculateStorageTotals } from '../src/simulation/storage';
 import { calculateSupportPreview } from '../src/simulation/support-preview';
@@ -148,7 +148,6 @@ test('researching 世界统一 dissolves the occupations and their effects', () 
   assert.equal(garrisonedSoldiers(state), 0, 'garrisons return');
   assert.equal(occupationTaxRate(state), state.taxRate, 'the occupation tax penalty ends');
   assert.equal(unificationOutputMultiplier(state), 1.25);
-  assert.equal(unificationStorageMultiplier(state), 1.25);
   assert.equal(isNeighborsUnlocked(state), false, 'no neighbours left to interact with');
 });
 
@@ -214,24 +213,35 @@ test('the resource detail lists the occupation output bonus and the tax penalty'
   assert.ok(!energyRows.some(row => row.name === '世界统一' || row.name.startsWith('占领')));
 });
 
-test('世界统一 raises every ordinary resource cap by 25% and leaves special ones alone', () => {
+test('世界统一 boosts the named storage buildings instead of every ordinary resource', () => {
   const state = fresh();
   state.buildings.warehouse = 4;
-  state.buildings.nest = 10;
+  state.buildings.hangar = 2;
   state.tech.push('worldUnification');
-  const caps = calculateStorageTotals(state, snapshot(state));
   const plain = fresh();
   plain.buildings.warehouse = 4;
-  plain.buildings.nest = 10;
+  plain.buildings.hangar = 2;
+  const caps = calculateStorageTotals(state, snapshot(state));
   const base = calculateStorageTotals(plain, snapshot(plain));
-  assert.ok(Math.abs(caps.iron / base.iron - 1.25) < 1e-9, 'ordinary resource cap +25%');
-  assert.ok(Math.abs(caps.wood / base.wood - 1.25) < 1e-9, 'wood +25%');
-  assert.equal(caps.knowledge, base.knowledge, 'knowledge is special and unaffected');
+  // The named buildings double; the flat 基础储量 does not, so the total grows by a bit less.
+  assert.ok(caps.iron > base.iron * 1.9, `iron capacity grew sharply [${base.iron} -> ${caps.iron}]`);
+  assert.ok(caps.iron < base.iron * 2, 'the flat base does not double');
   assert.equal(caps.energy, 0, 'electricity has no storage');
   // The detail rows and the batched totals agree.
   const details = calculateStorageDetails('iron', state, snapshot(state));
   assert.ok(Math.abs(details.total - caps.iron) < 1e-9);
-  assert.ok(details.rows.some(row => row.name === '世界统一'), 'the detail tooltip lists the bonus');
+});
+
+test('世界统一 no longer multiplies every ordinary cap', () => {
+  // A resource produced without any of the named storage buildings must not move at all.
+  const state = fresh();
+  state.tech.push('worldUnification');
+  const caps = calculateStorageTotals(state, snapshot(state));
+  const plain = fresh();
+  const base = calculateStorageTotals(plain, snapshot(plain));
+  for (const resource of ['food', 'knowledge', 'bytes'] as const) {
+    assert.equal(caps[resource], base[resource], `${resource} untouched by the blanket bonus`);
+  }
 });
 
 test('production actually credits the unification multiplier', () => {
@@ -266,7 +276,8 @@ test('after 世界统一 no raid can start and the panel shows the new summary',
   assert.match(panel, /data-world-unified/);
   assert.match(panel, /data-unification-bonus/);
   assert.match(panel, /UNIFICATION_OUTPUT_BONUS/);
-  assert.match(panel, /UNIFICATION_STORAGE_BONUS/);
+  assert.match(panel, /资源储量大幅提升/);
+  assert.doesNotMatch(panel, /UNIFICATION_STORAGE_BONUS/, 'the blanket storage bonus is gone');
 });
 
 test('a unified save round-trips through strict validation', () => {
