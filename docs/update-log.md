@@ -50,6 +50,14 @@
 
 ---
 
+## 2026/10/22 beta 0.9.37 质量喷射的调整粒度改为 1
+
+- **问题**：`ResourceManagementPanel.vue` 的喷射加减按钮硬编码了 `10 * clickMultiplier($event)`，单次点击就跳 10 单位，无法精细分配。全项目其他面板（工作猫、生产线、集装箱、冶炼工位等）都是 `clickMultiplier($event)` 直接相乘，只有这一处多乘了 10。
+- **改动**：两处 `10 * clickMultiplier($event)` 改为 `clickMultiplier($event)`。`clickMultiplier` 的基准值本来就是 1（`(ctrl?10:1) * (shift?25:1) * (alt?100:1)`），因此单次点击 = 1，组合键倍率不受影响。
+- **测试**：`tests/browser/acceptance.html` 原来断言 `ejection.wood === 10`，改为 `=== 1`，并新增两条——Ctrl 加速后为 11（即 +10 生效）、减少同样以 1 为颗粒（回到 1）。三条都验证过改前为红：把 `10 *` 加回去后第一条立即失败并打印 `[实际=10]`。
+- **兼容**：纯交互粒度调整，不涉及存档结构，`CONFIG.version` 仍为 33。已有的喷射分配数值不受影响。
+- **验证**：`npm run check` 通过：784 项模块测试、经典 VM 回归（失败 0）、Edge 浏览器验收 606 项、类型检查与生产构建。
+
 ## 2026/10/22 beta 0.9.36 质量喷射：质量表重定与列表排序
 
 - **数值**：`simulation/black-hole.ts` 的 `EJECTION_MASSES` / `EXOTIC_EJECTION_MASSES` 重写。玩家指定值：`e710` 1e-5、`nanoAlloy` 2e-7、`neutron` 4e-5、`adamantite` 1e-5、`aerogel` 1e-7。`deuterium`（2e-8）与 `helium3`（3e-8）**保持原值**，仍是最轻的两项。

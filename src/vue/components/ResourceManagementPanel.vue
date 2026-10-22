@@ -97,9 +97,9 @@ const alloyRows = computed(() => {
         <h3 class="management-name" :class="{ exotic: row.exotic }">{{ row.definition.name }}</h3>
         <span class="management-note small subtle">每单位{{ row.exotic ? '奇异质量' : '质量' }} {{ mass(row.mass) }}</span>
         <div class="management-controls">
-          <button :data-eject-resource="row.id" :data-delta="-1" :disabled="row.rate <= 0" :aria-label="`减少${row.definition.name}喷射`" @click="emit('eject', row.id, -10 * clickMultiplier($event))">−</button>
+          <button :data-eject-resource="row.id" :data-delta="-1" :disabled="row.rate <= 0" :aria-label="`减少${row.definition.name}喷射`" @click="emit('eject', row.id, -clickMultiplier($event))">−</button>
           <strong>{{ fmt(row.rate) }}/s</strong>
-          <button :data-eject-resource="row.id" :data-delta="1" :disabled="ejectionAllocated >= ejectionCapacity" :aria-label="`增加${row.definition.name}喷射`" @click="emit('eject', row.id, 10 * clickMultiplier($event))">+</button>
+          <button :data-eject-resource="row.id" :data-delta="1" :disabled="ejectionAllocated >= ejectionCapacity" :aria-label="`增加${row.definition.name}喷射`" @click="emit('eject', row.id, clickMultiplier($event))">+</button>
           <span class="small subtle">实际 {{ fmt(row.actual) }}/s</span>
         </div>
       </article>

@@ -853,7 +853,11 @@ try {
       `奇异物质名称红色标识 [${exoticRows.map(row => row.querySelector('.management-name').textContent.trim()).join('、')}]`);
   }
   click($('[data-eject-resource="wood"][data-delta="1"]')); await flush();
-  log(S().blackHole.ejection.wood === 10, '质量喷射双列布局仍可正常分配');
+  log(S().blackHole.ejection.wood === 1, `质量喷射单次点击调整1单位 [实际=${S().blackHole.ejection.wood}]`);
+  modifiedClick($('[data-eject-resource="wood"][data-delta="1"]'), { ctrlKey: true }); await flush();
+  log(S().blackHole.ejection.wood === 11, `质量喷射 Ctrl 加速仍为×10 [实际=${S().blackHole.ejection.wood}]`);
+  modifiedClick($('[data-eject-resource="wood"][data-delta="-1"]'), { ctrlKey: true }); await flush();
+  log(S().blackHole.ejection.wood === 1, `质量喷射减少同样按1为最小颗粒 [实际=${S().blackHole.ejection.wood}]`);
   store.mutate(state => {
     state.buildings.massEjector = 0; state.blackHole.ejection = {};
     // 上面为了验证奇异物质标红临时解锁了 e710 / nanoAlloy，这里还原，避免泄漏到后续用例。
