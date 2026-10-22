@@ -68,3 +68,30 @@ test('实验室 capacity row matches the storage detail source exactly', () => {
   const described = Number(labTip(state).rows[1]?.value.replace('+', ''));
   assert.equal(described, calculateStorageBonuses('lab', state, null).knowledge, 'tooltip and storage details share one source');
 });
+
+test('军营 tooltip keeps only the soldier cap number, without the removed note', () => {
+  const state = createInitialState(CONFIG.version, 60, 0);
+  state.buildings.barracks = 2;
+  const support = calculateSupportPreview(state);
+  const notes: string[] = [];
+  const rows: { name: string; value: string }[] = [];
+  addBuildingEffectRows({
+    id: 'barracks', building: BUILDINGS.barracks, state,
+    snapshot: {
+      moon: support.moon, asriel: support.asriel, moonBaseUnits: support.moon.baseUnits,
+      biologyUnits: support.biologyUnits, dataCenterUnits: support.dataCenterUnits, labUnits: support.labUnits,
+      e710ContainerUnits: support.e710ContainerUnits, e710WarehouseUnits: support.e710WarehouseUnits,
+      researchStationUnits: support.researchStationUnits, blackHoleStationUnits: support.blackHoleStationUnits,
+      stageThree: support.stageThree, digital: support.digital,
+    } as never,
+    count: state.buildings.barracks, tip: { description: '', footnote: '', rows: [] } as never,
+    add: (name, value, _negative, note) => { rows.push({ name, value }); if (note) notes.push(note); },
+    number: (n: number) => String(Number(n.toFixed(2))), percent: (n: number) => String(n),
+    formatEffectNumber: (n: number) => String(Number(n.toFixed(2))),
+  });
+  const capRow = rows.find(row => row.name === '士兵容量');
+  assert.ok(capRow, `soldier cap row exists [${rows.map(row => row.name).join(' / ')}]`);
+  assert.equal(capRow.value, '+2', 'two barracks give +2 soldier cap');
+  // 0.9.39 移除了「军营数量决定士兵数量上限……」这段小字：任何行都不应再带备注。
+  assert.deepEqual(notes, [], `no tooltip notes expected [${notes.join(' | ')}]`);
+});

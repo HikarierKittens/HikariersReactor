@@ -126,8 +126,7 @@ export function addBuildingEffectRows(ctx: BuildingTooltipContext): void {
   if (id === 'miningDrone') add('塔卫二采矿站产量', '+5%');
   if (id === 'ecologicalDome') add('每座Asriel居住站猫口容量', '+0.05');
   if (building.cap) add('猫口容量', `+${number(building.cap + (id === 'asrielResidence' ? .05 * snapshot.asriel.allocations.ecologicalDome : 0))}`);
-  if (building.soldierCap) add('士兵容量', `+${number(building.soldierCap)}`, false,
-    id === 'barracks' ? '军营数量决定士兵数量上限：关闭军营会立即取消其士兵名额，超出上限的士兵会被马上移除，幸福度中的士兵容量压力也随之降低。' : undefined);
+  if (building.soldierCap) add('士兵容量', `+${number(building.soldierCap)}`);
   if (building.trainingBoost) add('训练效果', `+${percent(calculateTrainingBoost(state))}%`);
   if (id === 'hospital') {
     add('治愈伤兵', `+${number(HOSPITAL_HEAL_PER_DAY)}/游戏日`, false,

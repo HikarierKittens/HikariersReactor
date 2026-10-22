@@ -50,6 +50,14 @@
 
 ---
 
+## 2026/10/22 beta 0.9.39 军营详情移除士兵上限小字
+
+- **改动**：`vue/building-tooltip-rows.ts` 中 `building.soldierCap` 那一行原本是 `add('士兵容量', '+N', false, id === 'barracks' ? '军营数量决定士兵数量上限：关闭军营会立即取消其士兵名额……' : undefined)`，去掉了第 4 个 `note` 参数与 `id === 'barracks'` 判断，现在只剩 `add('士兵容量', '+N')`。
+- **影响范围**：只影响军营详情的显示文案，不改变任何结算逻辑。士兵容量压力（`calculateSupportPreview` 那条链路）与「关停军营移除超限士兵」的行为均未改动。
+- **测试**：`tests/lab-tooltip.test.ts` 新增一项，驱动真实的 `addBuildingEffectRows` 并捕获 `note` 参数，断言「士兵容量」行为 `+2` 且**没有任何行带 note**。已验证改前为红：把 note 加回去后立即失败并打印出被捕获的小字。
+- **验证**：`npm run check` 通过：787 项模块测试、经典 VM 回归（失败 0）、Edge 浏览器验收 606 项、类型检查与生产构建。
+- **兼容**：纯文案，无存档结构变化，`CONFIG.version` 仍为 33。
+
 ## 2026/10/22 beta 0.9.38 平衡性更新：采矿舰与太空设施产出下调
 
 - **奇异质量**：`EXOTIC_EJECTION_MASSES` 中 `e710` 1e-5 → **4e-6**，`nanoAlloy` 2e-7 → **1e-8**。纳米合金现在比氘（2e-8）还轻，是全场最轻的可喷射资源；「氘/氦-3 是最轻两项」的不变量因此改为限定在**普通**物质内。

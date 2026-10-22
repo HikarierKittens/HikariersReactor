@@ -199,6 +199,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     name: '粒子加速器', icon: '', tech: 'particleAccelerator', slots: 0,
     cost: { cash: 1000, copper: 250, iron: 250, metal: 25 },
     costScales: { cash: 1.33, copper: 1.33, iron: 1.33, metal: 1.33 },
+	desc: '看起来那些超时空粒子很喜欢电磁力',
   },
   swarmControlStation: {
     name: '蜂群控制站', icon: '',
@@ -230,6 +231,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     output: { neutron: 0.05 }, input: { energy: 3, oil: 1 },
     cost: { cash: 300000, titanium: 20000, iridium: 1500, helium3: 2000, mithril: 300 },
     costScales: { cash: 1.265, titanium: 1.265, iridium: 1.265, helium3: 1.265, mithril: 1.265 },
+	desc: '管理员你去哪了?!',
   },
   iridiumMiningShip: {
     name: '铱采矿船', icon: '', tech: 'asteroidBeltMining', slots: 0, toggleable: true, spaceSource: true,
@@ -249,6 +251,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     costScales: { cash: 1.235, copper: 1.235, cement: 1.235, wroughtIron: 1.235 },
     tech: 'alienCasting', buildingRequired: 'asrielSpaceport',
     slots: 1, craftSlots: true, workerName: '猫猫工匠', support: 1, asrielSupport: 1,
+	desc: '这是喵星最好的制造工坊',
   },
   spaceGarrison: {
     name: '太空驻军', icon: '',
@@ -256,6 +259,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     costScales: { cash: 1.3, alloy: 1.3, iridium: 1.3, wroughtIron: 1.3 },
     tech: 'spaceGarrison', buildingRequired: 'asrielSpaceport', slots: 0,
     toggleable: true, input: { oil: 0.5, food: 10 }, soldierCap: 2,
+	desc: '发现太空蓝色鲸鱼',
   },
   geothermalPlant: {
     name: '地热发电站', icon: '',
@@ -263,7 +267,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
     costScales: { cash: 1.19, metal: 1.19, polymer: 1.19 },
     tech: 'planetaryExploration', slots: 0, powerPlant: true, toggleable: true,
     input: { helium3: 0.5 }, output: { energy: 10 },
-    desc: '完成Kerberos任务后可建造。',
+    desc: '使用氦气导出行星内部的热能',
   },
   "moonBase": {
     settledByOtherSystem: true, "name": "月球基地",
@@ -506,7 +510,7 @@ export const BUILDINGS: Record<BuildingId, BuildingDefinition> = {
   },
   "hospital": {
     "name": "医院",
-    "desc": "收容并治疗从临近势力抬回来的伤兵。",
+    "desc": "救死扶伤，医者仁心",
     "icon": "",
     "cost": {
       "wood": 200,
