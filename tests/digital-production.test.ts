@@ -65,7 +65,7 @@ test('allocation intercepts funded positive production with pure preview and exa
   assert.deepEqual(s, before);
 });
 
-test('byte conversion applies ordinary production factors and active cache once; storage ignores globals', () => {
+test('byte conversion applies ordinary production factors and active cache once; storage follows the prestige bonuses', () => {
   const s = digital(); s.buildings.quantumStorage = 2; s.buildings.downloadCache = 2;
   s.prestige.particles = 10000; s.prestige.darkEnergy = 100;
   s.achievements = ['nuclearCuriosity']; s.achievementLevels = { nuclearCuriosity: 3 };
@@ -74,8 +74,13 @@ test('byte conversion applies ordinary production factors and active cache once;
   assert.ok(calculateParticleMultiplier('bytes', s) > 1);
   const snapshot = calculateSupportPreview(s);
   const storage = { ...snapshot, moonBaseUnits: snapshot.moon.baseUnits };
-  near(calculateStorageTotals(s, storage).bytes, 30000);
-  near(calculateStorageDetails('bytes', s, storage).total, 30000);
+  // 字节 opts into the prestige storage bonuses (0.9.43): 30000 of capacity plus the
+  // 100 暗能量 (each +1%) doubling it. The building-sourced subtotal is still what the
+  // 暗能量 row scales, so the detail rows and the batched total agree.
+  const bytesDetail = calculateStorageDetails('bytes', s, storage);
+  assert.equal(bytesDetail.rows.find(row => row.name === '基础储量')!.value + bytesDetail.rows.find(row => row.name === '量子存储器 ×2')!.value, 30000);
+  near(calculateStorageTotals(s, storage).bytes, 60000);
+  near(calculateStorageDetails('bytes', s, storage).total, 60000);
   const names = calculateResourceFactorRows('bytes', s, calculateProduction(s)).rows.map(r => r.name);
   assert.deepEqual(names, ['精通', '下载缓存器', '粒子']);
   assert.ok(!calculateResourceBreakdown('bytes', s, calculateProduction(s)).entries.some(row => row.id === 'digitalDownload'));

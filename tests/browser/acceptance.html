@@ -681,6 +681,27 @@ try {
     };
     const darkCap = await readKnowledgeCap();
     log(darkCap.includes('实验室 ×2') && !darkCap.includes('（供电）'), `未供电实验室只提供基础知识容量 [${darkCap.slice(0, 90)}]`);
+    // 字节 storage detail advertises the prestige bonuses it now benefits from.
+    {
+      store.mutate(state => { state.prestige.particles = 800; state.prestige.casimir = 200; state.prestige.darkEnergy = 12; state.crispr = ['spatialReasoning', 'casimirEffect']; });
+      await flush();
+      const anchor = document.createElement('button');
+      anchor.dataset.buildingTip = 'bytes';
+      anchor.dataset.tipKind = 'storage';
+      document.body.append(anchor);
+      let byteTip = '';
+      try {
+        anchor.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, pointerType: 'mouse' }));
+        await flush();
+        byteTip = $('#gameTooltip')?.textContent ?? '';
+      } finally {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        anchor.remove();
+        await flush();
+      }
+      log(byteTip.includes('空间推理') && byteTip.includes('卡西米尔效应') && byteTip.includes('暗能量加成'),
+        `字节储量明细列出粒子、卡西米尔与暗能量加成 [${byteTip.slice(0, 110)}]`);
+    }
     const darkProduction = labProduction(S());
     log(labPreview(S()).labUnits === 0 && darkProduction.rates.knowledge > 0, `未供电实验室的猫猫科学家照常产出知识 [labUnits=${labPreview(S()).labUnits}, knowledge=${darkProduction.rates.knowledge}]`);
     await showTip('[data-buy="lab"][data-tip-kind="building"]');

@@ -215,7 +215,23 @@ export function calculateStorageDetails(resource: ResourceId, state: GameState, 
     const rows = [{ name: '基础储量', value: 10000 }];
     if (digital.quantumStorageUnits) rows.push({ name: '量子存储器 ×' + formatNumber(digital.quantumStorageUnits), value: digital.quantumStorageUnits * 10000 * (1 + .25 * digital.dataCompressionUnits) });
     if (digital.memoryUnits) rows.push({ name: '记忆核心 ×' + formatNumber(digital.memoryUnits), value: digital.memoryUnits * 50000 * (1 + .15 * digital.dataCompressionUnits) });
-    return { rows, total: calculateDigitalByteCapacity(digital) };
+    // 字节 is a special resource with its own capacity formula, so it does not reach the
+    // ordinary branch below; the prestige bonuses apply to it the same way they apply to
+    // every other store. Both CRISPR rows scale the same pre-bonus subtotal, then 暗能量
+    // multiplies the result — the same order calculateStorageTotals replays.
+    const subtotal = rows.reduce((total, row) => total + row.value, 0);
+    const crispr = calculateCrisprStorageBonus(state);
+    const particle = subtotal * crispr.particleBonus;
+    if (particle && crispr.particleUpgrade) rows.push({ name: CRISPR_UPGRADES[crispr.particleUpgrade].name, value: particle });
+    const casimir = crispr.casimirBonus ? subtotal * crispr.casimirBonus : 0;
+    if (casimir) rows.push({ name: CRISPR_UPGRADES.casimirEffect.name, value: casimir });
+    // 暗能量 multiplies the post-CRISPR subtotal, matching pushDarkEnergyRow's order.
+    const dark = calculateDarkEnergyStorageBonus(state);
+    if (dark) {
+      const scaled = rows.reduce((total, row) => total + row.value, 0) * dark;
+      rows.push({ name: '暗能量加成', value: scaled });
+    }
+    return { rows, total: rows.reduce((total, row) => total + row.value, 0) };
   }
   if (resource === 'encryptedData') {
     const digital = snapshot.digital!;
@@ -284,7 +300,12 @@ export function calculateStorageTotals(state: GameState, snapshot: StorageSnapsh
   // Same post-CRISPR subtotal as the detail row, so both paths agree exactly.
   const ripperCores = countRunningBuildings('spaceRipper', state);
   if (ripperCores) totals.knowledge = (totals.knowledge || 0) * (1 + calculateRipperKnowledgeBonus(state, snapshot) * ripperCores);
-  totals.bytes = calculateDigitalByteCapacity(snapshot.digital!);
+  // 字节 has its own capacity formula and is excluded from the ordinary passes above,
+  // so apply the same prestige bonuses here in the same order: both CRISPR bonuses on
+  // the raw subtotal, then 暗能量 multiplying the result. encryptedData stays exempt.
+  const byteBase = calculateDigitalByteCapacity(snapshot.digital!);
+  const byteCrispr = crispr.particleBonus + crispr.casimirBonus;
+  totals.bytes = byteBase * (1 + byteCrispr) * (1 + darkBonus);
   totals.encryptedData = 50000 + (state.tech.includes('encryptedDataAnalysis') ? snapshot.digital!.memoryUnits * 25000 : 0);
   // Electricity is instantaneous supply; no storage source or multiplier may
   // turn this retained formula resource ID back into an inventory.

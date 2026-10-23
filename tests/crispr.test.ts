@@ -107,7 +107,15 @@ test('spatial reasoning uses remaining particles on all ordinary caps with match
   for (const id of Object.keys(RESOURCES) as ResourceId[]) {
     const details = calculateStorageDetails(id, state, snapshot(state));
     const baseline = base[id]; assert.ok(baseline !== undefined);
-    if (RESOURCES[id].crafted || RESOURCES[id].special) assert.equal(details.total, base[id]);
+    // 字节 is a special resource that opts into the prestige bonuses (0.9.43); the other
+    // special resources (加密数据, electricity) and crafted goods stay out.
+    if (RESOURCES[id].crafted || RESOURCES[id].special) {
+      if (id === 'bytes') {
+        assert.ok(Math.abs(details.total - baseline * 1.4) < 1e-8, `bytes ${details.total} vs ${baseline * 1.4}`);
+        const sum = details.rows.reduce((total, row) => total + row.value, 0);
+        assert.ok(Math.abs(sum - details.total) < 1e-8, `bytes rows ${sum} vs total ${details.total}`);
+      } else assert.equal(details.total, base[id]);
+    }
     else {
       assert.ok(Math.abs(details.total - baseline * 1.4) < 1e-8);
       assert.equal(details.rows.reduce((sum, row) => sum + row.value, 0), details.total);

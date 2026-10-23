@@ -50,6 +50,21 @@
 
 ---
 
+## 2026/10/23 beta 0.9.43 字节储量接入粒子 / 卡西米尔 / 暗能量加成
+
+- **动机**：`bytes` 和 `encryptedData` 在 `data/resources.ts` 里都是 `special: true`，因此被 `calculateStorageTotals` 的两个通用循环（CRISPR、暗能量）跳过，也走不到 `calculateStorageDetails` 的普通分支。字节的上限一直只反映建筑容量。
+- **改动**：只让 **字节** 接入，**加密数据保持豁免**（用户确认）。
+  - `calculateStorageDetails('bytes')`：在建筑行之后按与其他资源相同的顺序追加 空间推理 / 卡西米尔效应 / 暗能量加成 三行；两项 CRISPR 加成作用在**同一个加总前基数**上，暗能量再乘后体，总和对得上行。
+  - `calculateStorageTotals`：`totals.bytes = 建筑容量 × (1 + 粒子加成 + 卡西米尔加成) × (1 + 暗能量加成)`。
+- **关键约束**：这两条路径必须逐分对齐（项目最容易出 bug 的地方）。`tests/bytes-storage-bonus.test.ts` 里有一条专门断言 `detail.total === totals.bytes`，实测把任一侧的加成去掉都会让它变红。
+- **测试调整**：
+  - `tests/crispr.test.ts` 的普适断言原为「`special` 资源上限不变」，现改成「字节随粒子加成上浮，其余 special 资源不变」。注意该分支必须同时判断 `crafted`（铸造物的 `total` 是 `Infinity`），否则 `Infinity × 1.4` 会误报。
+  - `tests/digital-production.test.ts` 原先按 `30000` 断言字节上限，现在该状态有 100 暗能量（每点 +1%），正确值是 `60000`；测试标题里的 "storage ignores globals" 同步改为 "storage follows the prestige bonuses"。
+- **新增测试**：`tests/bytes-storage-bonus.test.ts`（4 项：加成生效、双路径一致、无加成时不产生多余行、加密数据豁免）。已确认三条独立变红路径。
+- **浏览器验收**：`acceptance.html` 增加一条——字节储量提示里必须同时出现「空间推理 / 卡西米尔效应 / 暗能量加成」三行。
+- **验证**：`npm run check` 通过：797 项模块测试、经典 VM 回归（失败 0）、Edge 浏览器验收、类型检查与生产构建。
+- **兼容**：无存档结构变化，`CONFIG.version` 仍为 33。已超出新上限的旧存档不会被截断（上限只会变大）。
+
 ## 2026/10/23 beta 0.9.42 实验室知识成本蠕变 +0.02
 
 - `src/data/buildings.ts` 的 `lab.costScales.knowledge` 从 **1.18** 改为 **1.20**。其余四项（copper/cement/metalPlate/cash 均为 1.2）不动。

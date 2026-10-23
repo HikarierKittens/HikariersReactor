@@ -2,6 +2,18 @@
 
 > 本文档记录 HikariersReactor 当前的技术实现细节，供后续开发与排查参考。
 >
+
+### 特殊资源的储量加成（beta 0.9.43）
+
+`calculateStorageTotals` 用两个通用循环发放粒子 / 卡西米尔 / 暗能量加成，循环里 `continue` 掉 `crafted` 和 `special` 资源。所以任何 `special: true` 的资源（`energy`、`bytes`、`encryptedData`）都**不会**自动获得加成。
+
+字节是例外：它在 `calculateStorageDetails` 里有独立分支（容量来自量子存储器与记忆核心，不是 `baseStorage`），现在该分支自己算出三项加成，`calculateStorageTotals` 也在末尾用 `byteBase * (1 + crispr) * (1 + darkBonus)` 重算一遍。
+
+改这类资源时注意三点：
+
+1. **两条路径必须逐分对齐**。详情行是给人看的，批量总量是真正裁剪用的；`tests/bytes-storage-bonus.test.ts` 有专门断言。
+2. **加法与乘法的顺序**与普通资源一致：两个 CRISPR 加成作用在同一个加总前基数上，暗能量再乘后体。
+3. 如果再加别的 `special` 资源进来，记得 `tests/crispr.test.ts` 里那条「special 资源上限不变」的普适断言要同步豁免。
 > **维护要求：每次更新游戏后，必须检查本文档内容是否仍然准确；如果实现细节发生变化（新增结算链、缓存策略、存档规则、测试方式等），必须同步更新本文档对应章节。** 文档失真会直接导致后续改动基于错误假设。
 >
 > 配套文档：`docs/update-log.md`（每次更新的改动记录）、`docs/glossary.md`（游戏内特殊名词的玩家视角解释）。
