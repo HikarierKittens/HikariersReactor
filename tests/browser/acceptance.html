@@ -2370,6 +2370,30 @@ try {
 
     scroller.remove();
   }
+  // 自动化面板：独立于存档的设置在真实 DOM 里必须能改、能存、能认回。
+  {
+    mounted.app.unmount();
+    const automationKeyRestore = localStorage.getItem('meow-civilization-automation-v1');
+    localStorage.removeItem('meow-civilization-automation-v1');
+    mounted = mountGame($('#app'));
+    click($('[data-tab="settings"]')); await flush();
+    const masterBox = $('[data-automation-toggle="master"]');
+    log(!!masterBox && masterBox.checked === false, `自动化主开关默认关闭 [${masterBox?.checked}]`);
+    masterBox.click(); await flush();
+    const stored = JSON.parse(localStorage.getItem('meow-civilization-automation-v1') || 'null');
+    log(stored?.values?.master === true, `勾选主开关后独立存储立刻写入 [${JSON.stringify(stored?.values?.master)}]`);
+    log(mounted.store.runtime.automation.values.master === true, '运行时读到同一个开关值');
+    // 设置独立存储：不能因为改自动化就往游戏存档里塞字段。
+    const savedAfterAutomation = localStorage.getItem(saveKey) || '';
+    log(!savedAfterAutomation.includes('automation'), '自动化设置不进入游戏存档');
+    // 覆盖行：给"单次最高动作数"加一条条件覆盖，界面必须出现行编辑器。
+    click($('[data-automation-override="maxActionsPerRun"]')); await flush();
+    log(($('[data-automation-badge="maxActionsPerRun"]')?.textContent || '').includes('1 条覆盖'),
+      `新增覆盖行后显示条数 [${$('[data-automation-badge="maxActionsPerRun"]')?.textContent}]`);
+    log(mounted.store.runtime.automation.overrides.maxActionsPerRun?.length === 1, '覆盖行写进了运行时配置');
+    if (automationKeyRestore === null) localStorage.removeItem('meow-civilization-automation-v1');
+    else localStorage.setItem('meow-civilization-automation-v1', automationKeyRestore);
+  }
   mounted.app.unmount();
   const protectedText = '  ' + JSON.stringify({ version: 29, original: '不可改写的旧档' }) + '\n';
   localStorage.setItem(saveKey, protectedText);

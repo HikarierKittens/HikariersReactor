@@ -20,6 +20,9 @@ import { previewMorale } from '../simulation/production';
 import { resetRunState } from '../simulation/prestige';
 import { CONFIG } from '../data/config';
 import { initializeTechnologyCosts } from '../simulation/technology';
+import { createAutomationEngine } from '../simulation/automation/engine';
+import { createDefaultAutomationConfig, loadAutomationConfig, persistAutomationConfig } from '../state/automation-storage';
+import type { AutomationConfig, AutomationRunReport } from '../types/automation';
 
 // The typed registry retains legacy base prices; normalize it once at app startup.
 initializeTechnologyCosts();
@@ -45,10 +48,18 @@ export interface Runtime {
   load: () => void;
   tick: (dt: number) => void;
   reset: (kind: 'soft' | 'hard') => boolean;
+  /** Automation settings, kept outside the save schema so they never invalidate a save. */
+  readonly automation: AutomationConfig;
+  /** Replaces the automation settings and persists them independently of the game save. */
+  setAutomation: (config: AutomationConfig) => boolean;
+  /** Whether the last automation write reached localStorage. */
+  readonly automationSaveFailed: boolean;
+  /** Result of the most recent automation run, for the panel to display. */
+  readonly automationReport: AutomationRunReport | null;
 }
 
 /** The one owner of mutable game state, ticking, persistence and reset for the application. */
-export function createRuntime(): Runtime {
+export function createRuntime(initialAutomation?: AutomationConfig): Runtime {
   let state = createInitialState(CONFIG.version, sampleEventInterval(Math.random), Date.now());
   let lastTick = performance.now();
   let saveElapsed = 0;
@@ -58,6 +69,27 @@ export function createRuntime(): Runtime {
   let saveBlocked = false;
   let loaded = false;
   let protectedSaveText: string | null = null;
+  // 自动化配置独立于存档：读不出来只回退默认值，绝不影响游戏本身能否启动。
+  // 自动化的存储要在第一次真正 `tick` 时才读：构造运行时不碰存储，
+  // 让"加载存档只读一次本地存储"这条既有约定继续成立。
+  let automation: AutomationConfig = initialAutomation ?? createDefaultAutomationConfig();
+  let automationLoaded = initialAutomation !== undefined;
+  let automationSaveFailed = false;
+  let automationReport: AutomationRunReport | null = null;
+  const automationEngine = createAutomationEngine({
+    // 每 tick 都重新读一遍当前配置：面板里改完立刻生效，不需要重建引擎。
+    config: () => automationFor(),
+    random: Math.random,
+  });
+
+  /** localStorage 可能整个不可用（隐私模式、权限被拒）；这里只负责拿一个安全句柄。 */
+  function safeStorage(): Pick<Storage, 'getItem' | 'setItem'> {
+    try {
+      return localStorage;
+    } catch {
+      return { getItem: () => null, setItem: () => { throw Error('storage unavailable'); } };
+    }
+  }
 
   function capacity(candidate: GameState = state): number {
     const { asriel, stageThree, digital } = calculateSupportPreview(candidate);
@@ -112,6 +144,10 @@ export function createRuntime(): Runtime {
     },
     projects: dt => { advanceProjectQueue(state, dt, Math.random); },
     purchases: () => { settlePurchaseQueue(state, () => calculateSupportPreview(state).moon.available); },
+    // 自动化排在购买结算之后：它这一 tick 下的购买单要在下一次结算才生效，
+    // 所以脚本的每一步都建立在"已结算的真实状态"上，不会读到半成品队列。
+    // 引擎自己捕获所有异常并记成 fault，因此这里不需要 try。
+    afterRun: () => { automationReport = automationEngine.tick(state); },
     unlocks: scanAchievements,
   };
 
@@ -252,6 +288,26 @@ export function createRuntime(): Runtime {
     return true;
   }
 
+  /** 首次访问自动化设置时才读存储：构造运行时必须保持"不碰 localStorage"。 */
+  function automationFor(): AutomationConfig {
+    if (!automationLoaded) {
+      automationLoaded = true;
+      automation = loadAutomationConfig(safeStorage()).config;
+    }
+    return automation;
+  }
+
+  /**
+   * 替换自动化设置并独立持久化。写入失败只标记状态，不回滚内存里的设置：
+   * 玩家刚改的选项应该立刻生效，即使这次没写进存储。
+   */
+  function setAutomation(config: AutomationConfig): boolean {
+    automation = config;
+    automationLoaded = true;
+    automationSaveFailed = !persistAutomationConfig(safeStorage(), config);
+    return !automationSaveFailed;
+  }
+
   return {
     get state(): GameState { return state; },
     get saveFailed(): boolean { return saveFailed; },
@@ -265,5 +321,9 @@ export function createRuntime(): Runtime {
     load,
     tick,
     reset,
+    get automation(): AutomationConfig { return automationFor(); },
+    get automationSaveFailed(): boolean { return automationSaveFailed; },
+    get automationReport(): AutomationRunReport | null { return automationReport; },
+    setAutomation,
   };
 }

@@ -5,6 +5,7 @@ import { ACHIEVEMENTS } from '../data/progression';
 import { hasContinuousEnergyInput } from '../simulation/building-production';
 import type { BuildingId } from '../types/buildings';
 import type { TechnologyId } from '../types/technologies';
+import type { AutomationConfig } from '../types/automation';
 import { sampleEventInterval } from '../simulation/events';
 import { requestPurchaseModule, buyBuildingsInBatch, removeQueuedPurchase, describeQueuedPurchases } from '../simulation/purchases';
 
@@ -45,6 +46,7 @@ import { abandonOccupation } from '../simulation/neighbors';
 import { raidNeighbor as raidNeighborCommand } from '../simulation/commands';
 import ArpaPanel from './components/ArpaPanel.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
+import AutomationPanel from './components/AutomationPanel.vue';
 import StatsPanel from './components/StatsPanel.vue';
 import StoryPanel from './components/StoryPanel.vue';
 import { isHyperspaceUnlocked } from '../simulation/stage-three';
@@ -152,6 +154,13 @@ function replaceRun(next: GameState): boolean {
   }
 }
 const saveStatus = computed(() => { props.store.revision(); return props.store.runtime.saveBlocked ? '保护模式 · 请先到设置导出原档备份' : props.store.runtime.saveFailed ? '本地保存失败，请导出备份' : '本地存档 · 自动保存已启用'; });
+
+// 自动化设置独立于存档：改动立刻生效，写盘失败只报告状态，不回滚到旧值。
+const automationConfig = computed(() => { props.store.revision(); return props.store.runtime.automation; });
+function changeAutomation(config: AutomationConfig, done: (saved: boolean) => void): void {
+  done(props.store.runtime.setAutomation(config));
+  props.store.refresh();
+}
 
 function afterAction(): void {
   props.store.mutate(s => { for (const id of updateProgression(s)) addLog(s, `成就达成：${ACHIEVEMENTS[id].name}`, 'achievement'); });
@@ -569,7 +578,7 @@ onUnmounted(() => {
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.9.46</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.9.47</span>
     </header>
 
     <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
@@ -707,17 +716,24 @@ onUnmounted(() => {
                 :revision="store.revision()"
               />
             </div>
-            <SettingsPanel
-              v-else-if="activeTab === 'settings'"
-              :save-blocked="store.runtime.saveBlocked"
-              :export-protected-save="store.runtime.exportProtectedSave"
-              :export-save="store.runtime.exportSave"
-              :state="state"
-              :revision="store.revision()"
-              @save="saveNow"
-              @reset="resetRun"
-              @replace="replaceState"
-            />
+            <div v-else-if="activeTab === 'settings'" class="settings-tab">
+              <SettingsPanel
+                :save-blocked="store.runtime.saveBlocked"
+                :export-protected-save="store.runtime.exportProtectedSave"
+                :export-save="store.runtime.exportSave"
+                :state="state"
+                :revision="store.revision()"
+                @save="saveNow"
+                @reset="resetRun"
+                @replace="replaceState"
+              />
+              <AutomationPanel
+                :automation="automationConfig"
+                :report="store.runtime.automationReport"
+                :save-failed="store.runtime.automationSaveFailed"
+                @change="changeAutomation"
+              />
+            </div>
             <ResourceManagementPanel
               v-else-if="activeTab === 'resourceManagement'"
               :state="state"

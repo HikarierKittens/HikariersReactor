@@ -21,6 +21,11 @@ export interface TickHooks {
   projects: (dt: number) => void;
   purchases: () => void;
   unlocks: () => void;
+  /**
+   * 一 tick 的全部结算收尾之后才运行的可选钩子。自动化挂在这里：它必须看到
+   * 已经结算完的资源、人口与购买队列，否则脚本会基于半成品状态重复下单。
+   */
+  afterRun?: () => void;
 }
 export function advanceGameTick(state: GameState, dt: number, hooks: TickHooks): void {
   if (state.settings.paused || !Number.isFinite(dt) || dt <= 0) return;
@@ -55,6 +60,8 @@ export function advanceGameTick(state: GameState, dt: number, hooks: TickHooks):
   hooks.projects(dt);
   hooks.purchases();
   hooks.unlocks();
+  // 最后一步：脚本看到的是整帧结算后的状态；它做的改动由下一次 tick 结算。
+  hooks.afterRun?.();
   applyAutoWorkerAssignment(state);
   state.happiness = hooks.happiness();
   state.resources.energy = 0;

@@ -225,6 +225,18 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 - `updateProgression` 返回新增状态成就，由runtime/App统一记录成就日志；核爆/逃逸/黑洞成就在成功重置的next状态直接授予并记录，不变更源状态。逃逸在清空周目前捕获尚未扫描的飞船等成就，避免立即发射丢失完成成就。
 - 普通重置保留已获成就，追踪基线随新周目重新置false，硬重置全部清空。历史重置次数不触发新事件成就。
 
+### 自动化脚本（beta 0.9.47）
+
+- 分层：`data/automation.ts` 只放注册表（`AUTOMATION_SECTIONS` / `AUTOMATION_OPTIONS` / `CONDITION_SOURCES` / `TRIGGER_ACTION_OPTIONS`），`state/automation-storage.ts` 管独立持久化，`simulation/automation/*` 管求值与执行，`vue/components/AutomationPanel.vue` 只管界面。新增一个开关只需要改注册表，再在对应模块里读它。
+- 配置**不进 `GameState`**，`CONFIG.version` 保持不变。存储键 `meow-civilization-automation-v1`，版本 `AUTOMATION_CONFIG_VERSION = 1`。归一化规则与存档一致：缺失键补默认值，显式非法值整份拒绝（`normalizeAutomationConfig` 返回 `null`），`parseAutomationConfig` 在任何异常下回退默认值并返回 `restored: true`。
+- 条件 DSL 用**固定读取器表**代替 `eval`：`readConditionSource(context, source, arg)` 覆盖资源、建筑、科技、人口、队列、威望等约 29 种来源，未知来源或非法参数返回 `undefined` → 条件判否。运算符 `== != > >= < <= && || A?B`，其中 `A?B` 输出右值作为覆盖值。导入别人的配置不可能带入可执行内容。
+- 覆盖表：`config.overrides[optionKey]` 自上而下、首个成立的行决定本次运行该选项的取值，`resolveAutomation` 同时返回 `overridden` 集合供界面高亮。覆盖只改脚本选项，不改游戏状态；类型不符的行被忽略。
+- 引擎 `createAutomationEngine({ config, random })`：`tick(state)` 先解析覆盖，再过主开关与 `safeMode` 闸门，然后按 `tickInterval` 计数放行，最后依次执行 `runFrontier → applyAutoWorkers → enqueueAnchor → runTriggers → applyAutoResearch → applyAutoBuild → applyAutoCraft → applyAutoPower`。全程 try，异常记成 `fault` 返回而不抛出；`safeMode` 下带 `fault` 时下一 tick 执行零动作，`clearFault()` 恢复。`options.config()` 本身也在 try 内。
+- 接入点：`TickHooks.afterRun?`，在 `advanceGameTick` 的 `hooks.purchases()` / `hooks.unlocks()` 之后调用，因此脚本看到的是整帧结算后的状态，它下的购买单在下一 tick 结算。`runtime.ts` 里通过 `afterRun` 调引擎，`automationReport` 暴露最近一次运行结果给面板显示 `fault`。
+- 运行时惰性读取自动化存储：`createRuntime()` 不碰 localStorage（保持"加载存档只读一次"的断言），第一次访问 `runtime.automation` 或第一次 tick 时才读。`createRuntime(initialAutomation?)` 供测试注入。
+- 执行只用既有命令函数（`requestPurchaseModule` / `queuePurchase` / `removeQueuedPurchase` / `researchTechnologyNow` / `changeWorkerAssignment` / `changeFactoryAssignment` / `investInProject` / `setBuildingPowerEnabled`），不复制任何结算逻辑。
+- 长期推进的四道保险（详见 `docs/notes/pitfalls.md` 59–63）：食物安全看**产量方向**而非库存；容量小的岗位走显式 `moveWorkerTo` 调人；`buildAnchor` 用 `isReachable` 跳过超出仓库上限且无正产量的目标；`enqueueAnchor` 在队列满时清掉已拥有建筑的加建单。
+
 ### 工作自动分配
 
 - 周目字段 `autoWorkers` 保存总开关、岗位优先级和各岗位开关/人数上限（-1不限）。新游戏默认全部关闭，当前存档须提供完整配置；周目重置清空设置。

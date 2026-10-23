@@ -50,6 +50,90 @@
 
 ---
 
+## 2026/10/24 beta 0.9.47 内置自动化脚本
+
+### 分层
+
+按 `data → simulation → vue` 单向依赖组织，新增文件各自只承担一件事：
+
+| 层 | 文件 | 职责 |
+|---|---|---|
+| data | `src/data/automation.ts` | 选项注册表（默认值、文案、边界）、条件来源表、触发器动作选项 |
+| types | `src/types/automation.ts` | `AutomationConfig` / `ConditionRow` / `AutomationTrigger` / `AutomationRunReport` |
+| state | `src/state/automation-storage.ts` | 独立 localStorage 键、归一化与序列化 |
+| simulation | `src/simulation/automation/{conditions,policy,planning,modules,engine}.ts` | 条件求值、覆盖表求值、建造规划、各自动模块、引擎 |
+| vue | `src/vue/components/AutomationPanel.vue` | 分节设置、覆盖行与触发器行编辑、导出导入 |
+
+- 配置**不进 `GameState`**，因此调整选项永远不会影响存档 schema；`CONFIG.version` 保持 33 不变。
+- 存储键 `meow-civilization-automation-v1`，与 `CONFIG.saveKey` 完全分离。
+
+### 条件 DSL（不用 eval）
+
+`ConditionRow` 由 `source + arg`、运算符、另一侧 `source + arg` 与可选 `value` 组成，运算符为
+`== != > >= < <= && || A?B`。求值走 `readConditionSource` 的固定读取器表，导入别人的配置不可能带入可执行内容。
+两侧任一读取结果为 `undefined` 时条件判否，`A?B` 输出右值并作为覆盖值使用。
+
+### 覆盖表
+
+`config.overrides[optionKey]` 是条件行列表，自上而下第一个成立的行决定该选项本次运行的取值；
+`resolveAutomation` 返回 `overridden` 集合供界面高亮。覆盖只改脚本自己的选项，永远不动游戏状态；
+类型不符的行被忽略而不是整份拒绝（拒绝发生在持久化阶段的归一化里）。
+
+### 引擎
+
+`createAutomationEngine({ config, random })` 的 `tick(state)` 顺序：
+
+```
+解析覆盖 → 主开关 → 安全模式闸门 → tickInterval 闸门 → syncAutoWorkerSettings
+→ runFrontier（食物班底 → 住房 → 教授 → 缺口岗位 → 空转岗位 → 工厂空线 → 区域任务）
+→ applyAutoWorkers → enqueueAnchor → runTriggers → applyAutoResearch → applyAutoBuild
+→ applyAutoCraft → applyAutoPower
+```
+
+- 整个过程包在 try 里，异常记成 `fault` 并返回；`safeMode` 开启时下一 tick 不再执行动作，`clearFault` 恢复。
+- **`options.config()` 本身也在 try 内**（见下"踩到的坑"）。
+- 运行时通过新的 `TickHooks.afterRun` 钩子接入，位置在 `hooks.purchases()` 与 `hooks.unlocks()` 之后：
+  脚本看到的是整帧结算完成后的状态，它下的购买单在下一 tick 结算。
+
+### 长期推进上修掉的四处卡死
+
+每处都是先写探针复现、再改、再用 3000 tick 探针确认，记录进 `docs/notes/pitfalls.md`：
+
+1. **食物安全判据用库存** → 食物上限只有几百，按人口算出的阈值要上千，永远攒不够，木材石料再也拿不到人。
+   改为看产量方向（`isFoodSafe` / `foodBuffered` 返回布尔）。
+2. **学校没有专属调人路径** → 教授岗位容量 1，抢不过容量紧张的觅食岗位，知识产量长期为 0、科技停在 3 项。
+   新增 `moveWorkerTo`（先找空位，再从其它岗位调一只，挪完食物产量仍为正才算成功）。
+3. **锚点目标超过仓库上限** → 木材 261 / 石料 46，锚点却要 304 木材，脚本守着它几百 tick 一动不动。
+   `buildAnchor` 新增 `isReachable`：某项成本超过该资源上限且该资源没有正产量时跳过该目标。
+4. **队列里堆积已拥有建筑的加建单** → `enqueueAnchor` 会先清掉这类条目，避免队列占满后锚点排不进来。
+
+### 运行时接线
+
+- `Runtime` 新增 `automation`、`setAutomation`、`automationSaveFailed`、`automationReport`；
+  `createRuntime(initialAutomation?)` 允许测试注入。
+- 自动化存储**惰性读取**：构造运行时仍然不碰 localStorage，保持"加载存档只读一次本地存储"这条既有约定
+  （`tests/runtime.test.ts` 的 `env.reads` 断言）。第一次访问 `runtime.automation` 或第一次 tick 时才读。
+
+### 测试
+
+- `tests/automation-config.test.ts`（8 条）：默认值覆盖注册表、缺失键补默认、显式非法整份拒绝、
+  非法文本回退默认并标记 `restored`、往返保真、读写不抛异常、归一化不修改输入对象。
+  另有一条对照断言证明写坏的行**会**被拒绝，避免"校验是摆设"。
+- `tests/automation-engine.test.ts`（11 条）：条件运算符、覆盖表首个命中、类型不符的行忽略、
+  主开关关闭零动作、`tickInterval` 闸门（第 3、6 次运行）、连续运行幂等、注入随机源完全可复现、
+  自动研究真的产出科技、关闭后不动科技树、配置抛错记成 fault 且安全模式停手。
+- `tests/automation-runtime.test.ts`（3 条）：自动化在真实 tick 里推进科技、设置独立持久化且不进存档、
+  自动化存储损坏时游戏照常启动。
+- 变红验证：把归一化改成"静默修复" → config 两条红；去掉 `tickInterval` 计数 → 引擎一条红；
+  去掉 `hooks.afterRun()` 调用 → runtime 一条红。
+- `tests/browser/acceptance.html` 新增一段真实 DOM 用例：主开关默认关闭、勾选后独立键立刻写入、
+  设置不进存档、新增覆盖行后徽标显示"1 条覆盖"且写进运行时配置。
+
+### 说明
+
+- 自动化配置是明文 JSON，不含加密与防作弊措施，文档与界面都按此口径描述。
+- 界面不显示"自动化已启用"标记（按需求），面板内的运行报告只用于显示 `fault`。
+
 ## 2026/10/23 beta 0.9.46 修复高级基因合成重复计入知识消耗
 
 ### 问题
