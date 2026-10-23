@@ -30,6 +30,9 @@ function geneState(spliced = true): GameState {
   const s = createMilestoneState('space');
   s.tech.push('crispr16');
   s.arpaBuildings.geneSequencing = 1;
+  // 聪明 adds flat professor/scientist knowledge and would break the pure multipliers
+  // asserted below, so these tests isolate the genes themselves.
+  s.speciesTraits = { traits: [] };
   if (spliced) s.crispr.push('geneOptimization', 'geneSplicing');
   return s;
 }
@@ -101,8 +104,7 @@ test('each gene applies its exact per-level bonus', () => {
   near(calculateBuildingOutput('coalMine', s).coal!, calculateBuildingOutput('coalMine', base).coal! * 1.08, 'hardWorking coal');
   near(calculateBuildingOutput('cementWorkshop', s).cement!, calculateBuildingOutput('cementWorkshop', base).cement! * 1.1, 'superWorkshop');
   near(calculateBuildingOutput('school', s).knowledge!, calculateBuildingOutput('school', base).knowledge! * 1.07, 'advancedScience school');
-  near(calculateBuildingOutput('lab', s).knowledge!, calculateBuildingOutput('lab', base).knowledge! * 1.07, 'advancedScience lab');
-  near(calculateBuildingOutput('smelter', s).metal!, calculateBuildingOutput('smelter', base).metal! * 1.06, 'kinoFire');
+  near(calculateBuildingOutput('lab', s).knowledge!, calculateBuildingOutput('lab', base).knowledge! * 1.07, 'advancedScience lab');  near(calculateBuildingOutput('smelter', s).metal!, calculateBuildingOutput('smelter', base).metal! * 1.06, 'kinoFire');
   assert.deepEqual(calculateBuildingOutput('lumber', s), calculateBuildingOutput('lumber', base), 'unrelated buildings unchanged');
   const recipe = calculateFactoryRecipe('alloy', s), plain = calculateFactoryRecipe('alloy', base);
   assert.deepEqual(recipe.input, plain.input, 'perfectionism does not raise ingredients');

@@ -4,8 +4,10 @@ import type { ArpaProjectId, CrisprUpgradeId, GameState } from '../../types/stat
 import CrisprPanel from './CrisprPanel.vue';
 import ChallengePanel from './ChallengePanel.vue';
 import GeneModificationPanel from './GeneModificationPanel.vue';
-import type { ChallengeGeneId, DnaId, GeneId } from '../../types/state';
+import SpeciesTraitsPanel from './SpeciesTraitsPanel.vue';
+import type { ChallengeGeneId, DnaId, GeneId, SpeciesTraitId } from '../../types/state';
 import { isGeneModificationUnlocked } from '../../simulation/genes';
+import { isSpeciesTraitUnlocked } from '../../simulation/species-traits';
 import type { ResourceId } from '../../types/economy';
 import { ARPA_PROJECTS } from '../../data/projects';
 import { RESOURCES } from '../../data/resources';
@@ -14,7 +16,7 @@ import { clickMultiplier, fmt, orderedCostEntries } from '../format';
 import { formatCostNumber } from '../../shared/format';
 
 const props = defineProps<{ state: GameState; revision: number }>();
-const emit = defineEmits<{ invest: [id: ArpaProjectId, percent: number]; queue: [id: ArpaProjectId, count: number]; crisprPurchase: [id: CrisprUpgradeId]; challengeLaunch: [genes: ChallengeGeneId[]]; dnaCraft: [id: DnaId, count: number]; geneUpgrade: [id: GeneId] }>();
+const emit = defineEmits<{ invest: [id: ArpaProjectId, percent: number]; queue: [id: ArpaProjectId, count: number]; crisprPurchase: [id: CrisprUpgradeId]; challengeLaunch: [genes: ChallengeGeneId[]]; dnaCraft: [id: DnaId, count: number]; geneUpgrade: [id: GeneId]; traitToggle: [id: SpeciesTraitId] }>();
 
 const activeView = ref<'buildings' | 'progress' | 'genetics' | 'crispr' | 'challenges'>('buildings');
 const buildingsUnlocked = computed(() => { props.revision; return props.state.tech.includes('arpa'); });
@@ -25,6 +27,7 @@ const progressUnlocked = computed(() => {
 });
 const crisprUnlocked = computed(() => { props.revision; return props.state.tech.includes('crispr16'); });
 const geneModificationUnlocked = computed(() => { props.revision; return isGeneModificationUnlocked(props.state); });
+const speciesTraitsUnlocked = computed(() => { props.revision; return isSpeciesTraitUnlocked(props.state); });
 const challengesUnlocked = computed(() => { props.revision; return props.state.crispr.includes('challengeGene'); });
 const currentView = computed(() => {
   props.revision;
@@ -114,6 +117,7 @@ const projects = computed(() => {
   </div>
   <GeneModificationPanel v-if="currentView === 'genetics' && geneModificationUnlocked" :state="state" :revision="revision"
     @craft="(id, count) => emit('dnaCraft', id, count)" @upgrade="emit('geneUpgrade', $event)" />
+  <SpeciesTraitsPanel v-if="currentView === 'genetics' && speciesTraitsUnlocked" :state="state" :revision="revision" @toggle="emit('traitToggle', $event)" />
   </template>
 </template>
 

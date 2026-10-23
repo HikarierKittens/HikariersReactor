@@ -1,6 +1,7 @@
 import { calculateBuildingInput } from './building-production';
 import { countRunningBuildings } from './housing';
 import { calculatePopulationPressure, calculateSoldierPressure } from './government';
+import { CUTE_ARTIST_HAPPINESS, hasSpeciesTrait } from './species-traits';
 import type { GameState } from '../types/state';
 
 export interface MoralePowerSnapshot {
@@ -21,8 +22,9 @@ export interface MoralePowerSnapshot {
   broadcastUnits?: number;
   touristStationUnits?: number;
 }
-export function calculateArtistEffect(state: Pick<GameState, 'tech' | 'government'>): number {
-  return 1 + (state.tech.includes('theaterUpgrade') ? 1 : 0) + (state.tech.includes('tourism') ? 1 : 0) + (state.government === 'democracy' ? .5 : 0);
+export function calculateArtistEffect(state: Pick<GameState, 'tech' | 'government'> & Partial<Pick<GameState, 'speciesTraits'>>): number {
+  return 1 + (state.tech.includes('theaterUpgrade') ? 1 : 0) + (state.tech.includes('tourism') ? 1 : 0) + (state.government === 'democracy' ? .5 : 0)
+    + (hasSpeciesTrait(state as Pick<GameState, 'speciesTraits'>, 'cute') ? CUTE_ARTIST_HAPPINESS : 0);
 }
 /** Display and settlement share the same power reservations, supplied by the caller. */
 export function calculateMorale(state: GameState, dt: number, power: MoralePowerSnapshot) {

@@ -304,4 +304,23 @@
 - **原因**：测试里保留着一份手写的旧签名调用 `settleSpaceProduction(state, pool, dt, happiness, plants.inputUnits.geothermalPlant || 0, plants.inputUnits.hydrogenPowerPlant || 0)`。参数删除后，`geothermalPlant` 的值被当作 `hydrogenUnits` 传入，`hydrogenPowerPlant` 的值被丢弃。**全是 number 且都有默认值，类型检查无法发现。**
 - **做法**：删除或重排多默认参数时，不要只依赖 typecheck——用 `grep "函数名("` 过一遍**全部**调用点（包括 `tests/` 里手写的辅助函数），逐一核对实参含义。更稳的做法是这类位置参数超过 4 个时改用对象参数。
 
+## 48. 新增 simulation 模块后，经典 VM 套件报 `xxx is not defined`
+
+- **症状**：`npm test` 里 4 个 `tests/test-*.cjs` 全红，报 `ReferenceError: createSpeciesTraitsState is not defined`，而 TS 侧（typecheck、`*.test.ts`）完全正常。
+- **原因**：经典套件不用 ES 模块，而是由 `tests/load-game.cjs` 把 `scripts/generate-legacy-data.cjs` 里一张**手工维护**的 `registry` 清单按顺序拼成全局脚本执行。新模块不在清单里，就等于没定义。
+- **做法**：新增 `src/simulation/*.ts` 或 `src/state/validate-*.ts` 时，同步往那个 `registry` 加一条，并**注意顺序**——被依赖的模块必须排在依赖者之前（本次 `species-traits` 要排在 `building-production`、`morale`、`storage-bonuses`、`projects` 之前）。`data/*.ts` 同理（如 `data/genes` 之于 `simulation/genes`）。
+
+## 49. 新增带默认状态的机制后，一批无关测试会红
+
+- **症状**：给所有存档加了默认的种族特质（聪明 +0.25 教授知识、创造 -20% ARPA 造价）之后，10 个历史测试变红：`genes`、`crispr`、`containers-cafe-smelting`、`projects-genetics`、`space-support`（知识产量、ARPA 造价、队列时间估算）。
+- **原因**：这些测试验证的是**别的机制**，把当前数值当成了不变量。它们的期望值是机制无关的干净基线。
+- **做法**：不要改它们的断言值——那会把「基因倍率」之类的测试悄悄变成「基因倍率 × 特质」的测试，以后特质一调又全红。正确做法是在这些测试的夹具里加一行 `state.speciesTraits = { traits: [] }` 隔离新机制，并注明原因。只有真正要覆盖新机制的测试才保留默认值。
+
+## 50. 新增可选存档字段时，字段集合校验会先于它自己的校验器拒绝旧存档
+
+- **症状**：给 `GameState` 加 `speciesTraits` 后，删掉该字段模拟旧存档，`validateCurrentSave` 报「存档字段无效。（字段集合）」，而新写的 `validateSpeciesTraits` 回填逻辑根本没跑到。
+- **原因**：`validate-save.ts` 里有一条更早执行的双向集合校验，要求 `state` 的每个键都出现在 `raw` 里。
+- **做法**：往那里的 `backfilledFields` 白名单加 id，并在对应的 `validate-*.ts` 里写成「`undefined` → 回填默认；有值 → 严格校验（重复/未知/超限一律报错，不静默裁剪）」。别为了图省事把字段直接设成可选——那样非法数据也会被放过。改完记得同步 `tests/save-compatibility.test.ts` 里冻结旧 JSON 的逐字段期望。
+
+
 

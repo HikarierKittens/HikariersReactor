@@ -4,7 +4,7 @@ import type { CraftId, FactoryLineId, ResourceAmounts, ResourceId, ResourceRecip
 import type { TechnologyId } from './technologies';
 import type { NeighborId } from '../data/neighbors';
 
-export type CrisprUpgradeId = 'materialEfficiency' | 'innovativeMaterials' | 'structuralReinforcement' | 'physicsLaws' | 'halfLife3' | 'geneOptimization' | 'spatialReasoning' | 'dimensionCompression' | 'dimensionDistortion' | 'casimirEffect' | 'coreReplication' | 'technician' | 'masterArtisan' | 'architect' | 'challengeGene' | 'geneSplicing';
+export type CrisprUpgradeId = 'materialEfficiency' | 'innovativeMaterials' | 'structuralReinforcement' | 'physicsLaws' | 'halfLife3' | 'geneOptimization' | 'spatialReasoning' | 'dimensionCompression' | 'dimensionDistortion' | 'casimirEffect' | 'coreReplication' | 'technician' | 'masterArtisan' | 'architect' | 'challengeGene' | 'geneSplicing' | 'advancedGeneSynthesis' | 'thirdGenerationCat';
 export type PrestigeResourceId = 'particles' | 'casimir' | 'darkEnergy' | 'harmonyCrystals';
 /** Run-scoped black hole fed by 质量喷射器; masses keep full float precision. */
 export interface BlackHoleState {
@@ -18,6 +18,13 @@ export interface BlackHoleState {
 /** 特殊资源II: DNA bases crafted from knowledge for 基因修饰. */
 export type DnaId = 'C' | 'G' | 'A' | 'T';
 export type GeneId = 'goodCat' | 'hardWorking' | 'maturationAcceleration' | 'superWorkshop' | 'perfectionism' | 'overclockForging' | 'titanPower' | 'advancedScience' | 'catCohesion' | 'kinoFire';
+/** 种族特质: run-scoped gene traits owned by the current species. */
+export type SpeciesTraitId = 'smart' | 'creative' | 'cute' | 'curious';
+export type SpeciesId = 'cat';
+/** Run-scoped: traits bought or removed with particles reset with every run. */
+export interface SpeciesTraitsState {
+  traits: SpeciesTraitId[];
+}
 /** Run-scoped gene modification: DNA stock and gene levels reset with every run. */
 export interface GeneModificationState {
   /** DNA stock; 基因合成 produces fractional amounts. */
@@ -128,6 +135,7 @@ export interface GameState {
   prestigeUnlocked: PrestigeResourceId[];
   crispr: CrisprUpgradeId[];
   geneModification: GeneModificationState;
+  speciesTraits: SpeciesTraitsState;
   soldiers: number;
   /** Wounded during raids; counted separately and unusable in combat until treated. */
   wounded: number;

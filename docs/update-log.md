@@ -50,6 +50,52 @@
 
 ---
 
+## 2026/10/23 beta 0.9.44 种族特质 + 高级基因合成 / 第三代喵星人
+
+### 新增 CRISPR 升级
+
+- `advancedGeneSynthesis`（高级基因合成，T2，200 粒子 + 25 卡西米尔晶体，前置 `geneSplicing`）
+- `thirdGenerationCat`（第三代喵星人，T3，1000 粒子，前置 `advancedGeneSynthesis`）
+- CRISPR 面板的树布局由 `tier` + `pre` 元数据驱动，无需改 UI 代码。
+
+### 种族特质（新机制）
+
+- 数据：`src/data/species-traits.ts`（特质定义、默认特质、上限）。数值常量在 `src/simulation/species-traits.ts`。
+- 状态：`GameState.speciesTraits = { traits: SpeciesTraitId[] }`，本周目内有效。
+- 规则（经用户确认）：
+  - 上限 6 个，初始的聪明/创造/可爱**计入**上限。
+  - 购买与移除**都**消耗该特质的粒子价格（同一价）。
+  - 初始特质移除后仍出现在「可购买的种族特质」里，可以买回；因此四个特质全部可购，没有额外解锁门槛。
+  - 满 6 个时购买按钮置灰并给出上限提示。
+- 效果接入点（全部走 simulation 层，界面不重算）：
+  | 特质 | 效果 | 接入位置 |
+  |---|---|---|
+  | 聪明 | 教授 +0.25、科学家 +0.5 基础知识产量（**加算**，在基因乘算之后） | `building-production.ts calculateBuildingOutput` |
+  | 创造 | ARPA 基础造价 -20%，成本蠕变 -0.005 | `projects.ts calculateProjectCost` |
+  | 可爱 | 每位艺术家幸福度效果 +1%（`artistEffect` 加 0.01） | `morale.ts calculateArtistEffect` |
+  | 好奇 | 每个猫猫市民使学校知识容量 +0.1% | `storage-bonuses.ts` school 分支 |
+- 界面：`SpeciesTraitsPanel.vue`，挂在 ARPA-遗传学页面基因修饰下方，仅在 `thirdGenerationCat` 后出现。特质名称用 `title` 做悬停效果说明。
+
+### 存档
+
+- `speciesTraits` 是**新增字段**，旧存档没有它：
+  - `validate-save.ts` 的字段集合校验新增 `backfilledFields` 集合（`achievementLevels`、`speciesTraits`），缺字段不再直接拒绝。
+  - `state/validate-species-traits.ts`：缺失 → 回填默认特质；存在 → 严格校验（重复 id、未知 id、超过上限一律报错，不静默裁剪）。
+  - `tests/save-compatibility.test.ts` 的冻结旧 JSON 逐字段比对已加入该字段的回填期望。
+- **`CONFIG.version` 未变（仍为 33）**：这是新增的可选字段，不是 schema 结构变更。
+
+### 踩到的两处
+
+1. **VM 回归桥接清单是手工维护的**。新模块必须加进 `scripts/generate-legacy-data.cjs` 的 `registry`，否则经典 `.cjs` 套件报 `xxx is not defined`。已加 `species-trait-data`、`species-traits`、`validate-species-traits` 三条（顺序在 `genes` 之后、`building-production` 之前）。
+2. **默认特质会改变既有测试的数值**。聪明(+0.25/+0.5 知识) 和创造(-20% ARPA) 让 10 个历史测试红掉。这些测试验证的是**其他机制**，一律在夹具里加 `state.speciesTraits = { traits: [] }` 隔离，而不是改它们的断言值。涉及：`genes`、`crispr`、`containers-cafe-smelting`、`projects-genetics`、`space-support`。
+
+### 验证
+
+- 新增 `tests/species-traits.test.ts`（14 项）：升级定价与前置、默认特质、购买/移除计价、上限、未解锁时拒绝编辑、四项效果各自的精确数值、基因合成翻倍、旧存档回填、非法存档拒绝。
+- 三条独立变红验证：把 `SMART_PROFESSOR_KNOWLEDGE` 改 0、`CREATIVE_PROJECT_COST` 改 0、`ADVANCED_GENE_SYNTHESIS_MULTIPLIER` 改 1，每次都只有对应那条变红。
+- 浏览器验收新增 7 条：栏目按升级出现、初始三个特质、悬停效果、可购买列表、购买扣 30 粒子、移除消耗且不影响其他、移除后可买回。
+- `npm run check` 通过：811 项模块测试、经典 VM 回归（失败 0）、Edge 浏览器验收、类型检查与生产构建。
+
 ## 2026/10/23 beta 0.9.43 字节储量接入粒子 / 卡西米尔 / 暗能量加成
 
 - **动机**：`bytes` 和 `encryptedData` 在 `data/resources.ts` 里都是 `special: true`，因此被 `calculateStorageTotals` 的两个通用循环（CRISPR、暗能量）跳过，也走不到 `calculateStorageDetails` 的普通分支。字节的上限一直只反映建筑容量。

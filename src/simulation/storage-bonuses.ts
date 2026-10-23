@@ -5,6 +5,7 @@ import { BUILDINGS } from '../data/buildings';
 import type { BuildingId } from '../types/buildings';
 import { countAsrielResidents } from './asriel';
 import { SPACEPORT_HIGHER_DIMENSIONAL_WATER, RESEARCH_SATELLITE_LAB_CAPACITY } from './building-effects';
+import { CURIOUS_SCHOOL_CAPACITY, hasSpeciesTrait } from './species-traits';
 import {
   unificationCashMultiplier, unificationFuelMultiplier, unificationStorageMultiplierFor,
 } from './unification-storage';
@@ -91,7 +92,9 @@ export function calculateStorageBonuses(id: BuildingId, state: GameState, moon: 
   if (id === 'e710ResearchStation') return { knowledge: 50000 };
   if (id === 'library') return { knowledge: (state.tech.includes('internet') ? 150 : 100)
     * (1 + (state.tech.includes('knowledgeInheritance') ? .1 * state.buildings.particleAccelerator : 0)) };
-  if (id === 'school') return { knowledge: (state.tech.includes('internet') ? 750 : 500) * (1 + .05 * (moon?.allocations.moonObservatory || 0)) * instituteMultiplier };
+  // 好奇 scales every school's knowledge capacity with the population living in it.
+  if (id === 'school') return { knowledge: (state.tech.includes('internet') ? 750 : 500) * (1 + .05 * (moon?.allocations.moonObservatory || 0)) * instituteMultiplier
+    * (1 + (hasSpeciesTrait(state, 'curious') ? CURIOUS_SCHOOL_CAPACITY * Math.max(0, state.population) : 0)) };
   if (id === 'observatory') return { knowledge: 2500 };
   if (id === 'moonObservatory') return { knowledge: 5000 };
   if (id === 'ecologicalDome') return { food: 2500 };

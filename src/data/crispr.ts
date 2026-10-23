@@ -27,4 +27,6 @@ export const CRISPR_UPGRADES: Record<CrisprUpgradeId, CrisprUpgradeDefinition> =
   architect: { name: '建筑师', tier: 0, cost: 50, pre: [], desc: '建筑队列和研究队列的容量上限x2' },
   challengeGene: { name: '挑战基因', tier: 0, cost: 5, pre: [], desc: '开局解锁ARPA标签页。' },
   geneSplicing: { name: '基因剪切', tier: 1, cost: 100, casimirCost: 25, pre: ['geneOptimization'], desc: '在ARPA-遗传学页面中解锁基因修饰栏目（需要先完成本周目的基因测序）。' },
+  advancedGeneSynthesis: { name: '高级基因合成', tier: 2, cost: 200, casimirCost: 25, pre: ['geneSplicing'], desc: '相同知识消耗下，基因合成的碱基产量翻倍。' },
+  thirdGenerationCat: { name: '第三代喵星人', tier: 3, cost: 1000, pre: ['advancedGeneSynthesis'], desc: '在ARPA-遗传学页面中解锁种族特质栏目，可以用粒子增删当前物种的种族特质。' },
 };

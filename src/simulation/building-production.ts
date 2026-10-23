@@ -3,6 +3,7 @@ import { BUILDINGS } from '../data/buildings';
 import { CONFIG } from '../data/config';
 import { applySpaceFuelDiscount } from './space-fuel';
 import { calculateGeneOutputFactor } from './genes';
+import { SMART_PROFESSOR_KNOWLEDGE, SMART_SCIENTIST_KNOWLEDGE, hasSpeciesTrait } from './species-traits';
 import { calculateAiDataCenterPower } from './ai-data-center';
 import { SPACE_RIPPER_OVERCLOCK_ENERGY, SWARM_SATELLITE_PANEL_ENERGY, SWARM_SATELLITE_PLATE_ENERGY } from './building-effects';
 import type { BuildingId } from '../types/buildings';
@@ -82,8 +83,13 @@ export function calculateTouristBase(state: GameState, inputs: ProductionInputs 
 export function calculateBuildingOutput(id: BuildingId, state: GameState, inputs: ProductionInputs | null = null): ResourceRecipe {
   const output = calculateRawBuildingOutput(id, state, inputs);
   const gene = calculateGeneOutputFactor(id, state);
-  if (!gene || gene.factor === 1) return output;
-  return Object.fromEntries(Object.entries(output).map(([resource, amount]) => [resource, amount * gene.factor]));
+  // 聪明 adds flat knowledge per professor (school) / scientist (lab) after the gene
+  // multiplier, so the two never multiply each other.
+  const smart = id === 'school' ? SMART_PROFESSOR_KNOWLEDGE : id === 'lab' ? SMART_SCIENTIST_KNOWLEDGE : 0;
+  const flat = smart && hasSpeciesTrait(state, 'smart') ? smart : 0;
+  if ((!gene || gene.factor === 1) && !flat) return output;
+  return Object.fromEntries(Object.entries(output).map(([resource, amount]) =>
+    [resource, amount * (gene ? gene.factor : 1) + (flat && resource === 'knowledge' ? flat : 0)]));
 }
 function calculateRawBuildingOutput(id: BuildingId, state: GameState, inputs: ProductionInputs | null): ResourceRecipe {
   if (id === 'iceMiningShip') return { water: state.tech.includes('icebreakingPlan') ? 1.25 : 1 };

@@ -6,6 +6,8 @@ import type { DnaId, GameState, GeneId, GeneModificationState } from '../types/s
 
 /** Highest level whose next price still fits a safe-integer DNA stock (10·2^49 < 2^53). */
 export const MAX_GENE_LEVEL = 50;
+/** 高级基因合成 doubles the DNA produced per unit of diverted knowledge. */
+export const ADVANCED_GENE_SYNTHESIS_MULTIPLIER = 2;
 
 export function createGeneModificationState(): GeneModificationState {
   return {
@@ -84,6 +86,9 @@ export function createGeneSynthesisPool(
   const active = isGeneSynthesisUnlocked(state) && biologyUnits > 0 && dt > 0;
   const rates = state.geneModification?.synthesis;
   const share = active && rates ? Math.min(MAX_GENE_SYNTHESIS_TOTAL, totalGeneSynthesisRate(state)) / 100 : 0;
+  // 高级基因合成 doubles the bases one unit of diverted knowledge buys; the knowledge
+  // cost per base is untouched, so the diversion share itself stays the same.
+  const outputMultiplier = state.crispr?.includes('advancedGeneSynthesis') ? ADVANCED_GENE_SYNTHESIS_MULTIPLIER : 1;
   let production = 0;
   const dna: Partial<Record<DnaId, number>> = {};
   if (share <= 0) {
@@ -104,7 +109,7 @@ export function createGeneSynthesisPool(
         target.knowledge = target.knowledge - diverted;
         for (const id of DNA_BASE_IDS) {
           const rate = rates?.[id] || 0;
-          if (rate > 0) dna[id] = (dna[id] || 0) + (gained * rate / 100) / DNA_KNOWLEDGE_COST;
+          if (rate > 0) dna[id] = (dna[id] || 0) + (gained * rate / 100) / DNA_KNOWLEDGE_COST * outputMultiplier;
         }
       }
       return true;

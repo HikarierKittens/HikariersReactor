@@ -30,6 +30,7 @@ import { launchChallenges } from '../simulation/challenges';
 import type { ChallengeGeneId } from '../types/state';
 import { purchaseCrisprUpgrade } from '../simulation/crispr';
 import { craftDna, upgradeGene } from '../simulation/genes';
+import { toggleSpeciesTrait } from '../simulation/species-traits';
 import { setBuildingPowerEnabled } from '../simulation/power-grid';
 import { isPrestigeResourceUnlocked } from '../simulation/prestige-unlocks';
 import { storageSnapshot, storageCap, moonSnapshot } from './format';
@@ -568,7 +569,7 @@ onUnmounted(() => {
       <div class="spacer"></div>
       <span class="small subtle" role="status">{{ saveStatus }}</span>
       <a class="update-log-link" href="./updatelog.html" target="_blank" rel="noopener" data-update-log-link>更新日志</a>
-      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.9.43</span>
+      <span class="small subtle" style="white-space:nowrap;color:#8bc77b;font-size:14px">beta 0.9.44</span>
     </header>
 
     <p v-if="actionError" class="action-error" role="alert">{{ actionError }}</p>
@@ -680,6 +681,7 @@ onUnmounted(() => {
               @crispr-purchase="purchaseCrispr"
               @dna-craft="(id, count) => { store.mutate(s => craftDna(s, id, count)); afterAction(); }"
               @gene-upgrade="id => { store.mutate(s => upgradeGene(s, id)); afterAction(); }"
+              @trait-toggle="id => { store.mutate(s => toggleSpeciesTrait(s, id)); afterAction(); }"
                @challenge-launch="startChallenges"
             />
             <StoryPanel v-else-if="activeTab === 'story'" :state="state" :revision="store.revision()" @read="readStory" />

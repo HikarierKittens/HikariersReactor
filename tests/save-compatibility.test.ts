@@ -51,6 +51,9 @@ test('frozen pre-beta0.6.5 JSON upgrades missing building entries and the schema
   expected.prestige.harmonyCrystals = 0;
   expected.prestige.ascensionResets = 0;
   expected.statistics.lifetime.harmonyCrystalsEarned = 0;
+  // 种族特质 arrived in 0.9.44: the frozen snapshot predates it, so it is backfilled
+  // with the species defaults exactly like 临近势力 above.
+  expected.speciesTraits = { traits: ['smart', 'creative', 'cute'] };
   assert.deepEqual(state, expected);
   assert.deepEqual(validateCurrentSave(JSON.parse(JSON.stringify(state)), context), state);
   assert.deepEqual(raw, before);

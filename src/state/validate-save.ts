@@ -9,6 +9,7 @@ import { validatePopulationRecords } from './validate-population';
 import { validateCivilization } from './validate-civilization';
 import { validateCrispr } from './validate-crispr';
 import { validateGeneModification, validatePrestigeUnlocks } from './validate-genes';
+import { validateSpeciesTraits } from './validate-species-traits';
 import { validateChallenges } from './validate-challenges';
 import { validateHistory } from './validate-history';
 import { validateStatistics } from './validate-stats';
@@ -53,7 +54,10 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
   const raw = check('版本规范化', () => normalizeSchemaSave(value as Record<string, unknown>));
   if (raw.version !== CONFIG.version) throw Error('存档版本不受支持。（版本号）');
   const state = createInitialState(CONFIG.version, context.eventInterval, context.now);
-  if (Object.keys(raw).some(key => !Object.hasOwn(state, key)) || Object.keys(state).some(key => key !== 'achievementLevels' && !Object.hasOwn(raw, key))) throw Error('存档字段无效。（字段集合）');
+  // Fields added after a schema freeze may be absent from older saves; each one is
+  // backfilled with its default by the validator that owns it.
+  const backfilledFields = new Set(['achievementLevels', 'speciesTraits']);
+  if (Object.keys(raw).some(key => !Object.hasOwn(state, key)) || Object.keys(state).some(key => !backfilledFields.has(key) && !Object.hasOwn(raw, key))) throw Error('存档字段无效。（字段集合）');
   if (typeof raw.furUnlocked !== 'boolean') throw Error('毛皮解锁状态无效。（毛皮）');
   state.furUnlocked = raw.furUnlocked;
   state.happiness = check('幸福度', () => validateSaveNumber(raw.happiness, 0, Number.MAX_SAFE_INTEGER, '幸福度'));
@@ -73,6 +77,7 @@ export function validateCurrentSave(value: unknown, context: SaveValidationConte
   check('CRISPR', () => validateCrispr(raw, state));
   // Gene levels scale base outputs and morale, so load them with the other modifiers.
   check('基因修饰', () => validateGeneModification(raw, state));
+  check('种族特质', () => validateSpeciesTraits(raw, state));
   check('挑战', () => validateChallenges(raw, state));
   check('经济记录', () => validateEconomyRecords(raw, state));
   check('临近势力', () => validateNeighbors(raw, state));

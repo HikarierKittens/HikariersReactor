@@ -15,6 +15,8 @@ const registry = [
   ['prestige-unlocks', 'simulation/prestige-unlocks'],
   ['gene-data', 'data/genes'],
   ['genes', 'simulation/genes'],
+  ['species-trait-data', 'data/species-traits'],
+  ['species-traits', 'simulation/species-traits'],
   ['neighbor-data', 'data/neighbors'],
   ['neighbors', 'simulation/neighbors'],
   // 世界统一 storage bonuses are consumed by storage-bonuses and containers, so this must be
@@ -57,6 +59,7 @@ const registry = [
   ['crispr', 'simulation/crispr'],
   ['validate-crispr', 'state/validate-crispr'],
   ['validate-genes', 'state/validate-genes'],
+  ['validate-species-traits', 'state/validate-species-traits'],
   ['one-time-cost', 'simulation/one-time-cost'],
   ['costs', 'simulation/costs'],
   ['population', 'simulation/population'],

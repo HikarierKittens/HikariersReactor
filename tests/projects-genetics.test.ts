@@ -7,8 +7,18 @@ import { enqueueProject, advanceProjectQueue } from '../src/simulation/project-q
 import { investInProject } from '../src/simulation/projects';
 import { createInitialState } from '../src/state/create-state';
 
-test('gene sequencing requires genetics, costs one million, and resets each run', () => {
+/**
+ * Historical assertions here predate 种族特质. 创造 rewrites ARPA prices and 聪明 adds
+ * flat knowledge, so these regressions run with the trait list cleared.
+ */
+function fresh(): ReturnType<typeof createInitialState> {
   const state = createInitialState(CONFIG.version, 60, 0);
+  state.speciesTraits = { traits: [] };
+  return state;
+}
+
+test('gene sequencing requires genetics, costs one million, and resets each run', () => {
+  const state = fresh();
   state.resources.knowledge = 1000000;
   assert.equal(investInProject('geneSequencing', state, 100, () => 0), 0);
   state.tech.push('genetics');
@@ -25,7 +35,7 @@ test('gene sequencing requires genetics, costs one million, and resets each run'
 });
 
 test('project queue preserves partial funding, timing and unique projects', () => {
-  const state = createInitialState(CONFIG.version, 60, 0);
+  const state = fresh();
   state.tech.push('arpa', 'rocketry');
   assert.equal(enqueueProject(state, 'rocketPlatform', 10), 1);
   assert.equal(enqueueProject(state, 'rocketPlatform'), 0);
@@ -43,7 +53,7 @@ test('project queue preserves partial funding, timing and unique projects', () =
 });
 
 test('monument investment changes material only on completion', () => {
-  const state = createInitialState(CONFIG.version, 60, 0);
+  const state = fresh();
   state.tech.push('monument'); state.resources.stone = 100000;
   let randomCalls = 0;
   const random = () => { randomCalls++; return 0; };

@@ -3,6 +3,25 @@
 > 本文档记录 HikariersReactor 当前的技术实现细节，供后续开发与排查参考。
 >
 
+### 种族特质（beta 0.9.44）
+
+存档字段 `GameState.speciesTraits = { traits: SpeciesTraitId[] }`，本周目内有效。
+
+- 数据：`src/data/species-traits.ts` 是特质定义、默认特质与上限的**唯一来源**。
+- 数值常量与购买逻辑：`src/simulation/species-traits.ts`（`toggleSpeciesTrait` 同时处理买与删）。
+- 效果接入点分散在四处，但都只在 simulation 层各改一行，界面不重算：
+
+| 特质 | 接入位置 |
+|---|---|
+| 聪明 | `building-production.ts` `calculateBuildingOutput`，在基因乘算之后**加算** `.25`/`.5` |
+| 创造 | `projects.ts` `calculateProjectCost`，基数 ×0.8 且 `costScale - .005` |
+| 可爱 | `morale.ts` `calculateArtistEffect`，加 `.01` |
+| 好奇 | `storage-bonuses.ts` 的 `school` 分支，容量 ×(1 + .001 × 人口) |
+
+**注意**：聪明是加算而 advancedScience 基因是乘算，两者叠加后不再是简单倍率关系。验证基因倍率的测试必须先把 `speciesTraits` 清空，否则会被这 0.25 干扰。
+
+**存档兼容**：`speciesTraits` 是新增字段。`validate-save.ts` 的字段集合校验里有 `backfilledFields` 白名单（目前是 `achievementLevels`、`speciesTraits`），名单内的字段允许在旧存档中缺失，由各自的校验器回填默认值。新增可选字段时把 id 加进这个集合，并在 `state/validate-*.ts` 里实现「缺失给默认、存在则严格校验」的双分支。
+
 ### 特殊资源的储量加成（beta 0.9.43）
 
 `calculateStorageTotals` 用两个通用循环发放粒子 / 卡西米尔 / 暗能量加成，循环里 `continue` 掉 `crafted` 和 `special` 资源。所以任何 `special: true` 的资源（`energy`、`bytes`、`encryptedData`）都**不会**自动获得加成。

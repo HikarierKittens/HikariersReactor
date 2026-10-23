@@ -1638,7 +1638,7 @@ try {
       return state;
     };
     try {
-      log(JSON.stringify(Object.keys(CRISPR_UPGRADES).sort()) === JSON.stringify([...crisprIds, 'dimensionCompression', 'dimensionDistortion', 'casimirEffect', 'coreReplication', 'technician', 'masterArtisan', 'architect', 'challengeGene', 'geneSplicing'].sort()), 'CRISPR目录包含原有七项与新增九项永久升级');
+      log(JSON.stringify(Object.keys(CRISPR_UPGRADES).sort()) === JSON.stringify([...crisprIds, 'dimensionCompression', 'dimensionDistortion', 'casimirEffect', 'coreReplication', 'technician', 'masterArtisan', 'architect', 'challengeGene', 'geneSplicing', 'advancedGeneSynthesis', 'thirdGenerationCat'].sort()), 'CRISPR目录包含原有七项与新增十一项永久升级');
       log(TECHNOLOGIES.crispr16.tier === -1 && TECHNOLOGIES.crispr16.pre.length === 0 && TECHNOLOGIES.crispr16.arpaPre === 'geneSequencing' && TECHNOLOGIES.crispr16.cost.knowledge === 114514, 'CRISPR科技为特殊tier -1、无科技前置、基因测序工程门槛及114514知识');
       log(store.runtime.replaceState(crisprFixture()) && !store.runtime.saveFailed, 'CRISPR fixture使用genetics真实前置闭包并通过存档校验');
       store.refresh(); await flush();
@@ -1778,6 +1778,27 @@ try {
       const slider = $('[data-synthesis-rate="G"]'); slider.value = '10'; slider.dispatchEvent(new Event('input', { bubbles: true })); await flush();
       log(S().geneModification.synthesis.G === 10 && S().geneModification.synthesis.C === 0 && $('[data-synthesis-value="G"]')?.textContent === '10%', '拖动滑块设置G合成速率为10%且不影响其他碱基');
       $('#geneSynthesisModal')?.close(); $('#geneSynthesisModal')?.dispatchEvent(new Event('cancel')); await flush();
+      // 种族特质: the panel only appears after 第三代喵星人, then buys and removes with particles.
+      log(!$('#speciesTraits'), '未购买第三代喵星人时遗传学页无种族特质栏目');
+      store.mutate(state => {
+        state.crispr.push('advancedGeneSynthesis', 'thirdGenerationCat');
+        state.prestige.particles = 5000;
+      });
+      await flush();
+      // Closing the synthesis modal leaves the ARPA tab; come back before checking traits.
+      click($('[data-tab="arpa"]')); await flush();
+      click($('[data-arpa-view="genetics"]')); await flush();
+      const ownedTraits = $$('[data-trait]').map(node => node.dataset.trait);
+      log(!!$('#speciesTraits') && JSON.stringify(ownedTraits) === JSON.stringify(['smart', 'creative', 'cute']), `种族特质栏目显示喵星人初始特质 [${ownedTraits.join(',')}]`);
+      log($('[data-trait="smart"]').getAttribute('title')?.includes('教授基础知识产量'), '悬停标题带有特质效果说明');
+      const shopTraits = $$('[data-trait-shop]').map(node => node.dataset.traitShop);
+      log(JSON.stringify(shopTraits) === JSON.stringify(['curious']), `可购买栏目只列出未拥有的特质 [${shopTraits.join(',')}]`);
+      const beforeBuy = S().prestige.particles;
+      click($('[data-trait-buy="curious"]')); await flush();
+      log(S().speciesTraits.traits.includes('curious') && S().prestige.particles === beforeBuy - 30, '购买好奇扣30粒子并立即加入特质列表');
+      click($('[data-trait-remove="cute"]')); await flush();
+      log(!S().speciesTraits.traits.includes('cute') && S().speciesTraits.traits.includes('curious'), '移除可爱也消耗粒子且不影响其他特质');
+      log(!!$('[data-trait-shop="cute"]'), '被移除的初始特质重新出现在可购买列表，可以买回');
     } catch (error) {
       log(false, `CRISPR回归异常：${errorText(error)}`);
     } finally {

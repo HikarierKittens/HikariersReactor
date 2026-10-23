@@ -71,18 +71,18 @@ function percent(value: number): string { return `${Number((value * 100).toFixed
 </template>
 
 <style scoped>
-.gene-modification { margin-top: 16px; }
-.gene-modification h4 { margin: 12px 0 6px; font-weight: 400; color: var(--gold); }
-.dna-craft { flex-wrap: wrap; }
+.gene-modification { margin-top: 12px; }
+.gene-modification h4 { margin: 8px 0 4px; font-weight: 400; color: var(--gold); }
+.dna-craft { flex-wrap: wrap; margin-bottom: 4px; }
 /* Each DNA base owns its grid, so different gene types never share a row; unused columns stay empty. */
-.gene-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-.gene-card { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 6px 8px; overflow-wrap: anywhere; }
-.gene-title { margin: 0; font-size: 13px; font-weight: 400; line-height: 1.4; }
-.gene-desc { margin: 0; flex: 1; font-size: 12px; line-height: 1.4; color: var(--muted); }
-.gene-bonus { margin: 0; line-height: 1.4; }
-.gene-bottom { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px; }
-.gene-bottom .cost { margin: 0; }
-.gene-bottom button { padding: 2px 10px; }
+.gene-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.gene-card { display: flex; flex-direction: column; gap: 1px; min-width: 0; padding: 4px 6px; overflow-wrap: anywhere; }
+.gene-title { margin: 0; font-size: 12px; font-weight: 400; line-height: 1.3; }
+.gene-desc { margin: 0; flex: 1; font-size: 11px; line-height: 1.3; color: var(--muted); }
+.gene-bonus { margin: 0; font-size: 11px; line-height: 1.3; }
+.gene-bottom { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-top: 1px; }
+.gene-bottom .cost { margin: 0; font-size: 11px; }
+.gene-bottom button { padding: 1px 8px; font-size: 12px; }
 /* Fall back to 2 columns only when the panel itself is too narrow for 4 readable cards. */
 .gene-modification { container-type: inline-size; }
 @container (max-width: 520px) { .gene-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

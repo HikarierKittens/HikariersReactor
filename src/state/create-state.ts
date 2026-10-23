@@ -3,6 +3,7 @@ import { ARPA_PROJECTS } from '../data/projects';
 import { RESOURCES, CRAFT_RECIPES, FACTORY_OPTIONS } from '../data/resources';
 import { createStatistics } from '../simulation/statistics';
 import { createGeneModificationState } from '../simulation/genes';
+import { createSpeciesTraitsState } from '../simulation/species-traits';
 import { createBlackHoleState } from '../simulation/black-hole';
 import { createAutoWorkersState } from '../simulation/auto-workers';
 import { createAchievementTracking } from '../simulation/achievement-tracking';
@@ -29,6 +30,7 @@ export function createInitialState(version: number, eventIn: number, now: number
     furUnlocked: false, unlockedResources: [],
     prestige: { particles: 0, nuclearResets: 0, softResets: 0, casimir: 0, escapeResets: 0, darkEnergy: 0, blackHoleResets: 0, harmonyCrystals: 0, ascensionResets: 0 }, prestigeUnlocked: [], crispr: [],
     geneModification: createGeneModificationState(),
+    speciesTraits: createSpeciesTraitsState(),
     soldiers: 0, wounded: 0, hospitalProgress: 0, neighbors: createNeighborsState(), trainingProgress: 0, nuclearProgress: 0,
     arpaResourceProgress: {},
     shipResourceProgress: {},

@@ -2,6 +2,7 @@ import { withoutPowerCost } from './one-time-cost';
 import { recordKnowledgeSpent } from './statistics';
 import { affordableResourcePercent, calculateResourceRemainingCost, investResourceProgress, resourceCompletionPercent } from './project-funding';
 import { ARPA_PROJECTS, MONUMENT_MATERIALS } from '../data/projects';
+import { CREATIVE_PROJECT_COST, CREATIVE_PROJECT_CREEP, hasSpeciesTrait } from './species-traits';
 import type { ArpaProjectId, GameState } from '../types/state';
 import type { ResourceRecipe } from '../types/economy';
 
@@ -11,15 +12,21 @@ export function calculateProjectDescription(id: ArpaProjectId, state: Pick<GameS
     ? `${base}；每个科研所额外使仓库、高级存储枢纽和格纳库的资源容量+4%` : base;
 }
 
-export function calculateProjectCost(id: string, state: Pick<GameState, 'arpaBuildings' | 'monumentMaterial'> & Partial<Pick<GameState, 'crispr'>>): ResourceRecipe {
+export function calculateProjectCost(id: string, state: Pick<GameState, 'arpaBuildings' | 'monumentMaterial'> & Partial<Pick<GameState, 'crispr' | 'speciesTraits'>>): ResourceRecipe {
   if (!Object.hasOwn(ARPA_PROJECTS, id)) return {};
   if (id === 'geneSequencing' && state.crispr?.includes('geneOptimization')) return { knowledge: 500000 };
   const project = ARPA_PROJECTS[id as ArpaProjectId];
-  const cost = withoutPowerCost(id === 'monument' ? { [state.monumentMaterial || 'stone']: 100000 } : project.cost || {});
+  const base = withoutPowerCost(id === 'monument' ? { [state.monumentMaterial || 'stone']: 100000 } : project.cost || {});
+  // 创造 shaves the base price by 20% and later reduces the creep itself.
+  const creative = hasSpeciesTrait(state as Pick<GameState, 'speciesTraits'>, 'creative');
+  const cost = creative
+    ? Object.fromEntries(Object.entries(base).map(([resource, amount]) => [resource, amount * (1 - CREATIVE_PROJECT_COST)]))
+    : base;
   if (!project.costScale) return { ...cost };
   const count = state.arpaBuildings?.[id as ArpaProjectId] || 0;
+  const scale = project.costScale - (creative ? CREATIVE_PROJECT_CREEP : 0);
   return Object.fromEntries(Object.entries(cost).map(([resource, base]) => {
-    const value = base * project.costScale! ** count;
+    const value = base * scale ** count;
     const total = Number.isFinite(value) ? Math.min(1e100, Math.ceil(value - 1e-8)) : 1e100;
     return [resource, total];
   }));

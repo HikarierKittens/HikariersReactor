@@ -73,6 +73,8 @@ test('purchases require research, prerequisites, sufficient particles and unique
 
 test('material tiers immediately replace lower reductions and combine with industrialism, not ARPA', () => {
   const state = fresh(); state.tech.push('crispr16'); state.prestige.particles = 10000;
+  // 创造 rewrites ARPA prices; this test asserts material tiers leave them alone.
+  state.speciesTraits = { traits: [] };
   const original = calculateBuildingScale('factory', 'cash', state);
   const monument = calculateProjectCost('monument', state);
   for (const [index, id] of materials.entries()) {

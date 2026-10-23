@@ -106,6 +106,8 @@ test('mithril rejects containers and invalid saved allocations', () => {
 
 test('cat cafes provide one artist job each without changing automatic cash output', () => {
   const state = createInitialState(CONFIG.version, 60, 0);
+  // Isolate the artist mechanics from the default species traits, which also move these numbers.
+  state.speciesTraits = { traits: [] };
   state.tech.push('catCafe');
   state.population = 10;
   state.buildings.catCafe = 2;

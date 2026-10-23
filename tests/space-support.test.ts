@@ -47,6 +47,8 @@ test('实验室 holds 1000 knowledge per building and doubles to 2000 only while
   // After 电力 each lab requests 2 power; with none supplied it keeps the base 1000,
   // but 猫猫科学家 keep their jobs and output regardless of power.
   const dark = createInitialState(CONFIG.version, 60, 0);
+  // 聪明 adds flat knowledge per scientist; this test pins the unpowered baseline.
+  dark.speciesTraits = { traits: [] };
   dark.tech.push('electricity'); dark.buildings.lab = 5; dark.workers.lab = 5;
   assert.equal(labKnowledge(dark), 5000);
   assert.equal(calculateProduction(dark).power.available, -10, 'five unfunded labs request 10 watts');
@@ -55,6 +57,7 @@ test('实验室 holds 1000 knowledge per building and doubles to 2000 only while
   // Three funded labs out of five: 5000 base + 3 × 1000 powered. Every lab still
   // works, so all five scientists keep producing.
   const partial = createInitialState(CONFIG.version, 60, 0);
+  partial.speciesTraits = { traits: [] };
   partial.tech.push('electricity'); partial.buildings.lab = 5; partial.workers.lab = 5;
   supplyPower(partial, 6);
   const partialProduction = calculateProduction(partial);
@@ -65,6 +68,7 @@ test('实验室 holds 1000 knowledge per building and doubles to 2000 only while
 
   // Fully funded: every building reaches 2000 and scientist output is unpenalised.
   const lit = createInitialState(CONFIG.version, 60, 0);
+  lit.speciesTraits = { traits: [] };
   lit.tech.push('electricity'); lit.buildings.lab = 5; lit.workers.lab = 5;
   supplyPower(lit, 100);
   const litProduction = calculateProduction(lit);
@@ -89,6 +93,8 @@ test('stock capacity uses live population, bonds replace stocks and exchanges sc
 
 test('new ARPA projects support partial investment, completion and escalating repeat prices', () => {
   const state = createInitialState(CONFIG.version, 60, 0);
+  // 创造 cuts ARPA prices by 20%; this test pins the raw price table.
+  state.speciesTraits = { traits: [] };
   state.tech.push('stockExchange', 'arpaResearchInstitute');
   const exchange = calculateProjectCost('stockExchange', state);
   assert.deepEqual(exchange, { cash: 2000000, wood: 50000, brick: 25000, wroughtIron: 10000 });
@@ -343,6 +349,8 @@ test('late space technologies use exact prices and vault base capacity additions
 
 test('queue estimates handle deficits, capacity, FIFO reservations and ARPA partial funding', () => {
   const state = createInitialState(CONFIG.version, 60, 0);
+  // ARPA wait estimates read project prices, which 创造 rewrites.
+  state.speciesTraits = { traits: [] };
   const rates = { ...state.resources, wood: 2, knowledge: 10 };
   const caps = Object.fromEntries(Object.keys(state.resources).map(id => [id, Infinity])) as typeof state.resources;
   assert.equal(estimateResourceWait({ wood: 10 }, state.resources, rates, caps), '预计 5 s后完成');
