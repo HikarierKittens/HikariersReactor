@@ -418,7 +418,7 @@ const content = computed<TipContent | null>(() => {
       tip.description = '立即结束本周目并开启新的周目，保留威望资源、CRISPR修饰、成就与重置记录。';
       add('粒子', `+${number(reward)}`);
     } else if (kind === 'escape') {
-      const reward = calculateEscapePrestigeReward(state), casimir = calculateCasimirReward(reward);
+      const reward = calculateEscapePrestigeReward(state), casimir = calculateCasimirReward(reward, state);
       tip.title = '发射ESS-喵星号';
       tip.description = '离开太阳系将结束本周目，保留威望资源、CRISPR修饰、成就与重置记录，重新开始文明。';
       add('粒子', `+${number(reward)}`);

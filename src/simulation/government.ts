@@ -10,6 +10,7 @@ import type { TechnologyId } from '../types/technologies';
 import type { ResourceRecipe } from '../types/economy';
 import { geneBonus } from './genes';
 import { occupationTaxRate } from './neighbors';
+import { challengeFactor, challengeLevel, knowledgeRewardTerm, prestigeSoftCap, softenAgainstCap } from './prestige-scaling';
 
 export const GOVERNMENTS: Record<GovernmentId, { name: string; tech: TechnologyId; desc: string }> = {
   none: { name: '无政府体制', tech: 'government', desc: '没有额外效果。' },
@@ -155,38 +156,62 @@ export function calculateTaxBase(state: Pick<GameState, 'population' | 'taxRate'
 /** Per-camp training effect in percent: 5%, or 8% after 虚拟训练. */
 export function calculateTrainingBoost(state: Partial<Pick<GameState, 'tech'>>): number { return state.tech?.includes('virtualTraining') ? 8 : BUILDINGS.trainingCamp.trainingBoost ?? 0; }
 export function calculateTrainingDuration(state: Pick<GameState, 'buildings' | 'government'> & Partial<Pick<GameState, 'tech'>>): number { return 30 / 2 ** ((state.buildings.trainingCamp || 0) * calculateTrainingBoost(state) / 100) / (state.government === 'militaryRule' ? 1.3 : 1); }
-export function calculatePrestigeReward(state: Pick<GameState, 'population' | 'soldiers'>): number { const raw = state.population / 4 + state.soldiers / 2 + 10; return Math.floor(raw <= 150 ? raw : 150 + (raw - 150) / 4); }
-/** Escape rewards use the population remaining aboard at launch, including soldiers. */
-export function calculateEscapePrestigeReward(state: Pick<GameState, 'population' | 'soldiers'>): number {
-  const raw = (state.population + state.soldiers) / 3 + 100;
-  return Math.floor(raw <= 400 ? raw : 400 + (raw - 400) * .25);
-}
-/** Casimir is awarded from the final integer particle reward, not its uncapped base. */
-export function calculateCasimirReward(particleReward: number): number {
-  const raw = particleReward / 8;
-  return Math.floor(raw <= 100 ? raw : 100 + (raw - 100) * .05);
-}
-/** 飞升 uses this run's actual knowledge expenditure, never lifetime spending. */
-export function calculateDigitalAscensionParticleReward(state: Pick<GameState, 'population' | 'soldiers' | 'statistics'>): number {
-  const raw = (state.population + state.soldiers) / 1.15
-    + Math.log1p(.008 * state.statistics.run.knowledgeSpent / 30000) / Math.log1p(.008);
-  return Math.floor(raw <= 2000 ? raw : 2000 + (raw - 2000) * .25);
-}
-/** Derived only from the final capped, integer particle reward. Zero awards no Casimir. */
-export function calculateDigitalAscensionCasimirReward(particleReward: number): number {
-  return particleReward <= 1 ? 0 : Math.max(0, Math.floor(Math.log2(particleReward) * 4 * Math.E));
-}
-export function calculateDigitalAscensionHarmonyReward(state: Pick<GameState, 'challenge'>): number {
-  return 2 + state.challenge.genes.length;
+/**
+ * Prestige particle rewards all follow one shape:
+ *   `(crew / divisor + knowledgeTerm) × challengeFactor`, squashed against a soft cap.
+ *
+ * `crew` is 市民 + 士兵. The knowledge term is 本周目 accumulated spending, so a run that
+ * spends more knowledge pays off long before population does; the divisor is that knob.
+ */
+type PrestigeRewardState = Partial<Pick<GameState, 'challenge' | 'statistics'>>;
+
+function crewReward(crew: number, knowledge: number, divisor: number, rate: number, knowledgeDivisor: number, cap: number, state: PrestigeRewardState): number {
+  const raw = (crew / divisor + knowledgeRewardTerm(knowledge, knowledgeDivisor, rate)) * challengeFactor(state);
+  return Math.floor(softenAgainstCap(raw, cap));
 }
 
-/** 黑洞重置 particles: larger base and a later, gentler soft cap than escape. */
-export function calculateBlackHoleParticleReward(state: Pick<GameState, 'population' | 'soldiers'>): number {
-  const raw = (state.population + state.soldiers) / 2 + 250;
-  return Math.floor(raw <= 800 ? raw : 800 + (raw - 800) * .3);
+function runKnowledgeSpent(state: Pick<GameState, 'statistics'>): number {
+  return Math.max(0, state.statistics?.run?.knowledgeSpent ?? 0);
 }
-/** 黑洞重置 Casimir from the final particle reward, with a higher soft cap than escape. */
-export function calculateBlackHoleCasimirReward(particleReward: number): number {
-  const raw = particleReward / 6;
-  return Math.floor(raw <= 150 ? raw : 150 + (raw - 150) * .1);
+
+/** 核爆重置: base cap 150, crew / 3, knowledge rate 1.1 over 1,000,000. */
+export function calculatePrestigeReward(state: Pick<GameState, 'population' | 'soldiers' | 'statistics'> & PrestigeRewardState): number {
+  return crewReward(state.population + state.soldiers, runKnowledgeSpent(state as Pick<GameState, 'statistics'>),
+    3, 1.1, 1_000_000, prestigeSoftCap(150, challengeLevel(state)), state);
+}
+/** 逃离重置 uses the crew remaining aboard at launch, including soldiers. Base cap 400. */
+export function calculateEscapePrestigeReward(state: Pick<GameState, 'population' | 'soldiers' | 'statistics'> & PrestigeRewardState): number {
+  return crewReward(state.population + state.soldiers, runKnowledgeSpent(state as Pick<GameState, 'statistics'>),
+    3, 1.015, 500_000, prestigeSoftCap(400, challengeLevel(state)), state);
+}
+/** Casimir is awarded from the final integer particle reward, not its uncapped base. */
+export function calculateCasimirReward(particleReward: number, state: PrestigeRewardState): number {
+  return casimirFromParticles(particleReward, 1, state);
+}
+/** Shared Casimir shape: log2(particles) × multiplier × e × challengeFactor. */
+function casimirFromParticles(particleReward: number, multiplier: number, state: PrestigeRewardState): number {
+  if (particleReward <= 1) return 0;
+  return Math.max(0, Math.floor(Math.log2(particleReward) * multiplier * Math.E * challengeFactor(state)));
+}
+/** 飞升 uses this run's actual knowledge expenditure, never lifetime spending. Base cap 2000. */
+export function calculateDigitalAscensionParticleReward(state: Pick<GameState, 'population' | 'soldiers' | 'statistics'> & PrestigeRewardState): number {
+  return crewReward(state.population + state.soldiers, runKnowledgeSpent(state as Pick<GameState, 'statistics'>),
+    1.15, 1.008, 300_000, prestigeSoftCap(2000, challengeLevel(state)), state);
+}
+/** Derived only from the final capped, integer particle reward. Zero awards no Casimir. */
+export function calculateDigitalAscensionCasimirReward(particleReward: number, state: PrestigeRewardState): number {
+  return casimirFromParticles(particleReward, 4, state);
+}
+export function calculateDigitalAscensionHarmonyReward(state: Pick<GameState, 'challenge'>): number {
+  return 2 + challengeLevel(state);
+}
+
+/** 黑洞重置: base cap 800, crew / 2.2, knowledge rate 1.012 over 400,000. */
+export function calculateBlackHoleParticleReward(state: Pick<GameState, 'population' | 'soldiers' | 'statistics'> & PrestigeRewardState): number {
+  return crewReward(state.population + state.soldiers, runKnowledgeSpent(state as Pick<GameState, 'statistics'>),
+    2.2, 1.012, 400_000, prestigeSoftCap(800, challengeLevel(state)), state);
+}
+/** 黑洞重置 Casimir from the final particle reward, with a higher multiplier than escape. */
+export function calculateBlackHoleCasimirReward(particleReward: number, state: PrestigeRewardState): number {
+  return casimirFromParticles(particleReward, 2.5, state);
 }

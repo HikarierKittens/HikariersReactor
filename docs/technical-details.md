@@ -3,6 +3,36 @@
 > 本文档记录 HikariersReactor 当前的技术实现细节，供后续开发与排查参考。
 >
 
+### 威望收益公式（beta 0.9.45）
+
+统一实现于 `src/simulation/prestige-scaling.ts`，四个家族只在 `government.ts` 里传不同参数：
+
+| 家族 | 人口除数 | 知识除数 | 底数 | 软上限基数 |
+|---|---|---|---|---|
+| `calculatePrestigeReward`（核爆） | 3 | 1,000,000 | 1.1 | 150 |
+| `calculateEscapePrestigeReward` | 3 | 500,000 | 1.015 | 400 |
+| `calculateBlackHoleParticleReward` | 2.2 | 400,000 | 1.012 | 800 |
+| `calculateDigitalAscensionParticleReward` | 1.15 | 300,000 | 1.008 | 2000 |
+
+**两个必须区分的挑战数值**（都在 `prestige-scaling.ts`）：
+
+- `challengeLevel(state)` = `genes.length`（0–3）→ **只用于软上限** `base × (1 + level/8)`
+- `challengeFactor(state)` = `1 + genes.length`（1–4）→ **只用于收益乘数**
+
+合成一个变量会让每个软上限整体偏移 base 的 1/8，且普通周目收益归零。
+
+**为什么这两个函数不在 `challenges.ts`**：`government.ts` 需要它们，而 `challenges.ts` → `prestige.ts` → `government.ts` 已成链。放进 `challenges.ts` 会构成循环导入，症状是 `updateProgression` 静默失效（`prestigeUnlocked` 变成空数组），测试报 `actual: []`。
+
+**知识项**：`log_rate(1 + (rate-1) × run.knowledgeSpent / divisor)`，读 `statistics.run`（本周目）而非 `lifetime`。在 `knowledge = divisor` 处约等于 1，所以除数就是"多少知识值一个奖励单位"。
+
+**溢出软化** `softenAgainstCap(raw, cap)`：未超上限原样返回；超出时 `cap + (raw-cap)/raw × cap`。该式在 cap 处连续、单调递增、恒小于 `2×cap`。旧实现 `cap + (raw-cap)×系数` 是线性外推，长局无界膨胀。
+
+**卡西米尔**：`floor(log2(粒子) × 倍率 × e × challengeFactor)`，粒子 ≤1 给 0。逃离 1、黑洞 2.5、飞升 4。三个函数都接收 `state` 参数读挑战因子。
+
+**暗能量**：`(ln(1 + 40×exotic) + log2(max(1, mass−9)) / 2.5) × challengeFactor`，超 10 的部分只付一成，`max(1, floor(...))`。`max(1, ...)` 是必需的：质量被耗到 9 以下时 `log2(0) = -Infinity`，会污染结果。
+
+**VM 桥接**：`prestige-scaling` 必须登记进 `scripts/generate-legacy-data.cjs` 的 registry，且排在 `black-hole` 与 `government` 之前，否则报 `prestigeSoftCap is not defined`。
+
 ### 种族特质（beta 0.9.44）
 
 存档字段 `GameState.speciesTraits = { traits: SpeciesTraitId[] }`，本周目内有效。

@@ -98,7 +98,7 @@ export interface EscapePrestigeReset extends PrestigeReset { casimirReward: numb
 export function launchEscapePrestige(state: GameState, eventIn: number, now: number): EscapePrestigeReset | null {
   if (!hasCompleteShip(state)) return null;
   const reward = calculateEscapePrestigeReward(state);
-  const casimirReward = calculateCasimirReward(reward);
+  const casimirReward = calculateCasimirReward(reward, state);
   const casimir = state.prestige.casimir === undefined ? 0 : state.prestige.casimir;
   const escapeResets = state.prestige.escapeResets === undefined ? 0 : state.prestige.escapeResets;
   if (!Number.isSafeInteger(reward) || reward < 0 || !Number.isSafeInteger(casimirReward) || casimirReward < 0
@@ -125,7 +125,7 @@ export interface BlackHolePrestigeReset extends EscapePrestigeReset { darkEnergy
 export interface BlackHolePrestigeRewards { reward: number; casimirReward: number; darkEnergyReward: number }
 export function calculateBlackHolePrestigeRewards(state: GameState): BlackHolePrestigeRewards {
   const reward = calculateBlackHoleParticleReward(state);
-  return { reward, casimirReward: calculateBlackHoleCasimirReward(reward), darkEnergyReward: calculateDarkEnergyReward(state) };
+  return { reward, casimirReward: calculateBlackHoleCasimirReward(reward, state), darkEnergyReward: calculateDarkEnergyReward(state) };
 }
 
 /** 奇异失控 → 黑洞重置: needs the unlocked tech and its full price; mutates nothing. */
@@ -158,7 +158,7 @@ export function launchBlackHolePrestige(state: GameState, eventIn: number, now: 
 export interface DigitalAscensionRewards extends EscapePrestigeReset { harmonyReward: number }
 export function calculateDigitalAscensionRewards(state: GameState): { reward: number; casimirReward: number; harmonyReward: number } {
   const reward = calculateDigitalAscensionParticleReward(state);
-  return { reward, casimirReward: calculateDigitalAscensionCasimirReward(reward), harmonyReward: calculateDigitalAscensionHarmonyReward(state) };
+  return { reward, casimirReward: calculateDigitalAscensionCasimirReward(reward, state), harmonyReward: calculateDigitalAscensionHarmonyReward(state) };
 }
 
 /** A completed, enabled and fully powered AGI core is required; all observations are pure. */

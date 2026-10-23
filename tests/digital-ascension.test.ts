@@ -15,17 +15,20 @@ const fresh = () => createInitialState(CONFIG.version, 60, 1000);
 test('ascension exact rewards: knowledge logarithm, 2000 softcap, final integer Casimir, active genes', () => {
   const s = fresh();
   assert.equal(calculateDigitalAscensionParticleReward(s), 0);
-  assert.equal(calculateDigitalAscensionCasimirReward(0), 0);
-  assert.equal(calculateDigitalAscensionCasimirReward(1), 0);
+  assert.equal(calculateDigitalAscensionCasimirReward(0, s), 0);
+  assert.equal(calculateDigitalAscensionCasimirReward(1, s), 0);
   s.population = 115; s.statistics.run.knowledgeSpent = 30000;
-  assert.equal(calculateDigitalAscensionParticleReward(s), 101);
+  // crew/1.15 = 100, plus the knowledge term's fraction; the floor still lands on 100.
+  assert.equal(calculateDigitalAscensionParticleReward(s), 100);
   s.population = 2300; s.statistics.run.knowledgeSpent = 0;
   assert.equal(calculateDigitalAscensionParticleReward(s), 2000);
   s.population = 4600;
-  assert.equal(calculateDigitalAscensionParticleReward(s), 2500);
-  assert.equal(calculateDigitalAscensionCasimirReward(2500), Math.floor(Math.log2(2500) * 4 * Math.E));
+  // 4600/1.15 = 4000 is past the 2000 cap, so the overflow is squashed instead of clipped.
+  assert.equal(calculateDigitalAscensionParticleReward(s), 3000);
+  assert.equal(calculateDigitalAscensionCasimirReward(3000, s), Math.floor(Math.log2(3000) * 4 * Math.E));
   s.statistics.lifetime.knowledgeSpent = 1e15;
-  assert.equal(calculateDigitalAscensionParticleReward(s), 2500);
+  // Only the current run's spending counts, so lifetime totals change nothing.
+  assert.equal(calculateDigitalAscensionParticleReward(s), 3000);
   assert.equal(calculateDigitalAscensionHarmonyReward(s), 2);
   s.challenge.genes = ['particleImbalance', 'geneCollapse', 'industrialFracture'];
   assert.equal(calculateDigitalAscensionHarmonyReward(s), 5);

@@ -177,6 +177,9 @@ test('prestige resources stay hidden until first held, then stay unlocked at 0',
   // Nuclear rewards unlock particles in the next run immediately.
   const nuclear = createMilestoneState('space');
   nuclear.tech.push('nuclearProgram'); nuclear.nuclearProgress = 100;
+  // Prestige rewards scale with crew and this run's knowledge, so the fixture needs a
+  // run that actually produced something; an empty snapshot would earn 0.
+  nuclear.population = 400; nuclear.soldiers = 100; nuclear.statistics.run.knowledgeSpent = 5e7;
   assert.deepEqual(launchNuclearPrestige(nuclear, 60, 0)!.next.prestigeUnlocked, ['particles']);
   assert.deepEqual(nuclear.prestigeUnlocked, [], 'source state is not mutated');
   // Missing unlock records are rejected, not inferred from permanent history.

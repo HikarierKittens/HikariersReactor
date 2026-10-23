@@ -8,6 +8,8 @@ const registry = [
   ['format', 'shared/format'],
   ['plain-text', 'shared/plain-text'],
   ['resources', 'data/resources'],
+  // 威望收益的软上限/挑战因子: black-hole.ts 与 government.ts 都读它，必须先定义。
+  ['prestige-scaling', 'simulation/prestige-scaling'],
   ['black-hole', 'simulation/black-hole'],
   ['buildings', 'data/buildings'],
   ['technologies', 'data/technologies'],

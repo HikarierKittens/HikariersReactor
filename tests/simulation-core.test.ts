@@ -212,7 +212,8 @@ test('nuclear fill and prestige resets preserveInvalid guards', () => {
   funded.population = 40;
   const launched = launchNuclearPrestige(funded, 60, 123);
   assert.ok(launched);
-  assert.equal(launched!.reward, 20);
+  // crew / 3 with no knowledge spent: 40 / 3 = 13.33, floored to 13.
+  assert.equal(launched!.reward, 13);
   assert.equal(launched!.next.version, CONFIG.version);
   assert.equal(JSON.stringify(funded).includes('"nuclearProgress":100'), true);
   const soft = createInitialState(CONFIG.version, 60, 0);

@@ -263,24 +263,27 @@ test('ARPA and ship accept independent resource deposits without overfill and hu
 });
 test('escape rewards apply both softcaps and preserve permanent casimir while clearing ship', () => {
   const s = fresh(); s.population = 300; s.soldiers = 600;
-  assert.equal(calculateEscapePrestigeReward(s), 400);
-  s.population = 1500; assert.equal(calculateEscapePrestigeReward(s), 500);
-  assert.equal(calculateCasimirReward(1600), 105);
+  // crew/3 = 300 sits under the 400 cap, so the reward is the raw value.
+  assert.equal(calculateEscapePrestigeReward(s), 300);
+  s.population = 1500;
+  // crew/3 = 700 is past the cap; the overflow is squashed, not clipped, so it lands at 571.
+  assert.equal(calculateEscapePrestigeReward(s), 571);
+  assert.equal(calculateCasimirReward(1600, s), Math.floor(Math.log2(1600) * Math.E));
   assert.equal(launchEscapePrestige(s, 60, 0), null);
   s.buildings.interstellarDock = 1;
   for (const id of Object.keys(SHIP_COMPONENTS) as (keyof typeof SHIP_COMPONENTS)[]) s.shipComponents[id] = true;
   s.prestige.casimir = 10; s.statistics.lifetime.casimirEarned = 10; s.prestige.particles = 1000;
   const before = calculateParticleMultiplier('food', s);
   const result = launchEscapePrestige(s, 60, 0)!;
-  assert.equal(result.reward, 500); assert.equal(result.casimirReward, 62);
-  assert.equal(result.next.prestige.casimir, 72); assert.equal(result.next.prestige.escapeResets, 1);
-  assert.equal(result.next.statistics.lifetime.particlesEarned, 500);
-  assert.equal(result.next.statistics.lifetime.casimirEarned, 72);
-  assert.equal(resetRunState(result.next, 'soft', 60, 0)!.next.statistics.lifetime.casimirEarned, 72);
+  assert.equal(result.reward, 571); assert.equal(result.casimirReward, Math.floor(Math.log2(571) * Math.E));
+  assert.equal(result.next.prestige.casimir, 10 + Math.floor(Math.log2(571) * Math.E)); assert.equal(result.next.prestige.escapeResets, 1);
+  assert.equal(result.next.statistics.lifetime.particlesEarned, 571);
+  assert.equal(result.next.statistics.lifetime.casimirEarned, 10 + Math.floor(Math.log2(571) * Math.E));
+  assert.equal(resetRunState(result.next, 'soft', 60, 0)!.next.statistics.lifetime.casimirEarned, 10 + Math.floor(Math.log2(571) * Math.E));
   assert.equal(resetRunState(result.next, 'hard', 60, 0)!.next.statistics.lifetime.casimirEarned, 0);
   assert.equal(result.next.buildings.interstellarDock, 0); assert.equal(result.next.shipComponents.hull, false);
   assert.ok(calculateParticleMultiplier('food', { ...s, prestige: { ...s.prestige, casimir: 10000 } }) > before);
-  assert.equal(resetRunState(result.next, 'soft', 60, 0)!.next.prestige.casimir, 72);
+  assert.equal(resetRunState(result.next, 'soft', 60, 0)!.next.prestige.casimir, 10 + Math.floor(Math.log2(571) * Math.E));
   assert.equal(resetRunState(result.next, 'hard', 60, 0)!.next.prestige.casimir, 0);
 });
 test('nanotube factory recipe capacity and maintained warehouse use requested base values', () => {

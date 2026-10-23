@@ -1,6 +1,7 @@
 import { RESOURCES } from '../data/resources';
 import type { ResourceAmounts, ResourceId } from '../types/economy';
 import type { BlackHoleState, GameState } from '../types/state';
+import { challengeFactor } from './prestige-scaling';
 
 /** Initial black-hole mass; the 引力转化 bonus counts only mass above this. */
 export const BLACK_HOLE_INITIAL_MASS = 10;
@@ -134,12 +135,22 @@ export function calculateGravityConversionEnergy(state: Pick<GameState, 'tech' |
     + Math.max(0, state.blackHole.exoticMass) * GRAVITY_ENERGY_PER_EXOTIC;
 }
 
-/** 暗能量 from 黑洞重置: 1 + 1.5·√(mass above 10 + 40×exotic), soft-capped at 10 (×0.25 beyond), at least 1. */
+/**
+ * 暗能量 from 黑洞重置: `(ln(1 + 40·exotic) + log2(mass - 9) / 2.5) × challengeFactor`.
+ *
+ * Mass above the initial 10 contributes logarithmically, so doubling the hole never
+ * doubles the reward. Beyond the soft cap only a tenth of the excess is paid.
+ * The `max(1, ...)` keeps the mass term real once the hole is drained to 9 or below, and
+ * the result is floored at 1 so any 黑洞重置 is worth at least one crystal.
+ */
 export const DARK_ENERGY_SOFT_CAP = 10;
-export function calculateDarkEnergyReward(state: Pick<GameState, 'blackHole'>): number {
-  const effective = Math.max(0, state.blackHole.mass - BLACK_HOLE_INITIAL_MASS) + Math.max(0, state.blackHole.exoticMass) * BLACK_HOLE_STABILIZE_RATIO;
-  const raw = 1 + 1.5 * Math.sqrt(effective);
-  return Math.max(1, Math.floor(raw <= DARK_ENERGY_SOFT_CAP ? raw : DARK_ENERGY_SOFT_CAP + (raw - DARK_ENERGY_SOFT_CAP) * .25));
+export function calculateDarkEnergyReward(state: Pick<GameState, 'blackHole'> & Partial<Pick<GameState, 'challenge'>>): number {
+  const exotic = Math.max(0, state.blackHole.exoticMass);
+  const massAboveBaseline = Math.max(1, state.blackHole.mass - BLACK_HOLE_INITIAL_MASS + 1);
+  const raw = (Math.log(1 + exotic * BLACK_HOLE_STABILIZE_RATIO) + Math.log2(massAboveBaseline) / 2.5) * challengeFactor(state);
+  const value = raw <= DARK_ENERGY_SOFT_CAP ? raw : DARK_ENERGY_SOFT_CAP + (raw - DARK_ENERGY_SOFT_CAP) * .1;
+  // Prestige increments must be whole numbers; the save validator rejects fractions.
+  return Math.max(1, Math.floor(value));
 }
 
 /** Fixed 8-decimal display used for black-hole masses. */

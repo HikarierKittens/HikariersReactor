@@ -341,6 +341,24 @@
 - **原因**：该子页只渲染**当前可购买**的升级（前置未满足的、已购买的都不显示）。这是设计，不是 bug。
 - **做法**：这类「全覆盖」断言要么放在能显示全量的视图上（如「已完成」子页配合已购状态），要么改成断言过滤规则本身（`仅显示已满足前置的`）。先读组件模板确认渲染条件，再写断言。
 
+## 54. 把共享辅助函数放进已参与循环的模块，会静默破坏不相干的功能
+
+- **症状**：给 `challenges.ts` 加 `challengeLevel`/`challengeFactor` 后，`tests/genes.test.ts` 的「威望资源首次获得后解锁」报 `prestigeUnlocked` 实际是 `[]`。该测试与奖励公式毫无关系，typecheck 全绿，也没有任何报错堆栈。
+- **原因**：`challenges.ts` → `prestige.ts` → `government.ts` 已经是链，而 `government.ts` 又要读 `challenges.ts` 的新函数 → 构成循环。ESM 在循环下把尚未初始化的导出当作 `undefined`，`updateProgression` 里调用时抛错被吞掉，只表现为"什么也没发生"。
+- **做法**：新函数放到**下游的叶子模块**（这里是 `prestige-scaling.ts`，只 import 类型），再由原模块 re-export 保持调用点不变。判断依据：模块 A 已经 import 了 B 的运行时值，就不要让 B 反过来 import A。这类 bug 只能靠**全量测试**发现，`npm test -- <关键字>` 和 typecheck 都看不出来。
+
+## 55. 奖励公式改动会让一批"顺便用到它"的测试变红，需要区分夹具问题与公式问题
+
+- **症状**：威望公式重做后，`genes`（核爆解锁粒子）、`simulation-core`（40 人口期望 20）、`outer-space`（逃离期望 400/500）、`acceptance.html`（逃离卡西米尔 ≥13）接连变红。
+- **原因**：这些测试用威望奖励当**副作用触发器**，而不是在验证公式本身。夹具大多没有人口和知识消耗，新公式下奖励变成 0 或个位数。
+- **做法**：先判断测试意图。验证「重置会解锁粒子」的（`genes`）→ 给夹具补上人口与 `statistics.run.knowledgeSpent`，让它像一个真实周目；验证「重置会清空船坞」的（acceptance）→ 去掉对奖励数值的硬性期望，只断重置后果；真正在验公式的（`simulation-core`、`outer-space`）→ 按新公式更新期望值并注明算式。不要一律改数字，那会把"重置会解锁资源"悄悄变成"重置给 13 粒子"。
+
+## 56. 新增 `simulation/*.ts` 后 VM 回归报 `xxx is not defined`，且 `pretest` 看起来没用
+
+- **症状**：登记进 `scripts/generate-legacy-data.cjs` 后，`node scripts/run-tests.mjs` 仍报 `ReferenceError: prestigeSoftCap is not defined`。
+- **原因**：`assets/generated/*.js` 是生成产物，`pretest` 钩子只在 `npm test` 时触发；直接跑 `node scripts/run-tests.mjs` 会用旧产物。
+- **做法**：改完 registry 后手动跑一次 `node scripts/generate-legacy-data.cjs`，确认 `assets/generated/manifest.json` 里出现新模块名，且顺序在被依赖者之前。
+
 
 
 

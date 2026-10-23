@@ -195,7 +195,7 @@ test('奇异失控 cannot be bought or queued directly; 黑洞重置 pays and gr
   const result = launchBlackHolePrestige(s, 60, 0)!;
   assert.ok(result);
   assert.equal(result.reward, calculateBlackHoleParticleReward(s));
-  assert.equal(result.casimirReward, calculateBlackHoleCasimirReward(result.reward));
+  assert.equal(result.casimirReward, calculateBlackHoleCasimirReward(result.reward, s));
   assert.equal(result.darkEnergyReward, calculateDarkEnergyReward(s));
   const next = result.next;
   assert.equal(next.prestige.particles, 7 + result.reward);
@@ -210,18 +210,32 @@ test('奇异失控 cannot be bought or queued directly; 黑洞重置 pays and gr
 });
 
 test('black-hole rewards exceed escape rewards and dark energy stays in the 1-10 band', () => {
-  for (const crew of [0, 400, 1200, 4000]) {
-    const s = { population: crew, soldiers: crew / 4 };
+  // A bare crew object still needs run statistics: the knowledge term reads them.
+  const bare = (crew: number) => {
+    const s = fresh();
+    s.population = crew; s.soldiers = crew / 4;
+    s.statistics.run.knowledgeSpent = 0;
+    return s;
+  };
+  // An empty crew earns nothing, so the comparison starts where a run actually has one.
+  for (const crew of [400, 1200, 4000]) {
+    const s = bare(crew);
     const p = calculateBlackHoleParticleReward(s);
     assert.ok(p > calculateEscapePrestigeReward(s), `particles ${crew}`);
-    assert.ok(calculateBlackHoleCasimirReward(p) > calculateCasimirReward(calculateEscapePrestigeReward(s)), `casimir ${crew}`);
+    assert.ok(calculateBlackHoleCasimirReward(p, s) > calculateCasimirReward(calculateEscapePrestigeReward(s), s), `casimir ${crew}`);
   }
-  const de = (mass: number, exoticMass = 0) => calculateDarkEnergyReward({ blackHole: { mass, exoticMass, unstable: false, ejection: {} } });
-  assert.equal(de(10), 1);
-  assert.ok(de(14) >= 3 && de(14) <= 4);
-  assert.ok(de(40) >= 8 && de(40) <= 10);
+  // Mass above the initial 10 pays logarithmically; exotic mass adds a separate ln term.
+  const de = (mass: number, exoticMass = 0, genes: GameState['challenge']['genes'] = []) =>
+    calculateDarkEnergyReward({ blackHole: { mass, exoticMass, unstable: false, ejection: {} }, challenge: { genes, modes: [], story: null, particleBaseline: 0 } });
+  assert.equal(de(10), 1, 'an untouched hole still pays the floor of 1');
+  assert.equal(de(13), 1, 'mass at or below 13 is below the floor');
+  assert.equal(de(40), 1);
+  assert.equal(de(100), 2);
+  assert.equal(de(500), 3);
   assert.ok(de(500) < 20, 'soft cap slows growth');
-  assert.ok(de(30, .25) > de(30));
+  assert.ok(de(30, .25) > de(30), 'exotic mass adds its own logarithmic term');
+  // Each challenge gene multiplies the raw value before the cap squashes it.
+  assert.ok(de(100, 0, ['geneCollapse']) > de(100), 'a challenge gene raises the reward');
 });
 
 test('暗能量加成 multiplies ordinary storage after the CRISPR bonuses', () => {

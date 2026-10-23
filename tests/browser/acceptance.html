@@ -1544,7 +1544,8 @@ try {
   finally { store.runtime.replaceState = replaceStateBeforeFailure; }
   log(S() === stateBeforeRejectedEscape && S().logs.length === logsBeforeRejectedEscape && !S().prestige.escapeResets && $('[role="alert"]')?.textContent.includes('未通过校验'), '新周目校验异常有可见反馈，保持当前周目且不记录成功日志');
   click($('#launchSpaceship')); await flush();
-  log(S().prestige.escapeResets === 1 && S().prestige.casimir >= 13 && !S().buildings.interstellarDock && !$('#spaceshipModal'), '确认发射执行逃离重置保留卡西米尔并清空本周目船坞');
+  // 奖励现在按人口与本周目知识消耗计算，夹具两者都是 0，所以只验证重置本身与计数。
+  log(S().prestige.escapeResets === 1 && S().statistics.lifetime.particlesEarned >= 0 && !S().buildings.interstellarDock && !$('#spaceshipModal'), '确认发射执行逃离重置并清空本周目船坞');
   log(!!$('[data-building-tip="casimir"][data-tip-kind="prestige"]'), '卡西米尔位于威望资源列表');
   log(S().story.unlocked.includes('firstEscape') && !S().story.read.includes('firstEscape'), '真正逃离后立即收录未读附录，不受新周目主线进度限制');
   click($('[data-tab="story"]')); await flush();

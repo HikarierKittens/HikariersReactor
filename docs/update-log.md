@@ -50,6 +50,59 @@
 
 ---
 
+## 2026/10/23 beta 0.9.45 威望收益重做
+
+### 新增 `src/simulation/prestige-scaling.ts`
+
+四种重置共用一套形状，参数集中在调用点：
+
+| 重置 | 人口除数 | 知识除数 | 知识底数 | 软上限基数 |
+|---|---|---|---|---|
+| 核爆 | 3 | 1,000,000 | 1.1 | 150 |
+| 逃离 | 3 | 500,000 | 1.015 | 400 |
+| 黑洞 | 2.2 | 400,000 | 1.012 | 800 |
+| 数字飞升 | 1.15 | 300,000 | 1.008 | 2000 |
+
+公式：`floor(soften((人口/除数 + log_底数(1 + (底数-1)×知识/除数)) × 挑战因子, 软上限))`
+
+- `prestigeSoftCap(base, level)` = `base × (1 + level/8)`，0 级软上限恰等于 base。
+- `softenAgainstCap(raw, cap)`：未超上限原样返回；超出部分按 `cap × 溢出/raw` 折算，函数在 cap 处连续、单调、恒小于 `2×cap`。旧实现是 `cap + (raw-cap)×系数` 的线性外推，长局会无界膨胀。
+- `knowledgeRewardTerm(knowledge, divisor, rate)`：写成自然对数，且 `knowledge = divisor` 时恰好约等于 1，使除数成为"多少知识值一个奖励单位"的直接旋钮。
+
+### 两个必须区分的挑战数值
+
+`challengeLevel` 与 `challengeFactor` 都定义在 **`prestige-scaling.ts`**，不在 `challenges.ts`：
+
+- `challengeLevel(state)` = `genes.length`（0–3），**只用于软上限**。
+- `challengeFactor(state)` = `1 + genes.length`（1–4），**只用于收益乘数**。
+
+把它们合成一个变量会让每个软上限整体偏移 base 的 1/8。`challenges.ts` 仍 re-export 两者以保持既有调用点不变。
+
+**为什么放在 `prestige-scaling.ts`**：`government.ts` 需要它们，而 `challenges.ts` → `prestige.ts` → `government.ts` 已经构成链。放进 `challenges.ts` 会造成循环导入，表现为 `updateProgression` 静默失效（`prestigeUnlocked` 变空数组）。
+
+### 卡西米尔与暗能量
+
+- 卡西米尔统一为 `floor(log2(粒子) × 倍率 × e × 挑战因子)`，粒子 ≤ 1 时为 0。逃离 1、黑洞 2.5、飞升 4。
+- 飞升的旧实现本来就是 `log2(p)×4×e`，0 级下新公式与之完全相等，只有挑战基因会带来差异。
+- 暗能量：`(ln(1 + 40×奇异质量) + log2(max(1, 质量 - 9)) / 2.5) × 挑战因子`，超软上限只付一成溢出，且 `max(1, floor(...))` 保底 1 并保证整数。
+- `max(1, 质量-9)` 是必需的：黑洞质量被消耗到 9 以下时 `log2(0)` 会得到 `-Infinity`，再乘因子会污染结果。
+
+### 连带改动
+
+- `calculateCasimirReward` / `calculateBlackHoleCasimirReward` / `calculateDigitalAscensionCasimirReward` 都新增 `state` 参数（读挑战因子），三个调用点已同步：`prestige.ts` 四处、`TooltipPanel.vue` 一处。
+- `prestige-scaling` 必须登记进 `scripts/generate-legacy-data.cjs` 的 registry，且排在 `black-hole` 与 `government` 之前，否则 VM 回归报 `prestigeSoftCap is not defined`。
+
+### 测试
+
+新增 `tests/prestige-scaling.test.ts`（10 项）：两个挑战数值的区分、软上限增长、溢出软化的连续/单调/有界、知识项在除数处约等于 1、四个家族同形状、空周目得 0、卡西米尔按倍率、和谐水晶、暗能量保底与软上限、所有奖励是安全整数。
+
+四处独立变红验证：
+1. `challengeFactor` 改成 `challengeLevel` → 4 项红
+2. `softenAgainstCap` 改成 `Math.min` → 1 项红
+3. 移除暗能量 `Math.max(1, ...)` → 2 项红
+
+既有测试的期望值按新公式更新：`digital-ascension`、`black-hole`、`outer-space`、`genes`（核爆解锁粒子需夹具补充人口与知识）、`simulation-core`（40 人口 → 奖励 13）。
+
 ## 2026/10/23 测试流程整理（无玩家可见变化，版本号不变）
 
 ### 新增 `tests/support/tech-closure.ts`

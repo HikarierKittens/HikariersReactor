@@ -8,6 +8,10 @@ export function isChallengeGeneActive(state: Partial<Pick<GameState, 'challenge'
   return state.challenge?.genes.includes(id) ?? false;
 }
 
+// challengeLevel / challengeFactor live in `prestige-scaling.ts`: `government.ts` needs
+// them and `challenges.ts` already imports `prestige.ts`, which imports `government.ts`.
+export { challengeFactor, challengeLevel } from './prestige-scaling';
+
 /** Starting particles are inert in particle imbalance, but newly earned particles work normally. */
 export function calculateEffectiveParticleCount(state: Pick<GameState, 'prestige'> & Partial<Pick<GameState, 'challenge'>>): number {
   return Math.max(0, state.prestige.particles - (isChallengeGeneActive(state, 'particleImbalance') ? state.challenge?.particleBaseline ?? 0 : 0));
