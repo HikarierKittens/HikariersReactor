@@ -3,8 +3,11 @@ import { test } from 'node:test';
 import { CONFIG } from '../src/data/config';
 import { createInitialState } from '../src/state/create-state';
 import { createDefaultAutomationConfig } from '../src/state/automation-storage';
-import { CONDITION_SOURCES, blankConditionRow, blankTrigger } from '../src/data/automation';
+import { CONDITION_SOURCES, DEFAULT_BUILDING_WEIGHT, blankConditionRow, blankTrigger, buildingWeightKey } from '../src/data/automation';
+import { BUILDINGS } from '../src/data/buildings';
+import type { BuildingId } from '../src/types/buildings';
 import { createConditionContext, evaluateConditionRow, readConditionSource } from '../src/simulation/automation/conditions';
+import type { AutomationValues } from '../src/simulation/automation/policy';
 import { resolveAutomation } from '../src/simulation/automation/policy';
 import { createAutomationEngine } from '../src/simulation/automation/engine';
 import { buildWeight, collectWeightSignals, rankBuildTargets } from '../src/simulation/automation/weighting';
@@ -343,4 +346,45 @@ test('只打开主开关就能养活殖民地：四个保命模块默认开启',
   assert.ok(state.population > 0, `人口不应归零，实际 ${state.population}`);
   const after = Object.values(state.buildings).reduce((a, b) => a + b, 0);
   assert.ok(after > before.buildings, `建筑应增长：${before.buildings} -> ${after}`);
+});
+
+test('每座建筑都有自己的权重：提高会前移，归零会彻底退出候选', () => {
+  // 对齐参考脚本的 `bld_w_<id>`：情境倍率管"这一类"，自身权重管"这一座"。
+  const state = fresh();
+  const signals = collectWeightSignals(state);
+  const base = config({ master: true }).values as AutomationValues;
+  const withOwn = (id: string, value: number): AutomationValues => ({ ...base, [buildingWeightKey(id)]: value });
+
+  // 1. 权重是乘数：1000 应当是默认 100 的十倍。
+  const normal = buildWeight('school', state, signals, base);
+  assert.ok(normal > 0, '默认权重应为正');
+  assert.ok(Math.abs(buildWeight('school', state, signals, withOwn('school', 1000)) - normal * 10) < 1e-6);
+  // 2. 0 表示这一座不再自动建造。
+  assert.equal(buildWeight('school', state, signals, withOwn('school', 0)), 0);
+  assert.equal(rankBuildTargets(state, withOwn('school', 0)).includes('school'), false, '权重为 0 的建筑不该出现在候选里');
+  assert.equal(rankBuildTargets(state, base).includes('school'), true, '默认权重下应该在候选里');
+
+  // 3. 提高一座原本靠后的建筑，它必须真的前移（只断言不报错等于没测）。
+  const ranked = rankBuildTargets(state, base);
+  const tail = ranked[ranked.length - 1];
+  assert.ok(tail, '前提：候选非空');
+  const boosted = rankBuildTargets(state, withOwn(tail, 1000));
+  assert.ok(boosted.indexOf(tail) < ranked.indexOf(tail), `${tail} 应前移：${ranked.indexOf(tail)} -> ${boosted.indexOf(tail)}`);
+
+  // 4. 压低但不到 0：仍然合法，只是排到后面。
+  const head = ranked[1];
+  assert.ok(head, '前提：候选至少两项');
+  const lowered = rankBuildTargets(state, withOwn(head, 0.01));
+  assert.ok(lowered.includes(head), '压低不归零时仍在候选里');
+  assert.ok(lowered.indexOf(head) > ranked.indexOf(head), `${head} 应后移`);
+});
+
+test('建筑权重的键覆盖注册表里的每一座建筑，默认值一致', () => {
+  // 漏一座建筑就等于"这座建筑无法单独调"，而这一节的用途正是逐座调。
+  const config = createDefaultAutomationConfig();
+  const missing = (Object.keys(BUILDINGS) as BuildingId[]).filter(id => !Object.hasOwn(config.values, buildingWeightKey(id)));
+  assert.deepEqual(missing, [], '这些建筑没有独立权重');
+  for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
+    assert.equal(config.values[buildingWeightKey(id)], DEFAULT_BUILDING_WEIGHT, `${id} 的默认权重`);
+  }
 });

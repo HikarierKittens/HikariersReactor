@@ -1,4 +1,5 @@
 import { BUILDINGS } from '../../data/buildings';
+import { DEFAULT_BUILDING_WEIGHT, buildingWeightKey } from '../../data/automation';
 import { TECHNOLOGIES } from '../../data/technologies';
 import { REGIONAL_MISSIONS, isRegionalMissionAvailable, isRegionalMissionCompleted, type RegionalMissionId } from '../space-missions';
 import { isPurchaseAllowed } from '../purchases';
@@ -161,7 +162,6 @@ function isHousingBuilding(id: BuildingId): boolean {
 }
 
 /** 该建筑命中的权重倍率键（可能多个，按顺序相乘）。 */
-/** 该建筑命中的权重倍率键（可能多个，按顺序相乘）。 */
 export function weightingKeysFor(id: BuildingId, state: GameState, signals: WeightSignals): string[] {
   const keys: string[] = [];
   if ((state.buildings[id] || 0) === 0) keys.push('buildingWeightingNew');
@@ -192,6 +192,10 @@ export function buildWeight(id: BuildingId, state: GameState, signals: WeightSig
     const multiplier = numericValue(values, key);
     weight *= Number.isFinite(multiplier) ? multiplier : 1;
   }
+  // 每座建筑自己的权重（默认 100，与参考脚本的 `bld_w_<id>` 一致）。
+  // 它是最后一道乘数：设成 0 就只停掉这一座，不影响同类建筑的情境倍率。
+  const own = numericValue(values, buildingWeightKey(id));
+  if (Number.isFinite(own)) weight *= own / DEFAULT_BUILDING_WEIGHT;
   return weight;
 }
 

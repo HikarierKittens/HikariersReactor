@@ -50,6 +50,14 @@
 
 ---
 
+## 2026/10/24 beta 0.9.49 每座建筑独立的建造权重
+
+- 改动：`src/data/automation.ts` 新增 `buildingWeightKey(id)` / `DEFAULT_BUILDING_WEIGHT` / `MAX_BUILDING_WEIGHT`，并新增分节 `buildingWeight`（`buildingWeights()` 按 `BUILDINGS` 生成 132 条 `bldWeight.<id>` 选项）。对齐参考脚本的 `def['bld_w_' + id] = 100`。
+- 改动：`src/simulation/automation/weighting.ts` 的 `buildWeight` 末尾乘上该建筑自身权重 `/ DEFAULT_BUILDING_WEIGHT`。默认 100 是恒等元，所以现有行为不变；0 会让 `computeRankBuildTargets` 里的 `filter(row => row.weight > 0)` 把它整条淘汰。清理掉一处重复的 `weightingKeysFor` 文档注释。
+- 改动：`src/vue/components/AutomationPanel.vue` 给该节加筛选框（`visibleOptions`，只对本节生效，其它分节选项少不需要），行渲染、Ctrl+左键覆盖、行变灰等复用既有逻辑。
+- 兼容：存储层无需改动——`normalizeOptionValue` 是通用的，按 `option.min` / `option.max` 校验，新键自动通过。旧配置缺这些键时由 `normalizeAutomationConfig` 补默认值 100；越界值（负数、超过 1000）仍整份拒绝。`CONFIG.version` 保持 33，`AUTOMATION_CONFIG_VERSION` 保持 1。
+- 验证：npm run check通过：858项模块测试、经典VM回归、Edge浏览器验收、类型检查与生产构建。新增测试：权重是乘数、0 淘汰、提高前移、压低后移、每座建筑都有键且默认值一致；浏览器验收断言 132 行渲染、筛选生效、改值写进运行时与独立存储。
+
 ## 2026/10/24 beta 0.9.48 自动化脚本：完整的高级设置
 
 - 改动：`src/data/automation.ts` 重写为十四节一百三十四项的注册表，新增五种控件（toggle / number / string / select / list）。`src/types/automation.ts` 的 `AutomationOption` 增加 `choices`、`listSource`、`kind: 'select' | 'list'`；`ConditionRow.value` 允许数组（列表型覆盖）。`AutomationConfig` 新增 `weighting` 字段。

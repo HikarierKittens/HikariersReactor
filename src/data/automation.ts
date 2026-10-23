@@ -40,6 +40,29 @@ const select = (key: string, label: string, hint: string, value: string, choices
 const ids = (key: string, label: string, hint: string, listSource: () => { id: string; label: string }[]): AutomationOption =>
   ({ key, label, hint, kind: 'list', default: [], listSource });
 
+/**
+ * 每个建筑一条独立权重（对齐参考脚本的 `bld_w_<id>`，默认 100）。
+ *
+ * 键名固定为 `bldWeight.<建筑 id>`：`<建筑 id>` 是存档里稳定的注册表键，
+ * 因此以后新增建筑只会多出一条键，旧配置里缺的键由归一化补默认值。
+ */
+export const BUILDING_WEIGHT_PREFIX = 'bldWeight.';
+export const buildingWeightKey = (id: string): string => BUILDING_WEIGHT_PREFIX + id;
+export const DEFAULT_BUILDING_WEIGHT = 100;
+export const MAX_BUILDING_WEIGHT = 1000;
+
+const buildingWeights = (): AutomationOption[] =>
+  (Object.keys(BUILDINGS) as BuildingId[]).map(id => ({
+    key: buildingWeightKey(id),
+    label: BUILDINGS[id].name,
+    hint: '这一座建筑自身的建造权重。0 表示不自动建造；越大越优先。',
+    kind: 'number' as const,
+    default: DEFAULT_BUILDING_WEIGHT,
+    min: 0,
+    max: MAX_BUILDING_WEIGHT,
+    integer: false,
+  }));
+
 /** 建筑 / 科技 / 资源 / 势力 / ARPA / 飞船 的 id 名表；界面下拉与 list 控件共用。 */
 export const automationIdLists = {
   building: () => (Object.keys(BUILDINGS) as BuildingId[]).map(id => ({ id, label: BUILDINGS[id].name })),
@@ -139,6 +162,13 @@ export const AUTOMATION_SECTIONS: readonly AutomationSection[] = [
       number('buildingWeightingUnusedEjectors', '未完全运作的质量喷射器', '存在未完全运作的质量喷射器时，它们的权重倍率。', 2, 0, 100, false),
       number('buildingWeightingCrateUseless', '未使用的集装箱', '有未使用的集装箱时，集装箱类建筑的权重倍率。', 0, 0, 100, false),
     ],
+  },
+  {
+    // 每个建筑一条独立权重：与上面那节的"按情境倍率"是相乘关系，
+    // 最终权重 = 基础分 × 情境倍率 × 这座建筑自己的权重 / 100。
+    id: 'buildingWeight',
+    label: '各建筑权重',
+    options: buildingWeights(),
   },
   {
     id: 'research',

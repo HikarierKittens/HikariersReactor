@@ -40,6 +40,19 @@ const editingOption = computed<AutomationOption | null>(() =>
   editingOverrides.value === null ? null : AUTOMATION_OPTIONS[editingOverrides.value] ?? null);
 
 const sections = AUTOMATION_SECTIONS;
+const filterText = ref('');
+
+/**
+ * 分节里实际渲染的选项。
+ *
+ * 「各建筑权重」一节有一百三十多项，全部铺开无法使用，所以给它一个筛选框；
+ * 其它分节只有十来个选项，筛选框为空时原样返回。
+ */
+function visibleOptions(section: typeof sections[number]) {
+  const query = filterText.value.trim().toLowerCase();
+  if (!query || section.id !== 'buildingWeight') return section.options;
+  return section.options.filter(option => option.label.toLowerCase().includes(query) || option.key.toLowerCase().includes(query));
+}
 const overrideCount = computed(() => Object.values(props.automation.overrides).reduce((sum, rows) => sum + (rows?.length ?? 0), 0));
 
 function showStatus(text: string, type: typeof statusType.value = 'subtle'): void {
@@ -331,8 +344,16 @@ function triggerLabel(index: number, trigger: AutomationTrigger): string {
         {{ open.has(section.id) ? '▾' : '▸' }} {{ section.label }}
       </button>
       <div v-if="open.has(section.id)" class="section-body">
+        <input
+          v-if="section.id === 'buildingWeight'"
+          v-model="filterText"
+          class="filter-box"
+          type="search"
+          placeholder="按建筑名筛选"
+          data-automation-building-filter
+        >
         <div
-          v-for="option in section.options"
+          v-for="option in visibleOptions(section)"
           :key="option.key"
           class="option-row"
           :class="{ inactive: props.automation.overrides[option.key]?.length, 'is-overridden': props.report?.overridden?.includes(option.key) }"
@@ -365,7 +386,7 @@ function triggerLabel(index: number, trigger: AutomationTrigger): string {
           </span>
         </div>
 
-        <div v-if="editingOverrides && section.options.some(option => option.key === editingOverrides)" class="override-editor">
+        <div v-if="editingOverrides && visibleOptions(section).some(option => option.key === editingOverrides)" class="override-editor">
           <div v-for="(row, index) in (props.automation.overrides[editingOverrides] ?? [])" :key="index" class="condition-row">
             <span class="row-order">{{ index + 1 }}</span>
             <select :value="row.left" @change="setSource(row, 'left', ($event.target as HTMLSelectElement).value as ConditionSourceId)">
@@ -469,4 +490,5 @@ function triggerLabel(index: number, trigger: AutomationTrigger): string {
 .positive { color: #2e7d32; }
 .negative { color: #d64545; }
 .import-box { width: 100%; min-height: 90px; font-family: monospace; font-size: 12px; }
+.filter-box { width: 100%; font-size: 12px; padding: 2px 6px; margin-bottom: 2px; }
 </style>
