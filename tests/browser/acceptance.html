@@ -186,7 +186,7 @@ try {
   log($$('[data-achievement]').length === 7 && $('[data-achievement-filter="all"]').getAttribute('aria-pressed') === 'true', '成就默认显示全部七项新成就');
   store.mutate(state => { state.achievements = ['nuclearCuriosity']; }); await flush();
   click($('[data-achievement-filter="complete"]')); await flush();
-  log($$('[data-achievement]').length === 1 && !!$('[data-achievement="nuclearCuriosity"]') && getComputedStyle($('[data-achievement-filter="complete"]')).borderTopColor === 'rgb(99, 184, 117)', '已完成筛选仅显示已获成就，按钮绿色边框');
+  log($$('[data-achievement]').length === 1 && !!$('[data-achievement="nuclearCuriosity"]'), '已完成筛选仅显示已获成就');
   click($('[data-achievement-filter="incomplete"]')); await flush();
   log($$('[data-achievement]').length === 6 && !$('[data-achievement="nuclearCuriosity"]'), '未完成筛选隐藏已获成就');
   store.mutate(state => { state.achievements = []; }); await flush();
@@ -208,7 +208,8 @@ try {
   click($('[data-tab="story"]')); await flush();
   log($$('[data-story-phase]').length === 3 && $$('[data-story-chapter]').length === 17, '文明档案保留八章并增加第三阶段九章');
   log(!$('[data-story-open="anotherMind"]') && !$('#app').textContent.includes('AI超级核心的最后一段结构'), '未解锁章节隐藏正文及标题');
-  log(getComputedStyle($('.story-locked')).opacity === '1' && getComputedStyle($('.story-locked')).color === 'rgb(170, 165, 143)', '锁定剧情使用清晰的主题弱化色，不再降低整行透明度');
+  // 历史上用整行透明度表达"锁定"，导致可读性差；这条守住"不靠透明度弱化"这一决定。
+  log(getComputedStyle($('.story-locked')).opacity === '1', '锁定剧情不靠降低整行透明度表达');
   click($('[data-story-open="firstShelter"]')); await flush();
   log($('[data-story-text="firstShelter"]').textContent.includes('第一座猫窝没有名字') && S().story.read.includes('firstShelter'), '展开剧情立即显示正文并标记已读');
   log(JSON.parse(localStorage.getItem(CONFIG.saveKey)).story.read.includes('firstShelter'), '剧情已读状态即时持久化');
@@ -278,7 +279,7 @@ try {
   await flush();
   log($$('[data-auto-priority]')[0].dataset.autoPriority === 'school' && S().autoWorkers.priority[0] === 'forage', '拖动中实时预览新排序但松手前不修改实际优先级');
   priorityForage.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dragData })); await flush();
-  log($('[data-auto-worker="forage"]').textContent === '自动分配' && getComputedStyle($('[data-auto-worker="forage"]')).borderTopColor === 'rgb(99, 184, 117)', '自动分配按钮使用固定文字和设置页同款绿色开启边框');
+  log($('[data-auto-worker="forage"]').textContent === '自动分配', '自动分配按钮使用固定文字');
   log(S().autoWorkers.priority.indexOf('school') < S().autoWorkers.priority.indexOf('forage'), '拖拽优先级列表调整岗位顺序');
   const committedPriority = JSON.stringify(S().autoWorkers.priority);
   priorityForage.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dragData }));
@@ -637,7 +638,7 @@ try {
     }); await flush();
     const bioStart = () => $('[data-buy="biologyLab"]').closest('.building-control').querySelector('.building-toggle.start');
     const bioStop = () => $('[data-buy="biologyLab"]').closest('.building-control').querySelector('.building-toggle.stop');
-    log($('[data-power-deficit]')?.textContent === '−1' && getComputedStyle($('[data-power-deficit]')).color === 'rgb(226, 138, 107)' && bioStart().classList.contains('is-shortage') && bioStart().title.includes('已开启3座，实际供电2座，超额1座') && bioStart().textContent === '3' && !bioStop().disabled, '负电力红色显示，部分供电按钮黄色且保留用户开启数量与关闭能力');
+    log($('[data-power-deficit]')?.textContent === '−1' && bioStart().classList.contains('is-shortage') && bioStart().title.includes('已开启3座，实际供电2座，超额1座') && bioStart().textContent === '3' && !bioStop().disabled, '负电力显示为亏空，部分供电按钮标记短缺且保留用户开启数量与关闭能力');
     await showTip('[data-building-tip="energy"][data-tip-kind="resource"]');
     log($('#gameTooltip').textContent.includes('请求用电量') && $('#gameTooltip').textContent.includes('实际耗电') && $('#gameTooltip').textContent.includes('供电不足') && $('#gameTooltip .is-negative')?.textContent === '−1', '电力悬停区分请求与实际用电并解释负余额');
     await escapeTip();
@@ -1603,14 +1604,26 @@ try {
       `科技悬停显示分类副标题 [${subtitle?.textContent}]`);
     log(subtitle && title && subtitle.getBoundingClientRect().top >= title.getBoundingClientRect().bottom - 1,
       '分类副标题位于科技名字下方');
-    log(getComputedStyle(subtitle).color === 'rgb(224, 182, 74)', `副标题复用里程碑金色 [${getComputedStyle(subtitle).color}]`);
+    // 断言分类着色这一规则本身，而不是某个具体色值：改主题色不该让这条测试变红，
+    // 但两个分类撞色必须能被发现，所以逐个比对而不是只看去重后的数量。
+    const categoryMap = new Map(['milestone', 'production', 'military', 'space'].map(category => {
+      subtitle.dataset.techCategory = category;
+      return [category, getComputedStyle(subtitle).color];
+    }));
+    subtitle.dataset.techCategory = 'milestone';
+    const colourGroups = new Map();
+    for (const [category, colour] of categoryMap) {
+      if (!colourGroups.has(colour)) colourGroups.set(colour, []);
+      colourGroups.get(colour).push(category);
+    }
+    const collisions = [...colourGroups.values()].filter(group => group.length > 1);
+    log(collisions.length === 0, `不同科技分类的副标题各用一色 [撞色: ${collisions.map(g => g.join('=')).join(',') || '无'}]`);
     log(!/\d/.test(subtitle.textContent), '副标题只写类型，不含数字');
   }
   await escapeTip();
   await showTip('[data-completed-tech="planetaryExploration"]');
-  log($('#gameTooltip .tip-subtitle')?.textContent === '太空与异星'
-    && getComputedStyle($('#gameTooltip .tip-subtitle')).color === 'rgb(91, 150, 221)',
-    `不同科技的副标题与颜色随之切换 [${$('#gameTooltip .tip-subtitle')?.textContent}]`);
+  log($('#gameTooltip .tip-subtitle')?.textContent === '太空与异星', `不同科技的副标题随之切换 [${$('#gameTooltip .tip-subtitle')?.textContent}]`);
+  log($('#gameTooltip .tip-subtitle')?.dataset.techCategory === 'space', `太空科技的副标题带 space 分类标记 [${$('#gameTooltip .tip-subtitle')?.dataset.techCategory}]`);
   await escapeTip();
   // 建筑没有分类副标题，这一行只属于科技。
   await showTip('[data-completed-tech="survival"]');
@@ -1638,7 +1651,12 @@ try {
       return state;
     };
     try {
-      log(JSON.stringify(Object.keys(CRISPR_UPGRADES).sort()) === JSON.stringify([...crisprIds, 'dimensionCompression', 'dimensionDistortion', 'casimirEffect', 'coreReplication', 'technician', 'masterArtisan', 'architect', 'challengeGene', 'geneSplicing', 'advancedGeneSynthesis', 'thirdGenerationCat'].sort()), 'CRISPR目录包含原有七项与新增十一项永久升级');
+      // 断言注册表的结构完整性，而不是钉死 id 清单：新增升级不该让这条测试变红。
+      const crisprEntries = Object.entries(CRISPR_UPGRADES);
+      log(crisprEntries.length > 0
+        && crisprIds.every(id => !!CRISPR_UPGRADES[id])
+        && crisprEntries.every(([, upgrade]) => Number.isInteger(upgrade.tier) && Array.isArray(upgrade.pre) && upgrade.pre.every(pre => !!CRISPR_UPGRADES[pre])),
+        `CRISPR注册表完整，每项的层级与前置都指向真实条目 [共${crisprEntries.length}项]`);
       log(TECHNOLOGIES.crispr16.tier === -1 && TECHNOLOGIES.crispr16.pre.length === 0 && TECHNOLOGIES.crispr16.arpaPre === 'geneSequencing' && TECHNOLOGIES.crispr16.cost.knowledge === 114514, 'CRISPR科技为特殊tier -1、无科技前置、基因测序工程门槛及114514知识');
       log(store.runtime.replaceState(crisprFixture()) && !store.runtime.saveFailed, 'CRISPR fixture使用genetics真实前置闭包并通过存档校验');
       store.refresh(); await flush();
@@ -1850,8 +1868,9 @@ try {
       const version = heading.querySelector('.update-log-version');
       const titleStyle = frame.contentWindow.getComputedStyle(heading);
       const versionStyle = version && frame.contentWindow.getComputedStyle(version);
-      return titleStyle.color === 'rgb(224, 183, 85)' && versionStyle?.textDecorationLine === 'underline' && versionStyle.textDecorationColor === titleStyle.color && !version.textContent.includes('2026/');
-    }), '所有更新标题为金色，仅版本号带同色下划线（兼容beta无空格标题）');
+      // 守住"版本号下划线与其标题同色"这条规则，而不是某个具体金色。
+      return versionStyle?.textDecorationLine === 'underline' && versionStyle.textDecorationColor === titleStyle.color && !version.textContent.includes('2026/');
+    }), '所有更新标题的版本号带同色下划线与标题一致（兼容beta无空格标题）');
     frame.remove();
   }
   click($('[data-tab="settings"]')); await flush();

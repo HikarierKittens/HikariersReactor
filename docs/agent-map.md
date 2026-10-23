@@ -55,6 +55,7 @@ src/app/runtime.ts 状态唯一所有者：tick / save / load / import / reset
 | AI数据中心全部数值 | `src/simulation/ai-data-center.ts`（电力 `calculateAiDataCenterPower`、量子 `AI_DATA_CENTER_QUANTUM_BONUS`、水泥/石墨烯/精金加成） | `simulation/quantum.ts`、`space-settlement.ts`、`ground-settlement.ts`、`power-grid.ts`、`building-production.ts`、`resource-breakdown.ts`、`vue/building-tooltip-rows.ts` | `t21-ai-data-center` |
 | 工厂生产线默认与抽取 | `src/simulation/factory.ts`（`assignNewFactoryLines`、`countFreeFactoryLines`）、`simulation/commands.ts`（`changeFactoryAssignment`） | `purchases.ts`（建造后调用）、`FactoryModal.vue`（`canGrow` 按钮态） | `factory-default-lines building-limits` |
 | 种族特质 | `src/data/species-traits.ts`（特质定义/默认特质/上限）、`src/simulation/species-traits.ts`（购买移除 + 四个数值常量） | `building-production.ts`（聪明）、`projects.ts`（创造）、`morale.ts`（可爱）、`storage-bonuses.ts`（好奇）、`SpeciesTraitsPanel.vue` | `species-traits` |
+| 测试用科技门槛集合 | `tests/support/tech-closure.ts`（从注册表推导，勿手抄） | `tests/tech-closure.test.ts`（护栏） | `tech-closure` |
 | 建筑悬浮提示 | `src/vue/building-tooltip-rows.ts` | TooltipPanel | `lab-tooltip description-effects-split` |
 | 预览缓存 | `src/vue/preview-cache.ts` | 各面板 | `preview-reuse ui-preview-cache` |
 
