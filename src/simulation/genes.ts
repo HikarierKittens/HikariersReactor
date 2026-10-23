@@ -9,6 +9,17 @@ export const MAX_GENE_LEVEL = 50;
 /** 高级基因合成 doubles the DNA produced per unit of diverted knowledge. */
 export const ADVANCED_GENE_SYNTHESIS_MULTIPLIER = 2;
 
+/**
+ * DNA yielded per second from `knowledgePerSecond` diverted into one base at `rate`%.
+ * The UI preview and the settlement both go through here so a doubling upgrade cannot
+ * show one number and pay another.
+ */
+export function calculateSynthesisedDna(state: Pick<GameState, 'crispr'>, knowledgePerSecond: number, rate: number): number {
+  if (!(knowledgePerSecond > 0) || !(rate > 0)) return 0;
+  const multiplier = state.crispr?.includes('advancedGeneSynthesis') ? ADVANCED_GENE_SYNTHESIS_MULTIPLIER : 1;
+  return knowledgePerSecond * rate / 100 / DNA_KNOWLEDGE_COST * multiplier;
+}
+
 export function createGeneModificationState(): GeneModificationState {
   return {
     dna: { C: 0, G: 0, A: 0, T: 0 },
@@ -86,10 +97,11 @@ export function createGeneSynthesisPool(
   const active = isGeneSynthesisUnlocked(state) && biologyUnits > 0 && dt > 0;
   const rates = state.geneModification?.synthesis;
   const share = active && rates ? Math.min(MAX_GENE_SYNTHESIS_TOTAL, totalGeneSynthesisRate(state)) / 100 : 0;
-  // 高级基因合成 doubles the bases one unit of diverted knowledge buys; the knowledge
-  // cost per base is untouched, so the diversion share itself stays the same.
-  const outputMultiplier = state.crispr?.includes('advancedGeneSynthesis') ? ADVANCED_GENE_SYNTHESIS_MULTIPLIER : 1;
   let production = 0;
+  // Knowledge actually taken out of the pool. Tracked directly rather than derived from
+  // the DNA gained: 高级基因合成 scales the DNA while the knowledge cost per base stays
+  // put, so deriving it back would double-count the spending.
+  let diverted = 0;
   const dna: Partial<Record<DnaId, number>> = {};
   if (share <= 0) {
     return { pool: inner, result: () => ({ knowledge: 0, dna: {}, knowledgeProduction: 0, share: 0 }) };
@@ -105,11 +117,12 @@ export function createGeneSynthesisPool(
       const gained = target.knowledge - before;
       if (gained > 0) {
         production += gained / dt;
-        const diverted = gained * share;
-        target.knowledge = target.knowledge - diverted;
+        const taken = gained * share;
+        diverted += taken;
+        target.knowledge = target.knowledge - taken;
         for (const id of DNA_BASE_IDS) {
           const rate = rates?.[id] || 0;
-          if (rate > 0) dna[id] = (dna[id] || 0) + (gained * rate / 100) / DNA_KNOWLEDGE_COST * outputMultiplier;
+          if (rate > 0) dna[id] = (dna[id] || 0) + calculateSynthesisedDna(state, gained / dt, rate) * dt;
         }
       }
       return true;
@@ -118,7 +131,7 @@ export function createGeneSynthesisPool(
   return {
     pool,
     result: () => ({
-      knowledge: (Object.values(dna).reduce((sum, amount) => sum + amount, 0) * DNA_KNOWLEDGE_COST) / dt,
+      knowledge: diverted / dt,
       dna: Object.fromEntries(Object.entries(dna).map(([id, amount]) => [id, amount / dt])) as Partial<Record<DnaId, number>>,
       knowledgeProduction: production,
       share,

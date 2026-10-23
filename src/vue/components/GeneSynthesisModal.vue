@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import type { DnaId, GameState } from '../../types/state';
 import { DNA_BASE_IDS, DNA_KNOWLEDGE_COST } from '../../data/genes';
-import { MAX_GENE_SYNTHESIS_RATE, MAX_GENE_SYNTHESIS_TOTAL, remainingGeneSynthesisBudget, totalGeneSynthesisRate } from '../../simulation/genes';
+import { MAX_GENE_SYNTHESIS_RATE, MAX_GENE_SYNTHESIS_TOTAL, calculateSynthesisedDna, remainingGeneSynthesisBudget, totalGeneSynthesisRate } from '../../simulation/genes';
 import { uiPreview } from '../preview-cache';
 import { fmt } from '../format';
 import { signedRate } from '../../simulation/resource-breakdown';
@@ -25,7 +25,7 @@ const rows = computed(() => {
       cap: remainingGeneSynthesisBudget(props.state, id),
       // Share of incoming knowledge this base takes, and its DNA yield per second.
       knowledge: producedKnowledge.value * rate / 100,
-      dna: producedKnowledge.value * rate / 100 / DNA_KNOWLEDGE_COST,
+      dna: calculateSynthesisedDna(props.state, producedKnowledge.value, rate),
       actual: settled.value?.dna[id] || 0,
     };
   });

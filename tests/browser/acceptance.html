@@ -1796,6 +1796,8 @@ try {
       log(sliders.length === 4 && sliders.every(input => input.value === '0' && input.max === '100'), '基因合成面板含4个独立滑块且默认0%');
       const slider = $('[data-synthesis-rate="G"]'); slider.value = '10'; slider.dispatchEvent(new Event('input', { bubbles: true })); await flush();
       log(S().geneModification.synthesis.G === 10 && S().geneModification.synthesis.C === 0 && $('[data-synthesis-value="G"]')?.textContent === '10%', '拖动滑块设置G合成速率为10%且不影响其他碱基');
+      // 高级基因合成的翻倍在 tests/genes.test.ts 里对着真实结算验证；此夹具没有知识产出，
+      // 在这里断言翻倍只会得到 0→0 的恒真结果，因此不重复。
       $('#geneSynthesisModal')?.close(); $('#geneSynthesisModal')?.dispatchEvent(new Event('cancel')); await flush();
       // 种族特质: the panel only appears after 第三代喵星人, then buys and removes with particles.
       log(!$('#speciesTraits'), '未购买第三代喵星人时遗传学页无种族特质栏目');

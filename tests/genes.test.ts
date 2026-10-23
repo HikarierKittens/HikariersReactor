@@ -3,8 +3,10 @@ import { test } from 'node:test';
 import { CRISPR_UPGRADES } from '../src/data/crispr';
 import { GENE_DEFINITIONS, DNA_KNOWLEDGE_COST } from '../src/data/genes';
 import { validateCurrentSave } from '../src/state/validate-save';
+import { createInitialState } from '../src/state/create-state';
+import { CONFIG } from '../src/data/config';
 import { purchaseCrisprUpgrade } from '../src/simulation/crispr';
-import { craftDna, upgradeGene, calculateGeneUpgradeCost, isGeneModificationUnlocked, MAX_GENE_LEVEL, changeGeneSynthesisRate, isGeneSynthesisUnlocked, totalGeneSynthesisRate, remainingGeneSynthesisBudget, applyGeneSynthesis } from '../src/simulation/genes';
+import { craftDna, upgradeGene, calculateGeneUpgradeCost, isGeneModificationUnlocked, MAX_GENE_LEVEL, changeGeneSynthesisRate, isGeneSynthesisUnlocked, totalGeneSynthesisRate, remainingGeneSynthesisBudget, applyGeneSynthesis, createGeneSynthesisPool, calculateSynthesisedDna } from '../src/simulation/genes';
 import { TECHNOLOGIES } from '../src/data/technologies';
 import { calculateBuildingOutput } from '../src/simulation/building-production';
 import { calculateFactoryRecipe } from '../src/simulation/factory';
@@ -283,6 +285,40 @@ test('基因合成 diverts a share of live knowledge production into DNA, with a
   // Stopped labs do not synthesise.
   const stopped = clone(s); stopped.stoppedBuildings.biologyLab = 3;
   assert.equal(calculateProduction(stopped).geneSynthesis.knowledge, 0);
+});
+
+test('高级基因合成 doubles the DNA a unit of diverted knowledge buys, not the knowledge it records', () => {
+  // The upgrade must not inflate the recorded spending: 威望 rewards read that number.
+  const build = (upgrade: boolean) => {
+    const state = createInitialState(CONFIG.version, 60, 0);
+    state.tech.push('geneSynthesis');
+    state.crispr.push('geneSplicing');
+    state.arpaBuildings.geneSequencing = 1;
+    if (upgrade) state.crispr.push('advancedGeneSynthesis');
+    state.geneModification.synthesis = { C: 0, G: 100, A: 0, T: 0 };
+    state.resources.knowledge = 0;
+    return state;
+  };
+  const settle = (upgrade: boolean) => {
+    const state = build(upgrade);
+    const inner = { knowledge: 0 } as never;
+    const { pool, result } = createGeneSynthesisPool(state, 1, 1, inner);
+    pool.knowledge = 200000;
+    const settled = result();
+    const spentBefore = state.statistics.run.knowledgeSpent;
+    applyGeneSynthesis(state, settled, 1);
+    return { settled, dna: state.geneModification.dna.G, spent: state.statistics.run.knowledgeSpent - spentBefore };
+  };
+
+  const plain = settle(false);
+  const upgraded = settle(true);
+
+  near(plain.settled.knowledge, 200000, 'plain records what actually left the pool');
+  near(upgraded.settled.knowledge, 200000, 'the upgrade must not inflate the recorded spending');
+  near(upgraded.spent, plain.spent, 'recorded knowledge spending is identical either way');
+  near(upgraded.dna, plain.dna * 2, 'the same knowledge buys twice the DNA');
+  // The preview helper must agree with what the settlement actually pays.
+  near(calculateSynthesisedDna(build(true), 200000, 100), upgraded.settled.dna.G!, 'preview matches payout');
 });
 
 test('基因合成 needs the tech and 基因剪切; rates and fractional DNA survive saves and reset with the run', () => {

@@ -50,6 +50,45 @@
 
 ---
 
+## 2026/10/23 beta 0.9.46 修复高级基因合成重复计入知识消耗
+
+### 问题
+
+`createGeneSynthesisPool` 的 `result().knowledge` 原本是从 DNA 数量反推的：
+
+```ts
+knowledge: (DNA总量 × DNA_KNOWLEDGE_COST) / dt
+```
+
+加入 `advancedGeneSynthesis` 后 DNA 数量乘了 `ADVANCED_GENE_SYNTHESIS_MULTIPLIER`，于是这个反推值也跟着翻倍。后果：
+
+- 实际只分走了 20 万知识，却被记成 40 万；
+- `applyGeneSynthesis` 用这个值调用 `recordKnowledgeSpent`，污染 `run.knowledgeSpent` 与 `lifetime.knowledgeSpent`；
+- 威望奖励公式读 `run.knowledgeSpent`，因此奖励被虚高（模拟 100 秒：统计消耗 1,000,000 → 2,000,000）。
+
+### 修法
+
+在代理的 set 陷阱里直接累加真实被分流的知识，不再从 DNA 反推：
+
+```ts
+let diverted = 0;
+// ...
+const taken = gained * share;
+diverted += taken;
+target.knowledge = target.knowledge - taken;
+// ...
+result: () => ({ knowledge: diverted / dt, ... })
+```
+
+同时把 DNA 换算抽成 `calculateSynthesisedDna(state, knowledgePerSecond, rate)`，让结算与 UI 预览共用同一公式——此前 `GeneSynthesisModal.vue` 自己写了一遍且漏了倍率，买了升级后预览显示的是实际产量的一半。
+
+### 验证
+
+- 新增 `tests/genes.test.ts` 一条：同一份 20 万知识注入，断言两边的 `settled.knowledge` 都是 20 万、记录消耗相同、DNA 恰好翻倍、预览函数与结算值一致。
+- 变红验证：把 `knowledge` 改回从 DNA 反推 → 该条红；把 `calculateSynthesisedDna` 的倍率写死为 1 → 该条与 `species-traits` 的翻倍测试同时红。
+- 修复后实测：统计消耗 1.0000x、DNA 2.0000x（修复前分别是 2.0000x 与 2.0000x）。
+- 浏览器验收没有为翻倍加断言：`acceptance.html` 的 CRISPR 夹具只有 5 人口、无知识产出，在那里断言翻倍只能得到 0→0 的恒真结果。该逻辑由单元测试对着真实结算覆盖。
+
 ## 2026/10/23 beta 0.9.45 威望收益重做
 
 ### 新增 `src/simulation/prestige-scaling.ts`

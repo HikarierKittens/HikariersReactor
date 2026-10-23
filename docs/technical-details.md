@@ -253,6 +253,9 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 - 科技 `geneSynthesis`（tier 11，200k知识，`pre: ['genetics']`，`arpaPre: 'geneSequencing'`）。`isGeneSynthesisUnlocked` 另需基因修饰已解锁（基因剪切+本周目基因测序）。
 - 速率存于 `geneModification.synthesis`（每碱基0–100整数百分比，互相独立，随周目重置）。当前存档必须提供该字段；DNA数量放宽为非负有限数以容纳小数产出。
 - `settleGeneSynthesis` 在 `calculateProduction` 中位于全部产出之后、质量喷射之前，按供电生物实验室数（`biologyUnits`）扣除知识：每座每1%为2000知识/s→0.01碱基/s；知识不足时所有碱基按同一比例缩减。`applyGeneSynthesis` 在tick中把产出计入DNA并记入知识消耗统计。知识详情显示「基因合成消耗」行。
+- **CRISPR 高级基因合成**（`advancedGeneSynthesis`）把「同一份知识换到的碱基」翻倍，但**知识消耗本身不变**。实现要点：
+  - `GeneSynthesisResult.knowledge` 必须在代理的 set 陷阱里累加**真实被分流的知识**（`diverted += gained * share`），**不能**从 DNA 数量 × `DNA_KNOWLEDGE_COST` 反推——DNA 带上翻倍倍率后，反推会把消耗也一起放大，进而污染 `statistics.run.knowledgeSpent` 并虚高威望奖励。
+  - 「知识 → 碱基」的换算统一走 `calculateSynthesisedDna(state, knowledgePerSecond, rate)`，结算与 `GeneSynthesisModal.vue` 的预览共用，避免一处记得倍率一处漏掉。
 - UI：`BuildingsPanel.vue` 的生物科学实验室齿轮按钮打开 `GeneSynthesisModal.vue`，滑块交互同税率。
 
 ### 统计-特权页
