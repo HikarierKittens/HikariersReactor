@@ -9,16 +9,21 @@ import { calculateSupportPreview } from '../support-preview';
 import { purchaseQueueCapacity } from '../queue-settings';
 import { isResourceUnlocked, isTechnologyUnlocked } from '../unlocks';
 import { isPurchaseAllowed, requestPurchaseModule, researchTechnologyNow } from '../purchases';
-import { rankBuildTargets } from './planning';
+import { rankBuildTargets, rankResearchTargets } from './weighting';
 import { getBuildingPowerDemand, reconcilePowerActivationOrder, setBuildingPowerEnabled } from '../power-grid';
 import { calculateProduction } from '../production';
 import { AUTO_WORKER_JOBS, setAutoWorkerEnabled, setAutoWorkerLimit, setAutoWorkersEnabled } from '../auto-workers';
+import { changeEjectionAllocation, stabilizeBlackHole } from '../black-hole';
+import { changeContainerAssignment } from '../commands';
+import { changeDownloadAllocation } from '../download-command';
+import { changeFactoryAssignment, changeSmelterAssignment } from '../commands';
+import { completeRegionalMissionNow } from '../space-missions';
+import { isProjectUnlocked, investInProject } from '../projects';
+import { listValue, numericValue, stringValue } from './policy';
 import type { AutomationValues } from './policy';
-import { TECHNOLOGIES } from '../../data/technologies';
 import type { GameState } from '../../types/state';
 import type { BuildingId } from '../../types/buildings';
 import type { CraftId, ResourceId } from '../../types/economy';
-import type { TechnologyId } from '../../types/technologies';
 
 /**
  * 自动化的执行动作。
@@ -35,23 +40,25 @@ import type { TechnologyId } from '../../types/technologies';
 /**
  * 用空闲人口填补已启用岗位，保留 `reservePopulation` 只空闲猫猫；从不从其他岗位调人。
  *
- * 岗位填充顺序取 `state.autoWorkers.priority`——那是玩家在游戏里排好的顺序。
- * 与 `applyAutoWorkerAssignment` 的差别只有保留人口与不限量岗位两条。
+ * 岗位填充顺序优先使用玩家配置的 `jobPriority`，其次使用游戏里排好的 `autoWorkers.priority`。
  */
 export function applyAutoWorkers(state: GameState, values: AutomationValues): number {
   if (values.autoWorkers !== true) return 0;
-  const reserve = Math.max(0, Math.floor(Number(values.reservePopulation) || 0));
+  const reserve = Math.max(0, Math.floor(numericValue(values, 'reservePopulation')));
+  const perJobLimit = Math.max(0, Math.floor(numericValue(values, 'jobFillLimit')));
+  const disabled = new Set(listValue(values, 'jobDisabled'));
+  const configured = listValue(values, 'jobPriority') as BuildingId[];
+  const order: BuildingId[] = configured.length > 0
+    ? configured
+    : (state.autoWorkers.priority as BuildingId[]);
   let idle = countSparePopulation(state) - reserve;
   if (idle <= 0) return 0;
   let assigned = 0;
   // 原料优先：`AUTO_WORKER_JOBS` 负责食物与后续产业，但伐木/采石的产出是"造不造得起"的前提。
   // 它们不在自动分配的岗位表里，缺了就会把所有猫猫填进食物的上限、整条建造链停摆。
-  // 只在产量为 0 且仓库里堆着另一种原料时才补，避免和玩家自己的分配抢人。
   for (const { job, resource } of MATERIAL_JOBS) {
     if (idle <= 0) break;
     if ((state.buildings[job] || 0) <= 0 || !isJobUnlocked(state, job, false)) continue;
-    // 伐木/采石的工人容量是 `Infinity`（人数只受人口限制），这里最多只补到"够用"的程度：
-    // 先补到最低人数，之后按缺口逐个补，绝不一次搬空全部空闲人口。
     const current = state.workers[job] || 0;
     if (current >= MATERIAL_MIN_WORKERS) continue;
     const needed = materialDeficit(state, resource);
@@ -70,20 +77,28 @@ export function applyAutoWorkers(state: GameState, values: AutomationValues): nu
     idle -= amount;
     assigned += amount;
   }
-  for (const id of state.autoWorkers.priority) {
+  for (const id of order) {
     if (idle <= 0) break;
-    if (!AUTO_WORKER_JOBS.includes(id)) continue;
+    if (disabled.has(id)) continue;
+    const building = BUILDINGS[id];
+    if (!building) continue;
+    if (building.unlimited) continue;
     const job = state.autoWorkers.jobs[id];
-    if (!job?.enabled || !isJobUnlocked(state, id)) continue;
-    if (!Number.isSafeInteger(job.limit) || job.limit < -1) continue;
+    // 优先列表里明确点名的岗位即使未在自动分配表里启用，也按容量填满。
+    const listed = configured.includes(id);
+    if (!listed && (!job?.enabled || !isJobUnlocked(state, id))) continue;
+    if (listed && !isJobUnlocked(state, id)) continue;
     const capacity = calculateWorkerCapacity(id, state);
     if (!Number.isFinite(capacity)) continue;
-    const target = job.limit === -1 ? capacity : Math.min(capacity, job.limit);
+    const gameLimit = job && Number.isSafeInteger(job.limit) && job.limit >= 0 ? job.limit : -1;
+    let target = gameLimit === -1 ? capacity : Math.min(capacity, gameLimit);
+    if (perJobLimit > 0) target = Math.min(target, perJobLimit);
     const amount = Math.min(idle, Math.max(0, target - (state.workers[id] || 0)));
     if (!(amount > 0)) continue;
     state.workers[id] = (state.workers[id] || 0) + amount;
     idle -= amount;
     assigned += amount;
+    if (values.autoWorkersFollowCapacity === true && (state.workers[id] || 0) >= capacity) continue;
   }
   return assigned;
 }
@@ -105,6 +120,7 @@ const MATERIAL_MIN_WORKERS = 1;
  */
 export function isJobUnlocked(state: GameState, id: BuildingId, skipUnlimited = true): boolean {
   const building = BUILDINGS[id];
+  if (!building) return false;
   if (skipUnlimited && building.unlimited) return false;
   return state.tech.includes(building.tech) || (id === 'theater' && state.tech.includes(BUILDINGS.catCafe.tech));
 }
@@ -135,19 +151,23 @@ export function syncAutoWorkerSettings(state: GameState, values: AutomationValue
 
 // ---------------------------------------------------------------- 自动研究
 
-/** 立即研究所有可研究且可支付的科技；`researchFillQueue` 打开时把其余目标加入队列。 */
+/** 按研究排序立即研究可支付科技；`researchFillQueue` 打开时把其余目标加入队列。 */
 export function applyAutoResearch(state: GameState, values: AutomationValues): number {
   if (values.autoResearch !== true) return 0;
-  const keep = Math.max(0, Number(values.researchKeepKnowledge) || 0);
+  const mode = stringValue(values, 'researchOrder');
+  if (mode === 'manual') return 0;
+  const keep = Math.max(0, numericValue(values, 'researchKeepKnowledge'));
+  const maxQueue = Math.max(0, numericValue(values, 'researchMaxQueue'));
   const moonAvailable = () => calculateSupportPreview(state).moon.available;
+  const queueCap = maxQueue > 0 ? Math.min(maxQueue, purchaseQueueCapacity(state, 'tech')) : purchaseQueueCapacity(state, 'tech');
   let researched = 0;
-  for (const id of Object.keys(TECHNOLOGIES) as TechnologyId[]) {
-    if (state.tech.includes(id) || !isTechnologyUnlocked(id, state)) continue;
+  for (const id of rankResearchTargets(state, values)) {
+    if (!isTechnologyUnlocked(id, state)) continue;
     const affordable = (calculateTechCost(id, state).knowledge || 0) <= (state.resources.knowledge || 0) - keep;
     if (!affordable) {
       if (values.researchFillQueue === true
         && !state.queue.some(item => item.kind === 'tech' && item.id === id)
-        && state.queue.filter(item => item.kind === 'tech').length < purchaseQueueCapacity(state, 'tech')) {
+        && state.queue.filter(item => item.kind === 'tech').length < queueCap) {
         requestPurchaseModule(state, 'tech', id, moonAvailable, true);
       }
       continue;
@@ -162,15 +182,19 @@ export function applyAutoResearch(state: GameState, values: AutomationValues): n
 /**
  * 按规划顺序尝试建造：能立刻付钱的直接买，付不起的交给队列。
  *
- * 顺序取自 `buildAnchor`（等级 + 成本），而不是注册表顺序——注册表顺序会把采石排在伐木
- * 前面，实测会把木材吃光导致两边一起停摆。
+ * 顺序取自 `rankBuildTargets`（优先列表 + 权重表），而不是注册表顺序——注册表顺序会把
+ * 采石排在伐木前面，实测会把木材吃光导致两边一起停摆。
  */
 export function applyAutoBuild(state: GameState, values: AutomationValues): number {
   if (values.autoBuild !== true) return 0;
-  const keepCash = Math.max(0, Number(values.autoBuildKeepCash) || 0);
-  const passes = Math.max(1, Math.min(12, Math.round(Number(values.buildingBuildPassCount) || 1)));
+  if (stringValue(values, 'buildingMode') === 'manual') return 0;
+  const keepCash = Math.max(0, numericValue(values, 'autoBuildKeepCash'));
+  const passes = Math.max(1, Math.min(12, Math.round(numericValue(values, 'buildingBuildPassCount') || 1)));
   const respectQueue = values.buildingPriorityRespectQueue === true;
-  const targets = rankBuildTargets(state);
+  // `autoBuildHousing` 关闭时，住房不该从任何一条路径被建成（自动建造会顺带选中它）。
+  const targets = values.autoBuildHousing === false
+    ? rankBuildTargets(state, values).filter(id => !HOUSING_IDS.includes(id))
+    : rankBuildTargets(state, values);
   let bought = 0;
   for (let pass = 0; pass < passes; pass++) {
     let progressed = false;
@@ -188,6 +212,9 @@ export function applyAutoBuild(state: GameState, values: AutomationValues): numb
   return bought;
 }
 
+/** 住房建筑：`autoBuildHousing` 关闭时从自动建造里整体排除。 */
+const HOUSING_IDS: readonly BuildingId[] = ['nest', 'nestMKII', 'apartment', 'catHut'];
+
 /** 该建筑是否消耗资金；用注册表基价判断，不受递增与折扣影响。 */
 const needsCash = (id: BuildingId): boolean => ((BUILDINGS[id].cost?.cash ?? 0) as number) > 0;
 
@@ -197,13 +224,19 @@ const needsCash = (id: BuildingId): boolean => ((BUILDINGS[id].cost?.cash ?? 0) 
 export function applyAutoCraft(state: GameState, values: AutomationValues): number {
   if (values.autoCraft !== true) return 0;
   if (!(state.buildings.foundry > 0 || state.buildings.planetaryFoundry > 0 || (state.buildings.stellarForge || 0) > 0)) return 0;
-  const reserve = Math.min(1, Math.max(0, Number(values.craftReserveRatio) || 0));
-  const target = Math.min(1, Math.max(0, Number(values.craftTargetRatio) || 0));
+  const reserve = Math.min(1, Math.max(0, numericValue(values, 'craftReserveRatio')));
+  const target = Math.min(1, Math.max(0, numericValue(values, 'craftTargetRatio')));
+  const maxPerRun = Math.max(1, Math.round(numericValue(values, 'craftMaxPerRun') || 1));
+  const blacklist = new Set(listValue(values, 'craftBlacklist'));
+  const priority = listValue(values, 'craftPriority') as CraftId[];
+  const order: CraftId[] = priority.length > 0 ? priority : (Object.keys(CRAFT_RECIPES) as CraftId[]);
   const support = calculateSupportPreview(state);
   const caps = calculateStorageTotals(state, { ...support, moonBaseUnits: support.moon.baseUnits });
   let crafted = 0;
-  for (const id of Object.keys(CRAFT_RECIPES) as CraftId[]) {
+  for (const id of order) {
+    if (crafted >= maxPerRun) break;
     const recipe = CRAFT_RECIPES[id];
+    if (!recipe || blacklist.has(id)) continue;
     if (!Object.keys(recipe.input).every(key => isResourceUnlocked(key, state))) continue;
     const cap = caps[id] || 0;
     if (cap <= 0 || (state.resources[id] || 0) >= cap * target) continue;
@@ -214,7 +247,7 @@ export function applyAutoCraft(state: GameState, values: AutomationValues): numb
       const spare = Math.max(0, (state.resources[key] || 0) - ingredientCap * reserve);
       return Math.floor(spare / (recipe.input[key] || 1));
     }));
-    const amount = Math.min(maximum, capByIngredients);
+    const amount = Math.min(maximum, capByIngredients, maxPerRun - crafted);
     if (!(amount > 0)) continue;
     const multiplier = calculateCraftingMultiplier(id, state, support.asriel);
     for (const [key, value] of Object.entries(recipe.input) as [ResourceId, number][]) state.resources[key] = Math.max(0, (state.resources[key] || 0) - value * amount);
@@ -228,22 +261,33 @@ export function applyAutoCraft(state: GameState, values: AutomationValues): numb
 
 /**
  * 电力余量低于保留值时，按供电开启顺序的倒序关闭负载，直到余量回到保留值。
- * 关闭顺序来自游戏自己的 `powerActivationOrder`，不另造一套优先级；重新开启仍由玩家或
- * `alwaysEnableNewBuildings` 决定，避免脚本在电力刚够时反复开合。
+ *
+ * 关闭顺序来自游戏自己的 `powerActivationOrder`；玩家配置了 `powerPriority` 时，列表里
+ * 靠后的建筑优先被关。
  */
 export function applyAutoPower(state: GameState, values: AutomationValues): number {
   if (values.autoPower !== true) return 0;
-  const reserve = Math.max(0, Number(values.autoPowerReserve) || 0);
-  // 余量按玩家实际看到的那一份算：`calculateProduction().power.available` 与界面同源。
+  const reserve = Math.max(0, numericValue(values, 'autoPowerReserve'));
+  const maxShutdown = Math.max(1, Math.round(numericValue(values, 'powerMaxShutdownPerRun') || 1));
+  const priority = values.autoPowerPriority === true ? listValue(values, 'powerPriority') : [];
   let remaining = calculateProduction(state, 1).power.available;
   if (remaining >= reserve) return 0;
   const loads = reconcilePowerActivationOrder(state).filter(entry => getBuildingPowerDemand(entry.id, state) > 0);
   if (!loads.length) return 0;
+  // 优先关掉“不在优先列表里”的建筑：列表越靠后越先关。
+  const rank = (id: BuildingId) => {
+    if (priority.length === 0) return 0;
+    const index = priority.indexOf(id);
+    return index < 0 ? -1 : index;
+  };
+  const ordered = [...loads].sort((a, b) => rank(a.id) - rank(b.id));
   let changed = 0;
-  for (let i = loads.length - 1; i >= 0 && remaining < reserve; i--) {
-    const entry = loads[i]!;
+  for (let i = 0; i < ordered.length && remaining < reserve && changed < maxShutdown; i++) {
+    const entry = ordered[i];
+    if (!entry) continue;
     const perUnit = getBuildingPowerDemand(entry.id, state);
-    const amount = Math.min(entry.count, Math.ceil((reserve - remaining) / perUnit));
+    if (!(perUnit > 0)) continue;
+    const amount = Math.min(entry.count, Math.ceil((reserve - remaining) / perUnit), maxShutdown - changed);
     if (!(amount > 0)) continue;
     setBuildingPowerEnabled(state, entry.id, -amount);
     remaining += perUnit * amount;
@@ -251,3 +295,124 @@ export function applyAutoPower(state: GameState, values: AutomationValues): numb
   }
   return changed;
 }
+
+// ---------------------------------------------------------------- 工厂与冶炼
+
+/** 有空闲生产线时，按配置顺序把空闲工人分配到生产线上。 */
+export function applyAutoFactoryLines(state: GameState, values: AutomationValues): number {
+  if (values.autoFactoryLines !== true) return 0;
+  const priority = listValue(values, 'factoryLinePriority');
+  if (priority.length === 0) return 0;
+  let assigned = 0;
+  for (const id of priority) {
+    if (countSparePopulation(state) <= 0) break;
+    if (!(id in state.lines)) continue;
+    const before = state.lines[id as keyof typeof state.lines] || 0;
+    const after = changeFactoryAssignment(state, id, Number.MAX_SAFE_INTEGER);
+    if (after > before) assigned += after - before;
+  }
+  return assigned;
+}
+
+/** 冶炼厂保留指定数量的空闲工位，避免全部被钢占满。 */
+export function applyAutoSmelter(state: GameState, values: AutomationValues): number {
+  if (values.autoSmelterIdle !== true) return 0;
+  const keep = Math.max(0, Math.round(numericValue(values, 'craftKeepSpace')));
+  if (state.smelterIdle >= keep) return 0;
+  const before = state.smelterIdle;
+  changeSmelterAssignment(state, keep - before);
+  return state.smelterIdle - before;
+}
+
+// ---------------------------------------------------------------- 存储与喷射
+
+/** 按配置顺序把空闲集装箱分配给资源。 */
+export function applyAutoStorage(state: GameState, values: AutomationValues): number {
+  if (values.autoStorage !== true) return 0;
+  const priority = listValue(values, 'storagePriority') as ResourceId[];
+  if (priority.length === 0) return 0;
+  const target = Math.min(1, Math.max(0, numericValue(values, 'storageReserveRatio')));
+  const support = calculateSupportPreview(state);
+  const caps = calculateStorageTotals(state, { ...support, moonBaseUnits: support.moon.baseUnits });
+  let assigned = 0;
+  for (const id of priority) {
+    const cap = caps[id] || 0;
+    if (cap <= 0) continue;
+    if ((state.resources[id] || 0) / cap < target) continue;
+    const before = state.containerAssignments[id] || 0;
+    const after = changeContainerAssignment(state, id, 1);
+    if (after > before) assigned += after - before;
+  }
+  return assigned;
+}
+
+/** 把已经满仓的资源喷进黑洞；失控时按开关决定是否停止。 */
+export function applyAutoEject(state: GameState, values: AutomationValues): number {
+  if (values.autoEject !== true) return 0;
+  if (values.autoEjectWhenUnstable === true && state.blackHole.unstable) return 0;
+  if ((state.buildings.massEjector || 0) <= 0) return 0;
+  const priority = listValue(values, 'ejectPriority') as ResourceId[];
+  const keep = Math.min(1, Math.max(0, numericValue(values, 'ejectKeepRatio')));
+  const support = calculateSupportPreview(state);
+  const caps = calculateStorageTotals(state, { ...support, moonBaseUnits: support.moon.baseUnits });
+  let changed = 0;
+  for (const id of priority) {
+    const cap = caps[id] || 0;
+    if (cap <= 0) continue;
+    if ((state.resources[id] || 0) / cap < keep) continue;
+    if (changeEjectionAllocation(state, id, 1)) changed++;
+  }
+  return changed;
+}
+
+/** 奇异质量失控时自动稳定黑洞。 */
+export function applyAutoStabilize(state: GameState, values: AutomationValues): number {
+  if (values.autoStabilizeBlackHole !== true) return 0;
+  if (!state.blackHole.unstable) return 0;
+  stabilizeBlackHole(state);
+  return 1;
+}
+
+/** 下载带宽分配。 */
+export function applyAutoDownload(state: GameState, values: AutomationValues): number {
+  if (values.autoDownload !== true) return 0;
+  const target = Math.min(100, Math.max(0, Math.round(numericValue(values, 'downloadAllocation'))));
+  if (state.downloadAllocation === target) return 0;
+  changeDownloadAllocation(state, target);
+  return 1;
+}
+
+// ---------------------------------------------------------------- ARPA 与任务
+
+const ARPA_ORDER = ['rocketPlatform', 'geneSequencing', 'monument', 'stockExchange', 'arpaResearchInstitute'];
+
+/** 按配置顺序自动投入 ARPA 项目。 */
+export function applyAutoArpa(state: GameState, values: AutomationValues, random: () => number): number {
+  if (values.autoArpa !== true) return 0;
+  const priority = listValue(values, 'arpaPriority');
+  const order = priority.length > 0 ? priority : ARPA_ORDER;
+  const mode = stringValue(values, 'arpaInvest');
+  const fixed = Math.min(100, Math.max(1, Math.round(numericValue(values, 'arpaInvestPercent'))));
+  let invested = 0;
+  for (const id of order) {
+    if (!Object.hasOwn(state.arpaBuildings, id) || !isProjectUnlocked(id, state)) continue;
+    const percent = mode === 'full' ? 100 : mode === 'fixed' ? fixed : 100;
+    const spent = investInProject(id, state, percent, random, 0);
+    if (spent > 0) invested++;
+    if (mode !== 'full') break;
+  }
+  return invested;
+}
+
+/** 按配置顺序完成区域探索任务。 */
+export function applyAutoMission(state: GameState, values: AutomationValues): number {
+  if (values.autoMission !== true) return 0;
+  // 任务顺序来自配置；没有配置时不猜，交给 `nextAutomationMission` 的默认注册表顺序。
+  const order = listValue(values, 'missionPriority');
+  let completed = 0;
+  for (const id of order) {
+    if (completeRegionalMissionNow(state, id)) completed++;
+  }
+  return completed;
+}
+

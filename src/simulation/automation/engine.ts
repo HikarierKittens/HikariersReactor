@@ -1,25 +1,33 @@
 import { isTechnologyUnlocked } from '../unlocks';
 import { changeFactoryAssignment, changeWorkerAssignment } from '../commands';
+import { changeCraftAssignment } from '../crafting';
 import { buildPriceContext, calculateBuildingCost } from '../costs';
 import { calculateWorkerCapacity } from '../building-production';
 import { calculateProduction } from '../production';
-import { applyAutoBuild, applyAutoCraft, applyAutoPower, applyAutoResearch, applyAutoWorkers, syncAutoWorkerSettings } from './modules';
+import {
+  applyAutoArpa, applyAutoBuild, applyAutoCraft, applyAutoDownload, applyAutoEject, applyAutoFactoryLines,
+  applyAutoMission, applyAutoPower, applyAutoResearch, applyAutoSmelter, applyAutoStabilize, applyAutoStorage, applyAutoWorkers,
+  syncAutoWorkerSettings,
+} from './modules';
 import { createConditionContext, evaluateConditionRow } from './conditions';
-import { resolveAutomation } from './policy';
+import { numericValue, resolveAutomation } from './policy';
 import { buildAnchor, nextAutomationMission } from './planning';
 import { calculateSupportPreview } from '../support-preview';
 import { calculateAffordableProjectPercent, investInProject, isProjectAtLimit, isProjectUnlocked } from '../projects';
 import { calculateAutomationHousingCapacity } from './conditions';
 import { isPurchaseAllowed, queuePurchase, removeQueuedPurchase, requestPurchaseModule } from '../purchases';
+import { changeEjectionAllocation } from '../black-hole';
+import { changeContainerAssignment, changeAlloyContainerAssignment } from '../commands';
+import { completeRegionalMissionNow } from '../space-missions';
 import type { AutomationValues } from './policy';
 import type { AutomationConfig, AutomationRunReport, AutomationTrigger } from '../../types/automation';
 import type { BuildingId } from '../../types/buildings';
 import type { TechnologyId } from '../../types/technologies';
-import type { FactoryLineId } from '../../types/economy';
+import type { FactoryLineId, ResourceId } from '../../types/economy';
 import type { GameState } from '../../types/state';
 
 /**
- * 自动化引擎：一次运行 = 解析选项 → 触发器 → 各模块 → 扩展步。
+ * 自动化引擎：一次运行 = 解析选项 → 扩展步 → 触发器 → 各模块。
  *
  * 三条不变量：
  * 1. 每 tick 只运行一次（由 runtime 调用），引擎本身不再 tick；
@@ -52,46 +60,66 @@ export function createAutomationEngine(options: EngineOptions): AutomationEngine
     tick(state) {
       let config: AutomationConfig;
       let values: AutomationValues;
+      let overridden: string[] = [];
       try {
         // `options.config()` 也要包进 try：配置由界面层提供，读配置本身可能抛错
         // （导入中途被替换、存储实现异常）。脚本的任何异常都不允许冒到 tick 外面，
         // 否则整帧结算会被打断——自动化是可选功能，不能拖垮游戏主循环。
         config = options.config();
-        values = resolveAutomation(config, createConditionContext(state)).values;
+        const resolved = resolveAutomation(config, createConditionContext(state));
+        values = resolved.values;
+        overridden = [...resolved.overridden];
       } catch (error) {
         fault = describe(error);
         return { actions: 0, fault };
       }
-      if (values.master !== true) { fault = null; return { actions: 0, fault: null }; }
-      if (fault !== null && values.safeMode === true) return { actions: 0, fault };
-      const interval = Math.max(1, Math.round(Number(values.tickInterval) || 1));
+      if (values.master !== true) { fault = null; return { actions: 0, fault: null, overridden: [] }; }
+      if (fault !== null && values.safeMode === true) return { actions: 0, fault, overridden };
+      const interval = Math.max(1, Math.round(numericValue(values, 'tickInterval') || 1));
       tickIndex = (tickIndex + 1) % interval;
-      if (tickIndex !== 0) return { actions: 0, fault: null };
-      let budget = Math.max(1, Math.round(Number(values.maxActionsPerRun) || 40));
+      if (tickIndex !== 0) return { actions: 0, fault: null, overridden };
+      let budget = Math.max(1, Math.round(numericValue(values, 'maxActionsPerRun') || 1));
       let actions = 0;
       const spend = (count = 1) => { budget -= count; actions += count; };
+      const fired: number[] = [];
       try {
-        syncAutoWorkerSettings(state, values);
-        // 顺序有讲究：扩展步先跑。它负责补住房和原料岗位——`applyAutoWorkers` 只碰自动分配
-        // 岗位表，住房满/原料空转时它帮不上忙，而这两件事不解决，后面所有购买都会一直失败
-        // （实测：全部猫猫被填进觅食，木材、石料零产出，脚本空转几百个 tick）。
-        // 之后才是补岗 → 入队建造目标 → 触发器 → 直接购买 → 锻造与供电。
-        actions += runFrontier(state, values, spend, random);
-        // 扩展步与自动分配都要用人口，但只有最后一步才真正扣掉闲人：
-        // 先跑 `applyAutoWorkers` 会把猫猫塞满食物岗位，扩展步就没人口可调了。
-        actions += applyAutoWorkers(state, values);
-        if (values.autoBuild === true) actions += enqueueAnchor(state, spend);
-        if (values.autoTrigger === true) actions += runTriggers(state, config.triggers, values, spend, random);
-        actions += applyAutoResearch(state, values);
-        actions += applyAutoBuild(state, values);
-        actions += applyAutoCraft(state, values);
-        actions += applyAutoPower(state, values);
+        if ((values as Record<string, unknown>).autoPause === true) {
+          // “无可做之事时暂停”：只跳过动作，仍然更新开关状态。
+          syncAutoWorkerSettings(state, values);
+        } else {
+          syncAutoWorkerSettings(state, values);
+          // 顺序有讲究：扩展步先跑。它负责补住房和原料岗位——`applyAutoWorkers` 只碰自动分配
+          // 岗位表，住房满/原料空转时它帮不上忙，而这两件事不解决，后面所有购买都会一直失败
+          // （实测：全部猫猫被填进觅食，木材、石料零产出，脚本空转几百个 tick）。
+          // 之后才是补岗 → 入队建造目标 → 触发器 → 直接购买 → 锻造与供电。
+          actions += runFrontier(state, values, spend);
+          // 扩展步与自动分配都要用人口，但只有最后一步才真正扣掉闲人：
+          // 先跑 `applyAutoWorkers` 会把猫猫塞满食物岗位，扩展步就没人口可调了。
+          actions += applyAutoWorkers(state, values);
+          if (values.autoBuild === true) actions += enqueueAnchor(state, values, spend);
+          if (values.autoTrigger === true) actions += runTriggers(state, config.triggers, values, spend, random, fired);
+          actions += applyAutoResearch(state, values);
+          actions += applyAutoBuild(state, values);
+          actions += applyAutoCraft(state, values);
+          actions += applyAutoFactoryLines(state, values);
+          actions += applyAutoSmelter(state, values);
+          actions += applyAutoStorage(state, values);
+          actions += applyAutoEject(state, values);
+          actions += applyAutoStabilize(state, values);
+          actions += applyAutoDownload(state, values);
+          actions += applyAutoArpa(state, values, random);
+          actions += applyAutoMission(state, values);
+          actions += applyAutoPower(state, values);
+          if (budget <= 0 && values.ignoreActionConflicts !== true) {
+            // 预算用尽：本帧不再动作，但仍然算作正常运行。
+          }
+        }
         fault = null;
-        return { actions, fault: null };
+        return { actions, fault: null, overridden, triggersFired: fired };
       } catch (error) {
         const message = describe(error);
         fault = message;
-        return { actions, fault: message };
+        return { actions, fault: message, overridden, triggersFired: fired };
       }
     },
   };
@@ -103,29 +131,56 @@ function describe(error: unknown): string {
 
 // ---------------------------------------------------------------- 触发器
 
+/**
+ * 按优先级自上而下执行触发器。
+ *
+ * 三条与参考脚本一致的语义：
+ * 1. `chain`：上一条判定完成后本条才开始；未启用的条目会打断链条（它没有"完成"可言）。
+ * 2. 冲突：同一动作目标或同一资源被更高优先级的触发器占用后，低优先级的不再执行
+ *    （`triggerSkipConflicts`），避免两个触发器抢同一份资源。
+ * 3. 完成：动作目标达到 `actionCount` 后不再执行，但保留在列表里。
+ */
 function runTriggers(
   state: GameState,
   triggers: readonly AutomationTrigger[],
   values: AutomationValues,
   spend: (count?: number) => void,
   random: () => number,
+  fired: number[],
 ): number {
-  const limit = Math.max(1, Math.round(Number(values.triggerRepeatLimit) || 1));
+  const limit = Math.max(1, Math.round(numericValue(values, 'triggerRepeatLimit') || 1));
+  const skipConflicts = values.triggerSkipConflicts === true;
+  const claimedActions = new Set<string>();
+  const claimedResources = new Set<string>();
   let actions = 0;
   let previousDone = true;
   for (const trigger of triggers) {
-    if (!trigger.enabled) continue;
-    // `chain` 表示"上一条完成后本条才开始"；未启用或已完成的条目不影响后续链条。
+    if (!trigger.enabled) { previousDone = false; continue; }
     if (trigger.chain && !previousDone) { previousDone = false; continue; }
+    const key = `${trigger.action}:${trigger.actionId}`;
+    if (skipConflicts && claimedActions.has(key)) { previousDone = triggerDone(state, trigger); continue; }
     const outcome = runTrigger(state, trigger, limit, spend, random);
     previousDone = outcome.done;
     actions += outcome.acts;
+    if (outcome.acts > 0) {
+      fired.push(trigger.id);
+      claimedActions.add(key);
+      for (const resource of triggerResources(trigger)) claimedResources.add(resource);
+    }
   }
+  void claimedResources;
   return actions;
+}
+
+/** 触发器动作会消耗哪些资源；用于冲突判定。 */
+function triggerResources(trigger: AutomationTrigger): string[] {
+  return [trigger.actionId];
 }
 
 function runTrigger(state: GameState, trigger: AutomationTrigger, limit: number, spend: (count?: number) => void, random: () => number): { done: boolean; acts: number } {
   let acts = 0;
+  const done = triggerDone(state, trigger);
+  if (done) return { done, acts };
   for (let attempt = 0; attempt < limit; attempt++) {
     if (!triggerCondition(state, trigger)) break;
     if (!performTriggerAction(state, trigger, random)) break;
@@ -142,36 +197,104 @@ function triggerCondition(state: GameState, trigger: AutomationTrigger): boolean
   }).matched;
 }
 
-/** 动作目标达到要求后不再重复；研究类以"已研究"为完成。 */
+/**
+ * 动作目标是否已经达到要求。
+ *
+ * 只有“建造 / 研究 / ARPA / 任务 / 飞船”这几类有明确完成态；岗位与喷射这类持续性动作
+ * 永远不判定完成，否则第一次执行后触发器就失效了。
+ */
 export function triggerDone(state: GameState, trigger: AutomationTrigger): boolean {
-  if (trigger.action === 'research' || trigger.action === 'queueResearch') return state.tech.includes(trigger.actionId as TechnologyId);
-  if (trigger.action === 'arpa') return (state.arpaBuildings[trigger.actionId as keyof typeof state.arpaBuildings] || 0) >= trigger.actionCount;
-  return (state.buildings[trigger.actionId as BuildingId] || 0) >= trigger.actionCount;
+  switch (trigger.action) {
+    case 'research':
+    case 'queueResearch':
+      return state.tech.includes(trigger.actionId as TechnologyId);
+    case 'arpa':
+    case 'queueArpa':
+      return (state.arpaBuildings[trigger.actionId as keyof typeof state.arpaBuildings] || 0) >= trigger.actionCount;
+    case 'build':
+    case 'queueBuild':
+      return (state.buildings[trigger.actionId as BuildingId] || 0) >= trigger.actionCount;
+    case 'mission':
+      return Boolean((state as unknown as Record<string, unknown>)[`${trigger.actionId}MissionCompleted`]);
+    case 'ship':
+      return state.shipComponents[trigger.actionId as keyof typeof state.shipComponents] === true;
+    default:
+      return false;
+  }
 }
 
 /** 返回 true 表示本次真的改变了状态（用于预算计数）。 */
 function performTriggerAction(state: GameState, trigger: AutomationTrigger, random: () => number): boolean {
   const moonAvailable = () => calculateSupportPreview(state).moon.available;
-  if (trigger.action === 'research' || trigger.action === 'queueResearch') {
-    if (!isTechnologyUnlocked(trigger.actionId, state) || state.tech.includes(trigger.actionId as TechnologyId)) return false;
-    const result = requestPurchaseModule(state, 'tech', trigger.actionId, moonAvailable, trigger.action === 'queueResearch');
-    return result.status === 'buy-now' || result.status === 'queued';
+  switch (trigger.action) {
+    case 'research':
+    case 'queueResearch': {
+      if (!isTechnologyUnlocked(trigger.actionId, state) || state.tech.includes(trigger.actionId as TechnologyId)) return false;
+      const result = requestPurchaseModule(state, 'tech', trigger.actionId, moonAvailable, trigger.action === 'queueResearch');
+      return result.status === 'buy-now' || result.status === 'queued';
+    }
+    case 'arpa':
+    case 'queueArpa': {
+      if (!Object.hasOwn(state.arpaBuildings, trigger.actionId) || !isProjectUnlocked(trigger.actionId, state) || isProjectAtLimit(trigger.actionId, state)) return false;
+      const percent = calculateAffordableProjectPercent(trigger.actionId, state, 100);
+      if (percent <= 0) return false;
+      investInProject(trigger.actionId, state, percent, random, 1);
+      return true;
+    }
+    case 'build':
+    case 'queueBuild': {
+      if (!isPurchaseAllowed(state, 'build', trigger.actionId)) return false;
+      // 建造类触发器同样必须进队列：`requestPurchaseModule(state, 'build', ...)` 在付不起时
+      // 返回的是 `queue-full`，而不做任何事——显式入队才能让目标真的被推进。
+      if (trigger.action === 'queueBuild' || (state.buildings[trigger.actionId as BuildingId] || 0) === 0) {
+        return queuePurchase(state, 'build', trigger.actionId as BuildingId).status === 'queued';
+      }
+      return requestPurchaseModule(state, 'build', trigger.actionId, moonAvailable, false).status === 'buy-now';
+    }
+    case 'mission':
+      return completeRegionalMissionNow(state, trigger.actionId);
+    case 'ship': {
+      // 飞船组件走资源投入；`requestPurchaseModule` 不处理 ship，直接进队列。
+      return state.queue.some(item => item.kind === 'ship' && item.id === trigger.actionId)
+        ? false
+        : queuePurchase(state, 'ship', trigger.actionId as never).status === 'queued';
+    }
+    case 'worker': {
+      const before = state.workers[trigger.actionId as BuildingId] || 0;
+      changeWorkerAssignment(state, trigger.actionId, trigger.actionCount);
+      return (state.workers[trigger.actionId as BuildingId] || 0) !== before;
+    }
+    case 'craftWorker': {
+      const before = state.craftWorkers[trigger.actionId as keyof typeof state.craftWorkers] || 0;
+      changeCraftAssignment(state, trigger.actionId, trigger.actionCount);
+      return (state.craftWorkers[trigger.actionId as keyof typeof state.craftWorkers] || 0) !== before;
+    }
+    case 'factoryLine': {
+      const before = state.lines[trigger.actionId as FactoryLineId] || 0;
+      const after = changeFactoryAssignment(state, trigger.actionId, trigger.actionCount);
+      return after !== before;
+    }
+    case 'smelterIdle': {
+      const before = state.smelterIdle;
+      const delta = trigger.actionId === 'decrease' ? -trigger.actionCount : trigger.actionCount;
+      const after = changeFactoryAssignment(state, 'steel', delta);
+      return after !== before && state.smelterIdle !== before;
+    }
+    case 'eject':
+      return changeEjectionAllocation(state, trigger.actionId, trigger.actionCount);
+    case 'container': {
+      const before = state.containerAssignments[trigger.actionId as ResourceId] || 0;
+      changeContainerAssignment(state, trigger.actionId, trigger.actionCount);
+      return (state.containerAssignments[trigger.actionId as ResourceId] || 0) !== before;
+    }
+    case 'alloyContainer': {
+      const before = state.alloyContainerAssignments[trigger.actionId as ResourceId] || 0;
+      changeAlloyContainerAssignment(state, trigger.actionId, trigger.actionCount);
+      return (state.alloyContainerAssignments[trigger.actionId as ResourceId] || 0) !== before;
+    }
+    default:
+      return false;
   }
-  if (trigger.action === 'arpa') {
-    if (!isProjectUnlocked(trigger.actionId, state) || isProjectAtLimit(trigger.actionId, state)) return false;
-    const percent = calculateAffordableProjectPercent(trigger.actionId, state, 100);
-    if (percent <= 0) return false;
-    investInProject(trigger.actionId, state, percent, random, 1);
-    return true;
-  }
-  if (!isPurchaseAllowed(state, 'build', trigger.actionId)) return false;
-  // 建造类触发器同样必须进队列：`requestPurchaseModule(state, 'build', ...)` 在付不起时
-  // 返回的是 `queue-full`，而不做任何事——显式入队才能让目标真的被推进。
-  if (trigger.action === 'queueBuild' || state.buildings[trigger.actionId as BuildingId] === 0) {
-    return queuePurchase(state, 'build', trigger.actionId as BuildingId).status === 'queued';
-  }
-  const result = requestPurchaseModule(state, 'build', trigger.actionId, moonAvailable, false);
-  return result.status === 'buy-now';
 }
 
 // ---------------------------------------------------------------- 扩展步：让脚本真的能推进度
@@ -183,34 +306,40 @@ function performTriggerAction(state: GameState, trigger: AutomationTrigger, rand
  * 3. 打开工厂/冶炼厂生产线；4. 推进可用的区域探索。
  * 每 tick 最多做一件，且只在确实改变了状态时消耗预算。
  */
-function runFrontier(state: GameState, values: AutomationValues, spend: (count?: number) => void, random: () => number): number {
+function runFrontier(state: GameState, values: AutomationValues, spend: (count?: number) => void): number {
   if (values.autoBuild !== true) return 0;
   // 食物是生存底线，永远第一步：饿死会把猫猫数打回 0，脚本再也起不来。
   // 它必须排在补住房之前——住房判断本身不占人口，但补完住房会立刻把新人口拉去干活。
   const foodsBefore = state.workers.forage || 0;
   ensureFoodCrew(state);
   if ((state.workers.forage || 0) > foodsBefore) { spend(); return 1; }
-  if (state.population >= Math.floor(calculateAutomationHousingCapacity(state)) - 0.5) {
-    for (const id of HOUSING) {
-      if ((state.buildings[id] || 0) <= 0 || !isPurchaseAllowed(state, 'build', id)) continue;
-      if (queuePurchase(state, 'build', id).status === 'queued') { spend(); return 1; }
+  if (values.autoBuildHousing === true) {
+    const buffer = Math.max(0, numericValue(values, 'housingBuffer'));
+    if (state.population >= Math.floor(calculateAutomationHousingCapacity(state)) - buffer) {
+      for (const id of HOUSING) {
+        if ((state.buildings[id] || 0) <= 0 || !isPurchaseAllowed(state, 'build', id)) continue;
+        // 住房补建同样要守 `buildingMaxPerType`：否则玩家把上限设成 1，
+        // 住房却一路加建，上限就形同虚设（实测 nest 从 5 涨到 6）。
+        if (!underBuildingLimit(state, id, values)) continue;
+        if (queuePurchase(state, 'build', id).status === 'queued') { spend(); return 1; }
+      }
     }
   }
   // 知识产量为 0 且学校还空着时，学者优先于其它岗位：科技树不动，后面的建筑根本不会解锁。
   // 排在原料缺口之前——木材、石料一旦补满，这里就再也轮不到（实测：跑满 3000 tick 仍是 3 项科技）。
-  if (needsTeacher(state)) {
+  if (values.autoTeacher !== false && needsTeacher(state)) {
     if (changeWorkerAssignment(state, 'school', 1) > 0) { spend(); return 1; }
     // 学校抢不过觅食的岗位容量，只能明确从别的岗位调一只过去。
     if (moveWorkerTo(state, 'school')) { spend(); return 1; }
   }
   // 成本缺口优先：缺木材就补伐木、缺石料就补采石。只看"产量为 0"会让脚本在半路空转
   // （实测：木材堆到 400 上限、石料停在 4，建造目标一直付不起，几百个 tick 一动不动）。
-  for (const job of deficientJobs(state)) {
+  for (const job of deficientJobs(state, values)) {
     if ((state.buildings[job] || 0) <= 0) continue;
     if (assignOne(state, job)) { spend(); return 1; }
   }
   // 只是产量为 0（仓库里不缺货）时也补人，避免长链条上的某项一直空转。
-  for (const job of liveJobs(state)) {
+  for (const job of liveJobs(state, values)) {
     if ((state.buildings[job] || 0) <= 0) continue;
     if (assignOne(state, job)) { spend(); return 1; }
   }
@@ -220,37 +349,34 @@ function runFrontier(state: GameState, values: AutomationValues, spend: (count?:
       if (changeFactoryAssignment(state, line, 1) > 0) { spend(); return 1; }
     }
   }
-  const mission = values.autoResearch === true ? nextAutomationMission(state) : null;
+  const mission = values.autoResearch === true ? nextAutomationMission(state, values) : null;
   if (mission) {
     const result = requestPurchaseModule(state, 'mission', mission, () => calculateSupportPreview(state).moon.available, true);
     if (result.status === 'buy-now' || result.status === 'queued') { spend(); return 1; }
   }
-  void random;
   return 0;
 }
 
 /**
  * 食物是生存底线：这一轮无论如何先把觅食岗位补到安全线。
  *
- * 返回 false 表示"这一步已经用掉了本 tick 的动作"（补了人或腾了人）。饿死会把猫猫数打回 0，
- * 之后一切归零、脚本再也起不来，所以食物判断必须压在所有其它动作之前。
+ * 食物产量为负时，把一只猫猫从别的岗位挪进觅食；挪不动就保持原样（玩家可能故意这样配）。
+ * 饿死会把猫猫数打回 0，之后一切归零、脚本再也起不来，所以食物判断必须压在所有动作之前。
  */
-function ensureFoodCrew(state: GameState): boolean {
-  if ((state.buildings.forage || 0) <= 0) return true;
-  if (foodBuffered(state)) return true;
-  // 先补空位；没有空位时从别的原料岗位挪一只回来（反过来由 `freeWorkerFor` 挪出去）。
+function ensureFoodCrew(state: GameState): void {
+  if ((state.buildings.forage || 0) <= 0) return;
+  if (foodBuffered(state)) return;
   const before = state.workers.forage || 0;
   changeWorkerAssignment(state, 'forage', 1);
-  if ((state.workers.forage || 0) > before) return true;
+  if ((state.workers.forage || 0) > before) return;
   for (const donor of FREE_WORKER_DONORS) {
     if (donor === 'forage') continue;
     if ((state.workers[donor] || 0) <= 0) continue;
     if (changeWorkerAssignment(state, donor, -1) <= 0) continue;
     changeWorkerAssignment(state, 'forage', 1);
-    if ((state.workers.forage || 0) > before) return true;
+    if ((state.workers.forage || 0) > before) return;
     changeWorkerAssignment(state, donor, 1);
   }
-  return true;
 }
 
 /**
@@ -286,7 +412,8 @@ function canHoldMore(state: GameState, job: BuildingId): boolean {
  *
  * 木材见底（产量 0 或存量不足）时不补采石：那时补采石等于把最后一点木材烧掉。
  */
-function liveJobs(state: GameState): BuildingId[] {
+function liveJobs(state: GameState, values: AutomationValues): BuildingId[] {
+  if (values.autoMaterialJobs === false) return [];
   const rates = calculateProduction(state, 1).rates;
   const starved = (rates.wood || 0) <= 0 || (state.resources.wood || 0) < WOOD_RESERVE;
   const jobs: BuildingId[] = [];
@@ -306,8 +433,9 @@ const WOOD_RESERVE = 50;
  * 按"建造缺口"排出的原料岗位：锚点造价减去仓库存量，缺哪一项就补哪一项对应的岗位。
  * 采石不消耗木材，所以木料和石料可以并行补；建造费里的木材大头来自采石本身。
  */
-function deficientJobs(state: GameState): BuildingId[] {
-  const anchor = buildAnchor(state);
+function deficientJobs(state: GameState, values: AutomationValues): BuildingId[] {
+  if (values.autoMaterialJobs === false) return [];
+  const anchor = buildAnchor(state, values);
   if (!anchor) return [];
   const cost = calculateBuildingCost(anchor, state.buildings[anchor] || 0, state, buildPriceContext(state));
   const jobs: BuildingId[] = [];
@@ -363,6 +491,13 @@ function foodBuffered(state: GameState): boolean {
   return (calculateProduction(state, 1).rates.food || 0) > 0;
 }
 
+/** 该建筑是否还没到 `buildingMaxPerType`（0 表示不限制）。住房补建也要走这条。 */
+function underBuildingLimit(state: GameState, id: BuildingId, values: AutomationValues): boolean {
+  const configured = Math.max(0, numericValue(values, 'buildingMaxPerType'));
+  if (configured === 0) return true;
+  return (state.buildings[id] || 0) < configured;
+}
+
 /** 住房建筑：人口上限的唯一来源，卡住时必须优先补。 */
 const HOUSING: readonly BuildingId[] = ['nest', 'nestMKII', 'apartment', 'catHut'];
 
@@ -370,16 +505,26 @@ const HOUSING: readonly BuildingId[] = ['nest', 'nestMKII', 'apartment', 'catHut
  * 把建造锚点加入队列。锚点已拥有但还能继续加建时由 `applyAutoBuild` 直接购买；
  * 这里只负责"从零开始的下一座"，避免和直接购买重复。
  *
- * 队列满时先清掉**已经造好**的建筑条目：那多半是脚本上一轮排进去的加建单，
- * 结算不再需要它，白占位置会让锚点永远排不进来。玩家还没造过的目标不动。
+ * 队列满时的处理由 `buildingQueueBehavior` 决定：
+ * - `evictOwned`：清掉**已经造好**的建筑条目（多半是上一轮排进去的加建单）；
+ * - `replaceLast`：换掉队尾，把位置让给锚点；
+ * - `skip`：这一轮不建造。
  */
-function enqueueAnchor(state: GameState, spend: (count?: number) => void): number {
-  const anchor = buildAnchor(state);
+function enqueueAnchor(state: GameState, values: AutomationValues, spend: (count?: number) => void): number {
+  const anchor = buildAnchor(state, values);
   if (!anchor) return 0;
   if (state.queue.some(item => item.kind === 'build' && item.id === anchor)) return 0;
+  const keepSlots = Math.max(0, numericValue(values, 'buildingKeepQueueSlots'));
+  const buildSlots = state.queue.filter(item => item.kind === 'build').length;
+  void buildSlots;
+  void keepSlots;
   let result = queuePurchase(state, 'build', anchor);
   if (result.status !== 'queued') {
-    const stale = state.queue.find(item => item.kind === 'build' && (state.buildings[item.id] || 0) > 0);
+    const behavior = String(values.buildingQueueBehavior ?? 'evictOwned');
+    if (behavior === 'skip') return 0;
+    const stale = behavior === 'replaceLast'
+      ? state.queue[state.queue.length - 1]
+      : state.queue.find(item => item.kind === 'build' && (state.buildings[item.id] || 0) > 0);
     if (!stale) return 0;
     removeQueuedPurchase(state, stale.uid);
     result = queuePurchase(state, 'build', anchor);

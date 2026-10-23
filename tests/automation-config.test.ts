@@ -18,7 +18,7 @@ import type { AutomationConfig } from '../src/types/automation';
  * 这份配置独立于存档，因此任何输入——包括玩家手改过的文本——都不允许抛异常。
  */
 
-function withValues(patch: Record<string, number | boolean | string>): AutomationConfig {
+function withValues(patch: Record<string, unknown>): AutomationConfig {
   const config = createDefaultAutomationConfig();
   Object.assign(config.values, patch);
   return config;
@@ -28,10 +28,19 @@ test('默认配置覆盖注册表里的全部选项，且落在各自声明的�
   const config = createDefaultAutomationConfig();
   assert.deepEqual(Object.keys(config.values).sort(), Object.keys(AUTOMATION_OPTIONS).sort());
   for (const [key, option] of Object.entries(AUTOMATION_OPTIONS)) {
-    assert.equal(typeof config.values[key], option.kind === 'toggle' ? 'boolean' : 'number', `${key} 的默认值类型`);
-    if (option.kind !== 'toggle') {
-      assert.ok((config.values[key] as number) >= (option.min ?? 0), `${key} 不低于下限`);
-      if (option.max !== undefined) assert.ok((config.values[key] as number) <= option.max, `${key} 不超过上限`);
+    const value = config.values[key];
+    // 五种控件各自的默认值类型都要对：类型错了界面控件会渲染成空白。
+    if (option.kind === 'toggle') assert.equal(typeof value, 'boolean', `${key} 的默认值应为布尔`);
+    else if (option.kind === 'list') assert.ok(Array.isArray(value), `${key} 的默认值应为列表`);
+    else if (option.kind === 'number') {
+      assert.equal(typeof value, 'number', `${key} 的默认值应为数值`);
+      assert.ok((value as number) >= (option.min ?? 0), `${key} 不低于下限`);
+      if (option.max !== undefined) assert.ok((value as number) <= option.max, `${key} 不超过上限`);
+    } else {
+      assert.equal(typeof value, 'string', `${key} 的默认值应为文本`);
+      if (option.kind === 'select') {
+        assert.ok((option.choices ?? []).some(choice => choice.value === value), `${key} 的默认值必须在候选项里`);
+      }
     }
   }
   // 每个分节登记的选项都必须真实存在，否则界面会出现点了没反应的开关。
@@ -41,6 +50,20 @@ test('默认配置覆盖注册表里的全部选项，且落在各自声明的�
       assert.equal(AUTOMATION_OPTIONS[option.key], option, `${section.id} 的 ${option.key} 必须与注册表同一份`);
     }
   }
+});
+
+test('注册表里没有重复的选项键，且默认配置能原样通过校验', () => {
+  // 重复键会让后一个定义悄悄覆盖前一个：界面上是两个输入框，实际只有一个值。
+  // 默认配置写错（例如小数默认值配了 integer）同理——它必须能通过自己的校验。
+  const seen = new Set<string>();
+  for (const section of AUTOMATION_SECTIONS) {
+    for (const option of section.options) {
+      assert.equal(seen.has(option.key), false, `选项键 ${option.key} 在注册表里出现了两次`);
+      seen.add(option.key);
+    }
+  }
+  const config = createDefaultAutomationConfig();
+  assert.deepEqual(normalizeAutomationConfig(JSON.parse(serializeAutomationConfig(config))), config);
 });
 
 test('默认值具体到关键开关：主开关关闭、安全模式开启、动作上限有界', () => {

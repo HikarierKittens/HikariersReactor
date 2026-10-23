@@ -59,7 +59,8 @@ src/app/runtime.ts 状态唯一所有者：tick / save / load / import / reset
 | 测试用科技门槛集合 | `tests/support/tech-closure.ts`（从注册表推导，勿手抄） | `tests/tech-closure.test.ts`（护栏） | `tech-closure` |
 | 建筑悬浮提示 | `src/vue/building-tooltip-rows.ts` | TooltipPanel | `lab-tooltip description-effects-split` |
 | 自动化选项注册表 | `src/data/automation.ts`（`AUTOMATION_SECTIONS`、`AUTOMATION_OPTIONS`、`CONDITION_SOURCES`、`TRIGGER_ACTION_OPTIONS`） | `state/automation-storage.ts`、`simulation/automation/policy.ts`、`AutomationPanel.vue` | `automation-config` |
-| 自动化执行 | `src/simulation/automation/engine.ts`（`runFrontier` 推进顺序、`fault`/`safeMode`）、`modules.ts`（各自动模块）、`planning.ts`（`buildAnchor`/`rankBuildTargets`）、`conditions.ts`（条件 DSL）、`policy.ts`（覆盖表） | `app/runtime.ts`（`TickHooks.afterRun`） | `automation-engine` |
+| 自动化执行 | `src/simulation/automation/engine.ts`（`runFrontier` 推进顺序、`fault`/`safeMode`）、`modules.ts`（各自动模块）、`conditions.ts`（条件 DSL）、`policy.ts`（覆盖表） | `app/runtime.ts`（`TickHooks.afterRun`） | `automation-engine` |
+| 自动化排序与权重 | `src/simulation/automation/weighting.ts`（`rankBuildTargets` / `rankResearchTargets` / `buildAnchor` / `nextAutomationMission` / `buildWeight` / `storageGains`），`planning.ts` 是它的稳定转出入口 | `engine.ts`、`modules.ts` | `automation-engine` |
 | 自动化独立存储 | `src/state/automation-storage.ts`（键 `meow-civilization-automation-v1`，与存档完全分离） | `app/runtime.ts`、`AutomationPanel.vue` | `automation-config automation-runtime` |
 | 快捷键/自动化面板 | `src/vue/components/AutomationPanel.vue`、`src/vue/automation-draft.ts` | `App.vue` 设置页 | `test:browser` |
 | 预览缓存 | `src/vue/preview-cache.ts` | 各面板 | `preview-reuse ui-preview-cache` |
@@ -75,9 +76,10 @@ src/app/runtime.ts 状态唯一所有者：tick / save / load / import / reset
 6. **改存档字段**：`validate-save.ts` 串的对应 `validate-*.ts` → `save-compatibility.ts` 窄默认值（不得改动输入对象）→ 用 `npm run fixtures:make` 生成旧版本 fixture → 在 `tests/previous-release-save.test.ts` 断言可载入/往返/非法拒绝。
 7. **改界面文案**：对应 `Panel.vue` / `building-tooltip-rows.ts`；**界面与文档禁止 emoji**（`tests/markdown.test.ts` 会把关），仅工厂/冶炼厂/基因/飞船条目允许 ⚙ 按钮。新增科技时**必须**在 `src/vue/tech-categories.ts` 的 `TECH_CATEGORIES` 里给它一个类别——`tests/tech-categories.test.ts` 要求全量覆盖，漏掉会直接红。
 8. **改日志**：`progression.addLog` + 分类配色（队列/事件/进度/成就/系统）；浏览器验收有日志条数与配色断言。
-9. **新增/调整自动化选项**：只在 `src/data/automation.ts` 加条目（`toggle(...)` / `number(...)`，放进对应 `AUTOMATION_SECTIONS`）→ 在 `src/simulation/automation/modules.ts` 或 `engine.ts` 里读它 → 跑 `npm test -- automation`。**键名落盘后不可改名**（改名等于让玩家已有配置失效）。`rules`：选项不进行任何数值结算，只决定"要不要调用既有命令函数"，所以永远不要在这里复制结算公式。
+9. **新增/调整自动化选项**：只在 `src/data/automation.ts` 加条目（`toggle(...)` / `number(...)` / `select(...)` / `list(...)`，放进对应 `AUTOMATION_SECTIONS`）→ 在 `src/simulation/automation/modules.ts` 或 `engine.ts` 里读它 → 跑 `npm test -- automation`。**键名落盘后不可改名**（改名等于让玩家已有配置失效），**也不可与其他选项重键**（重复键会让后者悄悄覆盖前者，界面两个输入框只有一个值；`automation-config` 测试会拦）。`rules`：选项不进行任何数值结算，只决定"要不要调用既有命令函数"，所以永远不要在这里复制结算公式。列表型选项的 `listSource()` 必须指向真实注册表。
 10. **改自动化推进策略**（它为什么不动、为什么乱造）：`engine.ts` 的 `runFrontier` 是唯一入口，顺序敏感——`ensureFoodCrew` → 住房 → 教授（`needsTeacher` + `moveWorkerTo`）→ 缺口岗位（`deficientJobs`）→ 空转岗位（`liveJobs`）→ 工厂空线 → 区域任务。`planning.ts` 管"造什么"（`buildAnchor` 会用 `isReachable` 跳过超出仓库上限的目标）。改完**必须**用长跑探针验证，不要只看单 tick 行为：写 `tmp/probe-*.ts` 跑 3000 tick，打印 `pop / tech / bld` 趋势。历史上四处卡死全是"单步看着对、长跑才暴露"，见 `docs/notes/pitfalls.md` 59–63。
-11. **新增自动化条件来源**：`src/data/automation.ts` 的 `CONDITION_SOURCES` 加一行 → `src/simulation/automation/conditions.ts` 的 `readConditionSource` 加 case（未知来源必须返回 `undefined` 而不是抛错）→ 若带参数，补 `conditionArgumentOptions` 的取选项分支。**绝不允许在这里引入 `eval` 或用户可执行的 JS**。
+11. **新增自动化条件来源**：`src/data/automation.ts` 的 `CONDITION_SOURCES` 加一行 → `src/simulation/automation/conditions.ts` 的 `readConditionSource` 加 case（未知来源必须返回 `undefined` 而不是抛错）→ 若带参数，补 `conditionArgumentOptions` 的取选项分支 → 在 `tests/automation-engine.test.ts` 的探针表里点名它（测试会比对两侧数量，漏了会红）。**绝不允许在这里引入 `eval` 或用户可执行的 JS**。
+12. **新增自动化权重规则**：`weighting.ts` 的 `collectWeightSignals` 加信号、`weightingKeysFor` 加命中条件、注册表加倍率选项。目标分类**不要按注册表字段猜**——用 `storageGains` 这类试算判断，否则规则可能永远不命中。
 
 ## 大文件导航
 

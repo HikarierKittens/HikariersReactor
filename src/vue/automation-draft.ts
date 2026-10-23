@@ -36,8 +36,15 @@ export function createAutomationDraft(source: () => AutomationConfig, onChange: 
 function cloneConfig(config: AutomationConfig): AutomationConfig {
   return {
     version: config.version,
-    values: { ...config.values },
-    overrides: Object.fromEntries(Object.entries(config.overrides).map(([key, rows]) => [key, rows.map(row => ({ ...row }))])),
+    values: Object.fromEntries(Object.entries(config.values).map(([key, value]) => [key, Array.isArray(value) ? [...value] : value])),
+    overrides: Object.fromEntries(Object.entries(config.overrides).map(([key, rows]) => [key, rows.map(row => cloneRow(row))])),
     triggers: config.triggers.map(trigger => ({ ...trigger })),
+    weighting: (config.weighting ?? []).map(rule => ({ ...rule })),
   };
+}
+
+/** 列表型选项的覆盖值可能是数组；浅拷贝会让草稿和存储共用同一个数组。 */
+function cloneRow(row: AutomationConfig['overrides'][string][number]): AutomationConfig['overrides'][string][number] {
+  const value = row.value;
+  return Array.isArray(value) ? { ...row, value: [...value] as unknown as string } : { ...row };
 }

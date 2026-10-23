@@ -50,6 +50,22 @@
 
 ---
 
+## 2026/10/24 beta 0.9.48 自动化脚本：完整的高级设置
+
+- 改动：`src/data/automation.ts` 重写为十四节一百三十四项的注册表，新增五种控件（toggle / number / string / select / list）。`src/types/automation.ts` 的 `AutomationOption` 增加 `choices`、`listSource`、`kind: 'select' | 'list'`；`ConditionRow.value` 允许数组（列表型覆盖）。`AutomationConfig` 新增 `weighting` 字段。
+- 改动：`src/simulation/automation/conditions.ts` 的 `ConditionSourceId` 从 28 种扩到 65 种，运算符从 9 种扩到 18 种（新增 `===`、`!==`、`NAND`、`NOR`、`XOR`、`XNOR`、`AND!`、`OR!`、`!A?B`）；`OUTPUT_OPERATORS` 负责 `A?B` / `!A?B` 把右值当输出。
+- 改动：新增 `src/simulation/automation/weighting.ts`，承载建造权重表、优先列表排序、研究排序与任务排序；`planning.ts` 改为它的稳定转出入口。权重倍率为 0 的目标直接从候选里淘汰。
+- 改动：`src/simulation/automation/policy.ts` 支持 select / list 的校验与列表型覆盖的追加合并；新增 `numericValue` / `booleanValue` / `stringValue` / `listValue` 读取器，避免 `undefined` 流进计算。
+- 改动：`src/simulation/automation/modules.ts` 的每个模块改读配置项（优先列表、黑名单、上限、保留值、开关），新增 `applyAutoFactoryLines`、`applyAutoSmelter`、`applyAutoStorage`、`applyAutoEject`、`applyAutoStabilize`、`applyAutoDownload`、`applyAutoArpa`、`applyAutoMission`。
+- 改动：`src/simulation/automation/engine.ts` 的触发器支持 `chain`、同动作冲突跳过、十五种动作、完成数量判定；`AutomationRunReport` 增加 `overridden` 与 `triggersFired`。
+- 改动：`src/vue/components/AutomationPanel.vue` 重写，覆盖入口改为 Ctrl/⌘ + 左键点击选项行（对齐参考脚本），被覆盖的行加 `.inactive`。`src/vue/automation-draft.ts` 深拷贝数组型取值。
+- 修复：`buildingMaxPerType` 原先只约束自动建造，住房补建走另一条路径可绕过（实测 nest 从 5 涨到 6）；`autoBuildHousing` 关闭时住房仍被 `applyAutoBuild` 顺带选中。现在两条路径都受约束。
+- 修复：仓库这类建筑的储量上限贡献来自 `storage.ts` 的建筑表，注册表条目本身没有 cap 字段，导致“储量告急”权重规则对仓库完全无效。改为试算（多一座该建筑上限有没有变）并缓存。
+- 修复：`buildingCost` 条件来源拿整串 `nest.wood` 去查注册表，永远返回 undefined；改为查拆分后的两段。生产线 / 锻造物的 id 也改从 `FACTORY_OPTIONS` / `CRAFT_RECIPES` 取，不再写死猜测值。
+- 兼容：`CONFIG.version` 保持 33，自动化配置仍不进 `GameState`。存储键与 `AUTOMATION_CONFIG_VERSION` 不变；旧配置文件里缺失的新键按注册表默认值补齐，显式非法值仍整份拒绝。
+- 修复：`autoWorkers` 等保命模块原先默认关闭，玩家只打开主开关时脚本一个人都不派，食物在 100 tick 内清零、人口归零（v1 就有这个默认值，不是本轮回归）。现在 `autoWorkers` / `autoBuild` / `autoBuildHousing` / `autoResearch` 默认开启，主开关仍默认关闭。长跑实测：3000 tick 内人口 5→14、科技 9→16、建筑 20→58，`fault` 始终为 `null`。
+- 验证：npm run check通过：856项模块测试、经典VM回归、Edge浏览器验收、类型检查与生产构建
+
 ## 2026/10/24 beta 0.9.47 内置自动化脚本
 
 ### 分层

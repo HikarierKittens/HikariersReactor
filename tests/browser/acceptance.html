@@ -2386,11 +2386,19 @@ try {
     // 设置独立存储：不能因为改自动化就往游戏存档里塞字段。
     const savedAfterAutomation = localStorage.getItem(saveKey) || '';
     log(!savedAfterAutomation.includes('automation'), '自动化设置不进入游戏存档');
-    // 覆盖行：给"单次最高动作数"加一条条件覆盖，界面必须出现行编辑器。
-    click($('[data-automation-override="maxActionsPerRun"]')); await flush();
+    // 高级设置沿用参考脚本的交互：Ctrl + 左键点击选项行本身打开覆盖编辑器。
+    const numberRow = $('[data-automation-number="maxActionsPerRun"]')?.closest('.option-row');
+    log(!!numberRow, '单次最高动作数渲染成数字输入框');
+    numberRow.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true })); await flush();
+    const addOverride = $('[data-automation-override="maxActionsPerRun"]');
+    log(!!addOverride, 'Ctrl+左键点开后出现“新增覆盖行”按钮');
+    click(addOverride); await flush();
     log(($('[data-automation-badge="maxActionsPerRun"]')?.textContent || '').includes('1 条覆盖'),
       `新增覆盖行后显示条数 [${$('[data-automation-badge="maxActionsPerRun"]')?.textContent}]`);
     log(mounted.store.runtime.automation.overrides.maxActionsPerRun?.length === 1, '覆盖行写进了运行时配置');
+    // 被覆盖的行整体变灰：这是玩家判断“这一项已被条件接管”的唯一线索。
+    const overriddenRow = $('[data-automation-number="maxActionsPerRun"]')?.closest('.option-row');
+    log(overriddenRow?.classList.contains('inactive') === true, '被覆盖的选项行变灰');
     if (automationKeyRestore === null) localStorage.removeItem('meow-civilization-automation-v1');
     else localStorage.setItem('meow-civilization-automation-v1', automationKeyRestore);
   }

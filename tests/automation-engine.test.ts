@@ -3,10 +3,11 @@ import { test } from 'node:test';
 import { CONFIG } from '../src/data/config';
 import { createInitialState } from '../src/state/create-state';
 import { createDefaultAutomationConfig } from '../src/state/automation-storage';
-import { blankConditionRow } from '../src/data/automation';
-import { createConditionContext, evaluateConditionRow } from '../src/simulation/automation/conditions';
+import { CONDITION_SOURCES, blankConditionRow, blankTrigger } from '../src/data/automation';
+import { createConditionContext, evaluateConditionRow, readConditionSource } from '../src/simulation/automation/conditions';
 import { resolveAutomation } from '../src/simulation/automation/policy';
 import { createAutomationEngine } from '../src/simulation/automation/engine';
+import { buildWeight, collectWeightSignals, rankBuildTargets } from '../src/simulation/automation/weighting';
 import type { GameState } from '../src/types/state';
 import type { AutomationConfig } from '../src/types/automation';
 
@@ -33,7 +34,7 @@ function fresh(): GameState {
   return state;
 }
 
-function config(patch: Record<string, number | boolean | string> = {}): AutomationConfig {
+function config(patch: Record<string, unknown> = {}): AutomationConfig {
   const created = createDefaultAutomationConfig();
   Object.assign(created.values, patch);
   return created;
@@ -181,4 +182,165 @@ test('引擎异常被记录成 fault 而不是抛出：安全模式下随后停�
   assert.equal(afterFault.actions, 0);
   engine.clearFault();
   assert.equal(engine.fault(), null);
+});
+
+test('buildingMaxPerType 对自动建造与住房补建同时生效', () => {
+  // 上限只挡一条建造路径是不够的：住房补建走的是另一条路径，实测会绕过上限。
+  const capped = fresh();
+  // 配置对象必须在 tick 之外建好：`config()` 每 tick 调一次，写成内联调用会每次都新建一份，
+  // 让排序缓存永远失效（实测把一条测试拖到 37 秒）。
+  const cappedConfig = config({ master: true, autoBuild: true, buildingMaxPerType: 1 });
+  const engine = createAutomationEngine({ config: () => cappedConfig, random: () => 0.5 });
+  for (let i = 0; i < 120; i++) engine.tick(capped);
+  const overLimit = Object.entries(capped.buildings).filter(([id, count]) => count > 1 && id !== 'nest' && id !== 'forage' && id !== 'lumber' && id !== 'quarry');
+  assert.deepEqual(overLimit, [], '上限为 1 时不该出现 2 座以上的建筑');
+  assert.ok((capped.buildings.nest || 0) <= 5, `住房不应超过初始的 5 座，实际 ${capped.buildings.nest}`);
+
+  const open = fresh();
+  const openConfig = config({ master: true, autoBuild: true });
+  const free = createAutomationEngine({ config: () => openConfig, random: () => 0.5 });
+  for (let i = 0; i < 120; i++) free.tick(open);
+  const before = fresh().buildings;
+  const grew = (Object.keys(open.buildings) as (keyof typeof open.buildings)[])
+    .some(id => (open.buildings[id] || 0) > (before[id] || 0));
+  assert.ok(grew, '不设上限时应能建出多于初始数量的建筑');
+});
+
+test('autoBuildHousing 关闭后不再补住房；打开时才补', () => {
+  const off = fresh();
+  // 人口已顶到住房上限：此时唯一的出路是加建住房，关闭开关就应该真的不动。
+  off.population = 15;
+  const offConfig = config({ master: true, autoBuild: true, autoBuildHousing: false });
+  const engineOff = createAutomationEngine({ config: () => offConfig, random: () => 0.5 });
+  const nestBefore = off.buildings.nest || 0;
+  for (let i = 0; i < 30; i++) engineOff.tick(off);
+  assert.equal(off.buildings.nest || 0, nestBefore);
+
+  const on = fresh();
+  on.population = 15;
+  const onConfig = config({ master: true, autoBuild: true, autoBuildHousing: true });
+  const engineOn = createAutomationEngine({ config: () => onConfig, random: () => 0.5 });
+  for (let i = 0; i < 30; i++) engineOn.tick(on);
+  assert.ok((on.buildings.nest || 0) > (nestBefore || 0) || on.queue.some(item => item.kind === 'build'), '打开开关后应推进住房');
+});
+
+test('buildingBlacklist 里的建筑不会被自动建造', () => {
+  const state = fresh();
+  state.tech.push('storage');
+  state.resources.wood = 5000;
+  state.resources.cash = 5000;
+  const blacklistConfig = config({ master: true, autoBuild: true, buildingBlacklist: ['warehouse'] });
+  const engine = createAutomationEngine({ config: () => blacklistConfig, random: () => 0.5 });
+  for (let i = 0; i < 60; i++) engine.tick(state);
+  assert.equal(state.buildings.warehouse || 0, 0, '黑名单里的仓库不应被建造');
+  assert.equal(state.queue.filter(item => item.kind === 'build' && item.id === 'warehouse').length, 0, '也不应进队列');
+});
+
+test('权重倍率真的参与排序：倍率为 0 时该类别消失，倍率提高时排名上升', () => {
+  const state = fresh();
+  state.tech.push('storage');
+  state.buildings.warehouse = 1;
+  state.resources.wood = 5000;
+  state.resources.stone = 5000;
+  state.resources.cash = 5000;
+  // 把储量顶满：`buildingWeightingNeedStorage` 只在储量告急时命中。
+  const context = createConditionContext(state);
+  for (const key of Object.keys(context.storageCaps())) state.resources[key as keyof typeof state.resources] = context.storageCaps()[key as never] as never;
+  const signals = collectWeightSignals(state);
+  assert.equal(signals.storageTight, true, '前提：储量确实告急，否则这条规则不会命中');
+
+  const withWeight = (multiplier: number) => ({ ...config({ master: true }).values, buildingWeightingNeedStorage: multiplier });
+  const boosted = withWeight(5), killed = withWeight(0), neutral = withWeight(1);
+  assert.ok(buildWeight('warehouse', state, signals, boosted) > buildWeight('warehouse', state, signals, neutral), '倍率 5 的权重应高于倍率 1');
+  assert.equal(buildWeight('warehouse', state, signals, killed), 0, '倍率 0 的权重应归零');
+
+  // 归零后必须真的从候选里淘汰，否则界面上的“设为 0 表示不再造”是假的。
+  assert.equal(rankBuildTargets(state, killed).includes('warehouse'), false, '倍率归零的仓库不应出现在建造候选里');
+  assert.equal(rankBuildTargets(state, neutral).includes('warehouse'), true, '倍率正常时仓库应在候选里');
+});
+
+test('触发器的 chain 让后续条目等前一条完成', () => {
+  const state = fresh();
+  state.resources.wood = 5000;
+  state.resources.cash = 5000;
+  const chained = config({ master: true, autoBuild: false, autoTrigger: true });
+  // 第一条永不完成（要求 99 座巢），第二条理应被链条挡住。
+  chained.triggers = [
+    { ...blankTrigger(1), action: 'build', actionId: 'nest', actionCount: 99, left: 'number', leftArg: '1', operator: '==', right: 'number', rightArg: '1' },
+    { ...blankTrigger(2), chain: true, action: 'build', actionId: 'warehouse', actionCount: 1, left: 'number', leftArg: '1', operator: '==', right: 'number', rightArg: '1' },
+  ];
+  const engine = createAutomationEngine({ config: () => chained, random: () => 0.5 });
+  for (let i = 0; i < 20; i++) engine.tick(state);
+  assert.equal(state.buildings.warehouse || 0, 0, 'chain 后面的触发器在前一条完成前不应执行');
+
+  // 去掉 chain，第二条立刻能动。
+  const unchained = config({ master: true, autoBuild: false, autoTrigger: true });
+  unchained.triggers = [
+    { ...blankTrigger(1), action: 'build', actionId: 'nest', actionCount: 99, left: 'number', leftArg: '1', operator: '==', right: 'number', rightArg: '1' },
+    { ...blankTrigger(2), chain: false, action: 'build', actionId: 'warehouse', actionCount: 1, left: 'number', leftArg: '1', operator: '==', right: 'number', rightArg: '1' },
+  ];
+  const state2 = fresh();
+  state2.resources.wood = 5000;
+  state2.resources.cash = 5000;
+  const engine2 = createAutomationEngine({ config: () => unchained, random: () => 0.5 });
+  for (let i = 0; i < 20; i++) engine2.tick(state2);
+  assert.ok((state2.buildings.warehouse || 0) > 0 || state2.queue.some(item => item.kind === 'build' && item.id === 'warehouse'), '不串联时应推进');
+});
+
+test('每个条件来源都能在真实状态上读出值：没有永远返回 undefined 的摆设来源', () => {
+  // 这条挡的是"注册表里加了来源、读取器却没实现"：界面上可选、实际永远不成立。
+  const state = fresh();
+  state.buildings.warehouse = 1;
+  state.buildings.mine = 1;
+  state.workers.school = 1;
+  const context = createConditionContext(state);
+  const probes: Record<string, string> = {
+    number: '5', boolean: 'true', string: 'x',
+    resourceQuantity: 'food', resourceCap: 'food', resourceRatio: 'food', resourceIncome: 'food',
+    resourceUnlocked: 'food', resourceSatisfied: 'food', resourceSatisfyRatio: 'food',
+    buildingCount: 'nest', buildingRunning: 'nest', buildingStopped: 'nest', buildingUnlocked: 'nest',
+    buildingPurchasable: 'nest', buildingQueued: 'nest', buildingCost: 'nest.wood', buildingAffordable: 'nest',
+    techResearched: 'writing', techUnlocked: 'storage', techCostKnowledge: 'storage',
+    population: '', idlePopulation: '', housingCapacity: '',
+    jobWorkers: 'school', jobCapacity: 'school', jobUnlocked: 'school',
+    happiness: '', taxRate: '', government: '', gameDays: '', clicks: '',
+    queueLength: 'build', missionCompleted: 'asrielMissionCompleted', missionAvailable: 'asriel',
+    soldierCount: '', woundedCount: '', armyLimit: '',
+    neighborControlled: 'commonwealth', neighborMilitary: 'commonwealth',
+    arpaCount: 'monument', arpaProgress: 'monument', arpaUnlocked: 'monument',
+    shipComponentReady: 'hull', craftWorkers: '', factoryLineWorkers: 'alloy', smelterIdle: '',
+    blackHoleMass: '', exoticMassRatio: '', ejectionAllocated: '',
+    prestigeParticles: '', prestigeCasimir: '', prestigeDarkEnergy: '', prestigeCrystals: '',
+    prestigeResets: 'nuclear', prestigeType: '', nuclearProgress: '',
+    geneLevel: 'goodCat', dnaStock: 'C', speciesTrait: 'smart',
+    containerFree: '', alloyContainerFree: '',
+    resourceId: 'food', buildingId: 'nest', techId: 'writing',
+  };
+  const unresolved = CONDITION_SOURCES
+    .filter(source => readConditionSource(context, source.id, probes[source.id] ?? '') === undefined)
+    .map(source => source.id);
+  assert.deepEqual(unresolved, [], '这些条件来源读不出值');
+  // 反过来：注册表里的每一个来源都必须在探针表里点名，否则新增来源不会被这条测试覆盖。
+  assert.deepEqual(Object.keys(probes).sort(), CONDITION_SOURCES.map(source => source.id).sort());
+});
+
+test('只打开主开关就能养活殖民地：四个保命模块默认开启', () => {
+  // 玩家打开主开关却什么都没配置时，脚本必须至少不会饿死人口。
+  // 实测（默认全关时）觅食岗位一个人都不派，食物线在 100 tick 内清零、人口归零。
+  const config = createDefaultAutomationConfig();
+  for (const key of ['autoWorkers', 'autoBuild', 'autoBuildHousing', 'autoResearch']) {
+    assert.equal(config.values[key], true, `${key} 应默认开启`);
+  }
+  assert.equal(config.values.master, false, '主开关本身仍然默认关闭');
+
+  const state = fresh();
+  state.population = 6;
+  config.values.master = true;
+  const engine = createAutomationEngine({ config: () => config, random: () => 0.5 });
+  const before = { pop: state.population, buildings: Object.values(state.buildings).reduce((a, b) => a + b, 0) };
+  for (let i = 0; i < 80; i++) engine.tick(state);
+  assert.ok((state.workers.forage || 0) > 0, `应派出觅食工人，实际 ${state.workers.forage}`);
+  assert.ok(state.population > 0, `人口不应归零，实际 ${state.population}`);
+  const after = Object.values(state.buildings).reduce((a, b) => a + b, 0);
+  assert.ok(after > before.buildings, `建筑应增长：${before.buildings} -> ${after}`);
 });
