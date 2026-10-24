@@ -7,9 +7,10 @@ import { calculateProduction } from '../production';
 import {
   applyAutoArpa, applyAutoBuild, applyAutoCraft, applyAutoDownload, applyAutoEject, applyAutoFactoryLines,
   applyAutoMission, applyAutoPower, applyAutoResearch, applyAutoSmelter, applyAutoStabilize, applyAutoStorage,
-  applyAutoWorkers, syncAutoWorkerSettings,
+  applyAutoCraftWorkers, applyAutoWorkers, syncAutoWorkerSettings,
 } from './modules';
 import { applyAutoGovernment, applyAutoHeal, applyAutoRaid, applyAutoShip, applyAutoTax, applyAutoWithdraw } from './social';
+import { applyAutoGeneModification, applyAutoGeneSynthesis, applyAutoPrestige, applyAutoSpeciesTrait } from './long-term';
 import { createConditionContext, evaluateConditionRow } from './conditions';
 import { numericValue, resolveAutomation } from './policy';
 import { buildAnchor, nextAutomationMission } from './planning';
@@ -97,6 +98,7 @@ export function createAutomationEngine(options: EngineOptions): AutomationEngine
           // 扩展步与自动分配都要用人口，但只有最后一步才真正扣掉闲人：
           // 先跑 `applyAutoWorkers` 会把猫猫塞满食物岗位，扩展步就没人口可调了。
           actions += applyAutoWorkers(state, values);
+          actions += applyAutoCraftWorkers(state, values);
           if (values.autoBuild === true) actions += enqueueAnchor(state, values, spend);
           if (values.autoTrigger === true) actions += runTriggers(state, config.triggers, values, spend, random, fired);
           actions += applyAutoResearch(state, values);
@@ -117,7 +119,17 @@ export function createAutomationEngine(options: EngineOptions): AutomationEngine
           actions += applyAutoRaid(state, values);
           actions += applyAutoWithdraw(state, values);
           actions += applyAutoShip(state, values);
+          // 基因系统每 tick 推进；威望重置放在最后，因为它会换掉整份状态，
+          // 一旦发生，本 tick 不该再有后续动作。
+          actions += applyAutoGeneSynthesis(state, values);
+          actions += applyAutoGeneModification(state, values);
+          actions += applyAutoSpeciesTrait(state, values);
           actions += applyAutoPower(state, values);
+          const prestige = applyAutoPrestige(state, values, random, Date.now());
+          if (prestige) {
+            actions += 1;
+            return { actions, fault: null, overridden, triggersFired: fired, prestigeReset: prestige };
+          }
           if (budget <= 0 && values.ignoreActionConflicts !== true) {
             // 预算用尽：本帧不再动作，但仍然算作正常运行。
           }

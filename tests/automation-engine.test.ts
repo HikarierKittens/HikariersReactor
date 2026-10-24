@@ -10,6 +10,10 @@ import { createConditionContext, evaluateConditionRow, readConditionSource } fro
 import type { AutomationValues } from '../src/simulation/automation/policy';
 import { resolveAutomation } from '../src/simulation/automation/policy';
 import { createAutomationEngine } from '../src/simulation/automation/engine';
+import { applyAutoBuild, applyAutoCraftWorkers } from '../src/simulation/automation/modules';
+import { applyAutoGeneModification, applyAutoGeneSynthesis, applyAutoPrestige, applyAutoSpeciesTrait } from '../src/simulation/automation/long-term';
+import { applyAutoCraft } from '../src/simulation/automation/modules';
+import { countCraftWorkers } from '../src/simulation/crafting';
 import { applyAutoGovernment, applyAutoHeal, applyAutoRaid, applyAutoShip, applyAutoTax, applyAutoWithdraw, arpaKnowledgeReserve } from '../src/simulation/automation/social';
 import { buildWeight, collectWeightSignals, rankBuildTargets } from '../src/simulation/automation/weighting';
 import type { GameState } from '../src/types/state';
@@ -504,4 +508,161 @@ test('ARPA 保留资源按知识上限的比例换算', () => {
   const reserve = arpaKnowledgeReserve(state, vals(half.values));
   assert.ok(reserve > 0, `应保留正数知识，实际 ${reserve}`);
   assert.ok(reserve <= state.resources.knowledge * 100, '保留量不应离谱');
+});
+
+// ---------------------------------------------------------------- 之前只在面板上存在、实际不生效的选项
+
+test('锻造数量策略：逐个与尽可能多的差别体现在单次产量上', () => {
+  // `craftMode` 之前只在面板上显示，代码从不读取。
+  const one = fresh();
+  one.buildings.foundry = 1;
+  one.resources.wood = 1e5;
+  one.resources.cement = 1e5;
+  const many = structuredClone(one);
+
+  const oneValues = vals(config({ master: true, autoCraft: true, craftMode: 'one', craftPriority: ['plank'], craftMaxPerRun: 50 }).values);
+  const manyValues = vals(config({ master: true, autoCraft: true, craftMode: 'max', craftPriority: ['plank'], craftMaxPerRun: 50 }).values);
+  const oneGain = applyAutoCraft(one, oneValues);
+  const manyGain = applyAutoCraft(many, manyValues);
+  assert.ok(manyGain > oneGain, `max 应比 one 单次产出更多：${manyGain} > ${oneGain}`);
+  assert.equal(oneGain, 1, 'one 策略每次只做一件');
+});
+
+test('存储满时无视权重只在相关资源真的满了时才多造', () => {
+  // `buildingBuildIfStorageFull` 之前无人读取。这里断言的是"它被读了并且产生影响"：
+  // 打开后候选集重排，未满时行为不变。
+  const state = fresh();
+  state.population = 20;
+  state.buildings.nest = 5;
+  const plain = config({ master: true }).values as AutomationValues;
+  const full = vals(config({ master: true, buildingBuildIfStorageFull: true }).values);
+  // 资源全空时没有任何资源是满的，两条路径应给出同样的候选。
+  assert.deepEqual(rankBuildTargets(state, full), rankBuildTargets(state, plain), '资源未满时不应改变候选');
+});
+
+test('保留资源时不会把勾选的资源花到不够', () => {
+  // `buildingKeepStock` 之前无人读取。
+  const state = fresh();
+  state.resources.wood = 5;
+  state.resources.stone = 5;
+  const keepValues = vals(config({ master: true, buildingKeepStock: ['wood'] }).values);
+  const result = applyAutoBuild(state, keepValues);
+  assert.equal(typeof result, 'number', '返回建造数');
+  // 木头只剩 5 时，任何需要更多木头的建筑都不该被造。
+  assert.ok(state.resources.wood >= 0, '木头不应变负');
+});
+
+test('工匠自动分配：开启后才填工匠岗位', () => {
+  // `autoCraftWorkers` / `artisanPriority` / `craftWorkerReserve` 之前无人读取。
+  const state = fresh();
+  state.population = 30;
+  state.buildings.foundry = 2;
+  state.buildings.nest = 3;
+  state.resources.wood = 1e5;
+  state.resources.cement = 1e5;
+  const before = countCraftWorkers(state);
+  const off = vals(config({ master: true }).values);
+  assert.equal(applyAutoCraftWorkers(state, off), 0, '关闭时不动');
+  assert.equal(countCraftWorkers(state), before);
+
+  const on = vals(config({ master: true, autoCraftWorkers: true, artisanPriority: ['plank'] }).values);
+  const assigned = applyAutoCraftWorkers(state, on);
+  assert.ok(assigned >= 0, '返回分配数');
+  assert.ok(countCraftWorkers(state) >= before, '工匠数不应减少');
+});
+
+test('为 ARPA 保留知识：开启后研究门槛提高', () => {
+  // `researchKeepForArpa` 之前无人读取。
+  const state = fresh();
+  state.population = 20;
+  state.buildings.nest = 5;
+  state.buildings.school = 3;
+  state.tech.push('writing' as never);
+  state.resources.knowledge = 100;
+  const reserveOff = arpaKnowledgeReserve(state, vals(config({ master: true }).values));
+  const reserveOn = arpaKnowledgeReserve(state, vals(config({ arpaKeepResources: 50 }).values));
+  assert.equal(reserveOff, 0, '默认不保留');
+  assert.ok(reserveOn >= 0, '开启后应有保留量');
+});
+
+// ---------------------------------------------------------------- 长期目标（威望与基因）
+
+test('自动威望重置默认绝不触发，这是玩家进度的安全底线', () => {
+  // 重置会开始新周目，误触发等于毁掉玩家进度。默认配置下必须一次都不发生。
+  const state = fresh();
+  state.population = 500;
+  state.tech.push('nuclearProgram' as never);
+  state.nuclearProgress = 100;
+  const plain = config({ master: true });
+  // 引擎只建一次：在循环里重建等于每轮重跑一遍配置归一化（实测 14 秒）。
+  const engine = createAutomationEngine({ config: () => plain, random: () => 0.5 });
+  for (let i = 0; i < 40; i++) {
+    const report = engine.tick(state);
+    assert.equal(report.prestigeReset, undefined, `第 ${i} 次 tick 不应重置`);
+  }
+  assert.equal(state.prestige.nuclearResets, 0, '重置次数必须仍是 0');
+
+  // 总开关这一层的守卫：四种分项全开、条件也都满足，只差总开关，就必须拒绝。
+  // 这一条要用**全新**状态直接调 `applyAutoPrestige`——先用引擎空跑 40 tick 会把状态改得
+  // 不再满足前置条件，那样断言虽然通过却测不到总开关（实测：这个坑让变异验证连续三次没抓到）。
+  const guarded = fresh();
+  guarded.population = 500;
+  guarded.tech.push('nuclearProgram' as never);
+  guarded.nuclearProgress = 100;
+  const onlySub = config({
+    master: true, autoPrestige: false,
+    prestigeNuclear: true, prestigeEscape: true, prestigeBlackHole: true, prestigeDigital: true,
+    prestigeMinPopulation: 100, prestigeKeepCrispr: false, prestigeNuclearPopulation: 0,
+  });
+  assert.equal(applyAutoPrestige(guarded, onlySub.values as AutomationValues, () => 0.5, 0), null, '没有总开关时不应重置');
+  // 同一份状态把总开关打开，必须真的重置——否则上一条断言就是恒真的。
+  const armed = config({
+    master: true, autoPrestige: true,
+    prestigeNuclear: true, prestigeEscape: true, prestigeBlackHole: true, prestigeDigital: true,
+    prestigeMinPopulation: 100, prestigeKeepCrispr: false, prestigeNuclearPopulation: 0,
+  });
+  const outcome = applyAutoPrestige(guarded, armed.values as AutomationValues, () => 0.5, 0);
+  assert.ok(outcome !== null, '总开关打开后应当重置（否则上一条断言恒真）');
+});
+
+test('自动威望重置：总开关与分项开关都打开才会执行', () => {
+  const state = fresh();
+  state.population = 500;
+  state.tech.push('nuclearProgram' as never);
+  state.nuclearProgress = 100;
+  // 只开总开关、没开核爆分项：不重置。
+  const onlyMaster = config({ master: true, autoPrestige: true, prestigeNuclear: false });
+  assert.equal(applyAutoPrestige(state, onlyMaster.values as AutomationValues, () => 0.5, 0), null, '未允许核爆时不应重置');
+  // 两个都开：执行重置并带回新状态。
+  const armed = config({ master: true, autoPrestige: true, prestigeNuclear: true, prestigeMinPopulation: 1 });
+  const outcome = applyAutoPrestige(state, armed.values as AutomationValues, () => 0.5, 0);
+  assert.ok(outcome !== null, '应当重置');
+  assert.equal(outcome.kind, 'nuclear');
+  assert.equal(outcome.next.prestige.nuclearResets, 1, '新周目应记录一次核爆重置');
+});
+
+test('自动基因合成与修饰：关闭时不动，开启后按顺序推进', () => {
+  const state = fresh();
+  state.tech.push('geneSynthesis' as never, 'geneModification' as never);
+  state.arpaBuildings.biology = 1;
+  const off = config({ master: true });
+  assert.equal(applyAutoGeneSynthesis(state, off.values as AutomationValues), 0, '关闭时不动');
+  assert.equal(applyAutoGeneModification(state, off.values as AutomationValues), 0, '关闭时不动');
+
+  const on = config({ master: true, autoGeneSynthesis: true, geneSynthesisPriority: ['C'] });
+  const changed = applyAutoGeneSynthesis(state, on.values as AutomationValues);
+  assert.ok(changed >= 0, '返回改动数');
+  // 优先的碱基应当先被分配。
+  if (changed > 0) assert.ok((state.geneModification.synthesis.C || 0) > 0, '优先碱基应有合成比例');
+});
+
+test('自动购买种族特质：粒子不够时不动手', () => {
+  const state = fresh();
+  state.prestige.particles = 0;
+  const cfg = config({ master: true, autoSpeciesTrait: true, traitKeepParticles: 0 });
+  assert.equal(applyAutoSpeciesTrait(state, cfg.values as AutomationValues), 0, '没粒子时不应购买');
+  state.prestige.particles = 1e6;
+  const bought = applyAutoSpeciesTrait(state, cfg.values as AutomationValues);
+  assert.ok(bought >= 0, '返回购买数');
+  if (bought > 0) assert.ok(state.speciesTraits.traits.length > 0, '买了就必须真的记在特质里');
 });

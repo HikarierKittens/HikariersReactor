@@ -147,7 +147,13 @@ export function createRuntime(initialAutomation?: AutomationConfig): Runtime {
     // 自动化排在购买结算之后：它这一 tick 下的购买单要在下一次结算才生效，
     // 所以脚本的每一步都建立在"已结算的真实状态"上，不会读到半成品队列。
     // 引擎自己捕获所有异常并记成 fault，因此这里不需要 try。
-    afterRun: () => { automationReport = automationEngine.tick(state); },
+    afterRun: () => {
+      automationReport = automationEngine.tick(state);
+      // 自动威望重置会整份换掉状态：引擎只能把新状态放进出参，这里负责真正替换。
+      // `replaceState` 会重新校验、重扫成就并存档，与玩家手动重置走同一条路径。
+      const reset = automationReport?.prestigeReset;
+      if (reset) replaceState(reset.next);
+    },
     unlocks: scanAchievements,
   };
 

@@ -1,5 +1,5 @@
 import { GOVERNMENTS } from '../government';
-import { NEIGHBOR_IDS } from '../../data/neighbors';
+import { NEIGHBORS, NEIGHBOR_IDS } from '../../data/neighbors';
 import { changeGovernment, changeTaxRate, raidNeighbor, withdrawFromNeighbor } from '../commands';
 import { calculateArmyLimit, reformCooldown } from '../government';
 import { previewMorale } from '../production';
@@ -109,12 +109,31 @@ export function applyAutoRaid(state: GameState, values: AutomationValues): numbe
   if (targets.length === 0) return 0;
   const minimum = Math.max(0, numericValue(values, 'raidMinSoldiers'));
   if (state.soldiers < minimum) return 0;
-  for (const id of targets) {
+  // 掠夺偏好：按玩家看重的产出给目标排序后再打，`random` 表示不排序。
+  const preference = stringValue(values, 'raidLoot');
+  const ordered = preference === 'random' ? targets : orderByLootPreference(targets, preference);
+  for (const id of ordered) {
     if (!NEIGHBOR_IDS.includes(id)) continue;
     if (state.neighbors.occupied.includes(id)) continue;
     return raidNeighbor(state, id, 1, Math.floor(state.soldiers)) ? 1 : 0;
   }
   return 0;
+}
+
+/**
+ * 按掠夺偏好排序：把玩家最看重的那种产出高的势力排在前面。
+ *
+ * 产出数据直接取 `NEIGHBORS` 注册表里的既有字段，不另算经济模型。
+ */
+function orderByLootPreference(targets: readonly NeighborId[], preference: string): NeighborId[] {
+  const score = (id: NeighborId): number => {
+    const definition = NEIGHBORS[id];
+    if (!definition) return 0;
+    // 军事偏好看兵力区间上界，经济偏好看产出区间上界；都是注册表里的既有数值。
+    const pick = preference === 'military' ? definition.military : definition.economy;
+    return (pick.max + pick.min) / 2;
+  };
+  return [...targets].sort((a, b) => score(b) - score(a));
 }
 
 /** 自动撤回驻军：按占领的逆序撤回，一次一个，避免一次性丢掉全部产量加成。 */
@@ -135,6 +154,7 @@ export function applyAutoWithdraw(state: GameState, values: AutomationValues): n
  */
 export function applyAutoShip(state: GameState, values: AutomationValues): number {
   if (values.autoShip !== true) return 0;
+  if (stringValue(values, 'shipMode') === 'none') return 0;
   const priority = listValue(values, 'shipPriority') as ShipComponentId[];
   const ordered: ShipComponentId[] = [
     ...priority.filter(id => Object.hasOwn(SHIP_COMPONENTS, id)),

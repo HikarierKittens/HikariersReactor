@@ -1,5 +1,6 @@
 import type { BuildingId } from './buildings';
 import type { TechnologyId } from './technologies';
+import type { GameState } from './state';
 
 /**
  * 自动化脚本（Automation）的配置类型。
@@ -149,6 +150,14 @@ export interface AutomationRunReport {
   overridden?: string[];
   /** 本 tick 实际执行过的触发器 id。 */
   triggersFired?: number[];
+  /**
+   * 自动威望重置后的新状态。
+   *
+   * 重置会整份换掉 `GameState`（`launch*Prestige` 返回新对象），而引擎的 `tick` 只拿得到
+   * 旧对象，无法原地改掉调用方的变量。所以由引擎把新状态放进出参，运行时负责替换。
+   * 没有发生重置时不设置这个字段。
+   */
+  prestigeReset?: { kind: 'nuclear' | 'escape' | 'blackHole' | 'digital'; reward: number; next: GameState };
 }
 
 /** 触发器动作需要哪种 id，界面据此渲染第三列。 */

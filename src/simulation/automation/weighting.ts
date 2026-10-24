@@ -85,6 +85,10 @@ export interface WeightSignals {
   crateIdle: boolean;
   /** 有未完全运作的质量喷射器。 */
   ejectorIdle: boolean;
+  /** 有建筑缺少支撑（电力/算力等）而没能满负荷运转。 */
+  supportMissing: boolean;
+  /** 支撑已经过剩。 */
+  supportSurplus: boolean;
 }
 
 /** 一次算好所有信号，避免每座建筑都重跑结算。 */
@@ -104,6 +108,9 @@ export function collectWeightSignals(state: GameState): WeightSignals {
   const supplyShort = (Object.keys(state.stoppedBuildings ?? {}) as BuildingId[]).some(id => (state.stoppedBuildings[id] || 0) > 0);
   const housing = createConditionContext(state).housing();
   const containersFree = state.containers - Object.values(state.containerAssignments ?? {}).reduce((sum, value) => sum + (value || 0), 0);
+  // 支撑信号从同一份生产快照读，不另算一遍：`production.power` 已经是本 tick 的权威值。
+  const supportMissing = powerAvailable < 0;
+  const supportSurplus = powerUsed > 0 && powerAvailable > powerUsed * 0.5;
   return {
     powerShort: powerAvailable < 0,
     powerSurplus: powerUsed > 0 && powerAvailable > powerUsed * 0.5,
@@ -113,6 +120,8 @@ export function collectWeightSignals(state: GameState): WeightSignals {
     housingTight: housing <= state.population + 1,
     crateIdle: containersFree > 0,
     ejectorIdle: (state.buildings.massEjector || 0) > 0 && Object.keys(state.blackHole.ejection ?? {}).length === 0,
+    supportMissing,
+    supportSurplus,
   };
 }
 
@@ -182,6 +191,9 @@ export function weightingKeysFor(id: BuildingId, state: GameState, signals: Weig
     keys.push('buildingWeightingNonOperating');
   }
   if (signals.supplyShort && (BUILDINGS[id].input !== undefined || id === 'warehouse')) keys.push('buildingWeightingMissingSupply');
+  // 缺支撑：靠电运转的建筑在电力不足时更该造；支撑过剩时更不该造。
+  if (signals.supportMissing && demand > 0) keys.push('buildingWeightingMissingSupport');
+  if (signals.supportSurplus && demand > 0) keys.push('buildingWeightingUselessSupport');
   return keys;
 }
 

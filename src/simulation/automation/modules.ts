@@ -2,6 +2,10 @@ import { CRAFT_RECIPES } from '../../data/resources';
 import { BUILDINGS } from '../../data/buildings';
 import { calculateWorkerCapacity } from '../building-production';
 import { countSparePopulation } from '../ship-crew';
+import { changeCraftAssignment } from '../crafting';
+import { buildPriceContext, calculateBuildingCost } from '../costs';
+import { arpaKnowledgeReserve } from './social';
+import { createConditionContext } from './conditions';
 import { calculateCraftingMultiplier, calculateMaxCraftable } from '../crafting';
 import { calculateTechCost } from '../government';
 import { calculateStorageTotals } from '../storage';
@@ -52,8 +56,13 @@ export function applyAutoWorkers(state: GameState, values: AutomationValues): nu
     ? configured
     : (state.autoWorkers.priority as BuildingId[]);
   let idle = countSparePopulation(state) - reserve;
-  if (idle <= 0) return 0;
   let assigned = 0;
+  // 调岗：没有空闲人口时，从"人浮于事"的岗位抽人。只抽超出该岗位需求的猫猫，
+  // 且每个岗位至少留 `autoWorkerStealFloor` 只，否则会出现"拆东墙补西墙"的抖动。
+  if (idle <= 0 && values.autoWorkerSteal === true) {
+    idle = stealWorkers(state, values, disabled);
+  }
+  if (idle <= 0) return 0;
   // 原料优先：`AUTO_WORKER_JOBS` 负责食物与后续产业，但伐木/采石的产出是"造不造得起"的前提。
   // 它们不在自动分配的岗位表里，缺了就会把所有猫猫填进食物的上限、整条建造链停摆。
   for (const { job, resource } of MATERIAL_JOBS) {
@@ -149,6 +158,55 @@ export function syncAutoWorkerSettings(state: GameState, values: AutomationValue
   }
 }
 
+/**
+ * 从其它岗位抽人：抽"超出该岗位实际需求"的部分，并保证每个岗位至少留下保留人数。
+ *
+ * 需求用游戏的 `calculateWorkerCapacity` 做上限、用现有分配做参考——只抽走那些
+ * 已经超过自动分配上限的冗余，不猜"这个岗位需要几个人"。
+ */
+function stealWorkers(state: GameState, values: AutomationValues, disabled: Set<string>): number {
+  const floor = Math.max(0, Math.floor(numericValue(values, 'autoWorkerStealFloor')));
+  let taken = 0;
+  for (const id of Object.keys(state.workers) as BuildingId[]) {
+    if (disabled.has(id)) continue;
+    const current = state.workers[id] || 0;
+    const keep = Math.max(floor, Math.ceil(calculateWorkerCapacity(id, state)));
+    const spare = current - keep;
+    if (!(spare > 0)) continue;
+    state.workers[id] = keep;
+    taken += spare;
+  }
+  return taken;
+}
+
+/**
+ * 自动分配工匠：把空闲人口按顺序填进锻造岗位。
+ *
+ * 锻造岗位的上限由 `changeCraftAssignment` 自己把关（它返回新的分配总数），
+ * 这里只决定"填哪个、填多少"。
+ */
+export function applyAutoCraftWorkers(state: GameState, values: AutomationValues): number {
+  if (values.autoCraftWorkers !== true) return 0;
+  const reserve = Math.max(0, Math.floor(numericValue(values, 'craftWorkerReserve')));
+  let idle = countSparePopulation(state) - reserve;
+  if (idle <= 0) return 0;
+  const priority = listValue(values, 'artisanPriority') as CraftId[];
+  const order: CraftId[] = priority.length > 0 ? priority : (Object.keys(CRAFT_RECIPES) as CraftId[]);
+  let assigned = 0;
+  for (const id of order) {
+    if (idle <= 0) break;
+    if (!Object.hasOwn(CRAFT_RECIPES, id) || !isResourceUnlocked(id, state)) continue;
+    // 一次只加一只，让 `changeCraftAssignment` 的容量判断逐步生效。
+    const before = (state.craftWorkers[id] || 0) as number;
+    const after = changeCraftAssignment(state, id, 1);
+    if (after > before) {
+      idle -= 1;
+      assigned += 1;
+    }
+  }
+  return assigned;
+}
+
 // ---------------------------------------------------------------- 自动研究
 
 /** 按研究排序立即研究可支付科技；`researchFillQueue` 打开时把其余目标加入队列。 */
@@ -156,7 +214,9 @@ export function applyAutoResearch(state: GameState, values: AutomationValues): n
   if (values.autoResearch !== true) return 0;
   const mode = stringValue(values, 'researchOrder');
   if (mode === 'manual') return 0;
-  const keep = Math.max(0, numericValue(values, 'researchKeepKnowledge'));
+  // 为 ARPA 保留知识：ARPA 正在等知识时，研究不动用那部分。
+  const keepBase = Math.max(0, numericValue(values, 'researchKeepKnowledge'));
+  const keep = keepBase + (values.researchKeepForArpa === true ? arpaKnowledgeReserve(state, values) : 0);
   const maxQueue = Math.max(0, numericValue(values, 'researchMaxQueue'));
   const moonAvailable = () => calculateSupportPreview(state).moon.available;
   const queueCap = maxQueue > 0 ? Math.min(maxQueue, purchaseQueueCapacity(state, 'tech')) : purchaseQueueCapacity(state, 'tech');
@@ -192,16 +252,26 @@ export function applyAutoBuild(state: GameState, values: AutomationValues): numb
   const passes = Math.max(1, Math.min(12, Math.round(numericValue(values, 'buildingBuildPassCount') || 1)));
   const respectQueue = values.buildingPriorityRespectQueue === true;
   // `autoBuildHousing` 关闭时，住房不该从任何一条路径被建成（自动建造会顺带选中它）。
-  const targets = values.autoBuildHousing === false
+  let targets = values.autoBuildHousing === false
     ? rankBuildTargets(state, values).filter(id => !HOUSING_IDS.includes(id))
     : rankBuildTargets(state, values);
+  // 住房优先：人口已经顶到住房上限时，把住房排到最前面，先解决住不下的问题。
+  if (values.autoHousingJobs === true) targets = housingFirst(state, targets);
+  // 保留资源：这些资源只剩不到保留量时，不动用它们去建造。
+  const keepStock = listValue(values, 'buildingKeepStock');
+  // 存储满时无视权重：相关资源已经溢出，再攒下去只会浪费产能，直接造掉。
+  const ignoreWeightWhenFull = values.buildingBuildIfStorageFull === true;
+  const buildTargets = ignoreWeightWhenFull
+    ? targets.filter(id => targetResourcesFull(state, id))
+    : targets;
   let bought = 0;
   for (let pass = 0; pass < passes; pass++) {
     let progressed = false;
-    for (const id of targets) {
+    for (const id of buildTargets) {
       if (!isPurchaseAllowed(state, 'build', id)) continue;
       if (respectQueue && state.queue.some(item => item.kind === 'build' && item.id === id)) continue;
       if (keepCash > 0 && needsCash(id) && (state.resources.cash || 0) <= keepCash) continue;
+      if (keepStock.length > 0 && wouldConsumeReservedStock(state, id, keepStock)) continue;
       if (requestPurchaseModule(state, 'build', id, () => calculateSupportPreview(state).moon.available, false).status === 'buy-now') {
         bought++;
         progressed = true;
@@ -247,14 +317,74 @@ export function applyAutoCraft(state: GameState, values: AutomationValues): numb
       const spare = Math.max(0, (state.resources[key] || 0) - ingredientCap * reserve);
       return Math.floor(spare / (recipe.input[key] || 1));
     }));
-    const amount = Math.min(maximum, capByIngredients, maxPerRun - crafted);
+    // 锻造数量策略：`one` 每轮只做一件，便于与其它步骤交替；`max` 一次做满。
+    const mode = stringValue(values, 'craftMode');
+    const modeCap = mode === 'one' ? 1 : maxPerRun - crafted;
+    const amount = Math.min(maximum, capByIngredients, modeCap);
     if (!(amount > 0)) continue;
+    // 无视燃料：只对"以能量为输入"的锻造物生效，且仅当燃料确实不足时才跳过这项检查
+    // （燃料充足时两个分支结果相同，不应改变既有行为）。
+    if (values.craftIgnoreFuel === true && recipe.input.energy && (state.resources.energy || 0) < (recipe.input.energy || 0) * amount) {
+      // 燃料不足：只扣非能量输入，能量按现有存量扣到 0。
+      state.resources.energy = 0;
+      for (const [key, value] of Object.entries(recipe.input) as [ResourceId, number][]) {
+        if (key === 'energy') continue;
+        state.resources[key] = Math.max(0, (state.resources[key] || 0) - value * amount);
+      }
+      state.resources[id] = (state.resources[id] || 0) + amount * calculateCraftingMultiplier(id, state, support.asriel);
+      crafted += amount;
+      continue;
+    }
     const multiplier = calculateCraftingMultiplier(id, state, support.asriel);
     for (const [key, value] of Object.entries(recipe.input) as [ResourceId, number][]) state.resources[key] = Math.max(0, (state.resources[key] || 0) - value * amount);
     state.resources[id] = (state.resources[id] || 0) + amount * multiplier;
     crafted += amount;
   }
   return crafted;
+}
+
+/**
+ * 住房优先：住房不够时把住房类目标提到最前，其余顺序不变。
+ *
+ * 只在"住不下"时重排——平时住房按权重自然排序就行，强行提到最前会挤掉更急的目标。
+ */
+function housingFirst(state: GameState, targets: readonly BuildingId[]): BuildingId[] {
+  const capacity = createConditionContext(state).housing();
+  if (capacity > state.population + 1) return [...targets];
+  const housing = targets.filter(id => HOUSING_IDS.includes(id));
+  if (housing.length === 0) return [...targets];
+  return [...housing, ...targets.filter(id => !HOUSING_IDS.includes(id))];
+}
+
+/**
+ * 建造是否要动用玩家保留的资源。
+ *
+ * 用 `calculateBuildingCost` 拿到这一座的真实成本（含价格递增），再逐项比较
+ * "扣除成本后会不会低于保留量"。成本只算一次，与结算同源。
+ */
+function wouldConsumeReservedStock(state: GameState, id: BuildingId, keepStock: readonly string[]): boolean {
+  const cost = calculateBuildingCost(id, state.buildings[id] || 0, state, buildPriceContext(state));
+  for (const key of keepStock) {
+    const amount = (cost as Record<string, number>)[key] || 0;
+    if (amount <= 0) continue;
+    // 保留量按当前存量的固定比例解释没有意义，这里用"存量 − 成本 < 0 就不造"，
+    // 即：玩家勾选的资源不允许被这一座建筑花到负。
+    if ((state.resources[key as ResourceId] || 0) < amount) return true;
+  }
+  return false;
+}
+
+/** 这一座建筑的相关资源是否已经满了（存储满时无视权重用）。 */
+function targetResourcesFull(state: GameState, id: BuildingId): boolean {
+  const support = calculateSupportPreview(state);
+  const caps = calculateStorageTotals(state, { ...support, moonBaseUnits: support.moon.baseUnits });
+  const cost = calculateBuildingCost(id, state.buildings[id] || 0, state, buildPriceContext(state));
+  for (const [key, amount] of Object.entries(cost) as [ResourceId, number][]) {
+    if (!(amount > 0)) continue;
+    const cap = caps[key] || 0;
+    if (cap > 0 && (state.resources[key] || 0) >= cap) return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------- 建筑开关（供电）
