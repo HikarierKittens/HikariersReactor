@@ -6,9 +6,10 @@ import { calculateWorkerCapacity } from '../building-production';
 import { calculateProduction } from '../production';
 import {
   applyAutoArpa, applyAutoBuild, applyAutoCraft, applyAutoDownload, applyAutoEject, applyAutoFactoryLines,
-  applyAutoMission, applyAutoPower, applyAutoResearch, applyAutoSmelter, applyAutoStabilize, applyAutoStorage, applyAutoWorkers,
-  syncAutoWorkerSettings,
+  applyAutoMission, applyAutoPower, applyAutoResearch, applyAutoSmelter, applyAutoStabilize, applyAutoStorage,
+  applyAutoWorkers, syncAutoWorkerSettings,
 } from './modules';
+import { applyAutoGovernment, applyAutoHeal, applyAutoRaid, applyAutoShip, applyAutoTax, applyAutoWithdraw } from './social';
 import { createConditionContext, evaluateConditionRow } from './conditions';
 import { numericValue, resolveAutomation } from './policy';
 import { buildAnchor, nextAutomationMission } from './planning';
@@ -109,6 +110,13 @@ export function createAutomationEngine(options: EngineOptions): AutomationEngine
           actions += applyAutoDownload(state, values);
           actions += applyAutoArpa(state, values, random);
           actions += applyAutoMission(state, values);
+          // 社会与军事排在建造之后：扩军"满员"的判据要看本 tick 已经造好的兵营。
+          actions += applyAutoTax(state, values);
+          actions += applyAutoGovernment(state, values);
+          actions += applyAutoHeal(state, values);
+          actions += applyAutoRaid(state, values);
+          actions += applyAutoWithdraw(state, values);
+          actions += applyAutoShip(state, values);
           actions += applyAutoPower(state, values);
           if (budget <= 0 && values.ignoreActionConflicts !== true) {
             // 预算用尽：本帧不再动作，但仍然算作正常运行。

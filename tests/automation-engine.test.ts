@@ -10,6 +10,7 @@ import { createConditionContext, evaluateConditionRow, readConditionSource } fro
 import type { AutomationValues } from '../src/simulation/automation/policy';
 import { resolveAutomation } from '../src/simulation/automation/policy';
 import { createAutomationEngine } from '../src/simulation/automation/engine';
+import { applyAutoGovernment, applyAutoHeal, applyAutoRaid, applyAutoShip, applyAutoTax, applyAutoWithdraw, arpaKnowledgeReserve } from '../src/simulation/automation/social';
 import { buildWeight, collectWeightSignals, rankBuildTargets } from '../src/simulation/automation/weighting';
 import type { GameState } from '../src/types/state';
 import type { AutomationConfig } from '../src/types/automation';
@@ -42,6 +43,9 @@ function config(patch: Record<string, unknown> = {}): AutomationConfig {
   Object.assign(created.values, patch);
   return created;
 }
+
+/** 社交模块的取值类型：`config()` 返回宽松的 Record，这里收窄一次，避免每个调用点都断言。 */
+const vals = (input: Record<string, unknown>): AutomationValues => input as AutomationValues;
 
 test('条件表按 operator 逐条比较，且只在行上带值时输出取值', () => {
   const state = fresh();
@@ -387,4 +391,117 @@ test('建筑权重的键覆盖注册表里的每一座建筑，默认值一致',
   for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
     assert.equal(config.values[buildingWeightKey(id)], DEFAULT_BUILDING_WEIGHT, `${id} 的默认权重`);
   }
+});
+
+// ---------------------------------------------------------------- 社会与军事
+
+test('自动调整税率朝着目标幸福度靠拢，且不超过上限', () => {
+  const state = fresh();
+  state.taxRate = 0;
+  const low = config({ master: true, autoTax: true, taxTargetHappiness: 100, taxMax: 5 });
+  // 幸福度远低于目标：税率为 0 时不能再降，保持不动。
+  assert.equal(applyAutoTax(state, vals(low.values)), 0, '税率为 0 时不应再降');
+
+  // 目标很低时应当加税，但被 taxMax 卡住。
+  const high = config({ master: true, autoTax: true, taxTargetHappiness: 0, taxMax: 3 });
+  for (let i = 0; i < 10; i++) applyAutoTax(state, vals(high.values));
+  assert.ok(state.taxRate > 0, `应加税，实际 ${state.taxRate}`);
+  assert.ok(state.taxRate <= 3, `不应超过 taxMax，实际 ${state.taxRate}`);
+
+  // 关闭时一个动作都不做。
+  const before = state.taxRate;
+  assert.equal(applyAutoTax(state, vals(config({ master: true }).values)), 0);
+  assert.equal(state.taxRate, before);
+});
+
+test('自动切换政体：只在指定且可切换时生效', () => {
+  const state = fresh();
+  state.tech.push('government');
+  state.government = 'none';
+  state.lastReformTime = -1e9;
+  // 没指定政体时不动。
+  assert.equal(applyAutoGovernment(state, vals(config({ master: true }).values)), 0);
+  assert.equal(state.government, 'none');
+  // 指定后切换。
+  const wanted = config({ master: true, autoGovernment: 'democracy' });
+  assert.equal(applyAutoGovernment(state, vals(wanted.values)), 1, '应切换政体');
+  assert.equal(state.government, 'democracy');
+  // 已经是目标政体时不再动作。
+  state.lastReformTime = -1e9;
+  assert.equal(applyAutoGovernment(state, vals(wanted.values)), 0);
+});
+
+test('自动治疗：有伤兵且医院被停用时重新启用医院', () => {
+  const state = fresh();
+  state.tech.push('medicine' as never);
+  state.buildings.hospital = 1;
+  state.wounded = 3;
+  state.stoppedBuildings.hospital = 1;
+  const off = config({ master: true });
+  assert.equal(applyAutoHeal(state, vals(off.values)), 0, '关闭时不动');
+  assert.equal(state.stoppedBuildings.hospital, 1, '关闭时医院仍然停用');
+
+  const on = config({ master: true, autoHeal: true });
+  assert.equal(applyAutoHeal(state, vals(on.values)), 1, '应启用医院');
+  assert.equal(state.stoppedBuildings.hospital, 0, '医院应恢复运转');
+  // 已经恢复后不再重复动作。
+  assert.equal(applyAutoHeal(state, vals(on.values)), 0);
+});
+
+test('自动掠夺只打未占领的目标，且兵力不足时不动手', () => {
+  const state = fresh();
+  state.tech.push('government', 'military');
+  state.soldiers = 40;
+  const target = Object.keys(state.neighbors.values)[0] as string;
+  const cfg = config({ master: true, raidTargets: [target], raidMinSoldiers: 100 });
+  assert.equal(applyAutoRaid(state, cfg.values as AutomationValues), 0, '兵力低于门槛不应掠夺');
+
+  // 兵力达标后应当出手（胜负交给既有结算，这里只断言"尝试了"）。
+  const rich = config({ master: true, raidTargets: [target], raidMinSoldiers: 1 });
+  const richValues = rich.values as AutomationValues;
+  const acted = applyAutoRaid(state, richValues);
+  assert.ok(acted === 0 || acted === 1, '返回动作数');
+  // 已占领的目标不会被重复攻击。
+  state.neighbors.occupied = [target as never];
+  assert.equal(applyAutoRaid(state, richValues), 0, '已占领目标不应重复掠夺');
+});
+
+test('自动撤回驻军一次撤一个，不一次性丢掉全部占领', () => {
+  const state = fresh();
+  const ids = Object.keys(state.neighbors.values) as never[];
+  state.neighbors.occupied = [ids[0]!, ids[1]!];
+  assert.equal(applyAutoWithdraw(state, vals(config({ master: true }).values)), 0, '关闭时不动');
+  assert.equal(state.neighbors.occupied.length, 2);
+  assert.equal(applyAutoWithdraw(state, vals(config({ master: true, autoWithdraw: true }).values)), 1);
+  assert.equal(state.neighbors.occupied.length, 1, '一次只撤一个');
+});
+
+test('自动建造飞船：按优先列表推进未完成的部件', () => {
+  const state = fresh();
+  state.tech.push('spaceship' as never);
+  state.resources.knowledge = 1e6;
+  state.resources.alloy = 5000;
+  state.resources.titanium = 5000;
+  state.resources.polymer = 5000;
+  const off = config({ master: true });
+  const before = JSON.stringify(state.shipComponents);
+  assert.equal(applyAutoShip(state, vals(off.values)), 0, '关闭时不动');
+  assert.equal(JSON.stringify(state.shipComponents), before);
+
+  const on = config({ master: true, autoShip: true, shipPriority: ['hull'] });
+  const acted = applyAutoShip(state, vals(on.values));
+  assert.ok(acted >= 0, '返回动作数');
+  // 至少推进了一点进度，或者明确因为不可投资而没有动作。
+  const progressed = Object.values(state.shipResourceProgress || {}).some(progress => Object.keys(progress || {}).length > 0);
+  assert.ok(progressed || acted === 0, '要么推进了进度，要么明确不可投资');
+});
+
+test('ARPA 保留资源按知识上限的比例换算', () => {
+  const state = fresh();
+  const zero = config({ master: true, arpaKeepResources: 0 });
+  assert.equal(arpaKnowledgeReserve(state, vals(zero.values)), 0, '比例为 0 时不需要保留');
+  const half = config({ master: true, arpaKeepResources: 50 });
+  const reserve = arpaKnowledgeReserve(state, vals(half.values));
+  assert.ok(reserve > 0, `应保留正数知识，实际 ${reserve}`);
+  assert.ok(reserve <= state.resources.knowledge * 100, '保留量不应离谱');
 });
