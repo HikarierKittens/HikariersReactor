@@ -50,6 +50,15 @@
 
 ---
 
+## 2026/10/24 beta 0.9.51 撤下自动化脚本（代码保留）
+
+- `src/app/runtime.ts` 新增模块级开关 `AUTOMATION_ENABLED = false`。`afterRun` 在开关关闭时直接返回，不调用 `automationEngine.tick`，也**不调用 `automationFor()`**——后者会读一次 localStorage，而"构造运行时只读一次存储"的既有契约不该为一个停用的功能破例。
+- `Runtime` 接口新增 `automationEnabled`，`App.vue` 用它给 `AutomationPanel` 加 `v-if`。这是撤下的唯一入口，恢复时改回 `true` 并去掉 `v-if` 即可。
+- 保留（未删除）：`src/simulation/automation/*`（engine / modules / social / long-term / weighting / conditions / policy）、`src/data/automation.ts` 注册表、`src/state/automation-storage.ts`、`src/vue/components/AutomationPanel.vue`、全部单元测试、本地存储键 `meow-civilization-automation-v1` 及其内容。
+- 测试调整：`tests/browser/acceptance.html` 的自动化段改为断言"面板不渲染、开关不存在、运行报告为空、不写日志、本地配置保持原样"；`tests/automation-runtime.test.ts` 的两条运行时测试改为断言停用生效与配置保留。引擎自身行为仍由 `tests/automation-engine.test.ts` 直接调 `createAutomationEngine` 覆盖。
+- 未受影响：游戏本体的岗位自动分配（`state.autoWorkers`）是游戏自身机制，与自动化脚本无关。
+- 验证：npm run check通过：875项模块测试、经典VM回归、Edge浏览器验收、类型检查与生产构建。撤下断言做过变异验证（把开关改回 `true`，三条断言转红）。
+
 ## 2026/10/24 beta 0.9.50 自动化选项全部接通
 
 - 背景：注册表里 266 个选项中有 53 个没有任何代码读取（`tmp/unused.ts` 可复现）。面板上能调，但调了不影响任何行为。本次把剩余 53 个全部实现，审计脚本输出 0。

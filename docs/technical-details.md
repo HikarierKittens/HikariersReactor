@@ -234,6 +234,7 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 - 参数化来源的校验要看**拆分后**的段：`buildingCost` 的参数是 `building.resource`，拿整串 `nest.wood` 去查注册表永远查不到（真实踩过）。
 - 覆盖表：`config.overrides[optionKey]` 自上而下、首个成立的行决定本次运行该选项的取值，`resolveAutomation` 同时返回 `overridden` 集合供界面高亮。**标量覆盖命中即 `break`，列表型覆盖按追加合并**（对齐参考脚本的 XOR 累积语义）。覆盖只改脚本选项，不改游戏状态；类型不符的行被忽略。
 - 覆盖表：`config.overrides[optionKey]` 自上而下、首个成立的行决定本次运行该选项的取值，`resolveAutomation` 同时返回 `overridden` 集合供界面高亮。覆盖只改脚本选项，不改游戏状态；类型不符的行被忽略。
+- 自动化脚本当前**已撤下**：`src/app/runtime.ts` 的 `AUTOMATION_ENABLED` 为 `false`，`afterRun` 直接返回，不运行引擎、也不读它的配置。相关模块与注册表全部保留，恢复时把这个开关改回 `true` 并去掉 `App.vue` 里 `AutomationPanel` 的 `v-if`。
 - 自动化分三个执行层：`modules.ts`（岗位/研究/建造/锻造/供电/存储/ARPA/任务）、`social.ts`（税收/政体/军队/医院/邻国/飞船）、`long-term.ts`（威望四种重置/基因/特质）。全部只做"要不要调用既有命令"的判断，绝不复制结算公式。
 - 自动威望重置是唯一会整份替换 `GameState` 的自动化动作。`launch*Prestige` 返回新对象，引擎的 `tick(state)` 无法原地改掉调用方的变量，因此通过 `AutomationRunReport.prestigeReset` 出参交给 `runtime.ts` 的 `afterRun`，由 `replaceState` 完成替换（与手动重置同一条校验/存档路径），并写一条 system 日志。
 - 安全边界：`applyAutoPrestige` 里 `autoPrestige`（总开关）与四个分项开关是两道独立守卫，任一不满足即拒绝。默认全部关闭。

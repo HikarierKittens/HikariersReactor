@@ -2370,64 +2370,27 @@ try {
 
     scroller.remove();
   }
-  // 自动化面板：独立于存档的设置在真实 DOM 里必须能改、能存、能认回。
+  // 自动化脚本已从界面撤下并停止运行：代码与本地配置保留，但玩家看不到入口、也不会被执行。
   {
     mounted.app.unmount();
     const automationKeyRestore = localStorage.getItem('meow-civilization-automation-v1');
     localStorage.removeItem('meow-civilization-automation-v1');
     mounted = mountGame($('#app'));
     click($('[data-tab="settings"]')); await flush();
-    const masterBox = $('[data-automation-toggle="master"]');
-    log(!!masterBox && masterBox.checked === false, `自动化主开关默认关闭 [${masterBox?.checked}]`);
-    masterBox.click(); await flush();
-    const stored = JSON.parse(localStorage.getItem('meow-civilization-automation-v1') || 'null');
-    log(stored?.values?.master === true, `勾选主开关后独立存储立刻写入 [${JSON.stringify(stored?.values?.master)}]`);
-    log(mounted.store.runtime.automation.values.master === true, '运行时读到同一个开关值');
-    // 设置独立存储：不能因为改自动化就往游戏存档里塞字段。
-    const savedAfterAutomation = localStorage.getItem(saveKey) || '';
-    log(!savedAfterAutomation.includes('automation'), '自动化设置不进入游戏存档');
-    // 高级设置沿用参考脚本的交互：Ctrl + 左键点击选项行本身打开覆盖编辑器。
-    const numberRow = $('[data-automation-number="maxActionsPerRun"]')?.closest('.option-row');
-    log(!!numberRow, '单次最高动作数渲染成数字输入框');
-    numberRow.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true })); await flush();
-    const addOverride = $('[data-automation-override="maxActionsPerRun"]');
-    log(!!addOverride, 'Ctrl+左键点开后出现“新增覆盖行”按钮');
-    click(addOverride); await flush();
-    log(($('[data-automation-badge="maxActionsPerRun"]')?.textContent || '').includes('1 条覆盖'),
-      `新增覆盖行后显示条数 [${$('[data-automation-badge="maxActionsPerRun"]')?.textContent}]`);
-    log(mounted.store.runtime.automation.overrides.maxActionsPerRun?.length === 1, '覆盖行写进了运行时配置');
-    // 被覆盖的行整体变灰：这是玩家判断“这一项已被条件接管”的唯一线索。
-    const overriddenRow = $('[data-automation-number="maxActionsPerRun"]')?.closest('.option-row');
-    log(overriddenRow?.classList.contains('inactive') === true, '被覆盖的选项行变灰');
-    // 各建筑权重：132 座建筑各有一条输入框，且有筛选框可以缩小范围。
-    const weightSection = Array.from(document.querySelectorAll('.automation-section'))
-      .find(section => (section.querySelector('.section-head')?.textContent || '').includes('各建筑权重'));
-    log(!!weightSection, '存在「各建筑权重」分节');
-    weightSection.querySelector('.section-head').click(); await flush();
-    const nestInput = weightSection.querySelector('[data-automation-number="bldWeight.nest"]');
-    log(!!nestInput, '巢有独立权重输入框');
-    log(Number(nestInput?.value) === 100, `建筑权重默认 100 [${nestInput?.value}]`);
-    const rowCount = weightSection.querySelectorAll('.option-row').length;
-    log(rowCount > 100, `建筑权重行数 > 100 [${rowCount}]`);
-    const filterBox = weightSection.querySelector('[data-automation-building-filter]');
-    filterBox.value = '巢'; filterBox.dispatchEvent(new Event('input')); await flush();
-    log(weightSection.querySelectorAll('.option-row').length < rowCount, '筛选后行数减少');
-    filterBox.value = ''; filterBox.dispatchEvent(new Event('input')); await flush();
-    // 改一个建筑的权重必须真的落进运行时配置与独立存储（不是只改了输入框）。
-    nestInput.value = '0'; nestInput.dispatchEvent(new Event('change')); await flush();
-    log(mounted.store.runtime.automation.values['bldWeight.nest'] === 0,
-      `巢的权重写进了运行时配置 [${mounted.store.runtime.automation.values['bldWeight.nest']}]`);
-    const weightStored = JSON.parse(localStorage.getItem('meow-civilization-automation-v1') || 'null');
-    log(weightStored?.values?.['bldWeight.nest'] === 0, '巢的权重写进了独立存储');
-
-    // 新增的自动化分节必须真的渲染出来（这些选项以前只存在于注册表里）。
-    const panelSections = Array.from(document.querySelectorAll('.automation-section .section-head'))
-      .map(head => (head.textContent || '').trim());
-    for (const label of ['社会与军事', '威望重置', '基因与特质']) {
-      log(panelSections.some(text => text.includes(label)), `渲染了「${label}」分节`);
-    }
-    // 隐藏脚本界面：打开后其余分节收起，总开关仍在。
-    log(document.querySelectorAll('.automation-section .section-head').length > 0, '默认显示设置分节');
+    log($('.automation') === null, '设置页不再渲染自动化面板');
+    log($('[data-automation-toggle="master"]') === null, '自动化主开关不再出现');
+    log(mounted.store.runtime.automationEnabled === false, '运行时报告自动化已停用');
+    // 停用不只是藏界面：脚本不能再执行任何动作。
+    const before = mounted.store.state().logs.length;
+    for (let i = 0; i < 6; i++) { mounted.store.runtime.tick(1000); await flush(); }
+    log(mounted.store.runtime.automationReport === null, '停用后不再产生自动化运行报告');
+    log(mounted.store.state().logs.length <= before + 12, `停用后脚本不写日志 [${before} -> ${mounted.store.state().logs.length}]`);
+    // 已有的自动化配置不能被删掉：玩家的设置要留着，重新启用时原样回来。
+    localStorage.setItem('meow-civilization-automation-v1', JSON.stringify({ version: 1, values: { master: true }, overrides: {}, triggers: [], weighting: [] }));
+    mounted.app.unmount();
+    mounted = mountGame($('#app'));
+    const kept = localStorage.getItem('meow-civilization-automation-v1') || '';
+    log(kept.includes('"master":true'), '停用期间本地自动化配置保持原样');
     if (automationKeyRestore === null) localStorage.removeItem('meow-civilization-automation-v1');
     else localStorage.setItem('meow-civilization-automation-v1', automationKeyRestore);
   }

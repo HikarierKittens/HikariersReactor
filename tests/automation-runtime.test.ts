@@ -56,25 +56,34 @@ function enabledConfig() {
   return config;
 }
 
-test('自动化在 tick 里真正运行：开启后研究推进，关闭后完全不动', t => {
+test('自动化已从运行时停用：开着总开关也不再执行任何动作', t => {
+  // 功能已撤下并停止运行（代码与本地配置保留）。这里断言的是"停用真的生效"，
+  // 而不是"脚本还能跑"——引擎自己的行为由其它测试直接用 createAutomationEngine 覆盖。
   const env = environment(t);
   env.writes.set(CONFIG.saveKey, JSON.stringify(readyState()));
 
   const active = createRuntime(enabledConfig());
+  assert.equal(active.automationEnabled, false, '运行时应报告自动化已停用');
   active.load();
   const techBefore = active.state.tech.length;
   for (let i = 0; i < 6; i++) { env.advance(1); active.tick(1); }
-  assert.ok(active.state.tech.length > techBefore, `自动化应在 tick 中推进科技：${techBefore} -> ${active.state.tech.length}`);
-  assert.ok(active.automationReport, '运行后应留下可读的运行报告');
-  assert.equal(active.automationReport?.fault, null);
+  assert.equal(active.state.tech.length, techBefore, `停用后不应推进科技：${techBefore} -> ${active.state.tech.length}`);
+  assert.equal(active.automationReport, null, '停用后不应留下运行报告');
+});
 
-  // 同一个状态，主开关关闭：tick 不应该带来任何科技变化。
+test('停用期间的自动化配置原样保留，重新启用时能读回来', t => {
+  const env = environment(t);
   env.writes.set(CONFIG.saveKey, JSON.stringify(readyState()));
-  const idle = createRuntime({ ...createDefaultAutomationConfig() });
-  idle.load();
-  const idleBefore = idle.state.tech.length;
-  for (let i = 0; i < 6; i++) { env.advance(1); idle.tick(1); }
-  assert.equal(idle.state.tech.length, idleBefore);
+  const stored = { ...createDefaultAutomationConfig(), values: { ...createDefaultAutomationConfig().values, master: true } };
+  env.writes.set('meow-civilization-automation-v1', JSON.stringify(stored));
+
+  const runtime = createRuntime();
+  runtime.load();
+  for (let i = 0; i < 3; i++) { env.advance(1); runtime.tick(1); }
+  // 停用不等于删除：玩家配过的值必须还在。
+  const kept = env.writes.get('meow-civilization-automation-v1');
+  assert.ok(kept !== undefined, '停用期间不应删除本地自动化配置');
+  assert.equal(runtime.automation.values.master, true, '运行时仍能读出保留的配置');
 });
 
 test('自动化设置独立持久化，且不写进游戏存档', t => {

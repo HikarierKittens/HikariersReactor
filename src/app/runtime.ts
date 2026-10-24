@@ -56,7 +56,18 @@ export interface Runtime {
   readonly automationSaveFailed: boolean;
   /** Result of the most recent automation run, for the panel to display. */
   readonly automationReport: AutomationRunReport | null;
+  /** 自动化脚本是否启用；界面据此决定要不要渲染设置面板。 */
+  readonly automationEnabled: boolean;
 }
+
+/**
+ * 自动化脚本是否启用。
+ *
+ * 脚本功能已从界面撤下并停止运行，但代码、类型与本地存储里的配置全部保留：
+ * 玩家已有的自动化配置不会被删除，重新启用时原样回来。要恢复这个功能，
+ * 把这里改回 `true` 并在 `App.vue` 的设置页接回 `AutomationPanel` 即可。
+ */
+const AUTOMATION_ENABLED = false;
 
 /** The one owner of mutable game state, ticking, persistence and reset for the application. */
 export function createRuntime(initialAutomation?: AutomationConfig): Runtime {
@@ -148,6 +159,10 @@ export function createRuntime(initialAutomation?: AutomationConfig): Runtime {
     // 所以脚本的每一步都建立在"已结算的真实状态"上，不会读到半成品队列。
     // 引擎自己捕获所有异常并记成 fault，因此这里不需要 try。
     afterRun: () => {
+      // 功能已撤下：不运行脚本，也不读它的配置。
+      // 不碰 `automationFor()` 是有意的——那会触发一次本地存储读取，
+      // 而"构造运行时只读一次存储"的既有约定不该为一个停用的功能破例。
+      if (!AUTOMATION_ENABLED) return;
       automationReport = automationEngine.tick(state);
       // 自动威望重置会整份换掉状态：引擎只能把新状态放进出参，这里负责真正替换。
       // `replaceState` 会重新校验、重扫成就并存档，与玩家手动重置走同一条路径。
@@ -372,6 +387,7 @@ export function createRuntime(initialAutomation?: AutomationConfig): Runtime {
     get automation(): AutomationConfig { return automationFor(); },
     get automationSaveFailed(): boolean { return automationSaveFailed; },
     get automationReport(): AutomationRunReport | null { return automationReport; },
+    get automationEnabled(): boolean { return AUTOMATION_ENABLED; },
     setAutomation,
   };
 }
