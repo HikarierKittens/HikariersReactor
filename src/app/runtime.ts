@@ -152,10 +152,52 @@ export function createRuntime(initialAutomation?: AutomationConfig): Runtime {
       // 自动威望重置会整份换掉状态：引擎只能把新状态放进出参，这里负责真正替换。
       // `replaceState` 会重新校验、重扫成就并存档，与玩家手动重置走同一条路径。
       const reset = automationReport?.prestigeReset;
-      if (reset) replaceState(reset.next);
+      if (reset) {
+        logAutomationReset(reset);
+        replaceState(reset.next);
+        return;
+      }
+      logAutomationRun();
     },
     unlocks: scanAchievements,
   };
+
+  /**
+   * 把脚本动作写进游戏日志。
+   *
+   * 日志选项以前只在面板上存在、没有任何代码读取。这里按玩家的三条设置决定：
+   * 是否写、是否只写异常、单次最多几条。写日志不能影响结算，所以全部失败都被吞掉。
+   *
+   * `logToGame` 默认关闭——脚本每 tick 都可能动作，默认打开会把玩家的日志冲干净。
+   */
+  function logAutomationRun(): void {
+    try {
+      const values = automationEngine.config().values;
+      if (values.logToGame !== true) return;
+      const report = automationReport;
+      if (!report) return;
+      // 只有异常时：正常动作不写，有 fault 才写。
+      if (values.logFaultOnly === true && !report.fault) return;
+      if (!report.fault && report.actions <= 0) return;
+      const max = Math.max(1, Math.round(Number(values.logMaxPerRun) || 1));
+      const lines = report.fault
+        ? [`自动化已暂停：${report.fault}`]
+        : [`自动化执行了 ${report.actions} 个动作`];
+      for (const line of lines.slice(0, max)) addLog(state, line, report.fault ? 'event' : 'progress');
+    } catch {
+      // 日志是可选功能，任何异常都不允许影响主循环。
+    }
+  }
+
+  /** 自动重置成功后写一条日志：这件事玩家必须能在日志里看到。 */
+  function logAutomationReset(reset: NonNullable<AutomationRunReport['prestigeReset']>): void {
+    try {
+      const names = { nuclear: '核爆重置', escape: '逃离重置', blackHole: '黑洞重置', digital: '数字化飞升' } as const;
+      addLog(state, `自动化执行了${names[reset.kind]}，获得 ${reset.reward} 粒子。新的文明开始了。`, 'system');
+    } catch {
+      // 同上：日志失败不能拖垮重置流程。
+    }
+  }
 
   function save(): boolean {
     // A temporary game must never silently replace an unreadable existing save.

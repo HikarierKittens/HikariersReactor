@@ -644,7 +644,6 @@ test('自动威望重置：总开关与分项开关都打开才会执行', () =>
 test('自动基因合成与修饰：关闭时不动，开启后按顺序推进', () => {
   const state = fresh();
   state.tech.push('geneSynthesis' as never, 'geneModification' as never);
-  state.arpaBuildings.biology = 1;
   const off = config({ master: true });
   assert.equal(applyAutoGeneSynthesis(state, off.values as AutomationValues), 0, '关闭时不动');
   assert.equal(applyAutoGeneModification(state, off.values as AutomationValues), 0, '关闭时不动');

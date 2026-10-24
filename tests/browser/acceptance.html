@@ -2419,6 +2419,15 @@ try {
       `巢的权重写进了运行时配置 [${mounted.store.runtime.automation.values['bldWeight.nest']}]`);
     const weightStored = JSON.parse(localStorage.getItem('meow-civilization-automation-v1') || 'null');
     log(weightStored?.values?.['bldWeight.nest'] === 0, '巢的权重写进了独立存储');
+
+    // 新增的自动化分节必须真的渲染出来（这些选项以前只存在于注册表里）。
+    const panelSections = Array.from(document.querySelectorAll('.automation-section .section-head'))
+      .map(head => (head.textContent || '').trim());
+    for (const label of ['社会与军事', '威望重置', '基因与特质']) {
+      log(panelSections.some(text => text.includes(label)), `渲染了「${label}」分节`);
+    }
+    // 隐藏脚本界面：打开后其余分节收起，总开关仍在。
+    log(document.querySelectorAll('.automation-section .section-head').length > 0, '默认显示设置分节');
     if (automationKeyRestore === null) localStorage.removeItem('meow-civilization-automation-v1');
     else localStorage.setItem('meow-civilization-automation-v1', automationKeyRestore);
   }

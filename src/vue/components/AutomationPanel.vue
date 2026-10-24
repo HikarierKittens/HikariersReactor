@@ -273,8 +273,14 @@ function triggerLabel(index: number, trigger: AutomationTrigger): string {
 <template>
   <div class="automation">
     <p v-if="props.report?.fault" class="fault" role="alert">脚本已暂停：{{ props.report.fault }}</p>
+    <!-- 显示当前目标：这一轮脚本做了什么。默认关闭，避免挤占面板空间。 -->
+    <p v-if="valueOf('showActiveTargets') === true && props.report" class="small" data-automation-active-targets>
+      本轮动作 {{ props.report.actions }} 个<span v-if="props.report.triggersFired?.length">，触发 {{ props.report.triggersFired.length }} 条触发器</span>
+    </p>
     <p v-if="props.saveFailed" class="small negative">自动化设置未能写入本地存储，刷新后会丢失。</p>
 
+    <!-- 隐藏脚本附加界面：只保留总开关与错误提示，其余设置折叠起来，界面清爽但仍可恢复。 -->
+    <template v-if="valueOf('hideScriptUI') !== true">
     <section class="automation-section">
       <button class="section-head" :aria-expanded="editingTriggers" @click="editingTriggers = !editingTriggers">
         {{ editingTriggers ? '▾' : '▸' }} 触发器（{{ props.automation.triggers.length }} 条）
@@ -449,6 +455,7 @@ function triggerLabel(index: number, trigger: AutomationTrigger): string {
         <p v-if="status" class="small" :class="statusType">{{ status }}</p>
       </div>
     </section>
+    </template>
   </div>
 </template>
 

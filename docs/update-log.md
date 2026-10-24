@@ -50,6 +50,20 @@
 
 ---
 
+## 2026/10/24 beta 0.9.50 自动化选项全部接通
+
+- 背景：注册表里 266 个选项中有 53 个没有任何代码读取（`tmp/unused.ts` 可复现）。面板上能调，但调了不影响任何行为。本次把剩余 53 个全部实现，审计脚本输出 0。
+- 新增 `src/simulation/automation/social.ts`：`applyAutoTax` / `applyAutoGovernment` / `applyAutoTrainSoldiers` / `applyAutoHeal` / `applyAutoRaid` / `applyAutoWithdraw` / `applyAutoShip` / `arpaKnowledgeReserve`。全部只调用既有命令函数（`changeTaxRate`、`changeGovernment`、`raidNeighbor`、`withdrawFromNeighbor`、`investInShipComponent`、`investInProject`），不复制任何结算公式。
+- 新增 `src/simulation/automation/long-term.ts`：`applyAutoPrestige` / `applyAutoGeneSynthesis` / `applyAutoGeneModification` / `applyAutoSpeciesTrait`。威望重置用 `launch*Prestige` 系列，返回 `PrestigeOutcome`。
+- `AutomationRunReport` 新增 `prestigeReset?: { kind, reward, next: GameState }`。重置会整份换掉 `GameState`，引擎的 `tick(state)` 无法原地改掉调用方的变量，所以由引擎把新状态放进出参，`runtime.ts` 的 `afterRun` 调 `replaceState` 真正替换——与玩家手动重置走同一条校验/存档路径。
+- `modules.ts`：`craftMode` 数量策略、`craftIgnoreFuel`、`autoWorkerSteal`/`autoWorkerStealFloor`（新增 `stealWorkers`）、`applyAutoCraftWorkers`、`buildingBuildIfStorageFull`（`targetResourcesFull`）、`buildingKeepStock`（`wouldConsumeReservedStock`，用 `calculateBuildingCost`）、`researchKeepForArpa`、`autoHousingJobs`（`housingFirst`）。
+- `weighting.ts`：`WeightSignals` 新增 `supportMissing` / `supportSurplus`，`weightingKeysFor` 现在命中 `buildingWeightingMissingSupport` / `buildingWeightingUselessSupport`。
+- `engine.ts`：`triggerStopOnComplete`（达成后停用该条触发器）、`prioMissingResources`（`byResourceShortage` 按缺口重排触发器执行顺序）。
+- `runtime.ts`：`logToGame` / `logFaultOnly` / `logMaxPerRun` 写入游戏日志；自动重置写一条 system 日志。
+- `AutomationPanel.vue`：`showActiveTargets` 显示本轮动作摘要；`hideScriptUI` 折叠全部设置分节。
+- 安全：威望重置默认全关，`autoPrestige` 与分项开关是两道独立守卫。测试用"配对正对照"写法（同一状态开总开关必须真的重置），否则断言会恒真——见 pitfalls 第 70 条。
+- 验证：npm run check通过：874项模块测试、经典VM回归、Edge浏览器验收、类型检查与生产构建。新增测试 11 条，均做变异验证。
+
 ## 2026/10/24 beta 0.9.49 每座建筑独立的建造权重
 
 - 改动：`src/data/automation.ts` 新增 `buildingWeightKey(id)` / `DEFAULT_BUILDING_WEIGHT` / `MAX_BUILDING_WEIGHT`，并新增分节 `buildingWeight`（`buildingWeights()` 按 `BUILDINGS` 生成 132 条 `bldWeight.<id>` 选项）。对齐参考脚本的 `def['bld_w_' + id] = 100`。

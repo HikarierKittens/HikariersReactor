@@ -79,8 +79,9 @@ src/app/runtime.ts 状态唯一所有者：tick / save / load / import / reset
 9. **新增/调整自动化选项**：只在 `src/data/automation.ts` 加条目（`toggle(...)` / `number(...)` / `select(...)` / `list(...)`，放进对应 `AUTOMATION_SECTIONS`）→ 在 `src/simulation/automation/modules.ts` 或 `engine.ts` 里读它 → 跑 `npm test -- automation`。**键名落盘后不可改名**（改名等于让玩家已有配置失效），**也不可与其他选项重键**（重复键会让后者悄悄覆盖前者，界面两个输入框只有一个值；`automation-config` 测试会拦）。`rules`：选项不进行任何数值结算，只决定"要不要调用既有命令函数"，所以永远不要在这里复制结算公式。列表型选项的 `listSource()` 必须指向真实注册表。
 10. **改自动化推进策略**（它为什么不动、为什么乱造）：`engine.ts` 的 `runFrontier` 是唯一入口，顺序敏感——`ensureFoodCrew` → 住房 → 教授（`needsTeacher` + `moveWorkerTo`）→ 缺口岗位（`deficientJobs`）→ 空转岗位（`liveJobs`）→ 工厂空线 → 区域任务。`planning.ts` 管"造什么"（`buildAnchor` 会用 `isReachable` 跳过超出仓库上限的目标）。改完**必须**用长跑探针验证，不要只看单 tick 行为：写 `tmp/probe-*.ts` 跑 3000 tick，打印 `pop / tech / bld` 趋势。历史上四处卡死全是"单步看着对、长跑才暴露"，见 `docs/notes/pitfalls.md` 59–63。
 11. **新增自动化条件来源**：`src/data/automation.ts` 的 `CONDITION_SOURCES` 加一行 → `src/simulation/automation/conditions.ts` 的 `readConditionSource` 加 case（未知来源必须返回 `undefined` 而不是抛错）→ 若带参数，补 `conditionArgumentOptions` 的取选项分支 → 在 `tests/automation-engine.test.ts` 的探针表里点名它（测试会比对两侧数量，漏了会红）。**绝不允许在这里引入 `eval` 或用户可执行的 JS**。
-12. **新增建筑**：`bldWeight.<id>` 会自动出现在「各建筑权重」一节（`buildingWeights()` 遍历 `BUILDINGS` 生成），无需改注册表；只要保证 `BUILDINGS` 里有它即可。
-13. **新增自动化权重规则**：`weighting.ts` 的 `collectWeightSignals` 加信号、`weightingKeysFor` 加命中条件、注册表加倍率选项。目标分类**不要按注册表字段猜**——用 `storageGains` 这类试算判断，否则规则可能永远不命中。
+12. **新增自动化选项**：先在 `src/simulation/automation/` 里实现读取它的代码（`modules.ts` / `social.ts` / `long-term.ts` 三选一），再在 `src/data/automation.ts` 注册。收尾时跑 `npx tsx tmp/unused.ts`，输出必须是 `UNREAD OPTIONS (0)`——注册了却没实现等于骗玩家。
+13. **新增建筑**：`bldWeight.<id>` 会自动出现在「各建筑权重」一节（`buildingWeights()` 遍历 `BUILDINGS` 生成），无需改注册表；只要保证 `BUILDINGS` 里有它即可。
+14. **新增自动化权重规则**：`weighting.ts` 的 `collectWeightSignals` 加信号、`weightingKeysFor` 加命中条件、注册表加倍率选项。目标分类**不要按注册表字段猜**——用 `storageGains` 这类试算判断，否则规则可能永远不命中。
 
 ## 大文件导航
 

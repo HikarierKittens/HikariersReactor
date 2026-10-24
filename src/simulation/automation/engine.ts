@@ -174,7 +174,10 @@ function runTriggers(
   const claimedResources = new Set<string>();
   let actions = 0;
   let previousDone = true;
-  for (const trigger of triggers) {
+  // 优先缺失资源：把"目标资源还缺口最大"的触发器提到前面先跑。
+  // 只重排执行顺序，不改配置本身，所以关掉这个开关后顺序立刻恢复。
+  const ordered = values.prioMissingResources === true ? byResourceShortage(state, triggers) : triggers;
+  for (const trigger of ordered) {
     if (!trigger.enabled) { previousDone = false; continue; }
     if (trigger.chain && !previousDone) { previousDone = false; continue; }
     const key = `${trigger.action}:${trigger.actionId}`;
@@ -186,6 +189,9 @@ function runTriggers(
       fired.push(trigger.id);
       claimedActions.add(key);
       for (const resource of triggerResources(trigger)) claimedResources.add(resource);
+      // 完成后自动失效：这条触发器达成目标后就不再重复执行。
+      // 只停用这一条，其它触发器不受影响，玩家也能在面板里重新打开它。
+      if (values.triggerStopOnComplete === true && outcome.done) trigger.enabled = false;
     }
   }
   void claimedResources;
@@ -193,6 +199,23 @@ function runTriggers(
 }
 
 /** 触发器动作会消耗哪些资源；用于冲突判定。 */
+/**
+ * 按资源缺口给触发器排序：缺得最多的排在前面。
+ *
+ * 缺口用"这一资源当前的净产量"衡量——产量为负说明在吃存货，最急。
+ * 只影响同一轮里的先后，不改变哪些触发器会被执行。
+ */
+function byResourceShortage(state: GameState, triggers: readonly AutomationTrigger[]): AutomationTrigger[] {
+  const rates = calculateProduction(state, 1).rates;
+  const severity = (trigger: AutomationTrigger): number => {
+    const id = trigger.actionId as ResourceId;
+    const rate = rates[id];
+    if (typeof rate !== 'number') return 0;
+    return -rate;
+  };
+  return [...triggers].sort((a, b) => severity(b) - severity(a));
+}
+
 function triggerResources(trigger: AutomationTrigger): string[] {
   return [trigger.actionId];
 }

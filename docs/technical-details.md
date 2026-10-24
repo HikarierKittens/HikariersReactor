@@ -234,6 +234,9 @@ CONFIG.populationGrowthRate=1.5，统一calculateGrowthMultiplier返回基础1.5
 - 参数化来源的校验要看**拆分后**的段：`buildingCost` 的参数是 `building.resource`，拿整串 `nest.wood` 去查注册表永远查不到（真实踩过）。
 - 覆盖表：`config.overrides[optionKey]` 自上而下、首个成立的行决定本次运行该选项的取值，`resolveAutomation` 同时返回 `overridden` 集合供界面高亮。**标量覆盖命中即 `break`，列表型覆盖按追加合并**（对齐参考脚本的 XOR 累积语义）。覆盖只改脚本选项，不改游戏状态；类型不符的行被忽略。
 - 覆盖表：`config.overrides[optionKey]` 自上而下、首个成立的行决定本次运行该选项的取值，`resolveAutomation` 同时返回 `overridden` 集合供界面高亮。覆盖只改脚本选项，不改游戏状态；类型不符的行被忽略。
+- 自动化分三个执行层：`modules.ts`（岗位/研究/建造/锻造/供电/存储/ARPA/任务）、`social.ts`（税收/政体/军队/医院/邻国/飞船）、`long-term.ts`（威望四种重置/基因/特质）。全部只做"要不要调用既有命令"的判断，绝不复制结算公式。
+- 自动威望重置是唯一会整份替换 `GameState` 的自动化动作。`launch*Prestige` 返回新对象，引擎的 `tick(state)` 无法原地改掉调用方的变量，因此通过 `AutomationRunReport.prestigeReset` 出参交给 `runtime.ts` 的 `afterRun`，由 `replaceState` 完成替换（与手动重置同一条校验/存档路径），并写一条 system 日志。
+- 安全边界：`applyAutoPrestige` 里 `autoPrestige`（总开关）与四个分项开关是两道独立守卫，任一不满足即拒绝。默认全部关闭。
 - 每座建筑的独立权重：注册表键 `bldWeight.<建筑 id>`（`buildingWeightKey()`），默认 `DEFAULT_BUILDING_WEIGHT = 100`，范围 0–1000。`buildWeight` 的最后一步乘 `自身权重 / 100`，所以默认值既是恒等元、又让"100 为中性"对玩家可解释。0 会被 `computeRankBuildTargets` 的 `weight > 0` 过滤整条淘汰。键名用前缀 + 注册表 id，因此新增建筑只会多一条键，旧配置由归一化补默认值。
 - 排序与权重集中在 `simulation/automation/weighting.ts`（`rankBuildTargets` / `rankResearchTargets` / `buildAnchor` / `nextAutomationMission` / `buildWeight`），`planning.ts` 只是它的稳定转出入口。`buildWeight = 基础权重 × 命中的每条权重倍率`，倍率为 0 的目标从候选里直接淘汰。
 - 权重规则的目标分类**必须靠试算**：仓库这类建筑的储量上限贡献来自 `storage.ts` 的建筑表，注册表条目本身没有 `*Cap` 字段，按字段判断会让"储量告急"规则对仓库完全无效。`storageGains()` 用"多一座该建筑上限有没有变"来判断，并按 `(建筑, 当前数量)` 缓存——不缓存时单个 tick 要做数百次全量 `calculateStorageTotals`。
